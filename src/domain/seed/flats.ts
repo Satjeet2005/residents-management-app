@@ -45,7 +45,8 @@ export function allocateQuotas(total: number, weights: readonly number[]): numbe
   const order = weights
     .map((w, index) => ({ index, remainder: (total * w) % weightSum }))
     .sort((a, b) => b.remainder - a.remainder || a.index - b.index);
-  for (let i = 0; i < total - quotas.reduce((s, q) => s + q, 0); i++) quotas[order[i].index]++;
+  const leftover = total - quotas.reduce((s, q) => s + q, 0);
+  for (let i = 0; i < leftover; i++) quotas[order[i].index]++;
   return quotas;
 }
 

@@ -1,4 +1,5 @@
 import type { Paise } from "../money/money";
+import type { DemoComplaints } from "./complaint-types";
 import { type CalendarDate, dayStartInstant } from "../time/calendar";
 
 /** Every row has a string key such as "flat:T12-0408"; the database writer maps keys to UUIDs. */
@@ -59,7 +60,7 @@ export type DemoDataset = {
   staff: DemoStaff[];
   settings: DemoSetting[];
   categories: DemoComplaintCategory[];
-};
+} & DemoComplaints;
 
 export const DEFAULT_SEED = 20261027;
 
@@ -68,6 +69,9 @@ export const DEMO_AS_OF: CalendarDate = "2026-10-27";
 
 /** The demo's "now": 2026-10-27 12:00 IST, in epoch milliseconds. Nothing in the dataset is later (except visitors expected later today). */
 export const DEMO_NOW: number = dayStartInstant(DEMO_AS_OF) + 12 * 3_600_000;
+
+/** The first moment of the complaint data: 2026-09-01 00:00 IST. */
+export const WINDOW_START: number = dayStartInstant("2026-09-01");
 
 /** Billing periods (the first day of each month), oldest first. */
 export const DEMO_PERIODS: readonly CalendarDate[] = ["2026-06-01", "2026-07-01", "2026-08-01", "2026-09-01", "2026-10-01"];

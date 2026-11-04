@@ -1,4 +1,5 @@
 import { buildBilling } from "./billing";
+import { buildComplaints } from "./complaints";
 import { buildFlats } from "./flats";
 import { buildPeople } from "./people";
 import { createPrng } from "./prng";
@@ -19,5 +20,6 @@ export function generateDemoDataset(options: DemoDatasetOptions = {}): DemoDatas
   const { bills, ledgerEntries } = buildBilling(flats, rng);
   const settings = buildSettings();
   const categories = buildCategories(users);
-  return { seed, asOf: DEMO_AS_OF, flats, users, members, bills, ledgerEntries, staff, settings, categories };
+  const complaintData = buildComplaints(rng, flats, users, members, categories);
+  return { seed, asOf: DEMO_AS_OF, flats, users, members, bills, ledgerEntries, staff, settings, categories, ...complaintData };
 }
