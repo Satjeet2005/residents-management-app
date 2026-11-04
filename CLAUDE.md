@@ -35,8 +35,7 @@ tests and history. Correct money and clear structure beat feature count.
 - Small, readable files; pure functions; no commented-out code or dead code.
 - Pin exact dependency versions. Prefer stable releases. Check current docs
   before using an API you are unsure of.
-- Run NO git command at all, including read-only ones (status, diff, log,
-  check-ignore). To check what is ignored, read `.gitignore` instead.
+- Git follows "Project Safety Rules" and "Commits" below. To see what is ignored, read `.gitignore`.
 - Dependency policy: ask before adding any dependency. Prefer exact versions
   published at least 14 days ago, and report each new dependency's version,
   publish date and age. Run `npm audit` before choosing an older version; keep a
