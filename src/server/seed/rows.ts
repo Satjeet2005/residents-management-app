@@ -1,4 +1,5 @@
 import type { DemoDataset } from "@/domain/seed/types";
+import { dayStartInstant } from "@/domain/time/calendar";
 import { uuidFromKey } from "./uuid";
 
 /** One row ready to insert: `key` names it in error messages; `values` follow the table's column list. */
@@ -9,15 +10,25 @@ const id = uuidFromKey;
 const at = (ms: number) => new Date(ms);
 const atOrNull = (ms: number | null) => (ms === null ? null : new Date(ms));
 const json = (value: unknown) => JSON.stringify(value);
+const NOON = 12 * 3_600_000;
+/** 12:00 India Standard Time on a calendar date: the time stamped on rows the dataset only dates by day. */
+const noonOn = (date: string) => new Date(dayStartInstant(date) + NOON);
 
 /**
  * The dataset as database rows, in foreign-key order: a table comes after every
  * table it points at. Money is sent as text so bigint stays exact. Columns the
  * dataset has no value for (latency_ms, output_hash, created_by_id, language) are
- * left out, so the database gives them NULL. The created_at of ledger entries and
- * known payers, which the dataset does not have either, takes the database default.
+ * left out, so the database gives them NULL. The dataset has no time for ledger
+ * entries and known payers, so their created_at follows their own dates (never the
+ * time of the seed): noon IST on the entry's effective date, and noon IST on the
+ * day the flat's earliest member started.
  */
 export function buildSeedTables(d: DemoDataset): SeedTable[] {
+  const earliestStart = new Map<string, string>();
+  for (const m of d.members) {
+    const current = earliestStart.get(m.flatKey);
+    if (current === undefined || m.startsOn < current) earliestStart.set(m.flatKey, m.startsOn);
+  }
   const permissions = d.staff.flatMap((s) => s.permissions.map((permission) => ({ userKey: s.userKey, permission })));
 
   return [
@@ -62,10 +73,10 @@ export function buildSeedTables(d: DemoDataset): SeedTable[] {
     },
     {
       table: "ledger_entries",
-      columns: ["id", "flat_id", "entry_type", "direction", "amount_paise", "effective_date", "bill_id", "reference", "idempotency_key", "note"],
+      columns: ["id", "flat_id", "entry_type", "direction", "amount_paise", "effective_date", "bill_id", "reference", "idempotency_key", "note", "created_at"],
       rows: d.ledgerEntries.map((e) => ({
         key: e.key,
-        values: [id(e.key), id(e.flatKey), e.entryType, e.direction, e.amountPaise.toString(), e.effectiveDate, e.billKey === null ? null : id(e.billKey), e.reference, e.idempotencyKey, e.note],
+        values: [id(e.key), id(e.flatKey), e.entryType, e.direction, e.amountPaise.toString(), e.effectiveDate, e.billKey === null ? null : id(e.billKey), e.reference, e.idempotencyKey, e.note, noonOn(e.effectiveDate)],
       })),
     },
     {
@@ -131,10 +142,10 @@ export function buildSeedTables(d: DemoDataset): SeedTable[] {
     },
     {
       table: "known_payers",
-      columns: ["id", "flat_id", "identifier_type", "identifier_value", "source", "added_by_id"],
+      columns: ["id", "flat_id", "identifier_type", "identifier_value", "source", "added_by_id", "created_at"],
       rows: d.knownPayers.map((k) => {
         const key = `payer:${k.flatKey}:${k.identifierValue}`;
-        return { key, values: [id(key), id(k.flatKey), k.identifierType, k.identifierValue, k.source, k.addedByUserKey === null ? null : id(k.addedByUserKey)] };
+        return { key, values: [id(key), id(k.flatKey), k.identifierType, k.identifierValue, k.source, k.addedByUserKey === null ? null : id(k.addedByUserKey), noonOn(earliestStart.get(k.flatKey) as string)] };
       }),
     },
     {

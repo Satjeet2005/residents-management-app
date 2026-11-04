@@ -73,9 +73,11 @@ describe("W2 seeding a fresh database", () => {
   let db: Client;
   let drop: () => Promise<void>;
   let seeded: Awaited<ReturnType<typeof seedDemoDatabase>>;
+  let seedStartedAt: number;
 
   beforeAll(async () => {
     ({ db, drop } = await createScratchDatabase());
+    seedStartedAt = Date.now();
     seeded = await seedDemoDatabase(db, dataset);
   });
   afterAll(() => drop());
@@ -119,6 +121,14 @@ describe("W2 seeding a fresh database", () => {
     await rejectedWith(db.query("UPDATE ledger_entries SET amount_paise = 1"), SQLSTATE.restrictViolation);
     await rejectedWith(db.query("UPDATE complaint_events SET payload = '{}'"), SQLSTATE.restrictViolation);
     await rejectedWith(db.query("UPDATE classifications SET urgency = 'LOW'"), SQLSTATE.restrictViolation);
+  });
+
+  it("W2 the seed no longer stamps now: ledger and known-payer created_at are older than the seed run", async () => {
+    const ledger = await db.query("SELECT max(created_at) AS last FROM ledger_entries");
+    expect(ledger.rows[0].last.getTime()).toBeLessThan(seedStartedAt);
+    expect(ledger.rows[0].last.getTime()).toBeLessThanOrEqual(Date.UTC(2026, 9, 27, 6, 30));
+    const payers = await db.query("SELECT max(created_at) AS last FROM known_payers");
+    expect(payers.rows[0].last.getTime()).toBeLessThan(seedStartedAt);
   });
 
   it("W2 timestamps are the dataset's, not the time of the seed", async () => {

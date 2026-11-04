@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { DEMO_NOW } from "@/domain/seed/types";
+import { istDateOf } from "@/domain/time/calendar";
 import { buildSeedTables } from "@/server/seed/rows";
 import { uuidFromKey } from "@/server/seed/uuid";
 import { defaultDataset } from "../domain/seed/default-dataset";
@@ -80,5 +82,55 @@ describe("W1 seed rows", () => {
     const confidences = k.rows.map((r) => r.values[k.columns.indexOf("confidence")]);
     expect(confidences).toContain(null);
     for (const c of confidences) if (c !== null) expect(c).toMatch(/^0\.\d{3}$/);
+  });
+
+  it("W1 a ledger entry's created_at is on the same IST day as its effective date (noon), never the time of the seed", () => {
+    const t = rowsOf("ledger_entries");
+    const created = t.columns.indexOf("created_at");
+    const effective = t.columns.indexOf("effective_date");
+    expect(t.rows.length).toBeGreaterThan(20000);
+    for (const row of t.rows) {
+      const at = (row.values[created] as Date).getTime();
+      expect(istDateOf(at), row.key).toBe(row.values[effective]);
+      expect(at, row.key).toBeLessThanOrEqual(DEMO_NOW);
+    }
+  });
+
+  it("W1 a bill's ledger entries are never created before the bill's issue date", () => {
+    const issued = new Map(d.bills.map((b) => [b.key, b.issuedOn]));
+    const t = rowsOf("ledger_entries");
+    const created = t.columns.indexOf("created_at");
+    for (const [i, entry] of d.ledgerEntries.entries()) {
+      expect(istDateOf((t.rows[i].values[created] as Date).getTime()) >= (issued.get(entry.billKey as string) as string), entry.key).toBe(true);
+    }
+  });
+
+  it("W1 a known payer's created_at is not before the start of its flat's earliest member", () => {
+    const earliest = new Map<string, string>();
+    for (const m of d.members) if (!earliest.has(m.flatKey) || m.startsOn < (earliest.get(m.flatKey) as string)) earliest.set(m.flatKey, m.startsOn);
+    const t = rowsOf("known_payers");
+    const created = t.columns.indexOf("created_at");
+    const flat = t.columns.indexOf("flat_id");
+    const flatKeyOf = new Map(d.flats.map((f) => [uuidFromKey(f.key), f.key]));
+    expect(t.rows.length).toBe(720);
+    for (const row of t.rows) {
+      const flatKey = flatKeyOf.get(row.values[flat] as string) as string;
+      const at = (row.values[created] as Date).getTime();
+      expect(istDateOf(at), row.key).toBe(earliest.get(flatKey));
+      expect(at, row.key).toBeLessThanOrEqual(DEMO_NOW);
+    }
+  });
+
+  it("W1 no created_at, sent_at or read_at in any table is later than DEMO_NOW", () => {
+    for (const t of tables) {
+      for (const column of ["created_at", "sent_at", "read_at", "first_response_at", "pending_confirmation_at", "closed_at"]) {
+        const index = t.columns.indexOf(column);
+        if (index === -1) continue;
+        for (const row of t.rows) {
+          const value = row.values[index] as Date | null;
+          if (value !== null) expect(value.getTime(), `${t.table}.${column} ${row.key}`).toBeLessThanOrEqual(DEMO_NOW);
+        }
+      }
+    }
   });
 });
