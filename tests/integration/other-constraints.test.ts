@@ -135,14 +135,12 @@ describe("I8 foreign keys", () => {
     await rejectedWith(insertAttempt(db, MISSING_ID, flatId), SQLSTATE.foreignKeyViolation, "payment_attempts_bill_id_fkey");
   });
 
-  it("I8 bank_row_id has no foreign key yet and accepts any uuid", async () => {
-    await expect(
-      db.query(
-        `INSERT INTO ledger_entries (flat_id, entry_type, direction, amount_paise, effective_date, idempotency_key, bank_row_id)
-         VALUES ($1, 'PAYMENT', 'PAYMENT', 100, '2026-04-01', $2, $3)`,
-        [flatId, uniqueRef("idem"), MISSING_ID],
-      ),
-    ).resolves.toBeDefined();
+  it("I8 ledger_entries.bank_row_id references bank_rows (added with the bank statement schema)", async () => {
+    await rejectedWith(
+      insertEntry(db, flatId, { entryType: "PAYMENT", direction: "PAYMENT", bankRowId: MISSING_ID }),
+      SQLSTATE.foreignKeyViolation,
+      "ledger_entries_bank_row_id_fkey",
+    );
   });
 
   it("I8 a bill with an attempt cannot be deleted (RESTRICT)", async () => {

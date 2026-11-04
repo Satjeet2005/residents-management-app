@@ -9,6 +9,7 @@ export async function connect(): Promise<Client> {
 }
 
 export const SQLSTATE = {
+  featureNotSupported: "0A000",
   restrictViolation: "23001",
   notNullViolation: "23502",
   foreignKeyViolation: "23503",
@@ -64,13 +65,14 @@ type Entry = {
   idempotencyKey?: string;
   note?: string | null;
   reversesEntryId?: string | null;
+  bankRowId?: string | null;
 };
 
 export async function insertEntry(db: Client, flatId: string, e: Entry = {}): Promise<string> {
   const { rows } = await db.query(
     `INSERT INTO ledger_entries
-       (flat_id, entry_type, direction, amount_paise, effective_date, reference, idempotency_key, note, reverses_entry_id)
-     VALUES ($1, $2, $3, $4, '2026-04-01', $5, $6, $7, $8) RETURNING id`,
+       (flat_id, entry_type, direction, amount_paise, effective_date, reference, idempotency_key, note, reverses_entry_id, bank_row_id)
+     VALUES ($1, $2, $3, $4, '2026-04-01', $5, $6, $7, $8, $9) RETURNING id`,
     [
       flatId,
       e.entryType ?? "BILL",
@@ -80,6 +82,7 @@ export async function insertEntry(db: Client, flatId: string, e: Entry = {}): Pr
       e.idempotencyKey ?? `idem-${randomUUID()}`,
       e.note ?? null,
       e.reversesEntryId ?? null,
+      e.bankRowId ?? null,
     ],
   );
   return rows[0].id;
@@ -102,3 +105,102 @@ export async function insertAttempt(db: Client, billId: string, flatId: string, 
 }
 
 export const uniqueRef = (prefix: string) => `${prefix}-${randomUUID()}`;
+
+export async function insertImport(db: Client, uploadedById: string): Promise<string> {
+  const { rows } = await db.query(
+    `INSERT INTO statement_imports (uploaded_by_id, filename, file_sha256, rows_read)
+     VALUES ($1, 'statement.csv', $2, 10) RETURNING id`,
+    [uploadedById, unique()],
+  );
+  return rows[0].id;
+}
+
+type BankRow = {
+  rowNumber?: number;
+  creditPaise?: number;
+  debitPaise?: number;
+  dedupeKey?: string;
+  state?: string;
+  flatId?: string | null;
+  ledgerEntryId?: string | null;
+};
+
+let nextRowNumber = 1;
+
+export async function insertBankRow(db: Client, importId: string, r: BankRow = {}): Promise<string> {
+  const hasAmounts = r.creditPaise !== undefined || r.debitPaise !== undefined;
+  const { rows } = await db.query(
+    `INSERT INTO bank_rows
+       (import_id, row_number, txn_date, narration_raw, credit_paise, debit_paise, dedupe_key, state, flat_id, ledger_entry_id)
+     VALUES ($1, $2, '2026-04-05', 'UPI/FAKE PAYER/placeholder', $3, $4, $5, $6, $7, $8) RETURNING id`,
+    [
+      importId,
+      r.rowNumber ?? nextRowNumber++,
+      hasAmounts ? (r.creditPaise ?? 0) : 250000,
+      hasAmounts ? (r.debitPaise ?? 0) : 0,
+      r.dedupeKey ?? `dedupe-${randomUUID()}`,
+      r.state ?? "QUEUED",
+      r.flatId ?? null,
+      r.ledgerEntryId ?? null,
+    ],
+  );
+  return rows[0].id;
+}
+
+type Match = {
+  decision?: string;
+  decidedById?: string | null;
+  approverId?: string | null;
+  reason?: string | null;
+};
+
+export async function insertMatch(db: Client, bankRowId: string, m: Match = {}): Promise<string> {
+  const { rows } = await db.query(
+    `INSERT INTO payment_matches (bank_row_id, decision, decided_by_id, approver_id, reason)
+     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    [bankRowId, m.decision ?? "AUTO", m.decidedById ?? null, m.approverId ?? null, m.reason ?? null],
+  );
+  return rows[0].id;
+}
+
+type QueueItem = {
+  itemType: string;
+  bankRowId?: string | null;
+  paymentAttemptId?: string | null;
+  status?: string;
+  resolvedAt?: string | null;
+  resolvedById?: string | null;
+  note?: string | null;
+};
+
+export async function insertQueueItem(db: Client, q: QueueItem): Promise<string> {
+  const { rows } = await db.query(
+    `INSERT INTO accounts_queue_items
+       (item_type, bank_row_id, payment_attempt_id, status, resolved_at, resolved_by_id, note)
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+    [
+      q.itemType,
+      q.bankRowId ?? null,
+      q.paymentAttemptId ?? null,
+      q.status ?? "OPEN",
+      q.resolvedAt ?? null,
+      q.resolvedById ?? null,
+      q.note ?? null,
+    ],
+  );
+  return rows[0].id;
+}
+
+export async function insertKnownPayer(
+  db: Client,
+  flatId: string,
+  identifierType: string,
+  identifierValue: string,
+): Promise<string> {
+  const { rows } = await db.query(
+    `INSERT INTO known_payers (flat_id, identifier_type, identifier_value, source)
+     VALUES ($1, $2, $3, 'MANUAL') RETURNING id`,
+    [flatId, identifierType, identifierValue],
+  );
+  return rows[0].id;
+}

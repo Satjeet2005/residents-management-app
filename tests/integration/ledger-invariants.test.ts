@@ -82,8 +82,9 @@ describe("I3 ledger_entries is append-only", () => {
     expect(rowCount).toBe(1);
   });
 
-  it("I3 rejects TRUNCATE, including through TRUNCATE ... CASCADE from a parent table", async () => {
-    await rejectedWith(db.query("TRUNCATE ledger_entries"), SQLSTATE.restrictViolation);
+  it("I3 rejects TRUNCATE: plain TRUNCATE is stopped by the bank_rows foreign key, and the trigger stops the CASCADE forms", async () => {
+    await rejectedWith(db.query("TRUNCATE ledger_entries"), SQLSTATE.featureNotSupported);
+    await rejectedWith(db.query("TRUNCATE ledger_entries CASCADE"), SQLSTATE.restrictViolation);
     await rejectedWith(db.query("TRUNCATE flats CASCADE"), SQLSTATE.restrictViolation);
   });
 

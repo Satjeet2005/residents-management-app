@@ -60,6 +60,57 @@ enum DebitStatus {
   @@map("debit_status")
 }
 
+enum BankRowState {
+  QUEUED
+  AUTO_MATCHED
+  AWAITING_APPROVAL
+  MANUALLY_MATCHED
+  IGNORED
+
+  @@map("bank_row_state")
+}
+
+enum MatchDecision {
+  AUTO
+  MANUAL
+  REQUEST_APPROVAL
+  APPROVED
+  REJECTED
+  IGNORE
+  UNDO
+
+  @@map("match_decision")
+}
+
+enum IdentifierType {
+  UPI_ID
+  NAME
+
+  @@map("identifier_type")
+}
+
+enum PayerSource {
+  MANUAL
+  LEARNED
+
+  @@map("payer_source")
+}
+
+enum QueueItemType {
+  UNRESOLVED_PAYMENT
+  EXCEPTION
+  BANK_ROW
+
+  @@map("queue_item_type")
+}
+
+enum QueueStatus {
+  OPEN
+  RESOLVED
+
+  @@map("queue_status")
+}
+
 model Flat {
   id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   code     String @unique
@@ -71,6 +122,9 @@ model Flat {
   bills           Bill[]
   ledgerEntries   LedgerEntry[]
   paymentAttempts PaymentAttempt[]
+  bankRows        BankRow[]
+  paymentMatches  PaymentMatch[]
+  knownPayers     KnownPayer[]
 
   @@map("flats")
 }
@@ -82,11 +136,16 @@ model User {
   role   UserRole
   active Boolean  @default(true)
 
-  memberships      FlatMember[]
-  permissions      UserPermission[]
-  sessions         Session[]
-  createdEntries   LedgerEntry[]
-  resolvedAttempts PaymentAttempt[]
+  memberships        FlatMember[]
+  permissions        UserPermission[]
+  sessions           Session[]
+  createdEntries     LedgerEntry[]
+  resolvedAttempts   PaymentAttempt[]
+  statementImports   StatementImport[]
+  madeDecisions      PaymentMatch[]      @relation("MatchDecidedBy")
+  approvedMatches    PaymentMatch[]      @relation("MatchApprover")
+  addedPayers        KnownPayer[]
+  resolvedQueueItems AccountsQueueItem[]
 
   @@map("users")
 }
@@ -187,6 +246,8 @@ model LedgerEntry {
   flat           Flat            @relation(fields: [flatId], references: [id], onDelete: Restrict)
   bill           Bill?           @relation(fields: [billId], references: [id], onDelete: Restrict)
   paymentAttempt PaymentAttempt? @relation(fields: [paymentAttemptId], references: [id], onDelete: Restrict)
+  bankRow        BankRow?        @relation("EntryBankRow", fields: [bankRowId], references: [id], onDelete: Restrict)
+  fundedRows     BankRow[]       @relation("RowLedgerEntry")
   reverses       LedgerEntry?    @relation("Reversal", fields: [reversesEntryId], references: [id], onDelete: Restrict)
   reversedBy     LedgerEntry?    @relation("Reversal")
   createdBy      User?           @relation(fields: [createdById], references: [id], onDelete: Restrict)
@@ -210,10 +271,110 @@ model PaymentAttempt {
   resolvedById     String?       @map("resolved_by_id") @db.Uuid
   releaseReason    String?       @map("release_reason")
 
-  bill          Bill          @relation(fields: [billId], references: [id], onDelete: Restrict)
-  flat          Flat          @relation(fields: [flatId], references: [id], onDelete: Restrict)
-  resolvedBy    User?         @relation(fields: [resolvedById], references: [id], onDelete: Restrict)
+  bill          Bill                @relation(fields: [billId], references: [id], onDelete: Restrict)
+  flat          Flat                @relation(fields: [flatId], references: [id], onDelete: Restrict)
+  resolvedBy    User?               @relation(fields: [resolvedById], references: [id], onDelete: Restrict)
   ledgerEntries LedgerEntry[]
+  queueItems    AccountsQueueItem[]
 
   @@map("payment_attempts")
+}
+
+model StatementImport {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  uploadedById String   @map("uploaded_by_id") @db.Uuid
+  filename     String
+  fileSha256   String   @map("file_sha256")
+  uploadedAt   DateTime @default(now()) @map("uploaded_at") @db.Timestamptz(6)
+  rowsRead     Int      @map("rows_read")
+  notes        String?
+
+  uploadedBy User      @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  rows       BankRow[]
+
+  @@map("statement_imports")
+}
+
+model BankRow {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  importId      String       @map("import_id") @db.Uuid
+  rowNumber     Int          @map("row_number")
+  txnDate       DateTime     @map("txn_date") @db.Date
+  valueDate     DateTime?    @map("value_date") @db.Date
+  narrationRaw  String       @map("narration_raw")
+  creditPaise   BigInt       @default(0) @map("credit_paise")
+  debitPaise    BigInt       @default(0) @map("debit_paise")
+  balancePaise  BigInt?      @map("balance_paise")
+  dedupeKey     String       @unique @map("dedupe_key")
+  parsed        Json         @default("{}")
+  state         BankRowState @default(QUEUED)
+  flatId        String?      @map("flat_id") @db.Uuid
+  ledgerEntryId String?      @map("ledger_entry_id") @db.Uuid
+  version       Int          @default(1)
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  import        StatementImport     @relation(fields: [importId], references: [id], onDelete: Restrict)
+  flat          Flat?               @relation(fields: [flatId], references: [id], onDelete: Restrict)
+  ledgerEntry   LedgerEntry?        @relation("RowLedgerEntry", fields: [ledgerEntryId], references: [id], onDelete: Restrict)
+  fundedEntries LedgerEntry[]       @relation("EntryBankRow")
+  matches       PaymentMatch[]
+  queueItems    AccountsQueueItem[]
+
+  @@unique([importId, rowNumber])
+  @@map("bank_rows")
+}
+
+model PaymentMatch {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bankRowId   String        @map("bank_row_id") @db.Uuid
+  decision    MatchDecision
+  flatId      String?       @map("flat_id") @db.Uuid
+  score       Int?
+  reasons     Json          @default("[]")
+  candidates  Json          @default("[]")
+  decidedById String?       @map("decided_by_id") @db.Uuid
+  approverId  String?       @map("approver_id") @db.Uuid
+  reason      String?
+  decidedAt   DateTime      @default(now()) @map("decided_at") @db.Timestamptz(6)
+
+  bankRow   BankRow @relation(fields: [bankRowId], references: [id], onDelete: Restrict)
+  flat      Flat?   @relation(fields: [flatId], references: [id], onDelete: Restrict)
+  decidedBy User?   @relation("MatchDecidedBy", fields: [decidedById], references: [id], onDelete: Restrict)
+  approver  User?   @relation("MatchApprover", fields: [approverId], references: [id], onDelete: Restrict)
+
+  @@map("payment_matches")
+}
+
+model KnownPayer {
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  flatId          String         @map("flat_id") @db.Uuid
+  identifierType  IdentifierType @map("identifier_type")
+  identifierValue String         @map("identifier_value")
+  source          PayerSource
+  addedById       String?        @map("added_by_id") @db.Uuid
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  flat    Flat  @relation(fields: [flatId], references: [id], onDelete: Restrict)
+  addedBy User? @relation(fields: [addedById], references: [id], onDelete: Restrict)
+
+  @@unique([identifierType, identifierValue, flatId])
+  @@map("known_payers")
+}
+
+model AccountsQueueItem {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  itemType         QueueItemType @map("item_type")
+  bankRowId        String?       @map("bank_row_id") @db.Uuid
+  paymentAttemptId String?       @map("payment_attempt_id") @db.Uuid
+  status           QueueStatus   @default(OPEN)
+  openedAt         DateTime      @default(now()) @map("opened_at") @db.Timestamptz(6)
+  resolvedAt       DateTime?     @map("resolved_at") @db.Timestamptz(6)
+  resolvedById     String?       @map("resolved_by_id") @db.Uuid
+  note             String?
+
+  bankRow        BankRow?        @relation(fields: [bankRowId], references: [id], onDelete: Restrict)
+  paymentAttempt PaymentAttempt? @relation(fields: [paymentAttemptId], references: [id], onDelete: Restrict)
+  resolvedBy     User?           @relation(fields: [resolvedById], references: [id], onDelete: Restrict)
+
+  @@map("accounts_queue_items")
 }
