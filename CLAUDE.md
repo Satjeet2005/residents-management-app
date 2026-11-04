@@ -17,6 +17,9 @@
 - Every commit must pass `npm run check`. No "WIP", "fix" or "update" messages.
 - Commit as the configured git user. Never change git config. If no identity is configured, stop and ask.
 - Do not push. List each commit hash and message in the report, with the output of `git log --oneline`.
+- Work in sequence: finish, check and commit one logical unit before starting the next. Never write several commits' worth of files and then split them; the working tree must equal the commit when you run the checks.
+- Review the FULL `git diff --staged` (not only `--stat`) before every commit. If it is too large to review in full, split the commit.
+- In the report, list one line per commit: hash, message, and the `npm run check` and `npm run scan:secrets` result for that commit.
 
 ## What we are building
 A resident app (installable web app) and staff console for a gated township in
@@ -92,4 +95,16 @@ executing refunds. Receipts, ledger page, notices list and Hindi/Marathi UI are
 optional and sit behind feature flags.
 
 ## Report format
-End every task with the report format given in the prompt.
+End every task with this report, using these headings exactly:
+
+REPORT <task id>
+Status: done / partial / blocked
+Summary: (max 5 lines)
+Files created or changed: (path, one-line purpose)
+Commands run and results: (real output tails)
+Versions pinned / dependencies added: (name, version, publish date, age)
+Assumptions: (labelled)
+Deviations from the prompt and why:
+Risks or open questions:
+Commits made: (hash, message, check result, scan result)
+git status after:
