@@ -10,3 +10,4 @@
 - Never stage with `git add -A` or `git add .`. Stage named files only, and review `git diff --staged` before every commit.
 - Before every commit run `npm run check` and `npm run scan:secrets`, and paste the output in the report. Never commit if either fails.
 - Never read the `.env` file. Instead, use `.env.example` as the reference for any environment-related activities.
+- Never run a destructive database command (`migrate reset`, `DROP`, `TRUNCATE`, deleting a database) against any database except one named `township_test_*` or `township_seed_scratch`. Set `DATABASE_URL` explicitly on the command line, print `SELECT current_database()` first, and stop if it does not match. Never run one against a remote or hosted database.

@@ -8,6 +8,7 @@
 - Never stage with `git add -A` or `git add .`. Stage named files only, and review `git diff --staged` before every commit.
 - Before every commit run `npm run check` and `npm run scan:secrets`, and paste the output in the report. Never commit if either fails.
 - Never read the `.env` file. Instead, use `.env.example` as the reference for any environment-related activities.
+- Never run a destructive database command (`migrate reset`, `DROP`, `TRUNCATE`, deleting a database) against any database except one named `township_test_*` or `township_seed_scratch`. Set `DATABASE_URL` explicitly on the command line, print `SELECT current_database()` first, and stop if it does not match. Never run one against a remote or hosted database.
 
 ## Commits
 
@@ -20,6 +21,7 @@
 - Work in sequence: finish, check and commit one logical unit before starting the next. Never write several commits' worth of files and then split them; the working tree must equal the commit when you run the checks.
 - Review the FULL `git diff --staged` (not only `--stat`) before every commit. If it is too large to review in full, split the commit.
 - In the report, list one line per commit: hash, message, and the `npm run check` and `npm run scan:secrets` result for that commit.
+- If you edit anything after running the checks, run `npm run check` and `npm run scan:secrets` again before committing. A commit message that says "check passed" must be true for the exact committed state.
 
 ## What we are building
 A resident app (installable web app) and staff console for a gated township in
