@@ -330,9 +330,10 @@ its BILL ledger entry share one key).
 ### Commands
 
 ```bash
-npx prisma migrate deploy        # the schema must exist first
-npm run db:seed -- --yes         # write the demo data into an EMPTY database
-npm run db:reset-demo -- --yes   # drop and recreate the schema, then seed
+npx prisma migrate deploy                                   # the schema must exist first
+npm run db:seed -- --yes                                    # seed an EMPTY local database
+npm run db:reset-demo -- --yes --confirm-database=township  # drop and recreate the schema, then seed
+npm run db:seed -- --yes --allow-remote --confirm-database=demo_db   # seed an empty REMOTE database
 ```
 
 `db:seed` runs the TypeScript through `tsx` (Node's own type stripping cannot
@@ -347,15 +348,36 @@ Both commands stop, and change nothing, unless all of these hold:
 1. `DEMO_MODE` is exactly `true`.
 2. `DATABASE_URL` is set. The command prints only the host and database name,
    never the user, password or URL.
-3. `--yes` is given, so a person has seen that target and confirmed it.
-4. For `db:seed`: the `flats` table is empty. Otherwise it says the database is
+3. The target rules below allow the host and database name.
+4. `--yes` is given, so a person has seen that target and confirmed it.
+5. For `db:seed`: the `flats` table is empty. Otherwise it says the database is
    not empty and points to `db:reset-demo`.
 
-`db:reset-demo` checks 1 to 3, then runs `prisma migrate reset --force`. A plain
-delete cannot work, because the append-only triggers forbid DELETE and TRUNCATE
-on the ledger and on complaint events, so a reset recreates the schema. Prisma
-itself refuses to run a reset when an AI agent starts it and needs the user's
-written consent; a person running it in a terminal is not asked.
+**Target rules** (`assertSafeTarget`, checked against the host name and database
+name taken from `DATABASE_URL`):
+
+| Command | Host | Database name | Extra flags |
+|---|---|---|---|
+| `db:reset-demo` | exactly `localhost`, `127.0.0.1` or `::1` | `township`, `township_seed_scratch` or `township_test_*` | `--confirm-database=<exact name>` |
+| `db:seed`, local host | `localhost`, `127.0.0.1` or `::1` | any | none |
+| `db:seed`, any other host | any | any | `--allow-remote` and `--confirm-database=<exact name>` |
+
+A reset is never allowed on a remote host, whatever the flags. Host names are
+matched exactly, so `localhost.evil.com` and `127.0.0.1.nip.io` are remote.
+Database names are case-sensitive: `township_prod`, `township_test` and
+`TOWNSHIP_TEST_1` are refused.
+
+**Why these guards exist.** A reset drops every table, so pointing it at the
+wrong database (a hosted demo, a colleague's database, or one with real data)
+would destroy it, and `DATABASE_URL` is easy to get wrong. `--yes` only shows
+that someone saw the printed target; it does not show that it is the right
+one. Making the person type the database name, and allowing a reset only on
+local databases with known names, means a copied URL or a stale environment
+variable cannot wipe anything else. `db:reset-demo` itself runs
+`prisma migrate reset --force`. A plain delete cannot work, because the
+append-only triggers forbid DELETE and TRUNCATE on the ledger and on complaint
+events, so a reset recreates the schema. Prisma also refuses to run a reset when
+an AI agent starts it and needs the user's written consent.
 
 ### What is written
 
@@ -368,7 +390,9 @@ names the table, the row key and the constraint.
 
 Notes: complaint, event, classification and notification times are the
 dataset's, not the time of the seed. Ledger entries and known payers have no
-time in the dataset, so their `created_at` is the time of the seed. Columns the
+time in the dataset, so their `created_at` follows their own dates: 12:00 IST on
+the entry's effective date, and 12:00 IST on the day the flat's earliest member
+started. Columns the
 dataset lacks (`latency_ms`, `output_hash`, `created_by_id`, `language`) are
 NULL. A notification is `SENT` at its creation time, and its text is stored as
 `{"text": "..."}`.
@@ -405,7 +429,9 @@ tier (I did not check Neon's current limit; read it in the Neon console).
    migrations and the seed use one long transaction.
 2. In a shell, not in a file you commit: `export DATABASE_URL='postgresql://...'`
    and `export DEMO_MODE=true`.
-3. `npx prisma migrate deploy`, then `npm run db:seed -- --yes`. Check the
+3. `npx prisma migrate deploy`, then
+   `npm run db:seed -- --yes --allow-remote --confirm-database=<name>`. Check the
    printed host and database name are the Neon ones before confirming.
-4. To start over: `npm run db:reset-demo -- --yes`. Never set `DEMO_MODE=true`
-   against a database that holds real data.
+4. `db:reset-demo` refuses a remote host. To start over on Neon, recreate the
+   database in the Neon console (or branch it), run `migrate deploy`, and seed
+   again. Never set `DEMO_MODE=true` against a database that holds real data.
