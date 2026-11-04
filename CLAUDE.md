@@ -22,6 +22,7 @@
 - Review the FULL `git diff --staged` (not only `--stat`) before every commit. If it is too large to review in full, split the commit.
 - In the report, list one line per commit: hash, message, and the `npm run check` and `npm run scan:secrets` result for that commit.
 - If you edit anything after running the checks, run `npm run check` and `npm run scan:secrets` again before committing. A commit message that says "check passed" must be true for the exact committed state.
+- Run every command chain with `set -e` (or `&&`), so a failed check stops the chain before `git commit`. Run `npm run check` as its own command and confirm the result before committing.
 
 ## What we are building
 A resident app (installable web app) and staff console for a gated township in
