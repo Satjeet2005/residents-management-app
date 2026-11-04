@@ -53,7 +53,7 @@ describe("F1 T12-0408: ₹6,370 due 2026-09-10, as of 2026-10-27, no payments", 
     expect(result.overdueDays).toBe(47);
     expect(result.skippedDays).toBe(0);
     expect(result.chargedDays).toBe(47);
-    // 637000 x 1200 x 47 / (10000 x 365) = 9842.58 paise = ₹98.43, rounded once to ₹98.
+    // 637000 x 1200 x 47 / (10000 x 365) = 35_926_800_000 / 3_650_000 = 9842.96 paise = ₹98.43, rounded once to ₹98.
     expect(result.feePaise).toBe(9800n);
     expect(result.outstandingPaise).toBe(637000n);
     expect(amountDuePaise(result)).toBe(646800n);
@@ -71,7 +71,7 @@ describe("F2 T21-1601: ₹10,660 due 2026-10-09, ₹5,000 paid 2026-10-12, as of
       { fromDate: "2026-10-10", toDate: "2026-10-12", days: 3, basePaise: 1066000n },
       { fromDate: "2026-10-13", toDate: "2026-10-27", days: 15, basePaise: 566000n },
     ]);
-    // 1200 x (3 x 1066000 + 15 x 566000) / 3650000 = 3842.63 paise = ₹38.43, rounded once to ₹38.
+    // 1200 x (3 x 1066000 + 15 x 566000) / 3650000 = 14_025_600_000 / 3_650_000 = 3842.63 paise = ₹38.43, rounded once to ₹38.
     expect(result.feePaise).toBe(3800n);
     expect(result.outstandingPaise).toBe(566000n);
     expect(amountDuePaise(result)).toBe(569800n);
@@ -190,7 +190,7 @@ describe("F6 hold boundaries are half-open: [startedAt, endedAt)", () => {
 
 describe("F7 the cap", () => {
   it("T12 as of 2026-10-27 at 21%: exact ₹172.25, fee ₹172", () => {
-    // 637000 x 2100 x 47 / 3650000 = 17224.8 paise = ₹172.25, rounded to ₹172.
+    // 637000 x 2100 x 47 / 3650000 = 62_871_900_000 / 3_650_000 = 17225.18 paise = ₹172.25, rounded to ₹172.
     const result = computeLateFee(t12({ policy: { annualRateBps: 2100, capBps: 2100, daysInYear: 365 } }));
     expect(result.feePaise).toBe(17200n);
   });
@@ -246,7 +246,7 @@ describe("F8 edge cases", () => {
   });
 
   it("a payment before the due date reduces the base from dueOn + 1", () => {
-    // ₹2,000 on 2026-09-05: 437000 x 1200 x 47 / 3650000 = 6752.5 paise = ₹67.53, rounded to ₹68.
+    // ₹2,000 on 2026-09-05: 437000 x 1200 x 47 / 3650000 = 24_646_800_000 / 3_650_000 = 6752.55 paise = ₹67.53, rounded to ₹68.
     const result = computeLateFee(t12({ payments: [{ date: "2026-09-05", amountPaise: 200000n }] }));
     expect(result.segments).toEqual([
       { fromDate: "2026-09-11", toDate: "2026-10-27", days: 47, basePaise: 437000n },
