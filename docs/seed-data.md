@@ -12,7 +12,9 @@ const other = generateDemoDataset({ seed: 42 });  // different random content
 ```
 
 The default dataset has 2,400 flats, 3,434 users (5 staff), 3,429 flat members,
-11,999 bills and 25,579 ledger entries, and takes about 150 ms to build.
+11,999 bills, 25,579 ledger entries, 3,450 complaints with 22,835 events, 316
+visitor passes, 720 known payers and 402 notifications, and takes about 200 ms
+to build.
 
 ## All data is fictional
 
@@ -141,3 +143,178 @@ overdue), and 1,072,000 for each of the three cheque flats.
 - **A12.** The tests call a flat's amount due the sum, over its bills with
   something outstanding, of the outstanding amount plus the computed fee. A
   settled late bill's fee is already in the ledger and is not charged again.
+
+## Complaints, visitors, payers and notifications
+
+All of this is fictional, like the rest. **Complaint text is English only. Hindi
+and Marathi text has not been written or reviewed by a native speaker, so none
+is included.**
+
+"Now" is `DEMO_NOW` = 2026-10-27 12:00 IST (epoch milliseconds, built from
+`dayStartInstant`). `DEMO_AS_OF` stays `2026-10-27`. Every timestamp is epoch
+milliseconds and lies between 2026-09-01 00:00 IST and `DEMO_NOW`; the only later
+times are visitors expected later today.
+
+### Design
+
+| Piece | Rule |
+|---|---|
+| Plans | Each complaint is a *plan*: its fixed facts and the times of each step (assigned, first response, resolved, closed, reopened ...). A step after `DEMO_NOW` is null, and so is every later step. `materialise()` turns a plan into the row and its events, so they cannot disagree. |
+| Quotas | Category counts (and urgency counts of the ordinary complaints) are filled by quota and shuffled, like areas, so shares do not drift with the seed. Forced, cluster and safety complaints are counted first and taken off the quota. |
+| Random | One forked generator per complaint (`complaint:bulk0001`), per incident, per flat (visitors, payers) and per user (notifications). |
+| Settings | The 11 keys in the task, in `settings.ts`. The SLA minutes there are the ones complaints use. Phones `5900000001` and `5900000002` start with 5 and are above every user phone. `emergency_services_phone` is null (to be configured). |
+| Routing | `assigneeFor()`: safety complaints go to Sanjay Pawar (duty manager), everything else to the category's default assignee, Kavita Rao. A NEW complaint has no assignee. |
+
+### Target metrics, and what the default seed gives
+
+| Metric | Target | Observed |
+|---|---|---|
+| Complaints | 3,300 to 3,600 (about 1,800 a month) | 3,450 (1,847 in September, 1,603 in the 27 days of October) |
+| PLUMBING / ELECTRICAL / HOUSEKEEPING / LIFT / OTHER | 28.7 / 22.6 / 18.2 / 16.0 / 14.5%, each within 2 points | 28.7 / 22.6 / 18.2 / 16.0 / 14.5% |
+| NORMAL / HIGH / LOW / CRITICAL | about 70 / 15 / 12 / 1% | 71.7 / 14.7 / 12.7 / 0.9% |
+| Safety share | 0.5% to 1.5% | 0.9% (31) |
+| Median first response | 60 to 120 min | 97 min |
+| First response within SLA | 82% to 90% (about 86%) | 85.8% |
+| Not closed at `DEMO_NOW` | 8% to 12% | 8.4% (CLOSED 91.6, PENDING 4.8, IN_PROGRESS 2.5, ASSIGNED 0.8, NEW 0.1, REOPENED 0.2) |
+| CONFIRMED among closed non-safety | 72% to 84% | 76.5% (the rest AUTO_CLOSED) |
+| Reopen rate among resolved | 8% to 14% | 11.1% |
+| Older than 10 days and not closed | none, except a few REOPENED | none |
+| Duplicate incidents | 12, 9, 7, 6, 5, 4 | 6 incidents, 37 links; 16 affected-too rows in 3 incidents |
+
+The same generator over seeds 1 to 4 gives 8.7% to 9.6% not closed, a median
+response of 93 to 96 minutes, 86.3% to 87.2% within SLA, 9.7% to 11.5% reopened
+and 76.1% to 78.2% CONFIRMED.
+
+### How a complaint's life is drawn
+
+- **First response** is a staff action after creation. Buckets are chosen so the
+  median is about 95 minutes. 16% of NORMAL and HIGH responses miss the SLA; LOW
+  responses never do (see A15).
+- **Resolved** (`PENDING_CONFIRMATION`) is at most 3 days after creation (about
+  2 days if the complaint will be reopened), so that a complaint older than 10
+  days is always finished: 3 days to resolve plus the 7-day auto-close is 10.
+- **Closure**: `CONFIRMED` (a resident confirms 2 hours to 3 days later, rating
+  1 to 5 skewed to 4 and 5) or `AUTO_CLOSED` (exactly 7 days after
+  `pending_confirmation_at`, no rating).
+- **Reopen**: 11% of complaints are drawn as reopened. Their first trip always
+  ends CONFIRMED; the resident reopens 2 hours to 2 days later, and the second
+  trip ends CONFIRMED with a rating. The row then shows `reopen_count` 1 and the
+  last trip's `pending_confirmation_at`, `closed_at` and rating. A reopen that
+  falls after `DEMO_NOW` is not drawn; one still open is `REOPENED`.
+- **Safety**: CRITICAL, due in 15 minutes, `RULE` classification, `ESCALATED`
+  event one minute after creation, assigned to Sanjay Pawar, acknowledged in 2 to
+  14 minutes (12% later), closed by the duty manager 10 minutes to 4 hours after
+  that. There is no `PENDING_CONFIRMATION` and no rating.
+- **Classification** (one row per complaint): `RULE` for safety; otherwise `LLM`
+  85% (confidence 0.600 to 0.980), `FALLBACK` 10% (confidence 0.600 to 0.980,
+  `needs_review` while not closed) and `MANUAL` 5% (a staff member corrects the
+  category: a `CATEGORY_CORRECTED` event, confidence null, the classification
+  row holds the corrected category).
+- **Events**: `CREATED`, `CLASSIFIED`, `ASSIGNED`, `STATUS_CHANGED` (first
+  response, and resolved), `COMMENT` (40%), `REOPENED`, `CATEGORY_CORRECTED`,
+  `ESCALATED`, `CLOSED`; plus `DUPLICATE_LINKED` and `AFFECTED_TOO` for the
+  clusters. Time order is non-decreasing; ties keep the order in which things
+  logically happen.
+
+### Database compatibility (K1 to K4, K6)
+
+Rows satisfy the CHECKs of `20261104091653_complaints_outbox_audit_visitors`:
+K1 safety implies CRITICAL; K2 a safety complaint's `close_kind` is null or
+DUTY_MANAGER; K3 `closed_at` and `close_kind` exist exactly when CLOSED, and
+PENDING_CONFIRMATION has `pending_confirmation_at`; K4 rating is 1 to 5, only on
+CLOSED + CONFIRMED, and REOPENED needs `reopen_count >= 1`; K6 links have no
+self link, one primary per duplicate and no chains. The tests (C5) write these
+predicates again as pure functions and check every row.
+
+### Duplicate clusters
+
+Six incidents, each in one tower on one day, one category, different flats:
+
+| Complaints | Tower | Category | Urgency |
+|---|---|---|---|
+| 12 | T07 | LIFT (lift outage) | HIGH |
+| 9 | T14 | PLUMBING | NORMAL |
+| 7 | T22 | ELECTRICAL | HIGH |
+| 6 | T03 | HOUSEKEEPING | NORMAL |
+| 5 | T25 | OTHER | NORMAL |
+| 4 | T11 | PLUMBING | NORMAL |
+
+The earliest complaint is the primary; the others are linked to it with
+similarity 0.800 to 0.980 (no chains, each duplicate once). The incidents of 12,
+9 and 6 also have 3 to 8 further flats of the same tower marked "affected too".
+
+### Forced complaints
+
+These use no random draws, so they are identical on every seed.
+
+| Flat | Resident | Complaint |
+|---|---|---|
+| T12-0408 | Swati Joshi | PLUMBING "Water leak under the kitchen sink", NORMAL, raised 2026-10-26 17:00 IST, assigned to Kavita Rao at 17:30, status ASSIGNED, due 2026-10-27 17:00 IST, no first response. |
+| T07-1203 | Neeraj Kulkarni | ELECTRICAL "Corridor light not working", NORMAL, raised 2026-10-24 11:00, first response 12:30, PENDING_CONFIRMATION since 2026-10-26 15:00 IST. |
+| T15-0902 | Rohit Deshmukh | HOUSEKEEPING, NEW, raised 2026-10-27 10:00 IST, no assignee. |
+| first T09 flat | its first member | Safety, "Smell of gas in the corridor", raised 2026-10-27 11:00 IST, ESCALATED at 11:01, assigned to Sanjay Pawar at 11:01, status ASSIGNED, no acknowledgement. |
+| T21-1601 | Aamir Shaikh | No complaints. |
+
+Swati Joshi has exactly two notifications, both unread: `COMPLAINT_ASSIGNED`
+(2026-10-26 17:30) and `PAYMENT_REMINDER` (2026-10-27 09:00). T12-0408 also has
+two visitors expected today: Ramesh Gupta at 11:00 and Anita Singh at 16:30 IST.
+
+### Visitors, known payers, notifications
+
+- **Visitors**: 150 other flats, 1 to 3 passes each, 0 to 13 days back at 08:00
+  to 21:59. Earlier days: DEPARTED 85%, CANCELLED 15%. Today before 12:00:
+  ARRIVED 40%, DEPARTED 45%, CANCELLED 15%. Today after 12:00: EXPECTED 90%,
+  CANCELLED 10%. Only the two T12-0408 passes are EXPECTED in the past.
+- **Known payers**: 720 flats (30% of 2,400), one `UPI_ID` each, built as
+  `{first}.{lastInitial}@demo` in lower case from a member's name. `demo` is not
+  a real bank handle. 60% `LEARNED` (no staff member), 40% `MANUAL` (added by
+  Priya Nair). The seven sample flats have none.
+- **Notifications**: 200 residents (not the four named sample residents), 1 to 3
+  each, kinds `PAYMENT_REMINDER`, `PAYMENT_RECEIVED`, `COMPLAINT_UPDATE`,
+  `NOTICE` in equal shares, half read a few minutes to a day and a half later.
+
+### Assumptions (complaints)
+
+- **A13.** The window is 2026-09-01 to `DEMO_NOW`, 56.5 days, so 3,450
+  complaints is about 61 a day: 1,847 in September and 1,603 in October. "About
+  1,800 a month" is met for September only, because October has 27 days.
+- **A14.** Complaints are created between 06:00 and 23:00 IST (06:00 to 11:40 on
+  the last day, 09:00 for safety complaints), spread evenly over the days.
+- **A15.** LOW complaints always respond within their 3-day SLA, so the 14%
+  breaches come from NORMAL and HIGH (16% of them). A LOW breach would take longer
+  than the 3-day resolution cap that keeps old complaints closed.
+- **A16.** A reopened complaint's first trip is always CONFIRMED, and its second
+  trip is always CONFIRMED. A reopened-then-auto-closed path is not generated.
+  At most one reopen per complaint; `reopen_count` is 1 or 0.
+- **A17.** Resolution is at most 3 days after creation (about 2 days before a
+  reopen), so every complaint older than 10 days is CLOSED, or REOPENED for the
+  few reopened lately. About 8% not closed is therefore near the lower end of the
+  8% to 12% range: only the last 10 days can be open.
+- **A18.** Safety complaints are drawn as 30 random ones plus the forced gas
+  complaint. Categories: FIRE and GAS under OTHER, LIFT_STUCK under LIFT, SHOCK
+  under ELECTRICAL. Safety complaints do not get a `PENDING_CONFIRMATION` step,
+  and none is reopened.
+- **A19.** The gas complaint is raised from the first flat of tower T09 in code
+  order and by its first member, so its flat can differ between seeds; its text,
+  times, status and events do not.
+- **A20.** The four sample flats (T12-0408, T07-1203, T15-0902, T21-1601) have
+  only their forced complaints; no random complaint, cluster or affected-too row
+  uses them.
+- **A21.** The T07-1203 complaint's creation (2026-10-24 11:00), assignment (+10
+  minutes), first response (+90 minutes) and comment (+3 hours) are my choice;
+  the task fixes only its status and the 2026-10-26 15:00 pending time.
+- **A22.** `DemoClassification` has no `latency_ms` or `output_hash`; the real
+  classifier will fill those.
+- **A23.** Cluster complaints also get the ordinary random lifecycle, so the
+  complaints of one incident are not all closed at the same time. `DUPLICATE_LINKED`
+  (on the duplicate, 2 minutes after it was created) and `AFFECTED_TOO` (on the
+  primary) events exist because the database enum has them, though the task did
+  not list them.
+- **A24.** A pass is "EXPECTED" at 11:00 for Ramesh Gupta although `DEMO_NOW` is
+  12:00, as the task says: he has not arrived yet.
+- **A25.** Known payer ids are not unique across flats ("rahul.s@demo" can occur
+  in two flats); the database only needs them unique per flat and identifier.
+  Later matching must treat a shared id as unclear.
+- **A26.** `allocateQuotas` (flats.ts) had a bug: it gave out only one leftover.
+  It never mattered for areas, which have no leftover, and is fixed because the
+  category quotas have one.
