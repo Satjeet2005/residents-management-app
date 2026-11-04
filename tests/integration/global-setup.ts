@@ -15,7 +15,13 @@ function adminClient(connectionString: string) {
 
 export default async function setup(project: TestProject) {
   const adminUrl = process.env.DATABASE_URL;
-  if (!adminUrl) throw new Error("DATABASE_URL is not set");
+  if (!adminUrl) {
+    // Throwing here crashes vitest while it formats the stack, hiding the message.
+    console.error(
+      "DATABASE_URL is not set. Copy .env.example to .env and start the database with `docker compose up -d`.",
+    );
+    process.exit(1);
+  }
 
   const dbName = `township_test_${randomBytes(4).toString("hex")}`;
   const testUrl = new URL(adminUrl);
