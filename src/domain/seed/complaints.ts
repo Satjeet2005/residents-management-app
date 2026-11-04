@@ -5,16 +5,14 @@ import { SAFETY_CATEGORY, SAFETY_KINDS, complaintBody, safetyBody } from "./comp
 import { type ComplaintSpec, type PlanContext, planComplaint } from "./complaint-plan";
 import type { ComplaintPlan, DemoComplaints } from "./complaint-types";
 import { allocateQuotas } from "./flats";
+import { drawMoment } from "./moments";
 import type { Prng } from "./prng";
 import { DUTY_MANAGER_NAME, userKeyByName } from "./settings";
-import { type ComplaintUrgency, type DemoComplaintCategory, type DemoFlat, type DemoFlatMember, type DemoUser, WINDOW_START } from "./types";
+import { type ComplaintUrgency, type DemoComplaintCategory, type DemoFlat, type DemoFlatMember, type DemoUser } from "./types";
 
-const MINUTE = 60_000;
-const DAY = 86_400_000;
 /** Complaints from 2026-09-01 to DEMO_NOW: about 1,800 a month in September and 1,600 in the 27 days of October. */
 export const TOTAL_COMPLAINTS = 3450;
 const SAFETY_COMPLAINTS = 30;
-const LAST_DAY = 56;
 
 /** Category shares in tenths of a percent. */
 const CATEGORY_SHARES: readonly (readonly [string, number])[] = [
@@ -32,12 +30,6 @@ const URGENCY_WEIGHTS: readonly (readonly [ComplaintUrgency, number])[] = [
 ];
 
 const pad4 = (n: number) => String(n).padStart(4, "0");
-
-/** A random moment between 2026-09-01 and DEMO_NOW, in the day's active hours; the last argument limits the last day. */
-function drawMoment(r: Prng, lastMinuteOfLastDay: number): number {
-  const day = r.int(0, LAST_DAY);
-  return WINDOW_START + day * DAY + r.int(360, day === LAST_DAY ? lastMinuteOfLastDay : 1380) * MINUTE;
-}
 
 /** Counts per category code of the complaints that are not random bulk. */
 function countCategories(plans: readonly ComplaintPlan[]): Map<string, number> {

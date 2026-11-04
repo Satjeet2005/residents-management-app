@@ -47,6 +47,20 @@ export type ComplaintUrgency = "CRITICAL" | "HIGH" | "NORMAL" | "LOW";
 export type DemoSettingValue = string | number | null | { [field: string]: string | number };
 export type DemoSetting = { key: string; value: DemoSettingValue };
 
+export type VisitorStatus = "EXPECTED" | "ARRIVED" | "DEPARTED" | "CANCELLED";
+export type DemoVisitorPass = { flatKey: string; visitorName: string; expectedAt: number; purpose: string; status: VisitorStatus };
+
+/** An identifier a flat is known to pay from. Only UPI ids are generated. */
+export type DemoKnownPayer = {
+  flatKey: string;
+  identifierType: "UPI_ID";
+  identifierValue: string;
+  source: "LEARNED" | "MANUAL";
+  addedByUserKey: string | null;
+};
+
+export type DemoNotification = { userKey: string; kind: string; body: string; createdAt: number; readAt: number | null };
+
 export type DemoComplaintCategory = { key: string; code: string; name: string; defaultAssigneeUserKey: string };
 
 export type DemoDataset = {
@@ -60,6 +74,9 @@ export type DemoDataset = {
   staff: DemoStaff[];
   settings: DemoSetting[];
   categories: DemoComplaintCategory[];
+  visitorPasses: DemoVisitorPass[];
+  knownPayers: DemoKnownPayer[];
+  notifications: DemoNotification[];
 } & DemoComplaints;
 
 export const DEFAULT_SEED = 20261027;

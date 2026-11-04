@@ -1,9 +1,12 @@
 import { buildBilling } from "./billing";
 import { buildComplaints } from "./complaints";
 import { buildFlats } from "./flats";
+import { buildNotifications } from "./notifications";
 import { buildPeople } from "./people";
+import { buildKnownPayers } from "./payers";
 import { createPrng } from "./prng";
 import { buildCategories, buildSettings } from "./settings";
+import { buildVisitorPasses } from "./visitors";
 import { DEFAULT_SEED, DEMO_AS_OF, type DemoDataset } from "./types";
 
 export type DemoDatasetOptions = { seed?: number };
@@ -21,5 +24,20 @@ export function generateDemoDataset(options: DemoDatasetOptions = {}): DemoDatas
   const settings = buildSettings();
   const categories = buildCategories(users);
   const complaintData = buildComplaints(rng, flats, users, members, categories);
-  return { seed, asOf: DEMO_AS_OF, flats, users, members, bills, ledgerEntries, staff, settings, categories, ...complaintData };
+  return {
+    seed,
+    asOf: DEMO_AS_OF,
+    flats,
+    users,
+    members,
+    bills,
+    ledgerEntries,
+    staff,
+    settings,
+    categories,
+    ...complaintData,
+    visitorPasses: buildVisitorPasses(rng, flats),
+    knownPayers: buildKnownPayers(rng, flats, users, members),
+    notifications: buildNotifications(rng, users),
+  };
 }
