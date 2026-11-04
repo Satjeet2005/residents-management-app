@@ -10,6 +10,7 @@ Requires Node 24+ and Docker.
 npm install
 cp .env.example .env        # local values; never commit .env
 docker compose up -d        # Postgres 16 on localhost:5436
+npx prisma migrate deploy   # apply database migrations
 npm run dev                 # http://localhost:3000, health at /api/health
 ```
 

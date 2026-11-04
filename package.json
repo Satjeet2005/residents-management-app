@@ -12,7 +12,9 @@
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.mts",
     "check": "npm run lint && npm run typecheck && npm run test:unit",
-    "scan:secrets": "node scripts/scan-secrets.mjs"
+    "scan:secrets": "node scripts/scan-secrets.mjs",
+    "db:generate": "prisma generate",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.1",

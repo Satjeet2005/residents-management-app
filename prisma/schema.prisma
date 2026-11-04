@@ -1,0 +1,219 @@
+// Constraints Prisma cannot express (CHECKs, partial unique index, append-only
+// trigger) live in the hand-edited migration SQL. See prisma/README.md.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  RESIDENT
+  STAFF
+
+  @@map("user_role")
+}
+
+enum FlatRelation {
+  OWNER
+  TENANT
+  FAMILY
+
+  @@map("flat_relation")
+}
+
+enum EntryType {
+  BILL
+  LATE_FEE
+  PAYMENT
+  REVERSAL
+  ADJUSTMENT
+
+  @@map("entry_type")
+}
+
+enum Direction {
+  CHARGE
+  PAYMENT
+
+  @@map("direction")
+}
+
+enum AttemptStatus {
+  INITIATED
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  RELEASED
+
+  @@map("attempt_status")
+}
+
+enum DebitStatus {
+  CONFIRMED
+  NOT_DEBITED
+  UNKNOWN
+
+  @@map("debit_status")
+}
+
+model Flat {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code     String @unique
+  tower    String
+  number   String
+  areaSqft Int    @map("area_sqft")
+
+  members         FlatMember[]
+  bills           Bill[]
+  ledgerEntries   LedgerEntry[]
+  paymentAttempts PaymentAttempt[]
+
+  @@map("flats")
+}
+
+model User {
+  id     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  phone  String   @unique
+  name   String
+  role   UserRole
+  active Boolean  @default(true)
+
+  memberships      FlatMember[]
+  permissions      UserPermission[]
+  sessions         Session[]
+  createdEntries   LedgerEntry[]
+  resolvedAttempts PaymentAttempt[]
+
+  @@map("users")
+}
+
+model FlatMember {
+  id       String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  flatId   String       @map("flat_id") @db.Uuid
+  userId   String       @map("user_id") @db.Uuid
+  relation FlatRelation
+  startsOn DateTime     @map("starts_on") @db.Date
+  endsOn   DateTime?    @map("ends_on") @db.Date
+
+  flat Flat @relation(fields: [flatId], references: [id], onDelete: Restrict)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([flatId, userId, startsOn])
+  @@map("flat_members")
+}
+
+model UserPermission {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String @map("user_id") @db.Uuid
+  permission String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, permission])
+  @@map("user_permissions")
+}
+
+model Session {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  lastSeenAt DateTime  @map("last_seen_at") @db.Timestamptz(6)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@map("sessions")
+}
+
+model OtpCode {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  phone      String
+  codeHash   String    @map("code_hash")
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  attempts   Int       @default(0)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("otp_codes")
+}
+
+model SocietySetting {
+  key   String @id
+  value Json
+
+  @@map("society_settings")
+}
+
+model Bill {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  flatId           String   @map("flat_id") @db.Uuid
+  period           DateTime @db.Date
+  issuedOn         DateTime @map("issued_on") @db.Date
+  dueOn            DateTime @map("due_on") @db.Date
+  amountPaise      BigInt   @map("amount_paise")
+  areaSqftSnapshot Int      @map("area_sqft_snapshot")
+  ratePaisePerSqft Int      @map("rate_paise_per_sqft")
+
+  flat            Flat             @relation(fields: [flatId], references: [id], onDelete: Restrict)
+  ledgerEntries   LedgerEntry[]
+  paymentAttempts PaymentAttempt[]
+
+  @@unique([flatId, period])
+  @@map("bills")
+}
+
+model LedgerEntry {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  flatId           String    @map("flat_id") @db.Uuid
+  entryType        EntryType @map("entry_type")
+  direction        Direction
+  amountPaise      BigInt    @map("amount_paise")
+  effectiveDate    DateTime  @map("effective_date") @db.Date
+  billId           String?   @map("bill_id") @db.Uuid
+  paymentAttemptId String?   @map("payment_attempt_id") @db.Uuid
+  bankRowId        String?   @map("bank_row_id") @db.Uuid
+  reversesEntryId  String?   @unique @map("reverses_entry_id") @db.Uuid
+  reference        String?   @unique
+  idempotencyKey   String    @unique @map("idempotency_key")
+  note             String?
+  createdById      String?   @map("created_by_id") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  flat           Flat            @relation(fields: [flatId], references: [id], onDelete: Restrict)
+  bill           Bill?           @relation(fields: [billId], references: [id], onDelete: Restrict)
+  paymentAttempt PaymentAttempt? @relation(fields: [paymentAttemptId], references: [id], onDelete: Restrict)
+  reverses       LedgerEntry?    @relation("Reversal", fields: [reversesEntryId], references: [id], onDelete: Restrict)
+  reversedBy     LedgerEntry?    @relation("Reversal")
+  createdBy      User?           @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@map("ledger_entries")
+}
+
+model PaymentAttempt {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  billId           String        @map("bill_id") @db.Uuid
+  flatId           String        @map("flat_id") @db.Uuid
+  amountPaise      BigInt        @map("amount_paise")
+  status           AttemptStatus
+  debitStatus      DebitStatus   @default(UNKNOWN) @map("debit_status")
+  gatewayReference String?       @unique @map("gateway_reference")
+  startedAt        DateTime      @default(now()) @map("started_at") @db.Timestamptz(6)
+  holdStartedAt    DateTime?     @map("hold_started_at") @db.Timestamptz(6)
+  holdEndedAt      DateTime?     @map("hold_ended_at") @db.Timestamptz(6)
+  escalatedAt      DateTime?     @map("escalated_at") @db.Timestamptz(6)
+  resolvedAt       DateTime?     @map("resolved_at") @db.Timestamptz(6)
+  resolvedById     String?       @map("resolved_by_id") @db.Uuid
+  releaseReason    String?       @map("release_reason")
+
+  bill          Bill          @relation(fields: [billId], references: [id], onDelete: Restrict)
+  flat          Flat          @relation(fields: [flatId], references: [id], onDelete: Restrict)
+  resolvedBy    User?         @relation(fields: [resolvedById], references: [id], onDelete: Restrict)
+  ledgerEntries LedgerEntry[]
+
+  @@map("payment_attempts")
+}
