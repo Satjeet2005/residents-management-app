@@ -318,3 +318,94 @@ two visitors expected today: Ramesh Gupta at 11:00 and Anita Singh at 16:30 IST.
 - **A26.** `allocateQuotas` (flats.ts) had a bug: it gave out only one leftover.
   It never mattered for areas, which have no leftover, and is fixed because the
   category quotas have one.
+
+## How to seed, reset and deploy demo data
+
+`src/server/seed` writes the dataset into Postgres. Every row gets a
+deterministic id, `uuidFromKey(key)`: a version-5-style UUID from SHA-256 of the
+fixed namespace `township-app/demo-seed/v1` and the key, so every run puts the
+same key at the same id. Keys are unique per table, not across tables (a bill and
+its BILL ledger entry share one key).
+
+### Commands
+
+```bash
+npx prisma migrate deploy        # the schema must exist first
+npm run db:seed -- --yes         # write the demo data into an EMPTY database
+npm run db:reset-demo -- --yes   # drop and recreate the schema, then seed
+```
+
+`db:seed` runs the TypeScript through `tsx` (Node's own type stripping cannot
+follow the domain code's extensionless imports). It loads `.env` at run time
+with `process.loadEnvFile`, if the file exists; variables already in the shell
+win.
+
+### Guards
+
+Both commands stop, and change nothing, unless all of these hold:
+
+1. `DEMO_MODE` is exactly `true`.
+2. `DATABASE_URL` is set. The command prints only the host and database name,
+   never the user, password or URL.
+3. `--yes` is given, so a person has seen that target and confirmed it.
+4. For `db:seed`: the `flats` table is empty. Otherwise it says the database is
+   not empty and points to `db:reset-demo`.
+
+`db:reset-demo` checks 1 to 3, then runs `prisma migrate reset --force`. A plain
+delete cannot work, because the append-only triggers forbid DELETE and TRUNCATE
+on the ledger and on complaint events, so a reset recreates the schema. Prisma
+itself refuses to run a reset when an AI agent starts it and needs the user's
+written consent; a person running it in a terminal is not asked.
+
+### What is written
+
+One transaction, about 1,000 rows per multi-row `INSERT`, in foreign-key order:
+users, user_permissions, flats, flat_members, society_settings, bills,
+ledger_entries, complaint_categories, complaints, complaint_events,
+classifications, complaint_links, complaint_affected, visitor_passes,
+known_payers, notifications. The first database error rolls back everything and
+names the table, the row key and the constraint.
+
+Notes: complaint, event, classification and notification times are the
+dataset's, not the time of the seed. Ledger entries and known payers have no
+time in the dataset, so their `created_at` is the time of the seed. Columns the
+dataset lacks (`latency_ms`, `output_hash`, `created_by_id`, `language`) are
+NULL. A notification is `SENT` at its creation time, and its text is stored as
+`{"text": "..."}`.
+
+### Expected size and time (default seed, local Postgres 16)
+
+| Table | Rows |
+|---|---|
+| users | 3,434 |
+| user_permissions | 7 |
+| flats | 2,400 |
+| flat_members | 3,429 |
+| society_settings | 11 |
+| bills | 11,999 |
+| ledger_entries | 25,579 |
+| complaint_categories | 5 |
+| complaints | 3,450 |
+| complaint_events | 22,835 |
+| classifications | 3,450 |
+| complaint_links | 37 |
+| complaint_affected | 16 |
+| visitor_passes | 316 |
+| known_payers | 720 |
+| notifications | 402 |
+| **total** | **78,090** |
+
+About 3 seconds, and `pg_database_size` of about 29 MB with the schema and its
+indexes. That is the figure to compare with the storage limit of the Neon free
+tier (I did not check Neon's current limit; read it in the Neon console).
+
+### Deploying demo data to Neon
+
+1. Create the database and copy its **direct** (not pooled) connection string;
+   migrations and the seed use one long transaction.
+2. In a shell, not in a file you commit: `export DATABASE_URL='postgresql://...'`
+   and `export DEMO_MODE=true`.
+3. `npx prisma migrate deploy`, then `npm run db:seed -- --yes`. Check the
+   printed host and database name are the Neon ones before confirming.
+4. To start over: `npm run db:reset-demo -- --yes`. Never set `DEMO_MODE=true`
+   against a database that holds real data.

@@ -11,6 +11,7 @@ npm install
 cp .env.example .env        # local values; never commit .env
 docker compose up -d        # Postgres 16 on localhost:5436
 npx prisma migrate deploy   # apply database migrations
+npm run db:seed -- --yes    # optional: load the demo data (see docs/seed-data.md)
 npm run dev                 # http://localhost:3000, health at /api/health
 ```
 
