@@ -39,7 +39,7 @@ const pad2 = (n: number) => String(n).padStart(2, "0");
 const towerOf = (code: string) => code.slice(0, 3);
 
 /** Splits `total` by `weights` in whole numbers, giving leftovers to the largest remainders. */
-function allocateQuotas(total: number, weights: readonly number[]): number[] {
+export function allocateQuotas(total: number, weights: readonly number[]): number[] {
   const weightSum = weights.reduce((sum, w) => sum + w, 0);
   const quotas = weights.map((w) => Math.floor((total * w) / weightSum));
   const order = weights
