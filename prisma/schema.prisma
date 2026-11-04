@@ -111,6 +111,95 @@ enum QueueStatus {
   @@map("queue_status")
 }
 
+enum ComplaintUrgency {
+  CRITICAL
+  HIGH
+  NORMAL
+  LOW
+
+  @@map("complaint_urgency")
+}
+
+enum ComplaintStatus {
+  NEW
+  ASSIGNED
+  IN_PROGRESS
+  PENDING_CONFIRMATION
+  CLOSED
+  REOPENED
+
+  @@map("complaint_status")
+}
+
+enum CloseKind {
+  CONFIRMED
+  AUTO_CLOSED
+  DUTY_MANAGER
+
+  @@map("close_kind")
+}
+
+enum ComplaintEventType {
+  CREATED
+  CLASSIFIED
+  ASSIGNED
+  STATUS_CHANGED
+  COMMENT
+  REOPENED
+  CATEGORY_CORRECTED
+  DUPLICATE_LINKED
+  ESCALATED
+  AFFECTED_TOO
+  CLOSED
+
+  @@map("complaint_event_type")
+}
+
+enum ClassificationSource {
+  RULE
+  LLM
+  FALLBACK
+  MANUAL
+
+  @@map("classification_source")
+}
+
+enum OutboxJobType {
+  CLASSIFY_COMPLAINT
+  SEND_NOTIFICATION
+  ESCALATE_PAYMENT
+  AUTO_CLOSE_COMPLAINT
+  ACCRUE_DAILY
+
+  @@map("outbox_job_type")
+}
+
+enum OutboxStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+
+  @@map("outbox_status")
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+
+  @@map("notification_status")
+}
+
+enum VisitorStatus {
+  EXPECTED
+  ARRIVED
+  DEPARTED
+  CANCELLED
+
+  @@map("visitor_status")
+}
+
 model Flat {
   id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   code     String @unique
@@ -125,6 +214,10 @@ model Flat {
   bankRows        BankRow[]
   paymentMatches  PaymentMatch[]
   knownPayers     KnownPayer[]
+
+  complaints        Complaint[]
+  complaintAffected ComplaintAffected[]
+  visitorPasses     VisitorPass[]
 
   @@map("flats")
 }
@@ -146,6 +239,14 @@ model User {
   approvedMatches    PaymentMatch[]      @relation("MatchApprover")
   addedPayers        KnownPayer[]
   resolvedQueueItems AccountsQueueItem[]
+
+  assignedCategories ComplaintCategory[]
+  complaintsRaised   Complaint[]         @relation("ComplaintRaisedBy")
+  complaintsAssigned Complaint[]         @relation("ComplaintAssignee")
+  complaintEvents    ComplaintEvent[]
+  linksMade          ComplaintLink[]
+  notifications      Notification[]
+  auditEntries       AuditLog[]
 
   @@map("users")
 }
@@ -377,4 +478,169 @@ model AccountsQueueItem {
   resolvedBy     User?           @relation(fields: [resolvedById], references: [id], onDelete: Restrict)
 
   @@map("accounts_queue_items")
+}
+
+model ComplaintCategory {
+  id                String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code              String  @unique
+  name              String
+  defaultAssigneeId String? @map("default_assignee_id") @db.Uuid
+
+  defaultAssignee User?            @relation(fields: [defaultAssigneeId], references: [id], onDelete: Restrict)
+  complaints      Complaint[]
+  classifications Classification[]
+
+  @@map("complaint_categories")
+}
+
+model Complaint {
+  id                    String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  flatId                String           @map("flat_id") @db.Uuid
+  raisedById            String           @map("raised_by_id") @db.Uuid
+  body                  String
+  language              String?
+  categoryId            String?          @map("category_id") @db.Uuid
+  urgency               ComplaintUrgency @default(NORMAL)
+  safetyFlag            Boolean          @default(false) @map("safety_flag")
+  status                ComplaintStatus  @default(NEW)
+  assigneeId            String?          @map("assignee_id") @db.Uuid
+  responseDueAt         DateTime?        @map("response_due_at") @db.Timestamptz(6)
+  firstResponseAt       DateTime?        @map("first_response_at") @db.Timestamptz(6)
+  pendingConfirmationAt DateTime?        @map("pending_confirmation_at") @db.Timestamptz(6)
+  closedAt              DateTime?        @map("closed_at") @db.Timestamptz(6)
+  closeKind             CloseKind?       @map("close_kind")
+  rating                Int?
+  reopenCount           Int              @default(0) @map("reopen_count")
+  needsReview           Boolean          @default(false) @map("needs_review")
+  version               Int              @default(1)
+  createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  flat            Flat                @relation(fields: [flatId], references: [id], onDelete: Restrict)
+  raisedBy        User                @relation("ComplaintRaisedBy", fields: [raisedById], references: [id], onDelete: Restrict)
+  category        ComplaintCategory?  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  assignee        User?               @relation("ComplaintAssignee", fields: [assigneeId], references: [id], onDelete: Restrict)
+  events          ComplaintEvent[]
+  classifications Classification[]
+  asPrimary       ComplaintLink[]     @relation("LinkPrimary")
+  asDuplicate     ComplaintLink?      @relation("LinkDuplicate")
+  affected        ComplaintAffected[]
+
+  @@map("complaints")
+}
+
+model ComplaintEvent {
+  id          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  complaintId String             @map("complaint_id") @db.Uuid
+  eventType   ComplaintEventType @map("event_type")
+  actorId     String?            @map("actor_id") @db.Uuid
+  payload     Json               @default("{}")
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Restrict)
+  actor     User?     @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@map("complaint_events")
+}
+
+model Classification {
+  id          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  complaintId String               @map("complaint_id") @db.Uuid
+  source      ClassificationSource
+  categoryId  String?              @map("category_id") @db.Uuid
+  urgency     ComplaintUrgency
+  confidence  Decimal?             @db.Decimal(4, 3)
+  latencyMs   Int?                 @map("latency_ms")
+  outputHash  String?              @map("output_hash")
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  complaint Complaint          @relation(fields: [complaintId], references: [id], onDelete: Restrict)
+  category  ComplaintCategory? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@map("classifications")
+}
+
+model ComplaintLink {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  primaryId   String   @map("primary_id") @db.Uuid
+  duplicateId String   @unique @map("duplicate_id") @db.Uuid
+  similarity  Decimal? @db.Decimal(4, 3)
+  linkedById  String?  @map("linked_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  primary   Complaint @relation("LinkPrimary", fields: [primaryId], references: [id], onDelete: Restrict)
+  duplicate Complaint @relation("LinkDuplicate", fields: [duplicateId], references: [id], onDelete: Restrict)
+  linkedBy  User?     @relation(fields: [linkedById], references: [id], onDelete: Restrict)
+
+  @@map("complaint_links")
+}
+
+model ComplaintAffected {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  complaintId String   @map("complaint_id") @db.Uuid
+  flatId      String   @map("flat_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Restrict)
+  flat      Flat      @relation(fields: [flatId], references: [id], onDelete: Restrict)
+
+  @@unique([complaintId, flatId])
+  @@map("complaint_affected")
+}
+
+model OutboxJob {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  jobType        OutboxJobType @map("job_type")
+  payload        Json          @default("{}")
+  status         OutboxStatus  @default(PENDING)
+  attempts       Int           @default(0)
+  runAfter       DateTime      @default(now()) @map("run_after") @db.Timestamptz(6)
+  idempotencyKey String        @unique @map("idempotency_key")
+  lastError      String?       @map("last_error")
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  finishedAt     DateTime?     @map("finished_at") @db.Timestamptz(6)
+
+  @@map("outbox_jobs")
+}
+
+model Notification {
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recipientId    String             @map("recipient_id") @db.Uuid
+  kind           String
+  body           Json               @default("{}")
+  status         NotificationStatus @default(PENDING)
+  idempotencyKey String             @unique @map("idempotency_key")
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  sentAt         DateTime?          @map("sent_at") @db.Timestamptz(6)
+  readAt         DateTime?          @map("read_at") @db.Timestamptz(6)
+
+  recipient User @relation(fields: [recipientId], references: [id], onDelete: Restrict)
+
+  @@map("notifications")
+}
+
+model AuditLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorId    String?  @map("actor_id") @db.Uuid
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  detail     Json     @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@map("audit_log")
+}
+
+model VisitorPass {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  flatId      String        @map("flat_id") @db.Uuid
+  visitorName String        @map("visitor_name")
+  expectedAt  DateTime      @map("expected_at") @db.Timestamptz(6)
+  purpose     String?
+  status      VisitorStatus @default(EXPECTED)
+
+  flat Flat @relation(fields: [flatId], references: [id], onDelete: Restrict)
+
+  @@map("visitor_passes")
 }
