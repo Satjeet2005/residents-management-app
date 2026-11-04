@@ -1,14 +1,15 @@
 import { execFileSync } from "node:child_process";
 import { Client } from "pg";
 import { generateDemoDataset } from "@/domain/seed/generate";
-import { type GuardResult, checkConfirmed, checkDemoMode, describeTarget } from "./guards";
+import { type GuardResult, assertSafeTarget, checkConfirmed, checkDemoMode, describeTarget, parseTarget } from "./guards";
 import { seedDemoDatabase } from "./run";
 import { SeedWriteError } from "./writer";
 
 /**
  * `npm run db:seed -- --yes` writes the demo dataset into an empty database.
- * `npm run db:reset-demo -- --yes` recreates the schema first (the append-only
- * triggers forbid DELETE and TRUNCATE, so a reset must drop and migrate).
+ * `npm run db:reset-demo -- --yes --confirm-database=<name>` recreates the schema
+ * first (the append-only triggers forbid DELETE and TRUNCATE, so a reset must drop
+ * and migrate). See assertSafeTarget for which databases each command may touch.
  */
 function stop(message: string): never {
   console.error(message);
@@ -40,6 +41,7 @@ async function main(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL;
   if (databaseUrl === undefined || databaseUrl === "") stop("DATABASE_URL is not set, so nothing was changed.");
   console.log(`Target: ${describeTarget(databaseUrl)}`);
+  ensure(assertSafeTarget({ ...parseTarget(databaseUrl), flags: args }));
   ensure(checkConfirmed(args));
 
   if (reset) {
