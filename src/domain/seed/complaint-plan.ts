@@ -40,7 +40,8 @@ function drawClassification(r: Prng, ctx: PlanContext, spec: ComplaintSpec, assi
     return { source, confidence: null, at: correctedAt, correctedFromCategoryCode: r.pick(others).code };
   }
   const at = spec.createdAt + r.int(1, 3) * MINUTE;
-  return { source: source === "MANUAL" ? "LLM" : source, confidence: r.int(600, 980) / 1000, at, correctedFromCategoryCode: null };
+  if (source === "FALLBACK") return { source, confidence: null, at, correctedFromCategoryCode: null };
+  return { source: "LLM", confidence: r.int(600, 980) / 1000, at, correctedFromCategoryCode: null };
 }
 
 /** A complaint with a random life, from its fixed facts. All randomness comes from `r`. */

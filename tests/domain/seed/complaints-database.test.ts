@@ -105,7 +105,7 @@ describe("C5 database compatibility", () => {
       if (k.source === "LLM") {
         expect(k.confidence as number).toBeGreaterThanOrEqual(0.6);
         expect(k.confidence as number).toBeLessThanOrEqual(0.98);
-      } else if (k.source === "RULE" || k.source === "MANUAL") expect(k.confidence).toBeNull();
+      } else expect(k.confidence, `${c.key} ${k.source}`).toBeNull();
     }
   });
 

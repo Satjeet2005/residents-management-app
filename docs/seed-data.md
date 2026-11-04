@@ -206,8 +206,8 @@ and 76.1% to 78.2% CONFIRMED.
   14 minutes (12% later), closed by the duty manager 10 minutes to 4 hours after
   that. There is no `PENDING_CONFIRMATION` and no rating.
 - **Classification** (one row per complaint): `RULE` for safety; otherwise `LLM`
-  85% (confidence 0.600 to 0.980), `FALLBACK` 10% (confidence 0.600 to 0.980,
-  `needs_review` while not closed) and `MANUAL` 5% (a staff member corrects the
+  85% (confidence 0.600 to 0.980), `FALLBACK` 10% (confidence null, because the
+  keyword fallback gives no score; `needs_review` while not closed) and `MANUAL` 5% (a staff member corrects the
   category: a `CATEGORY_CORRECTED` event, confidence null, the classification
   row holds the corrected category).
 - **Events**: `CREATED`, `CLASSIFIED`, `ASSIGNED`, `STATUS_CHANGED` (first
