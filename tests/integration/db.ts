@@ -17,7 +17,12 @@ export const SQLSTATE = {
   checkViolation: "23514",
 } as const;
 
-export async function rejectedWith(promise: Promise<unknown>, code: string, constraint?: string) {
+export async function rejectedWith(
+  promise: Promise<unknown>,
+  code: string,
+  constraint?: string,
+  messagePart?: string,
+) {
   const error = await promise.then(
     () => null,
     (e: unknown) => e as { code?: string; constraint?: string; message: string },
@@ -26,6 +31,9 @@ export async function rejectedWith(promise: Promise<unknown>, code: string, cons
   if (error.code !== code) throw new Error(`expected SQLSTATE ${code}, got ${error.code}: ${error.message}`);
   if (constraint !== undefined && error.constraint !== constraint) {
     throw new Error(`expected constraint ${constraint}, got ${error.constraint}`);
+  }
+  if (messagePart !== undefined && !error.message.includes(messagePart)) {
+    throw new Error(`expected the message to include "${messagePart}", got: ${error.message}`);
   }
 }
 
@@ -204,3 +212,29 @@ export async function insertKnownPayer(
   );
   return rows[0].id;
 }
+
+/** Inserts one row from column/value pairs (snake_case) and returns its id. Test code only. */
+export async function insertRow(db: Client, table: string, values: Record<string, unknown>): Promise<string> {
+  const columns = Object.keys(values);
+  const placeholders = columns.map((_, i) => `$${i + 1}`);
+  const { rows } = await db.query(
+    `INSERT INTO ${table} (${columns.join(", ")}) VALUES (${placeholders.join(", ")}) RETURNING id`,
+    Object.values(values),
+  );
+  return rows[0].id;
+}
+
+export const insertComplaint = (
+  db: Client,
+  flatId: string,
+  raisedById: string,
+  overrides: Record<string, unknown> = {},
+) =>
+  insertRow(db, "complaints", {
+    flat_id: flatId,
+    raised_by_id: raisedById,
+    body: "Water leaking near the lift lobby",
+    ...overrides,
+  });
+
+export const CLOSED_AT = "2026-04-02T10:00:00Z";
