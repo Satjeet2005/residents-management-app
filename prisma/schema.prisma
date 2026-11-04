@@ -319,11 +319,14 @@ model Bill {
   areaSqftSnapshot Int      @map("area_sqft_snapshot")
   ratePaisePerSqft Int      @map("rate_paise_per_sqft")
 
-  flat            Flat             @relation(fields: [flatId], references: [id], onDelete: Restrict)
-  ledgerEntries   LedgerEntry[]
-  paymentAttempts PaymentAttempt[]
+  flat                    Flat             @relation(fields: [flatId], references: [id], onDelete: Restrict)
+  ledgerEntries           LedgerEntry[]
+  paymentAttempts         PaymentAttempt[]
+  ledgerEntriesSameFlat   LedgerEntry[]    @relation("EntryBillSameFlat")
+  paymentAttemptsSameFlat PaymentAttempt[] @relation("AttemptBillSameFlat")
 
   @@unique([flatId, period])
+  @@unique([id, flatId])
   @@map("bills")
 }
 
@@ -344,15 +347,19 @@ model LedgerEntry {
   createdById      String?   @map("created_by_id") @db.Uuid
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  flat           Flat            @relation(fields: [flatId], references: [id], onDelete: Restrict)
-  bill           Bill?           @relation(fields: [billId], references: [id], onDelete: Restrict)
-  paymentAttempt PaymentAttempt? @relation(fields: [paymentAttemptId], references: [id], onDelete: Restrict)
-  bankRow        BankRow?        @relation("EntryBankRow", fields: [bankRowId], references: [id], onDelete: Restrict)
-  fundedRows     BankRow[]       @relation("RowLedgerEntry")
-  reverses       LedgerEntry?    @relation("Reversal", fields: [reversesEntryId], references: [id], onDelete: Restrict)
-  reversedBy     LedgerEntry?    @relation("Reversal")
-  createdBy      User?           @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  flat            Flat            @relation(fields: [flatId], references: [id], onDelete: Restrict)
+  bill            Bill?           @relation(fields: [billId], references: [id], onDelete: Restrict)
+  paymentAttempt  PaymentAttempt? @relation(fields: [paymentAttemptId], references: [id], onDelete: Restrict)
+  bankRow         BankRow?        @relation("EntryBankRow", fields: [bankRowId], references: [id], onDelete: Restrict)
+  fundedRows      BankRow[]       @relation("RowLedgerEntry")
+  reverses        LedgerEntry?    @relation("Reversal", fields: [reversesEntryId], references: [id], onDelete: Restrict)
+  reversedBy      LedgerEntry?    @relation("Reversal")
+  createdBy       User?           @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  billSameFlat    Bill?           @relation("EntryBillSameFlat", fields: [billId, flatId], references: [id, flatId], onDelete: Restrict)
+  attemptSameFlat PaymentAttempt? @relation("EntryAttemptSameFlat", fields: [paymentAttemptId, flatId], references: [id, flatId], onDelete: Restrict)
+  rowsSameFlat    BankRow[]       @relation("RowEntrySameFlat")
 
+  @@unique([id, flatId])
   @@map("ledger_entries")
 }
 
@@ -372,12 +379,15 @@ model PaymentAttempt {
   resolvedById     String?       @map("resolved_by_id") @db.Uuid
   releaseReason    String?       @map("release_reason")
 
-  bill          Bill                @relation(fields: [billId], references: [id], onDelete: Restrict)
-  flat          Flat                @relation(fields: [flatId], references: [id], onDelete: Restrict)
-  resolvedBy    User?               @relation(fields: [resolvedById], references: [id], onDelete: Restrict)
-  ledgerEntries LedgerEntry[]
-  queueItems    AccountsQueueItem[]
+  bill                  Bill                @relation(fields: [billId], references: [id], onDelete: Restrict)
+  flat                  Flat                @relation(fields: [flatId], references: [id], onDelete: Restrict)
+  resolvedBy            User?               @relation(fields: [resolvedById], references: [id], onDelete: Restrict)
+  ledgerEntries         LedgerEntry[]
+  queueItems            AccountsQueueItem[]
+  billSameFlat          Bill                @relation("AttemptBillSameFlat", fields: [billId, flatId], references: [id, flatId], onDelete: Restrict)
+  ledgerEntriesSameFlat LedgerEntry[]       @relation("EntryAttemptSameFlat")
 
+  @@unique([id, flatId])
   @@map("payment_attempts")
 }
 
@@ -414,12 +424,13 @@ model BankRow {
   version       Int          @default(1)
   createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  import        StatementImport     @relation(fields: [importId], references: [id], onDelete: Restrict)
-  flat          Flat?               @relation(fields: [flatId], references: [id], onDelete: Restrict)
-  ledgerEntry   LedgerEntry?        @relation("RowLedgerEntry", fields: [ledgerEntryId], references: [id], onDelete: Restrict)
-  fundedEntries LedgerEntry[]       @relation("EntryBankRow")
-  matches       PaymentMatch[]
-  queueItems    AccountsQueueItem[]
+  import              StatementImport     @relation(fields: [importId], references: [id], onDelete: Restrict)
+  flat                Flat?               @relation(fields: [flatId], references: [id], onDelete: Restrict)
+  ledgerEntry         LedgerEntry?        @relation("RowLedgerEntry", fields: [ledgerEntryId], references: [id], onDelete: Restrict)
+  fundedEntries       LedgerEntry[]       @relation("EntryBankRow")
+  matches             PaymentMatch[]
+  queueItems          AccountsQueueItem[]
+  ledgerEntrySameFlat LedgerEntry?        @relation("RowEntrySameFlat", fields: [ledgerEntryId, flatId], references: [id, flatId], onDelete: Restrict)
 
   @@unique([importId, rowNumber])
   @@map("bank_rows")
