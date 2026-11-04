@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import { computeLateFee, defaultLateFeePolicy } from "@/domain/billing/late-fee";
 import { DEMO_AS_OF, type DemoBill, type DemoDataset, type DemoLedgerEntry } from "@/domain/seed/types";
 import { diffDays } from "@/domain/time/calendar";
-import { FORCED_CODES, defaultDataset } from "./default-dataset";
+import { FORCED_CODES, defaultDataset, indexOf } from "./default-dataset";
 
 const dataset = defaultDataset();
 const bill = (code: string, period: string) => dataset.bills.find((b) => b.key === `bill:${code}:${period}`)!;
 
 function entriesOfBill(data: DemoDataset, billKey: string): DemoLedgerEntry[] {
-  return data.ledgerEntries.filter((e) => e.billKey === billKey);
+  return indexOf(data).entriesByBill.get(billKey) ?? [];
 }
 
 function lateFeeOf(b: DemoBill, asOf: string, data: DemoDataset) {
@@ -28,8 +28,7 @@ function lateFeeOf(b: DemoBill, asOf: string, data: DemoDataset) {
 /** What a flat owes as of the demo date: for each bill with something outstanding, that plus its computed fee. */
 function position(code: string) {
   const flatKey = `flat:${code}`;
-  const open = dataset.bills
-    .filter((b) => b.flatKey === flatKey)
+  const open = (indexOf(dataset).billsByFlat.get(flatKey) ?? [])
     .map((b) => ({ bill: b, result: lateFeeOf(b, DEMO_AS_OF, dataset) }))
     .filter(({ result }) => result.outstandingPaise > 0n);
   const amountDue = open.reduce((sum, { result }) => sum + result.outstandingPaise + result.feePaise, 0n);
@@ -60,7 +59,7 @@ describe("S4 fixtures through the domain code, as of 2026-10-27", () => {
     expect(open[0].result.outstandingPaise).toBe(566000n);
     expect(open[0].result.feePaise).toBe(3800n);
     expect(amountDue).toBe(569800n);
-    const payments = dataset.ledgerEntries.filter((e) => e.flatKey === "flat:T21-1601" && e.effectiveDate >= "2026-10-01");
+    const payments = indexOf(dataset).entriesByFlat.get("flat:T21-1601")!.filter((e) => e.effectiveDate >= "2026-10-01");
     expect(payments.filter((e) => e.entryType === "PAYMENT").map((e) => [e.amountPaise, e.effectiveDate])).toEqual([[500000n, "2026-10-12"]]);
   });
 
@@ -189,14 +188,14 @@ describe("S5 ledger rules", () => {
 
   it("S5 the forced flats' ledgers match their scenarios exactly", () => {
     const summary = (code: string) =>
-      dataset.ledgerEntries.filter((e) => e.flatKey === `flat:${code}` && e.entryType !== "BILL").map((e) => `${e.entryType}:${e.amountPaise}@${e.effectiveDate}`);
+      indexOf(dataset).entriesByFlat.get(`flat:${code}`)!.filter((e) => e.entryType !== "BILL").map((e) => `${e.entryType}:${e.amountPaise}@${e.effectiveDate}`);
     expect(summary("T12-0408")).toEqual(["PAYMENT:637000@2026-06-05", "PAYMENT:637000@2026-07-05", "PAYMENT:637000@2026-08-05"]);
     expect(summary("T15-0902")).toEqual(["PAYMENT:858000@2026-06-05", "PAYMENT:858000@2026-07-05", "PAYMENT:858000@2026-08-05"]);
     expect(summary("T03-0702")).toHaveLength(4);
     expect(summary("T21-1601").at(-1)).toBe("PAYMENT:500000@2026-10-12");
     expect(summary("T07-1203").at(-1)).toBe("PAYMENT:747500@2026-10-03");
     expect(bill("T12-0408", "2026-09-01").dueOn).toBe("2026-09-10");
-    for (const code of FORCED_CODES) expect(dataset.bills.some((b) => b.flatKey === `flat:${code}`)).toBe(true);
+    for (const code of FORCED_CODES) expect(indexOf(dataset).billsByFlat.has(`flat:${code}`)).toBe(true);
   });
 });
 

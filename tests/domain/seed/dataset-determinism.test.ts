@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { generateDemoDataset } from "@/domain/seed/generate";
 import { DEFAULT_SEED, type DemoDataset } from "@/domain/seed/types";
-import { FORCED_CODES, NAMED_FORCED_CODES, defaultDataset, serialise } from "./default-dataset";
+import { FORCED_CODES, NAMED_FORCED_CODES, defaultDataset, indexOf, serialise } from "./default-dataset";
 
 /** Everything the demo scenarios rely on for the sample flats. */
 function forcedFacts(dataset: DemoDataset) {
@@ -16,8 +16,8 @@ function forcedFacts(dataset: DemoDataset) {
     return {
       flat,
       people,
-      bills: dataset.bills.filter((b) => b.flatKey === flat.key),
-      entries: dataset.ledgerEntries.filter((e) => e.flatKey === flat.key),
+      bills: indexOf(dataset).billsByFlat.get(flat.key) ?? [],
+      entries: indexOf(dataset).entriesByFlat.get(flat.key) ?? [],
     };
   });
 }
