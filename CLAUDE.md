@@ -2,8 +2,21 @@
 
 ## Project Safety Rules
 
-- Do not perform any git commands without asking first.
+- Local git is allowed: `git status`, `git diff`, `git log`, `git show`, `git add <named files>`, `git restore --staged <files>`, `git commit`, and creating a new local branch.
+- Ask first, every time, before: `git push`, `git pull`, `git fetch`, `git merge`, `git rebase`, `git reset`, `git clean`, `git commit --amend`, `git stash`, any `--force` flag, deleting or creating branches or tags beyond a new local branch, editing remotes or git config, and `git init`.
+- Never rewrite or delete history that has been pushed.
+- Never stage with `git add -A` or `git add .`. Stage named files only, and review `git diff --staged` before every commit.
+- Before every commit run `npm run check` and `npm run scan:secrets`, and paste the output in the report. Never commit if either fails.
 - Never read the `.env` file. Instead, use `.env.example` as the reference for any environment-related activities.
+
+## Commits
+
+- Use Conventional Commits: `type(scope): imperative summary` with types feat, fix, test, docs, chore, ci, refactor, style, perf. Summary at most 72 characters.
+- One logical change per commit. Code and its tests go in the same commit. A decision record goes with, or right after, the code it explains.
+- Add a body (why, not what) for any non-trivial change, and name the invariant or decision it implements (for example I6 or D41).
+- Every commit must pass `npm run check`. No "WIP", "fix" or "update" messages.
+- Commit as the configured git user. Never change git config. If no identity is configured, stop and ask.
+- Do not push. List each commit hash and message in the report, with the output of `git log --oneline`.
 
 ## What we are building
 A resident app (installable web app) and staff console for a gated township in
@@ -22,6 +35,12 @@ tests and history. Correct money and clear structure beat feature count.
 - Small, readable files; pure functions; no commented-out code or dead code.
 - Pin exact dependency versions. Prefer stable releases. Check current docs
   before using an API you are unsure of.
+- Run NO git command at all, including read-only ones (status, diff, log,
+  check-ignore). To check what is ignored, read `.gitignore` instead.
+- Dependency policy: ask before adding any dependency. Prefer exact versions
+  published at least 14 days ago, and report each new dependency's version,
+  publish date and age. Run `npm audit` before choosing an older version; keep a
+  newer one only if an older one has a known vulnerability, and say so.
 
 ## Stack and architecture
 - Next.js (App Router), TypeScript strict, Tailwind, Postgres via Prisma,
