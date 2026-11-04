@@ -1,0 +1,47 @@
+# Assumptions register
+
+Every assumption below is something the brief did not say, or said loosely, and
+that this project fixed so the work could go on. Each has an ID with the prefix
+`R` (register). Three other documents keep their own numbered assumptions,
+named `A1`, `A2` and so on. Those are listed at the end by file and are not
+copied here.
+
+"Where used" names the file that holds the value or the rule. "Not built yet"
+means no code uses the assumption today. "How to change" says what to edit, and
+which tests will then fail and need the new numbers.
+
+Decision numbers (D4, D14 and so on) refer to `docs/decisions.md`.
+
+| ID | Assumption | Where used | How to change |
+|---|---|---|---|
+| R1 | The committee reads reports through a staff permission, not through a third role. | Roles and permissions: `prisma/schema.prisma` (`UserRole`, `UserPermission`). The reporting permission: not built yet. | Add a permission string to a staff user in `src/domain/seed/people.ts` (the `STAFF` list), then check it in `withPermission` when that exists. |
+| R2 | Staff accounts are seeded. There is no sign-up and no admin screen (D1). | `src/domain/seed/people.ts`. | Edit the `STAFF` list in `src/domain/seed/people.ts`. Seed tests that count users will change: `tests/domain/seed/dataset-structure.test.ts`. |
+| R3 | The late-fee numbers are 12% a year (1,200 basis points), a cap of 21% (2,100), and a 365-day year. The policy lives in settings and can be changed within the cap. | `defaultLateFeePolicy` in `src/domain/billing/late-fee.ts`; seeded as the setting `late_fee_policy` in `src/domain/seed/settings.ts`; `docs/late-fee-policy.md`. | Edit `defaultLateFeePolicy` for the default, or the setting for one society. The validator refuses a rate above the cap. `tests/domain/late-fee.test.ts` and `tests/domain/seed/dataset-ledger.test.ts` hold expected fees and will change. |
+| R4 | The flat is the billing unit (D6). One bill and one ledger belong to a flat, not to a person. | `bills.flat_id` and `ledger_entries.flat_id` in `prisma/schema.prisma`; composite keys in `prisma/migrations/20261104094500_same_flat_composite_foreign_keys/migration.sql`. | A schema change and a new migration. This is a deep change; it touches the ledger, matching and every screen. |
+| R5 | Ageing buckets are: not yet due, 1 to 30 days, 31 to 60, 61 to 90, and over 90 days overdue. | Not built yet. The seed has overdue bills in several of these ranges (`docs/seed-data.md`). | Change the bucket list where the committee report computes it, once that exists. |
+| R6 | The canonical bank CSV has these columns, kept per row: transaction date, value date, raw narration, credit, debit, balance. The raw narration is always kept unchanged. | `bank_rows` in `prisma/schema.prisma` (`txnDate`, `valueDate`, `narrationRaw`, `creditPaise`, `debitPaise`, `balancePaise`, `dedupeKey`, `parsed`). The CSV reader: not built yet. | Change the model and add a migration, then the reader. J1 to J3 in `tests/integration/bank-rows-invariants.test.ts` encode the rules. |
+| R7 | Messages are mocked through an outbox (D3): a notification is a row, and nothing is sent outside the system. | `outbox_jobs` and `notifications` in `prisma/schema.prisma`; seeded rows in `src/domain/seed/notifications.ts`. | Add a sender behind the outbox processor, once that exists. |
+| R8 | The second-approver threshold is ₹25,000 (2,500,000 paise) and applies at or above that amount (D14). | `APPROVAL_THRESHOLD_PAISE` in `src/domain/seed/settings.ts`, seeded as the setting `approval_threshold_paise`. | Change the setting. The seed tests that read it will need the new number. |
+| R9 | The response targets (SLAs) for a first reply are 15 minutes (critical), 2 hours (high), 24 hours (normal) and 72 hours (low). | `SLA_MINUTES` in `src/domain/seed/settings.ts` (15, 120, 1440, 4320), seeded as the setting `sla_minutes`; `docs/seed-data.md` (A15). | Change `SLA_MINUTES`. Tests on the complaint metrics (`tests/domain/seed/complaints-mix.test.ts`) may change. |
+| R10 | A resolved complaint closes by itself after 7 days (D15). A safety complaint never does. | Setting `auto_close_days` in `src/domain/seed/settings.ts`; safety rule K2 in `prisma/migrations/20261104091653_complaints_outbox_audit_visitors/migration.sql`. The closing job: not built yet. | Change the setting. The safety rule is in SQL and changes only by a new migration. |
+| R11 | A payment hold escalates to accounts after 24 hours (D36). | Setting `escalation_hours` in `src/domain/seed/settings.ts`. The escalation job: not built yet. | Change the setting. |
+| R12 | A safety complaint must be acknowledged by staff within 5 minutes, or the fallback number and escalation apply (D54). | Setting `safety_ack_timeout_minutes` in `src/domain/seed/settings.ts`. The timer: not built yet. | Change the setting. |
+| R13 | Bills are issued on the 1st of the month and are due on the 10th. | `docs/seed-data.md` ("Design"); the due date is a column of the bill, set in `src/domain/seed/billing.ts`; `docs/late-fee-policy.md`. | Change the bill generator in `src/domain/seed/billing.ts`. The late-fee code reads the due date from the bill, so it does not change. |
+| R14 | A cheque is dated by the date the bank credits it, not by the date written on it. | Not built yet. The seed dates every payment by when the money arrived, and keeps the mode only in the reference (`docs/seed-data.md`, A8). | Change the matcher's date rule, once it exists. |
+| R15 | Due dates are written out for each bill in the seed, not worked out from a rule. One flat's October bill (T21-1601) is due on 2026-10-09 on purpose. | `src/domain/seed/billing.ts` (`dueOn`); `docs/seed-data.md` (the forced scenarios table). | Edit the dates in `src/domain/seed/billing.ts`. Tests that quote fees for T21-1601 will change. |
+| R16 | The demo "as of" date is 2026-10-27, and the demo "now" is noon on that day, IST. | `DEMO_AS_OF` and `DEMO_NOW` in `src/domain/seed/types.ts`; seeded as the setting `demo_as_of`. | Change `DEMO_AS_OF`. Nearly every seed test quotes figures that depend on it. |
+| R17 | Fictional phone numbers all begin with 5, which is not a valid Indian mobile prefix, so no real person can be called. | `src/domain/seed/people.ts` (`phoneNumber`); `src/domain/seed/settings.ts` (staff phones); `docs/seed-data.md` (A6). | Change the prefix in `phoneNumber`. The seed-data tests check the prefix. |
+| R18 | Radii are 8 px for controls and 12 px for sheets. | `--radius-control` and `--radius-sheet` in `src/app/globals.css`; `docs/design-system.md` (A2). | Edit the two tokens. |
+| R19 | `paper-2` is `#F1EBDC`, chosen so that ink on it has a contrast of at least 12:1. | `--color-paper-2` in `src/app/globals.css`; `tests/ui/token-contrast.test.ts`; `docs/design-system.md` (A1). | Edit the token. The contrast test fails if the readability drops. |
+| R20 | The emergency services number is not set in the demo (the setting is null), so a screen must show the fallback number and not a made-up one. | Setting `emergency_services_phone` in `src/domain/seed/settings.ts`. The screen: not built yet. | Set the setting. |
+
+## Assumptions kept in other documents
+
+These are numbered inside their own files. Read them there.
+
+| File | Numbers | Topic |
+|---|---|---|
+| `docs/seed-data.md` | A1 to A12 | Flats, owners, phones, payments and bills in the seed. |
+| `docs/seed-data.md` | A13 to A26 | Complaints, visitors, payers, notifications and the quota fix. |
+| `docs/late-fee-policy.md` | A1 to A10 | Holds, skipped days, payment dates, rounding, calendar range. |
+| `docs/design-system.md` | A1 to A10 | Colours, radii, tracker markers, fonts, spacing, motion, placeholder translations. |
