@@ -9,7 +9,7 @@ bank lays them out differently, so the work is in two layers:
    `names.ts`). It reads one free-text narration and returns the facts in it: the rail, a
    reference, a UPI address, a payer name, flat codes and hints.
 
-The matcher (a later task, T7b) uses only the parsed fields and the canonical row. It never
+The matcher (`docs/matching-design.md`) uses only the parsed fields and the canonical row. It never
 reads raw text. Decision D7 in `docs/decisions.md` is the design this implements.
 
 > **Every narration format on this page is a SYNTHETIC ASSUMPTION.** None of them is a
@@ -174,7 +174,7 @@ cut names. A name can only support a match that another signal already points to
 
 ## What this does not do
 
-- It does not match a row to a flat, post anything, or decide anything. That is T7b.
+- It does not match a row to a flat, post anything, or decide anything. That is the matcher (`docs/matching-design.md`).
 - It does not check that balances follow from one row to the next, or that a file is complete
   (completeness checks are cut, D7).
 - It does not read Excel, PDF, semicolon or tab separated files, or text in other encodings.
