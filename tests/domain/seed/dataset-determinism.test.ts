@@ -22,16 +22,21 @@ function forcedFacts(dataset: DemoDataset) {
   });
 }
 
+/** Only the deliberately heavy determinism tests get this; the global timeout is unchanged. */
+const HEAVY_TIMEOUT_MS = 20_000;
+
 describe("S1 determinism", () => {
+  // Builds the 2,400-flat dataset several times by design, about 0.6 s each, so it needs more than the 5 s default on a loaded 2-CPU machine.
   it("S1 the same seed gives an identical dataset (stable serialisation)", () => {
     expect(serialise(generateDemoDataset({ seed: 42 }))).toBe(serialise(generateDemoDataset({ seed: 42 })));
     expect(serialise(generateDemoDataset())).toBe(serialise(defaultDataset()));
     expect(generateDemoDataset().seed).toBe(DEFAULT_SEED);
-  });
+  }, HEAVY_TIMEOUT_MS);
 
+  // Two full datasets compared deeply: see the note above.
   it("S1 the same seed gives a deeply equal dataset", () => {
     expect(generateDemoDataset({ seed: 7 })).toEqual(generateDemoDataset({ seed: 7 }));
-  });
+  }, HEAVY_TIMEOUT_MS);
 
   it.each([1, 2, 20261028])("S1 seed %i changes the random content", (seed) => {
     const other = generateDemoDataset({ seed });
@@ -44,11 +49,12 @@ describe("S1 determinism", () => {
     expect(serialise(forcedFacts(generateDemoDataset({ seed })))).toBe(serialise(forcedFacts(defaultDataset())));
   });
 
+  // Three datasets are built: see the note above.
   it("S1 every seed still gives 2,400 flats with the same mean area", () => {
     for (const seed of [1, 2, 3]) {
       const flats = generateDemoDataset({ seed }).flats;
       expect(flats).toHaveLength(2400);
       expect(flats.reduce((sum, f) => sum + f.areaSqft, 0) / 2400).toBe(1157.6);
     }
-  });
+  }, HEAVY_TIMEOUT_MS);
 });

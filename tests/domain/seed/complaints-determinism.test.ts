@@ -40,10 +40,11 @@ function forcedFacts(d: DemoDataset) {
 }
 
 describe("C1 determinism and forced complaints", () => {
+  // Builds the 2,400-flat dataset three times by design, so it needs more than the 5 s default on a loaded 2-CPU machine.
   it("C1 the same seed gives identical settings, complaints, visitors, payers and notifications", () => {
     expect(serialise(newData(generateDemoDataset({ seed: 42 })))).toBe(serialise(newData(generateDemoDataset({ seed: 42 }))));
     expect(serialise(newData(generateDemoDataset()))).toBe(serialise(newData(defaultDataset())));
-  });
+  }, 20_000);
 
   it.each([1, 2, 20261028])("C1 seed %i changes the random complaints", (seed) => {
     const other = generateDemoDataset({ seed });
