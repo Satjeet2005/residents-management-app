@@ -148,6 +148,69 @@ never makes two `PAYMENT` entries, because the database allows one payment per b
 
 Example, T12-0408 on 2026-10-27 paying 646,800 paise: `[LATE_FEE 9800, PAYMENT 646800]`.
 
+## Statement processor
+
+`processStatement(input)` in `processor.ts` takes in a whole statement. It is pure: it reads and writes nothing
+outside its arguments and never changes them.
+
+**Input.** `rows` (valid rows from the CSV reader), `csvErrors` (what the reader refused), `flats` (the
+`FlatContext` list with open bills), `settings` and `alreadyImportedKeys` (the dedupe keys of rows that an
+earlier import took in).
+
+**Order.** Valid rows are processed by transaction date, then row number, so the result does not depend on the
+order the rows arrive in.
+
+**States.** Each valid row ends in exactly one state:
+
+| State | When | Decision |
+|---|---|---|
+| `AUTO_MATCHED` | the matcher said AUTO_MATCH | yes, with a plan |
+| `QUEUED` | the matcher said QUEUE | yes |
+| `IGNORED` | the matcher said IGNORE | yes |
+| `ALREADY_IMPORTED` | the row's dedupe key is in `alreadyImportedKeys`, or repeats a payment reference seen earlier in this input | none; the row is not looked at again |
+
+Invalid rows are not rows of the statement. They are counted in `summary.rowsRead` and `summary.invalidRows` (one per
+distinct row number, and row 0, the header, counts as one), returned in `csvErrors`, and never dropped.
+
+**Dedupe.** Each row's key is `rowDedupeKey` with an occurrence counter: the second identical row in one file is
+occurrence 2, so two identical cash deposits are two payments. A row with a payment reference has the same key
+whichever occurrence it is, so the same UPI payment twice in one file is one payment.
+
+**State application (resolves C1).** The processor works on the context's own copy of every bill's payments. After an
+AUTO_MATCH it records the PAYMENT on that copy (`recordPayment`) before the next row is decided, and moves the flat in the
+per-date amount indexes. A later row that pays the same bill finds it paid and is queued with `NO_OPEN_BILL`; two
+postings for one bill cannot come out of one statement. QUEUED and IGNORED rows change nothing. The caller's flats are never
+changed (`buildMatchContext` copies the bills and their payment lists).
+
+**Accounted.** `accounted` is computed from the data by `accountingReport`, which lists each broken condition in plain
+English and is empty when all hold:
+
+1. every row has exactly one valid state that agrees with its decision (ALREADY_IMPORTED has none);
+2. the summary counts and totals equal a fresh count of the rows;
+3. the four states add up to the valid rows, and valid plus invalid rows equal the rows read;
+4. every AUTO_MATCHED row has a plan with exactly one PAYMENT equal to its credit;
+5. `entriesToPost` is exactly those plans, in row order, with unique idempotency keys;
+6. no two processed rows share a dedupe key.
+
+**Entries.** `entriesToPost` holds the LATE_FEE and PAYMENT entries of the AUTO_MATCHED rows only. Each has the row
+number, the flat code, the bill key, the amount, the effective date and the idempotency key
+`bank:<dedupeKey>:<entryType>`.
+
+### How the database layer will use it (not built yet)
+
+1. Read the file with `parseStatementCsv`. Record the import in `statement_imports`, with the row errors.
+2. Open one transaction. Take a lock that keeps other imports and manual matches away from the same bills: an
+   advisory lock for the society, or `SELECT ... FOR UPDATE` on the open bills. Inside the lock, load the flats with
+   their open bills, residents and known payers, and the existing `bank_rows.dedupe_key` values that match the file's
+   keys, as `alreadyImportedKeys`.
+3. Call `processStatement`. If `accounted` is false, roll back and report `accountingReport`; do not write anything.
+4. In the same transaction write: a `bank_rows` row for every row that is not ALREADY_IMPORTED, in its state
+   (`AUTO_MATCHED`, `QUEUED` or `IGNORED`; ALREADY_IMPORTED rows are not stored again); the `ledger_entries` of
+   `entriesToPost`, using the idempotency key as `ledger_entries.idempotency_key`; the `payment_matches` rows of the
+   AUTO_MATCHED rows; and an `accounts_queue_items` row for each QUEUED row.
+5. Commit. The unique indexes on `bank_rows.dedupe_key` and the idempotency key are the final guard: if two imports race, one
+   fails with a unique violation. The loser retries from step 2. The result is the same because the processor is deterministic.
+
 ## Invariants and their tests
 
 | Id | Invariant | Tests |
@@ -164,6 +227,21 @@ Example, T12-0408 on 2026-10-27 paying 646,800 paise: `[LATE_FEE 9800, PAYMENT 6
 | X10 | Reasons, plans, confidence, ordering, the cap of 5 | `demo-scenarios.test.ts` |
 | X11 | Speed and purity | `demo-scenarios.test.ts`, `purity.test.ts` |
 
+Statement processor (`processor-invariants.test.ts`, with `processor.test.ts` and `processor-state.test.ts`):
+
+| Id | Invariant |
+|---|---|
+| Y1 | Conservation: every row has one state and `accounted` is true; a corrupted copy is not accounted for |
+| Y2 | Idempotence: a second run with the first run's keys is all ALREADY_IMPORTED; overlapping files skip the shared rows |
+| Y3 | Two identical cash deposits are both processed; a re-import skips both |
+| Y4 | State: two rows paying one bill, the second is queued; a bill is never auto-posted twice or for more than was unpaid |
+| Y5 | The input is never changed |
+| Y6 | The same input, or the rows reversed, give equal output |
+| Y7 | Invalid rows are counted and never dropped |
+| Y8 | Entries reconcile to the auto-matched total, with unique idempotency keys |
+| Y9 | 5,000 rows against the 2,400-flat demo society, about 0.9 s (the test budget is 6 s) |
+| Y10 | `processor.ts` is pure |
+
 Rule-by-rule tests: `decide.test.ts`, `evidence.test.ts`, `amounts.test.ts`, `plan.test.ts`, `match-context.test.ts`.
 
 **Why names alone and amounts alone never auto-match (X3).** Two people can share a name, the person who
@@ -177,13 +255,16 @@ amount, and one flat owing an amount today does not make it the payer.
 | NAME evidence counted as identity | X3 (two tests), the M6 name test, the T15-0902 scenario, the 2,000-row check |
 | Drop the "no other flat" family (M4a, the second code in M4b, M4d) | X1 (two tests), M4a, M4b and M4d tests |
 | Allow AUTO at or above the threshold | X6 (two tests), two M8 tests in `decide.test.ts` |
+| Remove M4h (the note rule) | the five M4h tests that queue ADV, advance, 3 months, 3 mths and 2 month |
+| The processor does not record the payment on its copy | Y4 (7 tests), 4 state tests, the accounted and the example tests: 13 in all |
+| The summary leaves out ALREADY_IMPORTED rows | Y1 (4 chunks), Y2 (2), Y7, Y9 and the summary example: 9 in all |
 
 Dropping M4a alone changes the shape of an M5 decision but no AUTO result, because M4b and M4d still guard it.
 
 ## What the matcher does not do
 
 - It does not post anything. It returns a decision and a plan.
-- It does not know what earlier rows in the same file did. See C1 below.
+- `matchRow` alone does not know what earlier rows in the same file did. `processStatement` does, and applies each automatic match before the next row (C1).
 - It reads only two narration hints, `advance` and a month count above 1 (M4h). It ignores `rent` and `maintenance`.
 - It does not handle multi-bill, advance or partial payments except by queueing them.
 - It does not use holds. A payment attempt in progress is ignored here.
@@ -191,9 +272,7 @@ Dropping M4a alone changes the shape of an M5 decision but no AUTO result, becau
 
 ## Assumptions
 
-- **C1.** The matcher is stateless. Rows in one file are decided against one context, so two rows that each pay the
-  oldest bill of a flat would both auto-match. The statement processor (T7c) must rebuild the context, or remove a bill from it,
-  after each posted row. Identical rows get different dedupe keys by design (see `docs/bank-statements.md`).
+- **C1.** `matchRow` is stateless: two rows that each pay a flat's oldest bill would both auto-match. `processStatement` resolves this by recording each automatic match on its own copy of the bills before the next row is decided. Anything that calls `matchRow` in a loop must do the same.
 - **C2.** Multi-bill, advance and partial payments are never auto-posted in this version. Only the exact amount due on the oldest open bill is.
 - **C3.** A shared UPI id blocks AUTO even when a code names one of its flats. This is stricter than M4c alone, so X2 has no exception.
 - **C4.** An ambiguous flat token is not identity. Its flats are listed as weak candidates with `CODE_AMBIGUOUS`, and the row is queued.
@@ -210,3 +289,11 @@ Dropping M4a alone changes the shape of an M5 decision but no AUTO result, becau
 - **C15.** Resident names are the members of the flat whose membership has not ended. Which people count is the caller's choice.
 - **C16.** The scores are for ranking only and are not tuned to any data.
 - **C17.** A narration that says "advance", "adv" or a month count above 1 ("3 months", "3 mths", "2 month") is never auto-matched (M4h), even when a code names the flat and the credit is exactly the amount due: the note and the amount disagree, so a person looks. "1 month" and "maint" do not block. A month count above 24 is not read as a count (`docs/bank-statements.md`, B14), so it does not block.
+- **C18.** `invalidRows` counts distinct row numbers among the CSV errors, so one row with two errors is one invalid row. A file-level error (row 0, the header) counts as one. `rowsRead` is valid plus invalid rows.
+- **C19.** A repeated payment reference inside one input is the same payment, so the second row is ALREADY_IMPORTED. A repeated row with no reference (cash) is a second payment and gets occurrence 2.
+- **C20.** The occurrence counter depends on the order in the file. If two identical cash rows fall one in each of two overlapping files, the one in the second file is read as occurrence 1 and so looks already imported. Cash rows with a slip number do not have this problem.
+- **C21.** The payment the processor records on a bill is the whole PAYMENT amount (principal plus fee), as the seed posts it, so the bill's principal is covered.
+- **C22.** A row dated before a payment already on the bill is decided as of the row's date (C7), so it can be auto-matched for the full amount due on that date although a later payment exists. The database layer should pass bills as they stood on the statement's period, or refuse a statement older than the last posted payment.
+- **C23.** `processStatement` throws `RangeError` for a repeated flat code, a bad bill, bad settings or a negative amount. The database layer validates before calling it.
+- **C24.** The result also holds `csvErrors`, `accounted` and each row's `creditPaise`, so `accountingReport` can check it on its own.
+- **C25.** Holds are not read. Whether a payment attempt is unresolved on a bill is the database layer's question.

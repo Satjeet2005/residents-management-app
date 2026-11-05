@@ -44,6 +44,6 @@ These are numbered inside their own files. Read them there.
 | `docs/seed-data.md` | A1 to A12 | Flats, owners, phones, payments and bills in the seed. |
 | `docs/seed-data.md` | A13 to A26 | Complaints, visitors, payers, notifications and the quota fix. |
 | `docs/late-fee-policy.md` | A1 to A10 | Holds, skipped days, payment dates, rounding, calendar range. |
-| `docs/matching-design.md` | C1 to C17 | The matcher: one-bill-at-a-time rule, shared ids, ambiguous tokens, scores, plans. |
+| `docs/matching-design.md` | C1 to C25 | The matcher and the statement processor: one-bill-at-a-time rule, shared ids, ambiguous tokens, notes, scores, plans, dedupe, state. |
 | `docs/bank-statements.md` | B1 to B16 | The CSV reader, narration parser, flat codes, names and dedupe keys. |
 | `docs/design-system.md` | A1 to A10 | Colours, radii, tracker markers, fonts, spacing, motion, placeholder translations. |
