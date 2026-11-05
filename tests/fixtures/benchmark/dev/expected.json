@@ -1,0 +1,501 @@
+{
+ "set": "dev",
+ "rowsPerStatement": 2000,
+ "populationDigests": {
+  "101": "a2b57a29b0c5d3f02ec7d44bf2e2d5490d5b9323986e3ecbfbe00f414fec38d1",
+  "102": "59dfba9a6d8404c8095b60ec302971f46bdfa25f844a34fe45034cfdaab565ec",
+  "103": "e8537709de36a15a9648073748b17287f9cf9b7977d94609d7abbc3c2717ddd1",
+  "104": "e603ba7f42240d73ce491779466907dd47ce6bcf21b1898b66a38e068a50e0f1",
+  "105": "f3bf53b86fd6b64036d6e526e539da504dd5cf31877c82699f9792b085e57d9a"
+ },
+ "statements": {
+  "101": {
+   "rows": 2000,
+   "credits": 1463,
+   "autoMatched": 66,
+   "queued": 1365,
+   "ignored": 569,
+   "alreadyImported": 0,
+   "trueAuto": 66,
+   "falseAuto": 0,
+   "matchable": 375,
+   "precision": 1,
+   "recall": 0.176,
+   "autoRate": 0.045112781954887216,
+   "queueRate": 0.9084073820915927,
+   "top1": 0.5275080906148867,
+   "top5": 0.6407766990291263,
+   "wrongIgnores": 0,
+   "notMaintenanceNotIgnored": 714,
+   "accounted": true,
+   "queueReasons": {
+    "ABOVE_THRESHOLD": 147,
+    "AMOUNT_EQUALS_DUE": 119,
+    "AMOUNT_LESS": 53,
+    "AMOUNT_MORE": 152,
+    "AMOUNT_PRINCIPAL_ONLY": 34,
+    "CHEQUE_RETURN": 36,
+    "CODE_AMBIGUOUS": 4,
+    "CODE_CONFLICT": 18,
+    "CODE_FOUND": 342,
+    "HINT_CONFLICT": 53,
+    "LATER_PAYMENT": 14,
+    "MULTIPLE_FLATS_OWE": 288,
+    "NAME_EXACT": 231,
+    "NAME_INITIAL": 62,
+    "NAME_TRUNCATED": 22,
+    "NEEDS_SECOND_SIGNAL": 278,
+    "NO_MATCH": 474,
+    "NO_OPEN_BILL": 191,
+    "PAYER_KNOWN": 39,
+    "PAYER_SHARED": 5
+   },
+   "confusions": [
+    {
+     "truth": "NOT_MAINTENANCE",
+     "decision": "QUEUED/NONE",
+     "count": 423
+    },
+    {
+     "truth": "NOT_MAINTENANCE",
+     "decision": "QUEUED/LOW",
+     "count": 231
+    },
+    {
+     "truth": "PAYS_BILL",
+     "decision": "QUEUED/LOW",
+     "count": 175
+    },
+    {
+     "truth": "PAYS_BILL",
+     "decision": "QUEUED/MEDIUM",
+     "count": 134
+    },
+    {
+     "truth": "ADVANCE",
+     "decision": "QUEUED/MEDIUM",
+     "count": 65
+    },
+    {
+     "truth": "PARTIAL",
+     "decision": "QUEUED/MEDIUM",
+     "count": 63
+    },
+    {
+     "truth": "NOT_MAINTENANCE",
+     "decision": "QUEUED/MEDIUM",
+     "count": 60
+    },
+    {
+     "truth": "AMBIGUOUS_INTENT",
+     "decision": "QUEUED/MEDIUM",
+     "count": 44
+    },
+    {
+     "truth": "PARTIAL",
+     "decision": "QUEUED/LOW",
+     "count": 33
+    },
+    {
+     "truth": "ADVANCE",
+     "decision": "QUEUED/NONE",
+     "count": 32
+    }
+   ],
+   "falseAutoRows": []
+  },
+  "102": {
+   "rows": 2000,
+   "credits": 1453,
+   "autoMatched": 66,
+   "queued": 1355,
+   "ignored": 579,
+   "alreadyImported": 0,
+   "trueAuto": 66,
+   "falseAuto": 0,
+   "matchable": 339,
+   "precision": 1,
+   "recall": 0.19469026548672566,
+   "autoRate": 0.04542326221610461,
+   "queueRate": 0.9022711631108052,
+   "top1": 0.5897435897435898,
+   "top5": 0.6593406593406593,
+   "wrongIgnores": 0,
+   "notMaintenanceNotIgnored": 687,
+   "accounted": true,
+   "queueReasons": {
+    "ABOVE_THRESHOLD": 134,
+    "AMOUNT_EQUALS_DUE": 105,
+    "AMOUNT_LESS": 43,
+    "AMOUNT_MORE": 179,
+    "AMOUNT_PRINCIPAL_ONLY": 31,
+    "CHEQUE_RETURN": 44,
+    "CODE_AMBIGUOUS": 6,
+    "CODE_CONFLICT": 21,
+    "CODE_FOUND": 326,
+    "HINT_CONFLICT": 66,
+    "LATER_PAYMENT": 11,
+    "MULTIPLE_FLATS_OWE": 273,
+    "NAME_EXACT": 245,
+    "NAME_INITIAL": 81,
+    "NAME_TRUNCATED": 26,
+    "NEEDS_SECOND_SIGNAL": 248,
+    "NO_MATCH": 480,
+    "NO_OPEN_BILL": 179,
+    "PAYER_KNOWN": 29,
+    "PAYER_SHARED": 4
+   },
+   "confusions": [
+    {
+     "truth": "NOT_MAINTENANCE",
+     "decision": "QUEUED/NONE",
+     "count": 418
+    },
+    {
+     "truth": "NOT_MAINTENANCE",
+     "decision": "QUEUED/LOW",
+     "count": 221
+    },
+    {
+     "truth": "PAYS_BILL",
+     "decision": "QUEUED/LOW",
+     "count": 156
+    },
+    {
+     "truth": "PAYS_BILL",
+     "decision": "QUEUED/MEDIUM",
+     "count": 117
+    },
+    {
+     "truth": "ADVANCE",
+     "decision": "QUEUED/MEDIUM",
+     "count": 79
+    },
+    {
+     "truth": "PARTIAL",
+     "decision": "QUEUED/MEDIUM",
+     "count": 52
+    },
+    {
+     "truth": "AMBIGUOUS_INTENT",
+     "decision": "QUEUED/MEDIUM",
+     "count": 49
+    },
+    {
+     "truth": "NOT_MAINTENANCE",
+     "decision": "QUEUED/MEDIUM",
+     "count": 48
+    },
+    {
+     "truth": "ADVANCE",
+     "decision": "QUEUED/NONE",
+     "count": 37
+    },
+    {
+     "truth": "AMBIGUOUS_INTENT",
+     "decision": "QUEUED/LOW",
+     "count": 37
+    }
+   ],
+   "falseAutoRows": []
+  },
+  "103": {
+   "rows": 2000,
+   "credits": 1476,
+   "autoMatched": 66,
+   "queued": 1389,
+   "ignored": 545,
+   "alreadyImported": 0,
+   "trueAuto": 66,
+   "falseAuto": 0,
+   "matchable": 348,
+   "precision": 1,
+   "recall": 0.1896551724137931,
+   "autoRate": 0.044715447154471545,
+   "queueRate": 0.9092140921409214,
+   "top1": 0.549645390070922,
+   "top5": 0.6737588652482269,
+   "wrongIgnores": 0,
+   "notMaintenanceNotIgnored": 737,
+   "accounted": true,
+   "queueReasons": {
+    "ABOVE_THRESHOLD": 158,
+    "AMOUNT_EQUALS_DUE": 113,
+    "AMOUNT_LESS": 53,
+    "AMOUNT_MORE": 172,
+    "AMOUNT_PRINCIPAL_ONLY": 30,
+    "CHEQUE_RETURN": 47,
+    "CODE_AMBIGUOUS": 3,
+    "CODE_CONFLICT": 17,
+    "CODE_FOUND": 349,
+    "HINT_CONFLICT": 61,
+    "LATER_PAYMENT": 14,
+    "MULTIPLE_FLATS_OWE": 254,
+    "NAME_EXACT": 238,
+    "NAME_INITIAL": 62,
+    "NAME_TRUNCATED": 33,
+    "NEEDS_SECOND_SIGNAL": 290,
+    "NO_MATCH": 496,
+    "NO_OPEN_BILL": 208,
+    "PAYER_KNOWN": 38,
+    "PAYER_SHARED": 4
+   },
+   "confusions": [
+    {
+     "truth": "NOT_MAINTENANCE",
+     "decision": "QUEUED/NONE",
+     "count": 441
+    },
+    {
+     "truth": "NOT_MAINTENANCE",
+     "decision": "QUEUED/LOW",
+     "count": 229
+    },
+    {
+     "truth": "PAYS_BILL",
+     "decision": "QUEUED/LOW",
+     "count": 150
+    },
+    {
+     "truth": "PAYS_BILL",
+     "decision": "QUEUED/MEDIUM",
+     "count": 132
+    },
+    {
+     "truth": "ADVANCE",
+     "decision": "QUEUED/MEDIUM",
+     "count": 76
+    },
+    {
+     "truth": "NOT_MAINTENANCE",
+     "decision": "QUEUED/MEDIUM",
+     "count": 67
+    },
+    {
+     "truth": "PARTIAL",
+     "decision": "QUEUED/MEDIUM",
+     "count": 53
+    },
+    {
+     "truth": "AMBIGUOUS_INTENT",
+     "decision": "QUEUED/MEDIUM",
+     "count": 47
+    },
+    {
+     "truth": "PARTIAL",
+     "decision": "QUEUED/LOW",
+     "count": 36
+    },
+    {
+     "truth": "ADVANCE",
+     "decision": "QUEUED/NONE",
+     "count": 32
+    }
+   ],
+   "falseAutoRows": []
+  },
+  "104": {
+   "rows": 2000,
+   "credits": 1469,
+   "autoMatched": 49,
+   "queued": 1381,
+   "ignored": 570,
+   "alreadyImported": 0,
+   "trueAuto": 49,
+   "falseAuto": 0,
+   "matchable": 349,
+   "precision": 1,
+   "recall": 0.14040114613180515,
+   "autoRate": 0.033356024506466984,
+   "queueRate": 0.9094622191967324,
+   "top1": 0.5666666666666667,
+   "top5": 0.6733333333333333,
+   "wrongIgnores": 0,
+   "notMaintenanceNotIgnored": 685,
+   "accounted": true,
+   "queueReasons": {
+    "ABOVE_THRESHOLD": 149,
+    "AMOUNT_EQUALS_DUE": 111,
+    "AMOUNT_LESS": 56,
+    "AMOUNT_MORE": 156,
+    "AMOUNT_PRINCIPAL_ONLY": 25,
+    "CHEQUE_RETURN": 45,
+    "CODE_AMBIGUOUS": 4,
+    "CODE_CONFLICT": 25,
+    "CODE_FOUND": 345,
+    "HINT_CONFLICT": 66,
+    "LATER_PAYMENT": 9,
+    "MULTIPLE_FLATS_OWE": 274,
+    "NAME_EXACT": 226,
+    "NAME_INITIAL": 59,
+    "NAME_TRUNCATED": 22,
+    "NEEDS_SECOND_SIGNAL": 285,
+    "NO_MATCH": 502,
+    "NO_OPEN_BILL": 187,
+    "PAYER_KNOWN": 46,
+    "PAYER_SHARED": 8
+   },
+   "confusions": [
+    {
+     "truth": "NOT_MAINTENANCE",
+     "decision": "QUEUED/NONE",
+     "count": 424
+    },
+    {
+     "truth": "NOT_MAINTENANCE",
+     "decision": "QUEUED/LOW",
+     "count": 210
+    },
+    {
+     "truth": "PAYS_BILL",
+     "decision": "QUEUED/LOW",
+     "count": 165
+    },
+    {
+     "truth": "PAYS_BILL",
+     "decision": "QUEUED/MEDIUM",
+     "count": 135
+    },
+    {
+     "truth": "ADVANCE",
+     "decision": "QUEUED/MEDIUM",
+     "count": 83
+    },
+    {
+     "truth": "PARTIAL",
+     "decision": "QUEUED/MEDIUM",
+     "count": 62
+    },
+    {
+     "truth": "ADVANCE",
+     "decision": "QUEUED/NONE",
+     "count": 53
+    },
+    {
+     "truth": "NOT_MAINTENANCE",
+     "decision": "QUEUED/MEDIUM",
+     "count": 51
+    },
+    {
+     "truth": "AMBIGUOUS_INTENT",
+     "decision": "QUEUED/MEDIUM",
+     "count": 39
+    },
+    {
+     "truth": "PARTIAL",
+     "decision": "QUEUED/LOW",
+     "count": 38
+    }
+   ],
+   "falseAutoRows": []
+  },
+  "105": {
+   "rows": 2000,
+   "credits": 1450,
+   "autoMatched": 51,
+   "queued": 1363,
+   "ignored": 586,
+   "alreadyImported": 0,
+   "trueAuto": 51,
+   "falseAuto": 0,
+   "matchable": 351,
+   "precision": 1,
+   "recall": 0.1452991452991453,
+   "autoRate": 0.03517241379310345,
+   "queueRate": 0.9124137931034483,
+   "top1": 0.5933333333333334,
+   "top5": 0.68,
+   "wrongIgnores": 0,
+   "notMaintenanceNotIgnored": 689,
+   "accounted": true,
+   "queueReasons": {
+    "ABOVE_THRESHOLD": 135,
+    "AMOUNT_EQUALS_DUE": 124,
+    "AMOUNT_LESS": 55,
+    "AMOUNT_MORE": 163,
+    "AMOUNT_PRINCIPAL_ONLY": 27,
+    "CHEQUE_RETURN": 40,
+    "CODE_AMBIGUOUS": 2,
+    "CODE_CONFLICT": 16,
+    "CODE_FOUND": 362,
+    "HINT_CONFLICT": 72,
+    "LATER_PAYMENT": 14,
+    "MULTIPLE_FLATS_OWE": 268,
+    "NAME_EXACT": 233,
+    "NAME_INITIAL": 73,
+    "NAME_TRUNCATED": 32,
+    "NEEDS_SECOND_SIGNAL": 291,
+    "NO_MATCH": 475,
+    "NO_OPEN_BILL": 195,
+    "PAYER_KNOWN": 50,
+    "PAYER_SHARED": 3
+   },
+   "confusions": [
+    {
+     "truth": "NOT_MAINTENANCE",
+     "decision": "QUEUED/NONE",
+     "count": 421
+    },
+    {
+     "truth": "NOT_MAINTENANCE",
+     "decision": "QUEUED/LOW",
+     "count": 210
+    },
+    {
+     "truth": "PAYS_BILL",
+     "decision": "QUEUED/LOW",
+     "count": 161
+    },
+    {
+     "truth": "PAYS_BILL",
+     "decision": "QUEUED/MEDIUM",
+     "count": 139
+    },
+    {
+     "truth": "ADVANCE",
+     "decision": "QUEUED/MEDIUM",
+     "count": 90
+    },
+    {
+     "truth": "NOT_MAINTENANCE",
+     "decision": "QUEUED/MEDIUM",
+     "count": 58
+    },
+    {
+     "truth": "PARTIAL",
+     "decision": "QUEUED/MEDIUM",
+     "count": 57
+    },
+    {
+     "truth": "PARTIAL",
+     "decision": "QUEUED/LOW",
+     "count": 43
+    },
+    {
+     "truth": "AMBIGUOUS_INTENT",
+     "decision": "QUEUED/MEDIUM",
+     "count": 41
+    },
+    {
+     "truth": "ADVANCE",
+     "decision": "QUEUED/NONE",
+     "count": 33
+    }
+   ],
+   "falseAutoRows": []
+  }
+ },
+ "pooled": {
+  "statements": 5,
+  "rows": 10000,
+  "credits": 7311,
+  "autoMatched": 298,
+  "trueAuto": 298,
+  "falseAuto": 0,
+  "matchable": 1762,
+  "precision": 1,
+  "recall": 0.16912599318955732,
+  "autoRate": 0.04076049787990699,
+  "wrongIgnores": 0
+ }
+}
