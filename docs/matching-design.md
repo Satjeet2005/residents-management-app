@@ -265,11 +265,11 @@ amount, and one flat owing an amount today does not make it the payer.
 
 | Change | Failing tests |
 |---|---|
-| NAME evidence counted as identity | X3 (two tests), the M6 name test, the T15-0902 scenario, the 2,000-row check |
-| Drop the "no other flat" family (M4a, the second code in M4b, M4d) | X1 (two tests), M4a, M4b and M4d tests |
+| NAME evidence counted as identity | X3 (two tests), the M6 name test, the M4j "name of another flat" test, the T15-0902 scenario, the 2,000-row check, five evaluate tests |
+| Drop the "no other flat" family (M4a, the second code in M4b, M4d) | the two M4b tests (ambiguous token, code for a flat that is not in the society), the M4d test for a code that is not in the society, and X4 "not even with a payer that agrees". These tests give the flat a second signal, so M4j does not hide the rule they test |
 | Allow AUTO at or above the threshold | X6 (two tests), two M8 tests in `decide.test.ts` |
 | Remove M4i (the later-payment rule) | the M4i tests (before the payment, no reason without a flat) and the Z2 safety chunks |
-| Remove M4j (the second signal) | the M4j tests (code alone, a name of another flat, a payer alone) and the two demo scenarios that expect a code-only row to queue |
+| Remove M4j (the second signal) | the M4j tests (code alone, a name of another flat, a payer alone), the two demo scenarios that expect a code-only row to queue, and the C26 order test |
 | Remove M4h (the note rule) | the five M4h tests that queue ADV, advance, 3 months, 3 mths and 2 month |
 | The processor does not record the payment on its copy | Y4 (the two-row test and every random chunk), 4 state tests, the accounted and the example tests |
 | The summary leaves out ALREADY_IMPORTED rows | Y1 (every chunk), Y2 (both tests), Y7, Y9 and the summary example |

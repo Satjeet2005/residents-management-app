@@ -95,14 +95,14 @@ describe("M4: an automatic match needs every condition", () => {
     expect(codes(d)).toContain("CODE_CONFLICT");
   });
 
-  it("M4b an ambiguous flat token queues it", () => {
-    const d = decide("UPI/402200118877/T12 408 T1 1101", 646800n);
+  it("M4b an ambiguous flat token queues it, though the amount is unique to the flat", () => {
+    const d = decide("UPI/402200118877/T12 408 T1 1101", 646800n, { flats: [FLATS[0]] });
     expect(d.kind).toBe("QUEUE");
     expect(codes(d)).toContain("CODE_AMBIGUOUS");
   });
 
   it("M4b a code for a flat that is not in the society, beside a real one, queues it", () => {
-    expect(decide("UPI/402200118877/T12 408 T28 1608", 646800n).kind).toBe("QUEUE");
+    expect(decide("UPI/402200118877/T12 408 T28 1608", 646800n, { flats: [FLATS[0]] }).kind).toBe("QUEUE");
   });
 
   it("M4c/M9 a UPI id that two flats list is never a payer, and never auto", () => {
