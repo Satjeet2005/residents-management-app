@@ -256,8 +256,8 @@ amount, and one flat owing an amount today does not make it the payer.
 | Drop the "no other flat" family (M4a, the second code in M4b, M4d) | X1 (two tests), M4a, M4b and M4d tests |
 | Allow AUTO at or above the threshold | X6 (two tests), two M8 tests in `decide.test.ts` |
 | Remove M4h (the note rule) | the five M4h tests that queue ADV, advance, 3 months, 3 mths and 2 month |
-| The processor does not record the payment on its copy | Y4 (7 tests), 4 state tests, the accounted and the example tests: 13 in all |
-| The summary leaves out ALREADY_IMPORTED rows | Y1 (4 chunks), Y2 (2), Y7, Y9 and the summary example: 9 in all |
+| The processor does not record the payment on its copy | Y4 (the two-row test and every random chunk), 4 state tests, the accounted and the example tests |
+| The summary leaves out ALREADY_IMPORTED rows | Y1 (every chunk), Y2 (both tests), Y7, Y9 and the summary example |
 
 Dropping M4a alone changes the shape of an M5 decision but no AUTO result, because M4b and M4d still guard it.
 
