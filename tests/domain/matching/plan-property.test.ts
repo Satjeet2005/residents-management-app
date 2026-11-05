@@ -33,9 +33,10 @@ function expectedDue(flat: FlatContext, txnDate: string) {
 }
 
 describe("X9 plan reconciliation", () => {
-  it("500 random flats and dates: every AUTO row has one PAYMENT equal to the credit and a LATE_FEE equal to computeLateFee", () => {
+  it("500 random flats and dates: every AUTO row has one PAYMENT equal to the credit and a LATE_FEE equal to computeLateFee, and a later payment queues", () => {
     const rng = createPrng(20261105);
     let autos = 0;
+    let later = 0;
     for (let i = 0; i < 500; i++) {
       const { flat, txnDate } = randomCase(rng, i);
       const expected = expectedDue(flat, txnDate);
@@ -44,6 +45,13 @@ describe("X9 plan reconciliation", () => {
       const context = buildMatchContext([flat]);
       const narration = "UPI/402200118877/T12 408/maint";
       const d = matchRow(context, { txnDate, narrationRaw: narration, creditPaise: credit, debitPaise: 0n }, parseNarration(narration));
+      if (expected.bill.paymentsOnBill.some((p) => p.date > txnDate)) {
+        // M4i: a payment dated after the row is already on the bill, so a person checks the order.
+        expect(d).toMatchObject({ kind: "QUEUE", plan: null });
+        expect(d.reasons.map((r) => r.code)).toContain("LATER_PAYMENT");
+        later++;
+        continue;
+      }
       expect(d.kind).toBe("AUTO_MATCH");
       autos++;
       const plan = d.plan?.entries ?? [];
@@ -56,7 +64,8 @@ describe("X9 plan reconciliation", () => {
       expect(plan.every((e) => e.billKey === expected.bill.billKey && e.effectiveDate === txnDate)).toBe(true);
       expect(plan.map((e) => e.entryType)).toEqual(fees.length === 1 ? ["LATE_FEE", "PAYMENT"] : ["PAYMENT"]);
     }
-    expect(autos).toBeGreaterThan(400);
+    expect(autos).toBeGreaterThan(250);
+    expect(later).toBeGreaterThan(10);
   });
 
   it("a credit one paisa off the amount due is never AUTO, and planPayment refuses it", () => {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { computeLateFee, defaultLateFeePolicy } from "@/domain/billing/late-fee";
 import { buildMatchContext, defaultMatchSettings } from "@/domain/matching/context";
 import { DECISION_RULES, matchRow } from "@/domain/matching/decide";
 import { parseNarration } from "@/domain/matching/narration";
@@ -158,6 +159,49 @@ describe("M4h: a note that says advance or several months blocks an automatic ma
 
   it.each(["1 month", "maint", "rent 1 mth"])("the note %s does not stop an automatic match", (note) => {
     expect(decide(`UPI/402200118877/T12 408/${note}`, 646800n).kind).toBe("AUTO_MATCH");
+  });
+});
+
+describe("M4i: a payment dated after the row blocks an automatic match", () => {
+  const PAID_LATER = bill("sep", 637000n, "2026-09-10", [{ date: "2026-10-20", amountPaise: 100000n }]);
+  const flats = [flat("T12-0408", { bills: [PAID_LATER] })];
+  const dueOn = (asOf: string): bigint => {
+    const result = computeLateFee({ billAmountPaise: 637000n, dueOn: "2026-09-10", asOf, payments: asOf >= "2026-10-20" ? [{ date: "2026-10-20", amountPaise: 100000n }] : [], holds: [], policy: defaultLateFeePolicy });
+    return result.outstandingPaise + result.feePaise;
+  };
+  const rowOn = (date: string, credit: bigint): RowDecision => {
+    const narration = "UPI/402200118877/T12 408/maint";
+    return matchRow(buildMatchContext(flats), { txnDate: date, narrationRaw: narration, creditPaise: credit, debitPaise: 0n }, parseNarration(narration));
+  };
+
+  it("a row dated before the posted payment is queued with the reason, though its amount equals the due of its own date", () => {
+    expect(dueOn("2026-10-15")).toBe(644300n);
+    const d = rowOn("2026-10-15", 644300n);
+    expect(d).toMatchObject({ kind: "QUEUE", confidence: "MEDIUM", flatCode: "T12-0408", plan: null });
+    expect(d.reasons).toContainEqual({ code: "LATER_PAYMENT", text: "This bill already has a payment dated after this row, so a person must check the order." });
+    expect(d.reasons.map((r) => r.code)).toContain("AMOUNT_EQUALS_DUE");
+  });
+
+  it("a row dated after the payment posts as before", () => {
+    expect(rowOn("2026-10-27", dueOn("2026-10-27")).kind).toBe("AUTO_MATCH");
+  });
+
+  it("a row dated the same day as the payment posts: a payment on or before the row's date is fine", () => {
+    expect(rowOn("2026-10-20", dueOn("2026-10-20")).kind).toBe("AUTO_MATCH");
+  });
+
+  it("a later payment on a newer bill does not block a row for the oldest bill", () => {
+    const two = [flat("T12-0408", { bills: [bill("sep", 637000n, "2026-09-10"), bill("oct", 637000n, "2026-10-10", [{ date: "2026-10-20", amountPaise: 100000n }])] })];
+    const narration = "UPI/402200118877/T12 408/maint";
+    const d = matchRow(buildMatchContext(two), { txnDate: "2026-10-15", narrationRaw: narration, creditPaise: 644300n, debitPaise: 0n }, parseNarration(narration));
+    expect(d.kind).toBe("AUTO_MATCH");
+  });
+
+  it("does not add the reason to a row that no flat is named for", () => {
+    const d = rowOn("2026-10-15", 644300n);
+    const stranger = matchRow(buildMatchContext(flats), { txnDate: "2026-10-15", narrationRaw: "UPI/402200118877/stranger@zzz", creditPaise: 644300n, debitPaise: 0n }, parseNarration("UPI/402200118877/stranger@zzz"));
+    expect(d.reasons.map((r) => r.code)).toContain("LATER_PAYMENT");
+    expect(stranger.reasons.map((r) => r.code)).not.toContain("LATER_PAYMENT");
   });
 });
 

@@ -21,7 +21,7 @@ export type GenerateOptions = {
   referenceBase?: number;
 };
 
-const row = (rowNumber: number, txnDate: string, narrationRaw: string, creditPaise: bigint, debitPaise = 0n): StatementRow => ({
+export const row = (rowNumber: number, txnDate: string, narrationRaw: string, creditPaise: bigint, debitPaise = 0n): StatementRow => ({
   rowNumber,
   txnDate,
   valueDate: null,

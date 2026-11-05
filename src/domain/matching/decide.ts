@@ -1,4 +1,5 @@
 import { formatRupees } from "../money/money";
+import { oldestDue } from "./amounts";
 import { evidenceReason, amountReason, FIXED_REASONS, reason, uniqueReasons } from "./reasons";
 import { gatherEvidence, hasIdentity, type Evidence } from "./evidence";
 import type { ParsedNarration } from "./narration";
@@ -127,6 +128,18 @@ export const AUTO_CONDITIONS: readonly AutoCondition[] = [
     holds: (_facts, { parsed }) => !parsed.hints.advance && (parsed.months === null || parsed.months === 1),
     whyNot: () => [FIXED_REASONS.hintConflict],
   },
+  {
+    id: "M4i",
+    title: "The flat's oldest open bill has no payment dated after the row",
+    holds: ({ primary }, { context, row }) => {
+      if (primary === null) return true; // M4a already blocks a row with no single flat
+      const flat = context.flatsByCode.get(primary.flatCode) as FlatContext;
+      const due = oldestDue(flat.openBills, row.txnDate, context.settings.lateFeePolicy, context.caches.fees);
+      const bill = due === null ? undefined : flat.openBills.find((b) => b.billKey === due.billKey);
+      return bill === undefined || !bill.paymentsOnBill.some((payment) => payment.date > row.txnDate);
+    },
+    whyNot: () => [FIXED_REASONS.laterPayment],
+  },
 ];
 
 function factsOf(input: RuleInput): Facts {
@@ -141,7 +154,7 @@ function evidenceReasons(candidate: Candidate, parsed: ParsedNarration): Reason[
 
 const M4: Rule = {
   id: "M4",
-  title: "Automatic match: every condition M4a to M4h and M8 holds",
+  title: "Automatic match: every condition M4a to M4i and M8 holds",
   decide: (input) => {
     const facts = factsOf(input);
     const { primary } = facts;

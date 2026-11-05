@@ -11,6 +11,7 @@ export const FIXED_REASONS = {
   manyCodes: reason("CODE_CONFLICT", "The narration names more than one flat code"),
   aboveThreshold: reason("ABOVE_THRESHOLD", "Needs a second approver when posted"),
   hintConflict: reason("HINT_CONFLICT", "The note says advance or several months, but the amount equals one bill."),
+  laterPayment: reason("LATER_PAYMENT", "This bill already has a payment dated after this row, so a person must check the order."),
   chequeReturnDebit: reason("CHEQUE_RETURN", "Cheque returned: a person must reverse the matching payment"),
   chequeReturnCredit: reason("CHEQUE_RETURN", "Narration says a cheque was returned: a person must check it"),
   debit: reason("DEBIT", "Money went out of the account, so it is not a maintenance payment"),
