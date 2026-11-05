@@ -34,6 +34,9 @@ Decision numbers (D4, D14 and so on) refer to `docs/decisions.md`.
 | R18 | Radii are 8 px for controls and 12 px for sheets. | `--radius-control` and `--radius-sheet` in `src/app/globals.css`; `docs/design-system.md` (A2). | Edit the two tokens. |
 | R19 | `paper-2` is `#F1EBDC`, chosen so that ink on it has a contrast of at least 12:1. | `--color-paper-2` in `src/app/globals.css`; `tests/ui/token-contrast.test.ts`; `docs/design-system.md` (A1). | Edit the token. The contrast test fails if the readability drops. |
 | R20 | The emergency services number is not set in the demo (the setting is null), so a screen must show the fallback number and not a made-up one. | Setting `emergency_services_phone` in `src/domain/seed/settings.ts`. The screen: not built yet. | Set the setting. |
+| R21 | One-time code defaults: 6 digits, 300 s life, 5 attempts, 30 s resend cooldown, 5 codes per phone and 30 per address an hour. They are the human's confirmed defaults. | `authPolicy.otp` in `src/domain/auth/policy.ts`; `tests/domain/auth/otp-rules.test.ts`. The login that uses them: not built yet. | Edit `authPolicy`. The policy-values test and the boundary tests in `otp-rules.test.ts` will fail and need the new numbers. |
+| R22 | Session windows (D74, D75): resident 14 days idle and 30 days overall; staff 30 minutes idle and 12 hours overall; `last_seen` is written at most once a minute. | `authPolicy.session` and `touchThrottleSeconds` in `src/domain/auth/policy.ts`; `tests/domain/auth/session.test.ts` (AU5). | Edit `authPolicy`. The AU5 tests will fail and need the new numbers; update D74 or D75. |
+| R23 | A fresh one-time code before a large manual payment is approved is a documented next step, not built. The second-approver rule at 25,000 rupees is the only control today. | `docs/auth-design.md`. Not built yet. | A later task. |
 
 ## Assumptions kept in other documents
 
@@ -46,4 +49,5 @@ These are numbered inside their own files. Read them there.
 | `docs/late-fee-policy.md` | A1 to A10 | Holds, skipped days, payment dates, rounding, calendar range. |
 | `docs/matching-design.md` | C1 to C25 | The matcher and the statement processor: one-bill-at-a-time rule, shared ids, ambiguous tokens, notes, scores, plans, dedupe, state. |
 | `docs/bank-statements.md` | B1 to B16 | The CSV reader, narration parser, flat codes, names and dedupe keys. |
+| `docs/auth-design.md` | AU-A1 to AU-A12 | Phone formats, rejection limit, policy shapes, clock skew, uniformity seed. |
 | `docs/design-system.md` | A1 to A10 | Colours, radii, tracker markers, fonts, spacing, motion, placeholder translations. |
