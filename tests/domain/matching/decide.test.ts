@@ -149,6 +149,18 @@ describe("M4: an automatic match needs every condition", () => {
   });
 });
 
+describe("M4h: a note that says advance or several months blocks an automatic match", () => {
+  it.each(["ADV", "advance", "3 months", "3 mths", "2 month"])("the note %s queues a payment of exactly one bill", (note) => {
+    const d = decide(`UPI/402200118877/T12 408/${note}`, 646800n);
+    expect(d).toMatchObject({ kind: "QUEUE", confidence: "MEDIUM", flatCode: "T12-0408", plan: null });
+    expect(d.reasons).toContainEqual({ code: "HINT_CONFLICT", text: "The note says advance or several months, but the amount equals one bill." });
+  });
+
+  it.each(["1 month", "maint", "rent 1 mth"])("the note %s does not stop an automatic match", (note) => {
+    expect(decide(`UPI/402200118877/T12 408/${note}`, 646800n).kind).toBe("AUTO_MATCH");
+  });
+});
+
 describe("M5: identity evidence that is not enough, medium confidence, explained", () => {
   const reasonText = (d: RowDecision, code: string) => d.reasons.find((r) => r.code === code)?.text;
 

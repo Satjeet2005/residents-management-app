@@ -121,6 +121,12 @@ export const AUTO_CONDITIONS: readonly AutoCondition[] = [
     holds: (_facts, { parsed }) => parsed.rail !== "CHEQUE_RETURN",
     whyNot: () => [FIXED_REASONS.chequeReturnCredit],
   },
+  {
+    id: "M4h",
+    title: "The note does not say advance or name more than one month",
+    holds: (_facts, { parsed }) => !parsed.hints.advance && (parsed.months === null || parsed.months === 1),
+    whyNot: () => [FIXED_REASONS.hintConflict],
+  },
 ];
 
 function factsOf(input: RuleInput): Facts {
@@ -135,7 +141,7 @@ function evidenceReasons(candidate: Candidate, parsed: ParsedNarration): Reason[
 
 const M4: Rule = {
   id: "M4",
-  title: "Automatic match: every condition M4a to M4g and M8 holds",
+  title: "Automatic match: every condition M4a to M4h and M8 holds",
   decide: (input) => {
     const facts = factsOf(input);
     const { primary } = facts;

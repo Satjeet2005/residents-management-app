@@ -97,6 +97,7 @@ The rules are in `DECISION_RULES` in `decide.ts`, in this order. The first that 
 | **M4e** | The flat has an open bill and the credit `EQUALS_DUE` for its **oldest** open bill |
 | **M8** | The credit is below `approvalThresholdPaise` (M4 f). At or above it: "Needs a second approver when posted" |
 | **M4g** | The rail is not `CHEQUE_RETURN` |
+| **M4h** | The note does not say advance and does not name more than one month (`months` is empty or 1). Otherwise: "The note says advance or several months, but the amount equals one bill." |
 
 M4a is implied by M4b and M4d for flats that exist in the society. It stays as a second guard. M4b and M4d
 also cover a code for a flat that is not in the society, which M4a cannot see.
@@ -127,6 +128,7 @@ Every decision carries at least one reason: a fixed `code` and plain English `te
 | `NO_OPEN_BILL` | No open bill on this flat |
 | `MULTIPLE_FLATS_OWE` | 3 flats owe ₹10,660 |
 | `ABOVE_THRESHOLD` | Needs a second approver when posted |
+| `HINT_CONFLICT` | The note says advance or several months, but the amount equals one bill. |
 | `DEBIT`, `INTEREST`, `BANK_CHARGE` | Why a row is ignored |
 | `CHEQUE_RETURN` | Cheque returned: a person must reverse the matching payment |
 | `NO_NARRATION` | The row has no narration, so nothing says who paid |
@@ -182,7 +184,7 @@ Dropping M4a alone changes the shape of an M5 decision but no AUTO result, becau
 
 - It does not post anything. It returns a decision and a plan.
 - It does not know what earlier rows in the same file did. See C1 below.
-- It does not read the narration hints (`advance`, `rent`, a month count) when deciding.
+- It reads only two narration hints, `advance` and a month count above 1 (M4h). It ignores `rent` and `maintenance`.
 - It does not handle multi-bill, advance or partial payments except by queueing them.
 - It does not use holds. A payment attempt in progress is ignored here.
 - It does not read a bank, a database or the clock.
@@ -207,4 +209,4 @@ Dropping M4a alone changes the shape of an M5 decision but no AUTO result, becau
 - **C14.** The reason texts are English and fixed. A translation looks them up by code.
 - **C15.** Resident names are the members of the flat whose membership has not ended. Which people count is the caller's choice.
 - **C16.** The scores are for ranking only and are not tuned to any data.
-- **C17.** A narration that says "3 months" or "advance" does not stop an automatic match when the credit is exactly the amount due and a code names the flat.
+- **C17.** A narration that says "advance", "adv" or a month count above 1 ("3 months", "3 mths", "2 month") is never auto-matched (M4h), even when a code names the flat and the credit is exactly the amount due: the note and the amount disagree, so a person looks. "1 month" and "maint" do not block. A month count above 24 is not read as a count (`docs/bank-statements.md`, B14), so it does not block.
