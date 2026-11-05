@@ -10,13 +10,14 @@ async function lint(source: string) {
 }
 
 describe("domain boundary", () => {
+  // The first lint of the run loads ESLint and its config cold: about 1.2 to 2 s alone, 5.7 s under a loaded full-suite run (default limit 5 s).
   it("reports an error when src/domain imports @prisma/client", async () => {
     const messages = await lint(
       'import { PrismaClient } from "@prisma/client";\nexport const db = PrismaClient;\n',
     );
     const rule = messages.find((m) => m.ruleId === "no-restricted-imports");
     expect(rule?.severity).toBe(2);
-  });
+  }, 20_000);
 
   it.each(["next/server", "react", "@/server/db", "@/app/page"])(
     "reports an error when src/domain imports %s",

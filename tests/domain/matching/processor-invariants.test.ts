@@ -26,13 +26,14 @@ function statements(count: number, seed: number, first = 0, duplicates = true) {
   });
 }
 
-/** Chunks of 50 cases, so no single test is long. */
-const CHUNKS = (cases: number): number[] => Array.from({ length: cases / 50 }, (_, c) => c * 50);
+/** Chunks of 25 cases, so no single test is long even on 2 busy CPUs. */
+const CHUNK = 25;
+const CHUNKS = (cases: number): number[] => Array.from({ length: cases / CHUNK }, (_, c) => c * CHUNK);
 
 describe("Y1 conservation", () => {
-  it.each(CHUNKS(200))("200 random statements, cases %i to +49: every row has one state and the statement is accounted for", (first) => {
+  it.each(CHUNKS(200))("200 random statements, cases from %i (25 each): every row has one state and the statement is accounted for", (first) => {
     let autos = 0;
-    for (const { flats, rows } of statements(50, 20261106, first)) {
+    for (const { flats, rows } of statements(CHUNK, 20261106, first)) {
       const result = processStatement(inputFor(rows, flats));
       expect(result.rows).toHaveLength(rows.length);
       expect(result.accounted).toBe(true);
@@ -115,7 +116,7 @@ describe("Y4 state", () => {
 
   const billOf = (): Map<string, FlatContext["openBills"][number]> => new Map(demoFlats.flatMap((f) => f.openBills.map((b) => [b.billKey, b] as const)));
 
-  it.each(CHUNKS(300))("300 random statements, cases %i to +49: a bill is never auto-posted twice, and never for more than was unpaid on that date", (first) => {
+  it.each(CHUNKS(300))("300 random statements, cases from %i (25 each): a bill is never auto-posted twice, and never for more than was unpaid on that date", (first) => {
     const bills = billOf();
     // What was unpaid on the day of the entry: the bill less payments dated on or before that day (a later payment is not counted: see C7).
     const unpaidOn = (billKey: string, date: string): bigint => {
@@ -123,7 +124,7 @@ describe("Y4 state", () => {
       return b.amountPaise - b.paymentsOnBill.filter((p) => p.date <= date).reduce((sum, p) => sum + p.amountPaise, 0n);
     };
     let seen = 0;
-    for (const { flats, rows } of statements(50, 4242, first)) {
+    for (const { flats, rows } of statements(CHUNK, 4242, first)) {
       const result = processStatement(inputFor(rows, flats));
       const paid = new Map<string, { payments: number; principal: bigint; date: string }>();
       for (const e of result.entriesToPost) {
@@ -206,8 +207,8 @@ describe("Y7 invalid rows", () => {
 });
 
 describe("Y8 posting reconciliation", () => {
-  it.each(CHUNKS(100))("over 100 statements, cases %i to +49: the payments equal the auto-matched total, each row reconciles, and keys are unique", (first) => {
-    for (const { flats, rows } of statements(50, 808, first)) {
+  it.each(CHUNKS(100))("over 100 statements, cases from %i (25 each): the payments equal the auto-matched total, each row reconciles, and keys are unique", (first) => {
+    for (const { flats, rows } of statements(CHUNK, 808, first)) {
       const result = processStatement(inputFor(rows, flats));
       const payments = result.entriesToPost.filter((e) => e.entryType === "PAYMENT");
       expect(payments.reduce((sum, e) => sum + e.amountPaise, 0n)).toBe(result.summary.autoMatchedTotalPaise);
