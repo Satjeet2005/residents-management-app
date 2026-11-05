@@ -16,8 +16,16 @@ export type NameMatchStrength = "EXACT" | "INITIAL" | "TRUNCATED" | "NONE";
 const HONORIFICS: ReadonlySet<string> = new Set(["MR", "MRS", "MS", "MISS", "SHRI", "SMT", "DR"]);
 
 /** The words of a name, normalised, without honorifics. */
-function nameWords(text: string): string[] {
+export function nameWords(text: string): string[] {
   return normalizeName(text).split(" ").filter((word) => word !== "" && !HONORIFICS.has(word));
+}
+
+/**
+ * The key a word is looked up by. Two words that can pair strongly (the same word, or one a prefix of
+ * 4 or more letters of the other) always share it: the word itself when shorter than 4 letters, else its first 4.
+ */
+export function nameLookupKey(word: string): string {
+  return word.length < 4 ? word : word.slice(0, 4);
 }
 
 /** 0: same word, 1: one is a prefix of at least 4 letters of the other, 2: one is the initial of the other, null: no relation. */
