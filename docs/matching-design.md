@@ -98,6 +98,7 @@ The rules are in `DECISION_RULES` in `decide.ts`, in this order. The first that 
 | **M8** | The credit is below `approvalThresholdPaise` (M4 f). At or above it: "Needs a second approver when posted" |
 | **M4g** | The rail is not `CHEQUE_RETURN` |
 | **M4h** | The note does not say advance and does not name more than one month (`months` is empty or 1). Otherwise: "The note says advance or several months, but the amount equals one bill." |
+| **M4i** | The flat's oldest open bill has no payment dated after the row's date (a payment on the same day or earlier is fine). Otherwise: "This bill already has a payment dated after this row, so a person must check the order." |
 
 M4a is implied by M4b and M4d for flats that exist in the society. It stays as a second guard. M4b and M4d
 also cover a code for a flat that is not in the society, which M4a cannot see.
@@ -129,6 +130,7 @@ Every decision carries at least one reason: a fixed `code` and plain English `te
 | `MULTIPLE_FLATS_OWE` | 3 flats owe ₹10,660 |
 | `ABOVE_THRESHOLD` | Needs a second approver when posted |
 | `HINT_CONFLICT` | The note says advance or several months, but the amount equals one bill. |
+| `LATER_PAYMENT` | This bill already has a payment dated after this row, so a person must check the order. |
 | `DEBIT`, `INTEREST`, `BANK_CHARGE` | Why a row is ignored |
 | `CHEQUE_RETURN` | Cheque returned: a person must reverse the matching payment |
 | `NO_NARRATION` | The row has no narration, so nothing says who paid |
@@ -227,7 +229,7 @@ number, the flat code, the bill key, the amount, the effective date and the idem
 | X10 | Reasons, plans, confidence, ordering, the cap of 5 | `demo-scenarios.test.ts` |
 | X11 | Speed and purity | `demo-scenarios.test.ts`, `purity.test.ts` |
 
-Statement processor (`processor-invariants.test.ts`, with `processor.test.ts` and `processor-state.test.ts`):
+Statement processor (`processor-invariants.test.ts`, `processor-order.test.ts`, with `processor.test.ts` and `processor-state.test.ts`):
 
 | Id | Invariant |
 |---|---|
@@ -241,6 +243,9 @@ Statement processor (`processor-invariants.test.ts`, with `processor.test.ts` an
 | Y8 | Entries reconcile to the auto-matched total, with unique idempotency keys |
 | Y9 | 5,000 rows against the 2,400-flat demo society, about 0.9 s (the test budget is 6 s) |
 | Y10 | `processor.ts` is pure |
+| Z1 | Any row order gives the same automatic matches when no two rows touch a bill |
+| Z2 | Any row order: nothing auto-posted exceeds what was due or lands before a payment already on the bill |
+| Z3 | Same-day rows are ordered by row number; the order can change how many rows post, never double posts |
 
 Rule-by-rule tests: `decide.test.ts`, `evidence.test.ts`, `amounts.test.ts`, `plan.test.ts`, `match-context.test.ts`.
 
@@ -255,6 +260,7 @@ amount, and one flat owing an amount today does not make it the payer.
 | NAME evidence counted as identity | X3 (two tests), the M6 name test, the T15-0902 scenario, the 2,000-row check |
 | Drop the "no other flat" family (M4a, the second code in M4b, M4d) | X1 (two tests), M4a, M4b and M4d tests |
 | Allow AUTO at or above the threshold | X6 (two tests), two M8 tests in `decide.test.ts` |
+| Remove M4i (the later-payment rule) | the M4i tests (before the payment, no reason without a flat) and the Z2 safety chunks |
 | Remove M4h (the note rule) | the five M4h tests that queue ADV, advance, 3 months, 3 mths and 2 month |
 | The processor does not record the payment on its copy | Y4 (the two-row test and every random chunk), 4 state tests, the accounted and the example tests |
 | The summary leaves out ALREADY_IMPORTED rows | Y1 (every chunk), Y2 (both tests), Y7, Y9 and the summary example |
@@ -293,7 +299,7 @@ Dropping M4a alone changes the shape of an M5 decision but no AUTO result, becau
 - **C19.** A repeated payment reference inside one input is the same payment, so the second row is ALREADY_IMPORTED. A repeated row with no reference (cash) is a second payment and gets occurrence 2.
 - **C20.** The occurrence counter depends on the order in the file. If two identical cash rows fall one in each of two overlapping files, the one in the second file is read as occurrence 1 and so looks already imported. Cash rows with a slip number do not have this problem.
 - **C21.** The payment the processor records on a bill is the whole PAYMENT amount (principal plus fee), as the seed posts it, so the bill's principal is covered.
-- **C22.** A row dated before a payment already on the bill is decided as of the row's date (C7), so it can be auto-matched for the full amount due on that date although a later payment exists. The database layer should pass bills as they stood on the statement's period, or refuse a statement older than the last posted payment.
+- **C22 (closed by M4i).** A row dated before a payment already on its bill used to be decided as of its own date, so it could be auto-matched for the full due although a later payment existed. M4i now queues it with `LATER_PAYMENT`. A payment dated on the same day as the row, or earlier, does not block. Only the oldest open bill is looked at: a later payment on a newer bill does not block a row for the older one. The rows are still decided as of their own date, so a person who accepts such a row must check the order.
 - **C23.** `processStatement` throws `RangeError` for a repeated flat code, a bad bill, bad settings or a negative amount. The database layer validates before calling it.
 - **C24.** The result also holds `csvErrors`, `accounted` and each row's `creditPaise`, so `accountingReport` can check it on its own.
 - **C25.** Holds are not read. Whether a payment attempt is unresolved on a bill is the database layer's question.
