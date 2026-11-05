@@ -14,7 +14,7 @@ import type { AmountRelation, Candidate, EvidenceCode, FlatContext, MatchContext
 export const EVIDENCE_SCORES: Readonly<Record<EvidenceCode, number>> = {
   CODE: 100,
   PAYER: 90,
-  CODE_AMBIGUOUS: 50,
+  CODE_AMBIGUOUS: 30,
   PAYER_SHARED: 30,
   NAME_EXACT: 30,
   NAME_INITIAL: 20,
@@ -47,6 +47,11 @@ export type Evidence = {
   /** All candidates, ranked best first. The decision cuts the list to 5. */
   candidates: Candidate[];
 };
+
+const IDENTITY: ReadonlySet<EvidenceCode> = new Set<EvidenceCode>(["CODE", "PAYER"]);
+
+/** True when a candidate has CODE or PAYER evidence: a certain code, or a UPI id that only this flat lists. */
+export const hasIdentity = (candidate: Candidate): boolean => candidate.evidence.some((e) => IDENTITY.has(e));
 
 const NAME_EVIDENCE: Readonly<Record<"EXACT" | "INITIAL" | "TRUNCATED", EvidenceCode>> = {
   EXACT: "NAME_EXACT",
@@ -89,18 +94,20 @@ function nameFlats(context: MatchContext, remitter: string): Map<string, Evidenc
 function candidateOf(context: MatchContext, flat: FlatContext, evidence: EvidenceCode[], row: RowFacts): Candidate {
   const due = oldestDue(flat.openBills, row.txnDate, context.settings.lateFeePolicy, context.caches.fees);
   const relation = amountRelation(row.creditPaise, flat.openBills, due);
-  const nameScore = Math.max(0, ...evidence.filter((e) => e.startsWith("NAME_")).map((e) => EVIDENCE_SCORES[e]));
-  const otherScore = evidence.filter((e) => !e.startsWith("NAME_")).reduce((sum, e) => sum + EVIDENCE_SCORES[e], 0);
+  const weakScore = Math.max(0, ...evidence.filter((e) => !IDENTITY.has(e)).map((e) => EVIDENCE_SCORES[e]));
+  const identityScore = evidence.filter((e) => IDENTITY.has(e)).reduce((sum, e) => sum + EVIDENCE_SCORES[e], 0);
   return {
     flatCode: flat.code,
-    score: otherScore + nameScore + AMOUNT_SCORES[relation],
+    score: identityScore + weakScore + AMOUNT_SCORES[relation],
     evidence,
     amountDuePaise: due === null ? null : due.duePaise,
     amountRelation: relation,
   };
 }
 
-const byRank = (a: Candidate, b: Candidate): number => b.score - a.score || (a.flatCode < b.flatCode ? -1 : a.flatCode > b.flatCode ? 1 : 0);
+/** Higher score first; on a tie a candidate with identity evidence comes first, then the lower flat code. */
+const byRank = (a: Candidate, b: Candidate): number =>
+  b.score - a.score || Number(hasIdentity(b)) - Number(hasIdentity(a)) || (a.flatCode < b.flatCode ? -1 : a.flatCode > b.flatCode ? 1 : 0);
 
 /**
  * Gathers what a row says about each flat, then lists the candidates.
@@ -136,8 +143,7 @@ export function gatherEvidence(context: MatchContext, row: RowFacts, parsed: Par
   }
 
   const candidates = [...evidenceOf].map(([code, evidence]) => candidateOf(context, context.flatsByCode.get(code) as FlatContext, evidence, row));
-  const hasIdentity = codeFlats.length > 0 || payerFlat !== null;
-  if (!hasIdentity) {
+  if (codeFlats.length === 0 && payerFlat === null) {
     const index = amountIndexFor(context, row.txnDate);
     const owing = new Set([...(index.byDue.get(row.creditPaise) ?? []), ...(index.byPrincipal.get(row.creditPaise) ?? [])]);
     for (const code of owing) {
