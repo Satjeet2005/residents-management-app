@@ -117,5 +117,7 @@ export type MatchContext = {
   readonly flatsByUpiId: ReadonlyMap<string, readonly FlatContext[]>;
   /** A name lookup key (see nameLookupKey) to the flats with a resident or payer name word that has it. */
   readonly flatsByNameKey: ReadonlyMap<string, readonly FlatContext[]>;
+  /** For each flat code, the name lookup keys of all its resident and payer-name words. */
+  readonly nameKeysByFlat: ReadonlyMap<string, ReadonlySet<string>>;
   readonly caches: MatchCaches;
 };

@@ -26,6 +26,11 @@ describe("buildMatchContext", () => {
     expect(context.flatsByNameKey.has("MR")).toBe(false);
   });
 
+  it("lists each flat's name keys", () => {
+    const context = buildMatchContext([flat("T01-0101", { residents: ["Anil Joshi", "S K Rao"] })]);
+    expect([...(context.nameKeysByFlat.get("T01-0101") ?? [])].sort()).toEqual(["ANIL", "JOSH", "RAO"]);
+  });
+
   it("keeps a flat once per key even when two names share a word", () => {
     const context = buildMatchContext([flat("T01-0101", { residents: ["Anil Joshi", "Swati Joshi"] })]);
     expect(context.flatsByNameKey.get("JOSH")).toHaveLength(1);

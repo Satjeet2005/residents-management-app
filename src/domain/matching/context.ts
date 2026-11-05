@@ -51,14 +51,19 @@ export function buildMatchContext(flats: readonly FlatContext[], settings: Match
   const flatsByCode = new Map<string, FlatContext>();
   const flatsByUpiId = new Map<string, FlatContext[]>();
   const flatsByNameKey = new Map<string, FlatContext[]>();
+  const nameKeysByFlat = new Map<string, Set<string>>();
 
   for (const flat of checked) {
     if (flatsByCode.has(flat.code)) throw new RangeError(`Flat code ${flat.code} is listed twice`);
     flatsByCode.set(flat.code, flat);
     const names = [...flat.residents.map((r) => r.name), ...flat.knownPayers.filter((p) => p.type === "NAME").map((p) => p.value)];
+    const keys = new Set<string>();
     for (const word of names.flatMap(nameWords)) {
-      if (word.length >= 2) addTo(flatsByNameKey, nameLookupKey(word), flat);
+      if (word.length < 2) continue;
+      keys.add(nameLookupKey(word));
+      addTo(flatsByNameKey, nameLookupKey(word), flat);
     }
+    nameKeysByFlat.set(flat.code, keys);
     for (const payer of flat.knownPayers) {
       if (payer.type === "UPI_ID" && normaliseUpiId(payer.value) !== "") addTo(flatsByUpiId, normaliseUpiId(payer.value), flat);
     }
@@ -69,6 +74,7 @@ export function buildMatchContext(flats: readonly FlatContext[], settings: Match
     flatsByCode,
     flatsByUpiId,
     flatsByNameKey,
+    nameKeysByFlat,
     caches: { fees: new Map(), amounts: new Map() },
   };
 }
