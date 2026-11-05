@@ -1,5 +1,5 @@
 import { formatRupees } from "../money/money";
-import { oldestDue } from "./amounts";
+import { amountIndexFor, oldestDue } from "./amounts";
 import { evidenceReason, amountReason, FIXED_REASONS, reason, uniqueReasons } from "./reasons";
 import { gatherEvidence, hasIdentity, type Evidence } from "./evidence";
 import type { ParsedNarration } from "./narration";
@@ -140,6 +140,19 @@ export const AUTO_CONDITIONS: readonly AutoCondition[] = [
     },
     whyNot: () => [FIXED_REASONS.laterPayment],
   },
+  {
+    id: "M4j",
+    title: "A second, independent signal confirms the payer (D70)",
+    holds: ({ primary }, { context, row }) => {
+      if (primary === null) return true; // M4a already blocks a row with no single flat
+      const { evidence } = primary;
+      if (evidence.includes("CODE") && evidence.includes("PAYER")) return true;
+      if (evidence.some((code) => code === "NAME_EXACT" || code === "NAME_INITIAL" || code === "NAME_TRUNCATED")) return true;
+      const owing = amountIndexFor(context, row.txnDate).byDue.get(row.creditPaise) ?? [];
+      return owing.length === 1 && owing[0] === primary.flatCode;
+    },
+    whyNot: () => [FIXED_REASONS.needsSecondSignal],
+  },
 ];
 
 function factsOf(input: RuleInput): Facts {
@@ -154,7 +167,7 @@ function evidenceReasons(candidate: Candidate, parsed: ParsedNarration): Reason[
 
 const M4: Rule = {
   id: "M4",
-  title: "Automatic match: every condition M4a to M4i and M8 holds",
+  title: "Automatic match: every condition M4a to M4j and M8 holds",
   decide: (input) => {
     const facts = factsOf(input);
     const { primary } = facts;

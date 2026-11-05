@@ -5,17 +5,23 @@ import { processStatement } from "@/domain/matching/processor";
 import { bill, flat } from "../builders";
 import { inputOf } from "../processor-helpers";
 
-const owing = (code: string, key: string, name: string) => flat(code, { residents: [name], bills: [bill(key, 637000n, "2026-09-10")] });
-const FLATS = [owing("T12-0408", "k12", "Swati Joshi"), owing("T07-1203", "k07", "Neeraj Kulkarni"), owing("T15-0902", "k15", "Rohit Deshmukh"), owing("T01-0101", "k01", "Amit Rao")];
+// All four flats owe the same amount, so a code alone never auto-posts (M4j). Three of them have a known UPI id.
+const owing = (code: string, key: string, name: string, upi: string[] = []) => flat(code, { residents: [name], upi, bills: [bill(key, 637000n, "2026-09-10")] });
+const FLATS = [
+  owing("T12-0408", "k12", "Swati Joshi", ["swati@demo"]),
+  owing("T07-1203", "k07", "Neeraj Kulkarni", ["neeraj@demo"]),
+  owing("T15-0902", "k15", "Rohit Deshmukh", ["rohit@demo"]),
+  owing("T01-0101", "k01", "Amit Rao"),
+];
 
 const pays = (flatCode: string, key: string): Truth => ({ kind: "PAYS_BILL", flatCode, billKeys: [key] });
 const none: Truth = { kind: "NOT_MAINTENANCE", flatCode: null, billKeys: [] };
 
 // Ten rows, all on 2026-10-27. Each pays 6468.00 where an amount is not given: the amount due on a 637000 bill 47 days late.
 const ROWS: [string, Truth][] = [
-  ["UPI/402200118801/T12 408/maint,6468,,", pays("T12-0408", "k12")], // 1 AUTO, right flat and bill: a true auto-post
-  ["UPI/402200118802/T07 1203,6468,,", pays("T01-0101", "k01")], // 2 AUTO to the flat the narration names, but the money is T01-0101's: false
-  ["UPI/402200118803/T15 902,6468,,", { kind: "ADVANCE", flatCode: "T15-0902", billKeys: [] }], // 3 AUTO of a payment that is an advance: false
+  ["UPI/402200118801/swati@demo/T12 408/maint,6468,,", pays("T12-0408", "k12")], // 1 AUTO, right flat and bill: a true auto-post
+  ["UPI/402200118802/neeraj@demo/T07 1203,6468,,", pays("T01-0101", "k01")], // 2 AUTO to the flat the narration names, but the money is T01-0101's: false
+  ["UPI/402200118803/rohit@demo/T15 902,6468,,", { kind: "ADVANCE", flatCode: "T15-0902", billKeys: [] }], // 3 AUTO of a payment that is an advance: false
   ["NEFT-N30112345604-AMIT RAO-maint,6468,,", pays("T01-0101", "k01")], // 4 queued; the true flat is the top candidate
   ["UPI/402200118805/stranger@zzz,12.34,,", pays("T12-0408", "k12")], // 5 queued with no candidate
   ["SMS CHARGES,,29.50,", none], // 6 ignored, rightly
@@ -46,8 +52,8 @@ describe("evaluate: definitions", () => {
       [2, "PAYS_BILL", "T01-0101", "T07-1203"],
       [3, "ADVANCE", "T15-0902", "T15-0902"],
     ]);
-    expect(m.falseAutoRows[0].narration).toBe("UPI/402200118802/T07 1203,6468,,");
-    expect(m.falseAutoRows[0].reasons).toEqual(["CODE_FOUND", "AMOUNT_EQUALS_DUE"]);
+    expect(m.falseAutoRows[0].narration).toBe("UPI/402200118802/neeraj@demo/T07 1203,6468,,");
+    expect(m.falseAutoRows[0].reasons).toEqual(["CODE_FOUND", "PAYER_KNOWN", "AMOUNT_EQUALS_DUE"]);
   });
 
   it("matchable, precision, recall and the rates", () => {
@@ -95,20 +101,20 @@ describe("evaluate: edges", () => {
   });
 
   it("uses the bill as well as the flat: the right flat with the wrong bill is a false auto-post", () => {
-    const processed = processStatement(inputOf(FLATS, ["2026-10-27,UPI/402200118801/T12 408/maint,6468,,"]));
+    const processed = processStatement(inputOf(FLATS, ["2026-10-27,UPI/402200118801/swati@demo/T12 408/maint,6468,,"]));
     const m = evaluate(processed, [{ rowNumber: 1, truth: pays("T12-0408", "some-other-bill") }]);
     expect(m).toMatchObject({ trueAuto: 0, falseAuto: 1 });
   });
 
   it("is computed from the truth: the same decisions give different numbers for different truths", () => {
-    const processed = processStatement(inputOf(FLATS, ["2026-10-27,UPI/402200118801/T12 408/maint,6468,,"]));
+    const processed = processStatement(inputOf(FLATS, ["2026-10-27,UPI/402200118801/swati@demo/T12 408/maint,6468,,"]));
     expect(evaluate(processed, [{ rowNumber: 1, truth: pays("T12-0408", "k12") }]).precision).toBe(1);
     expect(evaluate(processed, [{ rowNumber: 1, truth: none }]).precision).toBe(0);
   });
 
   it("does not count already imported rows as decisions", () => {
-    const first = processStatement(inputOf(FLATS, ["2026-10-27,UPI/402200118801/T12 408/maint,6468,,"]));
-    const again = processStatement(inputOf(FLATS, ["2026-10-27,UPI/402200118801/T12 408/maint,6468,,"], new Set(first.rows.map((r) => r.dedupeKey))));
+    const first = processStatement(inputOf(FLATS, ["2026-10-27,UPI/402200118801/swati@demo/T12 408/maint,6468,,"]));
+    const again = processStatement(inputOf(FLATS, ["2026-10-27,UPI/402200118801/swati@demo/T12 408/maint,6468,,"], new Set(first.rows.map((r) => r.dedupeKey))));
     const m = evaluate(again, [{ rowNumber: 1, truth: pays("T12-0408", "k12") }]);
     expect(m).toMatchObject({ alreadyImported: 1, autoMatched: 0, trueAuto: 0, falseAuto: 0 });
   });

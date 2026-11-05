@@ -99,6 +99,7 @@ The rules are in `DECISION_RULES` in `decide.ts`, in this order. The first that 
 | **M4g** | The rail is not `CHEQUE_RETURN` |
 | **M4h** | The note does not say advance and does not name more than one month (`months` is empty or 1). Otherwise: "The note says advance or several months, but the amount equals one bill." |
 | **M4i** | The flat's oldest open bill has no payment dated after the row's date (a payment on the same day or earlier is fine). Otherwise: "This bill already has a payment dated after this row, so a person must check the order." |
+| **M4j** | A second, independent signal confirms the payer (D70). One of: the flat has CODE **and** PAYER evidence (a UPI id that only this flat lists); the flat has NAME evidence (exact, initial or truncated); or the credit equals the amount due on the oldest open bill of **exactly one** flat in the whole society, this one. A PAYER with no code needs a name or the unique amount, too. Otherwise: "The flat code matches, but nothing else confirms the payer." |
 
 M4a is implied by M4b and M4d for flats that exist in the society. It stays as a second guard. M4b and M4d
 also cover a code for a flat that is not in the society, which M4a cannot see.
@@ -131,6 +132,7 @@ Every decision carries at least one reason: a fixed `code` and plain English `te
 | `ABOVE_THRESHOLD` | Needs a second approver when posted |
 | `HINT_CONFLICT` | The note says advance or several months, but the amount equals one bill. |
 | `LATER_PAYMENT` | This bill already has a payment dated after this row, so a person must check the order. |
+| `NEEDS_SECOND_SIGNAL` | The flat code matches, but nothing else confirms the payer. |
 | `DEBIT`, `INTEREST`, `BANK_CHARGE` | Why a row is ignored |
 | `CHEQUE_RETURN` | Cheque returned: a person must reverse the matching payment |
 | `NO_NARRATION` | The row has no narration, so nothing says who paid |
@@ -249,6 +251,12 @@ Statement processor (`processor-invariants.test.ts`, `processor-order.test.ts`, 
 
 Rule-by-rule tests: `decide.test.ts`, `evidence.test.ts`, `amounts.test.ts`, `plan.test.ts`, `match-context.test.ts`.
 
+**Why a code alone never auto-matches (M4j, D70).** The brief says an unclear payment is never posted
+automatically. A payer can write a neighbour's flat code and pay another flat's bill that owes the same
+amount: the narration names a real flat, the amount equals that flat's due, and nothing in the row separates
+the two flats. The benchmark found this on its development set (`docs/matching-benchmark.md`). So a code, or a
+UPI id, needs one more independent signal.
+
 **Why names alone and amounts alone never auto-match (X3).** Two people can share a name, the person who
 pays may be paying for a neighbour, and a bank may cut a name short. Hundreds of flats have the same bill
 amount, and one flat owing an amount today does not make it the payer.
@@ -261,6 +269,7 @@ amount, and one flat owing an amount today does not make it the payer.
 | Drop the "no other flat" family (M4a, the second code in M4b, M4d) | X1 (two tests), M4a, M4b and M4d tests |
 | Allow AUTO at or above the threshold | X6 (two tests), two M8 tests in `decide.test.ts` |
 | Remove M4i (the later-payment rule) | the M4i tests (before the payment, no reason without a flat) and the Z2 safety chunks |
+| Remove M4j (the second signal) | the M4j tests (code alone, a name of another flat, a payer alone) and the two demo scenarios that expect a code-only row to queue |
 | Remove M4h (the note rule) | the five M4h tests that queue ADV, advance, 3 months, 3 mths and 2 month |
 | The processor does not record the payment on its copy | Y4 (the two-row test and every random chunk), 4 state tests, the accounted and the example tests |
 | The summary leaves out ALREADY_IMPORTED rows | Y1 (every chunk), Y2 (both tests), Y7, Y9 and the summary example |
@@ -303,3 +312,5 @@ Dropping M4a alone changes the shape of an M5 decision but no AUTO result, becau
 - **C23.** `processStatement` throws `RangeError` for a repeated flat code, a bad bill, bad settings or a negative amount. The database layer validates before calling it.
 - **C24.** The result also holds `csvErrors`, `accounted` and each row's `creditPaise`, so `accountingReport` can check it on its own.
 - **C25.** Holds are not read. Whether a payment attempt is unresolved on a bill is the database layer's question.
+- **C26.** M4j's "unique amount" is the amount due on the oldest open bill, as of the row's date, after the payments the processor has already recorded on its own copy. A flat paid earlier in the same file no longer counts, so a row can become unique, or stop being unique, depending on the rows before it. The signal is worked out per row and never cached across rows.
+- **C27.** M4j counts only NAME evidence on the same flat as the identity. A name that belongs to another flat does not confirm anything. A shared UPI id and an ambiguous code are not signals (C3, C4).

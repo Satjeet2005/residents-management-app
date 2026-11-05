@@ -37,8 +37,15 @@ function flatsOwing(amount: bigint, field: "due" | "principal"): string[] {
 }
 
 describe("X8 demo scenarios as of 2026-10-27", () => {
-  it("T12-0408 paying 646800 with 'T12 408' is AUTO with the plan [LATE_FEE 9800, PAYMENT 646800]", () => {
+  it("T12-0408 paying 646800 with 'T12 408' alone is QUEUE: other flats owe the same, so nothing else confirms the payer (M4j)", () => {
+    expect(flatsOwing(646800n, "due").length).toBeGreaterThan(1);
     const d = decide("UPI/402200118877/T12 408/maint", 646800n);
+    expect(d).toMatchObject({ kind: "QUEUE", confidence: "MEDIUM", flatCode: "T12-0408", plan: null });
+    expect(d.reasons).toContainEqual({ code: "NEEDS_SECOND_SIGNAL", text: "The flat code matches, but nothing else confirms the payer." });
+  });
+
+  it("T12-0408 paying 646800 with 'T12 408' and the resident's name is AUTO with the plan [LATE_FEE 9800, PAYMENT 646800]", () => {
+    const d = decide("NEFT-N30112345678-SWATI JOSHI-T12 408", 646800n);
     expect(d).toMatchObject({ kind: "AUTO_MATCH", confidence: "HIGH", flatCode: "T12-0408" });
     expect(d.plan?.entries).toEqual([
       { entryType: "LATE_FEE", amountPaise: 9800n, effectiveDate: AS_OF, billKey: "bill:T12-0408:2026-09-01" },
@@ -85,9 +92,10 @@ describe("X8 demo scenarios as of 2026-10-27", () => {
     }
   });
 
-  it("T15-0902 paying its oldest bill plus fee is AUTO only with a code", () => {
-    expect(decide("UPI/402200118877/T15 902", 871_300n)).toMatchObject({ kind: "AUTO_MATCH", flatCode: "T15-0902" });
-    expect(decide("UPI/402200118877/T15 902", 871_300n).plan?.entries.map((e) => [e.entryType, e.amountPaise])).toEqual([["LATE_FEE", 13300n], ["PAYMENT", 871_300n]]);
+  it("T15-0902 paying its oldest bill plus fee is AUTO only with a code and a name", () => {
+    expect(decide("UPI/402200118877/T15 902", 871_300n)).toMatchObject({ kind: "QUEUE", flatCode: "T15-0902" });
+    expect(decide("NEFT-N30112345678-ROHIT DESHMUKH-T15 902", 871_300n)).toMatchObject({ kind: "AUTO_MATCH", flatCode: "T15-0902" });
+    expect(decide("NEFT-N30112345678-ROHIT DESHMUKH-T15 902", 871_300n).plan?.entries.map((e) => [e.entryType, e.amountPaise])).toEqual([["LATE_FEE", 13300n], ["PAYMENT", 871_300n]]);
     for (const narration of ["UPI/402200118877/stranger@zzz", "NEFT-N30112345678-ROHIT DESHMUKH-maint"]) {
       expect(decide(narration, 871_300n).kind).toBe("QUEUE");
     }

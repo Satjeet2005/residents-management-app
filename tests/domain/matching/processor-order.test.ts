@@ -28,7 +28,9 @@ describe("Z1 order of rows: the same automatic matches when no two rows touch a 
     flats.forEach((f, i) => {
       const date = `2026-10-${String(rng.int(1, 27)).padStart(2, "0")}`;
       const owed = dueOf(f, date);
-      rows.push(row(rows.length + 1, date, `UPI/${402_200_000_000 + i}/${f.code}/maint`, owed === null ? 100_000n : owed.due));
+      // The resident's name is the second signal (M4j); a unique amount would depend on the order of the rows (C26).
+      const name = (f.residents[0]?.name ?? "NO NAME").toUpperCase();
+      rows.push(row(rows.length + 1, date, `NEFT-N30${402_200_000 + i}-${name}-${f.code}`, owed === null ? 100_000n : owed.due));
     });
     for (let i = 0; i < 10; i++) rows.push(row(rows.length + 1, "2026-10-12", `CASH DEP SLIP ${i}`, 500_000n));
     return { flats, rows };

@@ -36,7 +36,7 @@ describe("X1 exactly one flat", () => {
   });
 
   it("the same code written twice, or a code and its payer on one flat, is still one flat", () => {
-    expect(decide("UPI/402200118877/T12 408 maint T12-0408", DUE).kind).toBe("AUTO_MATCH");
+    expect(decide("UPI/402200118877/T12 408 maint T12-0408", DUE, { flats: [FLATS[0]] }).kind).toBe("AUTO_MATCH");
     expect(decide("UPI/402200118877/aamir.s@demo/T21 1601", 569800n).kind).toBe("AUTO_MATCH");
   });
 });
@@ -115,7 +115,7 @@ describe("X5 only the amount due on the oldest bill auto-matches", () => {
   });
 
   it("the amount due on the oldest bill, with a code, is AUTO", () => {
-    expect(decide(T12, DUE).kind).toBe("AUTO_MATCH");
+    expect(decide(T12, DUE, { flats: [FLATS[0]] }).kind).toBe("AUTO_MATCH");
     expect(decide(T15, 871300n).kind).toBe("AUTO_MATCH");
   });
 });

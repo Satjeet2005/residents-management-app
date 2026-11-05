@@ -39,11 +39,21 @@ describe("state application: a bill that was paid is paid for the rows after it"
   });
 
   it("an amount that only one flat owed is no longer owed once that flat is paid", () => {
-    const two = [flat("T12-0408", { bills: [SEPT()] }), flat("T07-1203", { bills: [SEPT("b")] })];
-    const result = processStatement(inputOf(two, [pay(1), "2026-10-27,UPI/402200118872/stranger@zzz,6468,,"]));
+    const two = [flat("T12-0408", { upi: ["swati@demo"], bills: [SEPT()] }), flat("T07-1203", { bills: [SEPT("b")] })];
+    const result = processStatement(inputOf(two, [pay(1, "swati@demo/T12 408"), "2026-10-27,UPI/402200118872/stranger@zzz,6468,,"]));
     expect(result.rows[0].state).toBe("AUTO_MATCHED");
     expect(result.rows[1].decision?.candidates.map((c) => c.flatCode)).toEqual(["T07-1203"]);
     expect(result.rows[1].decision?.totalCandidates).toBe(1);
+  });
+
+  it("an amount becomes unique once the other flat that owed it is paid (C26), so the order of the rows can change M4j", () => {
+    const two = [flat("T12-0408", { upi: ["swati@demo"], bills: [SEPT()] }), flat("T07-1203", { bills: [SEPT("b")] })];
+    const first = pay(1, "swati@demo/T12 408");
+    const second = pay(2, "T07 1203");
+    expect(processStatement(inputOf(two, [first, second])).rows.map((r) => r.state)).toEqual(["AUTO_MATCHED", "AUTO_MATCHED"]);
+    const reversed = processStatement(inputOf(two, [second, first]));
+    expect(reversed.rows.map((r) => [r.rowNumber, r.state])).toEqual([[1, "QUEUED"], [2, "AUTO_MATCHED"]]);
+    expect(reversed.rows[0].decision?.reasons.map((r) => r.code)).toContain("NEEDS_SECOND_SIGNAL");
   });
 
   it("never changes the flats it was given", () => {

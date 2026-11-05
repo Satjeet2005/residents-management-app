@@ -3,7 +3,7 @@
 Every row is a decision that was made and confirmed. The numbers are fixed:
 D24, D25, D28 to D32 and D59 are not in this log, and are left unused so that
 the numbers other documents quote do not change. Rows D1 to D58 are product and
-design decisions. Rows D60 to D69 are engineering decisions made during the
+design decisions. Rows D60 to D70 are engineering decisions made during the
 build.
 
 "Where in code" names the file or test that implements the decision today.
@@ -84,3 +84,4 @@ the decision helps; they are not quotes from the people who decided.
 | D67 | CI runs gitleaks over the full history, with a pinned binary whose checksum is verified. | A secret in an old commit is still a leak, and an unverified binary is a supply-chain risk. | Confirmed | `.github/workflows/ci.yml` (step "gitleaks (full history, pinned CLI)"); `scripts/scan-secrets.mjs` for the local scan. |
 | D68 | The seed is deterministic and guarded: `DEMO_MODE`, `--yes`, `--confirm-database`, and allowlists of hosts and database names. | A seed or reset must never hit the wrong database, and a fixed seed gives repeatable tests. | Confirmed | `src/server/seed/guards.ts`; `src/server/seed/cli.ts`; `src/domain/seed/prng.ts`; `tests/server/seed-guards.test.ts`; `tests/domain/seed/dataset-determinism.test.ts`; `docs/seed-data.md` ("Guards"). |
 | D69 | Tests stay under 3 s each on 2 CPUs. | CI runs on 2 vCPUs with a 5 s default timeout. | Confirmed | `CLAUDE.md`; each task report lists the slowest ten tests. No test enforces it. |
+| D70 | A flat code or a UPI id alone never posts a payment automatically. A second, independent signal must confirm the payer: a UPI id on the same flat as the code, a matching name, or an amount that only this flat owes (rule M4j). | The brief says an unclear payment is never posted automatically. A payer can name a neighbour's flat while paying another bill that owes the same amount, and nothing else in the row tells the two apart. The benchmark's development set found two such rows in 7,311 credits. | Confirmed | `src/domain/matching/decide.ts` (M4j), reason `NEEDS_SECOND_SIGNAL`; the M4j tests in `tests/domain/matching/decide.test.ts`; `docs/matching-design.md`. |

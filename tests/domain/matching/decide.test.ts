@@ -76,10 +76,10 @@ describe("M0, M1, M2, M3: rows that need no flat", () => {
 });
 
 describe("M4: an automatic match needs every condition", () => {
-  it("a code and the exact amount due on the oldest bill", () => {
-    const d = decide("UPI/402200118877/T12 408/maint", 646800n);
+  it("a code, the matching name and the exact amount due on the oldest bill", () => {
+    const d = decide("NEFT-N30112345678-SWATI JOSHI-T12 408", 646800n);
     expect(d).toMatchObject({ kind: "AUTO_MATCH", confidence: "HIGH", flatCode: "T12-0408", totalCandidates: 1 });
-    expect(codes(d)).toEqual(["CODE_FOUND", "AMOUNT_EQUALS_DUE"]);
+    expect(codes(d)).toEqual(["CODE_FOUND", "NAME_EXACT", "AMOUNT_EQUALS_DUE"]);
     expect(d.plan?.entries.map((e) => [e.entryType, e.amountPaise])).toEqual([["LATE_FEE", 9800n], ["PAYMENT", 646800n]]);
   });
 
@@ -158,7 +158,7 @@ describe("M4h: a note that says advance or several months blocks an automatic ma
   });
 
   it.each(["1 month", "maint", "rent 1 mth"])("the note %s does not stop an automatic match", (note) => {
-    expect(decide(`UPI/402200118877/T12 408/${note}`, 646800n).kind).toBe("AUTO_MATCH");
+    expect(decide(`UPI/402200118877/T12 408/${note}`, 646800n, { flats: [FLATS[0]] }).kind).toBe("AUTO_MATCH");
   });
 });
 
@@ -294,5 +294,70 @@ describe("every decision", () => {
         expect(d.candidates.length).toBeLessThanOrEqual(5);
       }
     }
+  });
+});
+
+describe("M4j: a second, independent signal confirms the payer (D70)", () => {
+  // A and B owe the same amount (646800 on 2026-10-27), so that amount is not unique. C is the only flat that owes 871300.
+  const A = flat("T12-0408", { residents: ["Swati Joshi"], upi: ["swati@demo"], bills: [SEPT()] });
+  const B = flat("T01-1101", { residents: ["Ravi Menon"], upi: ["ravi@demo"], bills: [SEPT("b")] });
+  const C = flat("T15-0902", { residents: ["Rohit Deshmukh"], upi: ["rohit@demo"], bills: [bill("c", 858000n, "2026-09-10")] });
+  const flats = [A, B, C];
+  const NEEDS = { code: "NEEDS_SECOND_SIGNAL", text: "The flat code matches, but nothing else confirms the payer." };
+
+  it("a code and a UPI id of the same flat is enough", () => {
+    const d = decide("UPI/402200118877/swati@demo/T12 408", 646800n, { flats });
+    expect(d).toMatchObject({ kind: "AUTO_MATCH", flatCode: "T12-0408" });
+    expect(codes(d)).toEqual(["CODE_FOUND", "PAYER_KNOWN", "AMOUNT_EQUALS_DUE"]);
+  });
+
+  it.each([
+    ["NAME_EXACT", "NEFT-N30112345678-SWATI JOSHI-T12 408"],
+    ["NAME_INITIAL", "NEFT-N30112345678-S JOSHI-T12 408"],
+    ["NAME_TRUNCATED", "NEFT-N30112345678-SWATI JOSH-T12 408"],
+  ])("a code and %s evidence for the same flat is enough", (evidence, narration) => {
+    const d = decide(narration, 646800n, { flats });
+    expect(d).toMatchObject({ kind: "AUTO_MATCH", flatCode: "T12-0408" });
+    expect(codes(d)).toContain(evidence);
+  });
+
+  it("a code and an amount that only this flat owes is enough", () => {
+    expect(decide("UPI/402200118877/T15 902", 871300n, { flats })).toMatchObject({ kind: "AUTO_MATCH", flatCode: "T15-0902" });
+  });
+
+  it("a code with none of the three is QUEUE, MEDIUM, with the flat named and the new reason", () => {
+    const d = decide("UPI/402200118877/T12 408/maint", 646800n, { flats });
+    expect(d).toMatchObject({ kind: "QUEUE", confidence: "MEDIUM", flatCode: "T12-0408", plan: null });
+    expect(d.reasons).toContainEqual(NEEDS);
+    expect(codes(d)).toEqual(["CODE_FOUND", "AMOUNT_EQUALS_DUE", "NEEDS_SECOND_SIGNAL"]);
+  });
+
+  it("a name that belongs to another flat does not confirm the code", () => {
+    const d = decide("NEFT-N30112345678-RAVI MENON-T12 408", 646800n, { flats });
+    expect(d.kind).toBe("QUEUE");
+    expect(d.reasons).toContainEqual(NEEDS);
+  });
+
+  it("a payer alone (no code) needs a name or a unique amount, too", () => {
+    const alone = decide("UPI/402200118877/swati@demo", 646800n, { flats });
+    expect(alone).toMatchObject({ kind: "QUEUE", confidence: "MEDIUM", flatCode: "T12-0408" });
+    expect(alone.reasons).toContainEqual(NEEDS);
+    expect(decide("UPI/402200118877/rohit@demo", 871300n, { flats })).toMatchObject({ kind: "AUTO_MATCH", flatCode: "T15-0902" });
+  });
+
+  it("a code on flat A with a payer on flat B stays QUEUE through the conflict rule, not this one", () => {
+    const d = decide("UPI/402200118877/ravi@demo/T12 408", 646800n, { flats });
+    expect(d).toMatchObject({ kind: "QUEUE", confidence: "MEDIUM", flatCode: null });
+    expect(codes(d)).toContain("CODE_CONFLICT");
+  });
+
+  it("an amount owed only by another flat does not confirm the code", () => {
+    const d = decide("UPI/402200118877/T12 408", 871300n, { flats });
+    expect(d.kind).toBe("QUEUE");
+    expect(codes(d)).toContain("AMOUNT_MORE");
+  });
+
+  it("a row with no identity evidence does not carry the reason", () => {
+    expect(codes(decide("NEFT-N30112345678-SWATI JOSHI-maint", 646800n, { flats }))).not.toContain("NEEDS_SECOND_SIGNAL");
   });
 });
