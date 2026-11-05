@@ -1,3 +1,5 @@
+import type { OtpPolicy } from "./policy";
+
 /** Bytes are asked for in batches of four words. A rejected word is rare, so one batch almost always suffices. */
 const BATCH_BYTES = 16;
 const WORD_COUNT = 2 ** 32;
@@ -30,5 +32,104 @@ export function otpFromRandom(nextBytes: (n: number) => Uint8Array, digits: numb
       rejected += 1;
       if (rejected >= MAX_REJECTED_WORDS) throw new RangeError(`${MAX_REJECTED_WORDS} random words were rejected`);
     }
+  }
+}
+
+const HOUR_MS = 3_600_000;
+
+export type OtpRequestRefusal = "COOLDOWN" | "PHONE_LIMIT" | "IP_LIMIT";
+export type OtpRequestDecision = { allowed: true } | { allowed: false; reason: OtpRequestRefusal; retryAfterSeconds: number };
+
+/** Whole seconds, rounded up, and never less than 1 so a client is never told to retry "now". */
+const secondsUntil = (ms: number): number => Math.max(1, Math.ceil(ms / 1000));
+
+/**
+ * When must the caller wait before another request in a one-hour window?
+ * `times` are the earlier requests (epoch ms, any order). Ones after `now` are ignored, and so is one
+ * that is a full hour old or older. A request is allowed while fewer than `limit` remain.
+ * The wait is until enough of the oldest have left the window to get below the limit; with exactly
+ * `limit` requests that is until the oldest leaves.
+ */
+function windowWait(times: readonly number[], now: number, limit: number): number | null {
+  const inWindow = times.filter((t) => t <= now && now - t < HOUR_MS).sort((a, b) => a - b);
+  if (inWindow.length < limit) return null;
+  const mustLeave = inWindow[inWindow.length - limit];
+  return secondsUntil(mustLeave + HOUR_MS - now);
+}
+
+/**
+ * May a code be sent? Checks in this order: COOLDOWN (this phone asked less than the cooldown ago),
+ * PHONE_LIMIT, IP_LIMIT. The caller records every request it answers, for registered and
+ * unregistered phones alike, so the answer never shows which phones have an account.
+ */
+export function evaluateOtpRequest(
+  input: { now: number; phoneRequestTimes: readonly number[]; ipRequestTimes: readonly number[] },
+  policy: OtpPolicy,
+): OtpRequestDecision {
+  const { now } = input;
+  const past = input.phoneRequestTimes.filter((t) => t <= now);
+  if (past.length > 0) {
+    const elapsed = now - Math.max(...past);
+    const cooldownMs = policy.resendCooldownSeconds * 1000;
+    if (elapsed < cooldownMs) return { allowed: false, reason: "COOLDOWN", retryAfterSeconds: secondsUntil(cooldownMs - elapsed) };
+  }
+  const phoneWait = windowWait(input.phoneRequestTimes, now, policy.maxRequestsPerPhonePerHour);
+  if (phoneWait !== null) return { allowed: false, reason: "PHONE_LIMIT", retryAfterSeconds: phoneWait };
+  const ipWait = windowWait(input.ipRequestTimes, now, policy.maxRequestsPerIpPerHour);
+  if (ipWait !== null) return { allowed: false, reason: "IP_LIMIT", retryAfterSeconds: ipWait };
+  return { allowed: true };
+}
+
+export type OtpAttemptOutcome = "OK" | "WRONG" | "EXPIRED" | "LOCKED" | "CONSUMED";
+
+/**
+ * What happens when someone enters a code. Checks in this order: CONSUMED (a code works once),
+ * EXPIRED (at exactly `expiresAt` it is already expired), LOCKED (too many attempts, even when this
+ * code is right), then OK or WRONG. The caller adds one to `attempts` after a WRONG answer.
+ * `attemptsLeft` is what remains after this answer: 0 for CONSUMED, EXPIRED and LOCKED.
+ */
+export function evaluateOtpAttempt(
+  input: { now: number; expiresAt: number; attempts: number; consumedAt: number | null; codeMatches: boolean },
+  policy: OtpPolicy,
+): { outcome: OtpAttemptOutcome; attemptsLeft: number } {
+  const { now, expiresAt, attempts, consumedAt, codeMatches } = input;
+  if (consumedAt !== null) return { outcome: "CONSUMED", attemptsLeft: 0 };
+  if (now >= expiresAt) return { outcome: "EXPIRED", attemptsLeft: 0 };
+  if (attempts >= policy.maxAttempts) return { outcome: "LOCKED", attemptsLeft: 0 };
+  if (codeMatches) return { outcome: "OK", attemptsLeft: policy.maxAttempts - attempts };
+  return { outcome: "WRONG", attemptsLeft: policy.maxAttempts - (attempts + 1) };
+}
+
+/** What the client may be told. These are deliberately few, so a response never shows why a code failed. */
+export const CLIENT_MESSAGE_KEYS = {
+  sent: "OTP_SENT_GENERIC",
+  notAccepted: "OTP_NOT_ACCEPTED",
+  locked: "OTP_LOCKED",
+  tooManyRequests: "TOO_MANY_REQUESTS",
+} as const;
+export type ClientMessageKey = (typeof CLIENT_MESSAGE_KEYS)[keyof typeof CLIENT_MESSAGE_KEYS];
+
+/** An outcome that needs a message. A code that is accepted needs none. */
+export type AuthOutcome = "SENT" | OtpRequestRefusal | Exclude<OtpAttemptOutcome, "OK">;
+
+/**
+ * The one message key for an outcome. A sent code reads the same for a registered and an
+ * unregistered phone. A wrong, expired or already used code reads the same. All three request
+ * refusals read the same, so the client cannot tell a phone limit from an address limit.
+ */
+export function authMessageKey(outcome: AuthOutcome): ClientMessageKey {
+  switch (outcome) {
+    case "SENT":
+      return CLIENT_MESSAGE_KEYS.sent;
+    case "WRONG":
+    case "EXPIRED":
+    case "CONSUMED":
+      return CLIENT_MESSAGE_KEYS.notAccepted;
+    case "LOCKED":
+      return CLIENT_MESSAGE_KEYS.locked;
+    case "COOLDOWN":
+    case "PHONE_LIMIT":
+    case "IP_LIMIT":
+      return CLIENT_MESSAGE_KEYS.tooManyRequests;
   }
 }
