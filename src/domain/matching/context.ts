@@ -2,7 +2,7 @@ import { defaultLateFeePolicy, validateLateFeePolicy } from "../billing/late-fee
 import { isValidDate } from "../time/calendar";
 import { sortedByDue } from "./amounts";
 import { nameLookupKey, nameWords } from "./names";
-import type { FlatContext, MatchContext, MatchSettings } from "./types";
+import type { FlatContext, MatchContext, MatchSettings, PaymentOnBill } from "./types";
 
 export const defaultMatchSettings: MatchSettings = {
   approvalThresholdPaise: 2_500_000n,
@@ -17,8 +17,11 @@ function checkSettings(settings: MatchSettings): void {
   validateLateFeePolicy(settings.lateFeePolicy);
 }
 
-/** Returns the flat with its open bills checked and in order, oldest due date first (then bill key). */
-function checkedFlat(flat: FlatContext): FlatContext {
+/**
+ * Returns a copy of the flat with its open bills checked and in order, oldest due date first (then
+ * bill key). The bills and their payment lists are copies, so the caller's flat is never changed.
+ */
+function checkedFlat(flat: FlatContext, workingPayments: Map<string, PaymentOnBill[]>): FlatContext {
   const seen = new Set<string>();
   for (const bill of flat.openBills) {
     if (bill.amountPaise <= 0n) throw new RangeError(`Flat ${flat.code}: bill ${bill.billKey} must have a positive amount`);
@@ -31,7 +34,12 @@ function checkedFlat(flat: FlatContext): FlatContext {
       }
     }
   }
-  return { ...flat, openBills: sortedByDue(flat.openBills) };
+  const openBills = sortedByDue(flat.openBills).map((bill) => {
+    const payments: PaymentOnBill[] = [...bill.paymentsOnBill];
+    workingPayments.set(`${flat.code}|${bill.billKey}`, payments);
+    return { ...bill, paymentsOnBill: payments };
+  });
+  return { ...flat, openBills };
 }
 
 function addTo<K, V>(map: Map<K, V[]>, key: K, value: V): void {
@@ -47,7 +55,8 @@ function addTo<K, V>(map: Map<K, V[]>, key: K, value: V): void {
  */
 export function buildMatchContext(flats: readonly FlatContext[], settings: MatchSettings = defaultMatchSettings): MatchContext {
   checkSettings(settings);
-  const checked = flats.map(checkedFlat);
+  const workingPayments = new Map<string, PaymentOnBill[]>();
+  const checked = flats.map((flat) => checkedFlat(flat, workingPayments));
   const flatsByCode = new Map<string, FlatContext>();
   const flatsByUpiId = new Map<string, FlatContext[]>();
   const flatsByNameKey = new Map<string, FlatContext[]>();
@@ -75,6 +84,7 @@ export function buildMatchContext(flats: readonly FlatContext[], settings: Match
     flatsByUpiId,
     flatsByNameKey,
     nameKeysByFlat,
+    workingPayments,
     caches: { fees: new Map(), amounts: new Map() },
   };
 }

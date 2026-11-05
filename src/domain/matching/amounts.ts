@@ -1,7 +1,7 @@
 import { computeLateFee, type LateFeePolicy, type LateFeeResult } from "../billing/late-fee";
 import type { Paise } from "../money/money";
 import type { CalendarDate } from "../time/calendar";
-import type { AmountIndex, AmountRelation, MatchContext, OldestDue, OpenBill } from "./types";
+import type { AmountIndex, AmountRelation, MatchContext, OldestDue, OpenBill, PaymentOnBill } from "./types";
 
 /** Bills oldest due date first, then by bill key. The input is not changed. */
 export function sortedByDue(bills: readonly OpenBill[]): OpenBill[] {
@@ -71,14 +71,51 @@ function addTo(map: Map<Paise, string[]>, amount: Paise, code: string): void {
 export function amountIndexFor(context: MatchContext, asOf: CalendarDate): AmountIndex {
   const kept = context.caches.amounts.get(asOf);
   if (kept !== undefined) return kept;
-  const index: AmountIndex = { byDue: new Map(), byPrincipal: new Map() };
+  const index: AmountIndex = { byDue: new Map(), byPrincipal: new Map(), byFlat: new Map() };
   for (const flat of context.flats) {
     if (flat.openBills.length === 0) continue;
     const due = oldestDue(flat.openBills, asOf, context.settings.lateFeePolicy, context.caches.fees);
     if (due === null) continue;
-    addTo(index.byDue, due.duePaise, flat.code);
-    addTo(index.byPrincipal, due.outstandingPaise, flat.code);
+    fileFlat(index, flat.code, due);
   }
   context.caches.amounts.set(asOf, index);
   return index;
+}
+
+function fileFlat(index: AmountIndex, code: string, due: OldestDue): void {
+  addTo(index.byDue, due.duePaise, code);
+  addTo(index.byPrincipal, due.outstandingPaise, code);
+  index.byFlat.set(code, { duePaise: due.duePaise, principalPaise: due.outstandingPaise });
+}
+
+function removeFrom(map: Map<Paise, string[]>, amount: Paise, code: string): void {
+  const list = map.get(amount);
+  if (list === undefined) return;
+  const at = list.indexOf(code);
+  if (at >= 0) list.splice(at, 1);
+  if (list.length === 0) map.delete(amount);
+}
+
+/**
+ * Records a payment on one of the context's bills, as if it had been posted, so that the rows decided
+ * after it see the new amounts. Only the context's own copy changes, never the flats it was built from.
+ * The amount indexes already built for earlier dates are updated for that flat. Throws RangeError for
+ * an unknown flat or bill, or a payment that is not positive.
+ */
+export function recordPayment(context: MatchContext, flatCode: string, billKey: string, payment: PaymentOnBill): void {
+  const payments = context.workingPayments.get(`${flatCode}|${billKey}`);
+  const flat = context.flatsByCode.get(flatCode);
+  if (payments === undefined || flat === undefined) throw new RangeError(`Flat ${flatCode} has no open bill ${billKey}`);
+  if (payment.amountPaise <= 0n) throw new RangeError("A recorded payment must be positive");
+  payments.push(payment);
+  for (const [date, index] of context.caches.amounts) {
+    const old = index.byFlat.get(flatCode);
+    if (old !== undefined) {
+      removeFrom(index.byDue, old.duePaise, flatCode);
+      removeFrom(index.byPrincipal, old.principalPaise, flatCode);
+      index.byFlat.delete(flatCode);
+    }
+    const due = oldestDue(flat.openBills, date, context.settings.lateFeePolicy, context.caches.fees);
+    if (due !== null) fileFlat(index, flatCode, due);
+  }
 }

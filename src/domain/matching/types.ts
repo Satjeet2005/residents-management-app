@@ -98,6 +98,8 @@ export type OldestDue = {
 export type AmountIndex = {
   byDue: Map<Paise, string[]>;
   byPrincipal: Map<Paise, string[]>;
+  /** What each flat in the two maps was filed under, so one flat can be moved when its bill is paid. */
+  byFlat: Map<string, { duePaise: Paise; principalPaise: Paise }>;
 };
 
 /** Memory kept by a context so the same sum is never worked out twice. It never changes an answer. */
@@ -119,5 +121,7 @@ export type MatchContext = {
   readonly flatsByNameKey: ReadonlyMap<string, readonly FlatContext[]>;
   /** For each flat code, the name lookup keys of all its resident and payer-name words. */
   readonly nameKeysByFlat: ReadonlyMap<string, ReadonlySet<string>>;
+  /** The context's own copy of each bill's payments, keyed `flatCode|billKey`. recordPayment adds to these. */
+  readonly workingPayments: ReadonlyMap<string, PaymentOnBill[]>;
   readonly caches: MatchCaches;
 };
