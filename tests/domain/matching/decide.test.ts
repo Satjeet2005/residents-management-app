@@ -79,6 +79,7 @@ describe("M4: an automatic match needs every condition", () => {
     const d = decide("UPI/402200118877/T12 408/maint", 646800n);
     expect(d).toMatchObject({ kind: "AUTO_MATCH", confidence: "HIGH", flatCode: "T12-0408", totalCandidates: 1 });
     expect(codes(d)).toEqual(["CODE_FOUND", "AMOUNT_EQUALS_DUE"]);
+    expect(d.plan?.entries.map((e) => [e.entryType, e.amountPaise])).toEqual([["LATE_FEE", 9800n], ["PAYMENT", 646800n]]);
   });
 
   it("a known UPI id and the exact amount due", () => {

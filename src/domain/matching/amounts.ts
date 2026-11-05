@@ -3,6 +3,11 @@ import type { Paise } from "../money/money";
 import type { CalendarDate } from "../time/calendar";
 import type { AmountIndex, AmountRelation, MatchContext, OldestDue, OpenBill } from "./types";
 
+/** Bills oldest due date first, then by bill key. The input is not changed. */
+export function sortedByDue(bills: readonly OpenBill[]): OpenBill[] {
+  return [...bills].sort((a, b) => (a.dueOn === b.dueOn ? (a.billKey < b.billKey ? -1 : a.billKey > b.billKey ? 1 : 0) : a.dueOn < b.dueOn ? -1 : 1));
+}
+
 function feeKey(bill: OpenBill, payments: readonly { date: string; amountPaise: Paise }[], asOf: CalendarDate): string {
   const paid = payments.map((p) => `${p.date}:${p.amountPaise}`).sort().join(",");
   return `${bill.amountPaise}|${bill.dueOn}|${asOf}|${paid}`;

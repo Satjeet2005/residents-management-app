@@ -1,5 +1,6 @@
 import { defaultLateFeePolicy, validateLateFeePolicy } from "../billing/late-fee";
 import { isValidDate } from "../time/calendar";
+import { sortedByDue } from "./amounts";
 import { nameLookupKey, nameWords } from "./names";
 import type { FlatContext, MatchContext, MatchSettings } from "./types";
 
@@ -30,8 +31,7 @@ function checkedFlat(flat: FlatContext): FlatContext {
       }
     }
   }
-  const openBills = [...flat.openBills].sort((a, b) => (a.dueOn === b.dueOn ? (a.billKey < b.billKey ? -1 : a.billKey > b.billKey ? 1 : 0) : a.dueOn < b.dueOn ? -1 : 1));
-  return { ...flat, openBills };
+  return { ...flat, openBills: sortedByDue(flat.openBills) };
 }
 
 function addTo<K, V>(map: Map<K, V[]>, key: K, value: V): void {

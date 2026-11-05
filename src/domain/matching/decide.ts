@@ -3,7 +3,8 @@ import { evidenceReason, amountReason, FIXED_REASONS, reason, uniqueReasons } fr
 import { gatherEvidence, hasIdentity, type Evidence } from "./evidence";
 import type { ParsedNarration } from "./narration";
 import type { StatementRow } from "./csv";
-import type { Candidate, IgnoreKind, MatchContext, Reason, RowDecision } from "./types";
+import { planPayment } from "./plan";
+import type { Candidate, FlatContext, IgnoreKind, MatchContext, Reason, RowDecision } from "./types";
 
 /** The fields of a statement row that the matcher reads. */
 export type RowInput = Pick<StatementRow, "txnDate" | "narrationRaw" | "creditPaise" | "debitPaise">;
@@ -143,6 +144,7 @@ const M4: Rule = {
       kind: "AUTO_MATCH",
       confidence: "HIGH",
       flatCode: primary.flatCode,
+      plan: planPayment(input.context.flatsByCode.get(primary.flatCode) as FlatContext, input.row.creditPaise, input.row.txnDate, input.context.settings),
       ...listed(facts.evidence.candidates),
       reasons: uniqueReasons([...evidenceReasons(primary, input.parsed), amountReason(primary, input.row.creditPaise)]),
     });
