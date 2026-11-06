@@ -17,6 +17,7 @@
     "db:seed": "tsx src/server/seed/cli.ts",
     "db:reset-demo": "tsx src/server/seed/cli.ts --reset",
     "db:print-app-role-sql": "tsx src/server/db-roles/print-cli.ts",
+    "sample:statement": "tsx scripts/make-sample-statement.ts",
     "postinstall": "prisma generate",
     "smoke:auth": "node scripts/smoke-auth.mjs",
     "smoke:app": "node scripts/smoke-app.mjs"
