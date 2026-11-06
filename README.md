@@ -53,7 +53,7 @@ scratch database such as `township_seed_scratch` (see Demo data) and drop it aft
 
 ## Paying in the demo
 
-With the app running in demo mode (`DEMO_MODE=true` and a `PAYMENT_WEBHOOK_SECRET` of any value in `.env`; copy it from `.env.example`):
+With the app running in demo mode (`DEMO_MODE=true` and a `PAYMENT_WEBHOOK_SECRET` in `.env`). With `npm run dev` the placeholder in `.env.example` is enough; with `npm run build && npm run start` (a production build) the app refuses the placeholder and any secret under 32 characters, so set your own:
 
 1. Log in as Swati Joshi (`5000000007`) at `/login`; the code is shown in the banner.
 2. On the Home, tap **Pay ₹X** (or open "See what makes up this amount" and tap Pay in the sheet's footer).
