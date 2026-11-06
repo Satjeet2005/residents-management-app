@@ -21,7 +21,7 @@ export type TestAppRole = {
  * Makes a login role with a unique name and a random password (generated here, never stored or printed), applies the
  * generated grants as the owner, and returns a way to connect as it. Only this one role is created and dropped.
  */
-export async function createAppRole(owner: Client): Promise<TestAppRole> {
+export async function createAppRole(owner: Client, baseUrl: string = inject("testDatabaseUrl")): Promise<TestAppRole> {
   const name = `app_t_${randomBytes(4).toString("hex")}`;
   const password = randomBytes(24).toString("hex");
   const ownerRole = (await owner.query<{ current_user: string }>("SELECT current_user")).rows[0].current_user;
@@ -33,7 +33,7 @@ export async function createAppRole(owner: Client): Promise<TestAppRole> {
     await owner.query(`DROP ROLE IF EXISTS "${name}"`);
     throw error;
   }
-  const url = new URL(inject("testDatabaseUrl"));
+  const url = new URL(baseUrl);
   url.username = name;
   url.password = password;
   return {
