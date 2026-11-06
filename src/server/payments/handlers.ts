@@ -1,8 +1,10 @@
 import { z } from "zod";
+import type { Db } from "@/server/auth/db";
 import type { GuardContext } from "@/server/auth/guard";
 import { businessNow } from "@/server/clock";
 import { type PaymentGateway, paymentProviderConfigured } from "./gateway";
 import { initiatePayment } from "./initiate";
+import { type Env, applyGatewayEvent, verifyWebhook } from "./webhook";
 
 /** A body of this size is already far more than `{ "expectedAmountPaise": "646800" }`. */
 const MAX_BODY_CHARS = 1024;
@@ -52,4 +54,25 @@ export async function handleInitiate(
     case "NO_DUES":
       return json(409, { error: "NO_DUES" });
   }
+}
+
+/** A webhook body is about 150 characters; anything near this size is not one. */
+const MAX_WEBHOOK_CHARS = 4096;
+
+/**
+ * POST /api/payments/webhook (the route wraps this in publicRoute: there is no session, and the HMAC signature is the only
+ * authentication). 401 `{ error: "BAD_SIGNATURE" }` on any verification failure, with no detail; 400 `{ error: "INVALID_REQUEST" }` for a
+ * body that is signed but not valid; 200 `{ ok: true }` for everything else, whatever was decided, so the answer reveals nothing
+ * about our books. A missing or weak secret throws, which the guard turns into a plain 500 (fail closed).
+ */
+export async function handleWebhook(context: { request: Request; deps: { db: Db; now: () => number } }, options: { env?: Env } = {}): Promise<Response> {
+  const env = options.env ?? process.env;
+  const rawBody = await context.request.text();
+  if (rawBody.length > MAX_WEBHOOK_CHARS) return json(400, { error: "INVALID_REQUEST" });
+  const now = context.deps.now();
+  const verified = verifyWebhook(rawBody, context.request.headers, env.PAYMENT_WEBHOOK_SECRET, now, env);
+  if (verified.kind === "BAD_SIGNATURE") return json(401, { error: "BAD_SIGNATURE" });
+  if (verified.kind === "BAD_BODY") return json(400, { error: "INVALID_REQUEST" });
+  await applyGatewayEvent(context.deps.db, verified.event, now);
+  return json(200, { ok: true });
 }

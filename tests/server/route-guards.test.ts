@@ -23,6 +23,9 @@ const PUBLIC_ROUTES: Record<string, string[]> = {
   "/api/auth/otp/verify": ["POST"],
   // Logging out is idempotent: 204 with or without a session, and it always clears the cookie.
   "/api/auth/logout": ["POST"],
+  // The payment gateway reports a result server to server, with no session. The HMAC-SHA256 signature of the body and a
+  // timestamp within 5 minutes (src/server/payments/webhook.ts) is the only authentication; any failure is 401.
+  "/api/payments/webhook": ["POST"],
 };
 
 type Wrapper = "withPermission" | "publicRoute" | "bare";
@@ -95,7 +98,7 @@ describe("D81 route inventory", () => {
 
   it("finds the route files", () => {
     expect(files.map(toRoute).sort()).toEqual(
-      ["/api/auth/logout", "/api/auth/logout-all", "/api/auth/otp/request", "/api/auth/otp/verify", "/api/health", "/api/me", "/api/payments"].sort(),
+      ["/api/auth/logout", "/api/auth/logout-all", "/api/auth/otp/request", "/api/auth/otp/verify", "/api/health", "/api/me", "/api/payments", "/api/payments/webhook"].sort(),
     );
   });
 
@@ -113,9 +116,9 @@ describe("D81 route inventory", () => {
     }
   });
 
-  it("the only public routes are the four on the allowlist plus nothing else", () => {
+  it("the only public routes are the five on the allowlist plus nothing else", () => {
     const publicOnes = files.flatMap((file) => inspectRoute(readFileSync(file, "utf8")).exports.filter((e) => e.wrapper === "publicRoute").map((e) => `${e.method} ${toRoute(file)}`));
-    expect(publicOnes.sort()).toEqual(["GET /api/health", "POST /api/auth/logout", "POST /api/auth/otp/request", "POST /api/auth/otp/verify"]);
+    expect(publicOnes.sort()).toEqual(["GET /api/health", "POST /api/auth/logout", "POST /api/auth/otp/request", "POST /api/auth/otp/verify", "POST /api/payments/webhook"]);
   });
 });
 
