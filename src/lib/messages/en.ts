@@ -352,4 +352,10 @@ export const en = {
   "recon.col.details": "Details",
   "recon.posted.flat": "Flat {flat}",
   "recon.ignored.reason": "Reason: {reason}",
+  "recon.loading": "Loading bank reconciliation",
+  "recon.ws.loading": "Loading this import",
+  "recon.errorPage.message": "We could not load this page.",
+  "recon.errorPage.consequence": "Nothing was changed. You can try again.",
+  "recon.notFound.title": "Import not found",
+  "recon.notFound.body": "No bank statement import has this address. Go back to the list of imports.",
 } as const satisfies Record<string, string>;
