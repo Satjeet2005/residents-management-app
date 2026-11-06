@@ -1,0 +1,70 @@
+import { StatusTag, type StatusTone } from "@/components/ui/status-tag";
+import { Money } from "@/components/ui/money";
+import { formatDay } from "@/lib/format-date";
+import { t } from "@/lib/messages";
+import { confidenceLabel, shortNarration } from "@/lib/reconciliation/labels";
+import type { Confidence, RowCard } from "@/lib/reconciliation/types";
+
+const TONE: Record<Confidence, StatusTone> = { HIGH: "positive", MEDIUM: "neutral", LOW: "caution", NONE: "neutral" };
+
+/** The best candidate flat as a chip, and the matcher's confidence as a tag in words. */
+function Candidate({ row }: { row: RowCard }) {
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      <span className="tnum inline-flex min-h-7 items-center rounded-control border border-control bg-paper-2 px-2 text-caption">{row.bestFlat ?? t("recon.row.noFlat")}</span>
+      <StatusTag tone={TONE[row.confidence ?? "NONE"]}>{confidenceLabel(row.confidence)}</StatusTag>
+    </span>
+  );
+}
+
+const amountOf = (row: RowCard) => (
+  <span className="flex flex-col">
+    <Money amount={BigInt(row.amountPaise)} size="strong" />
+    {row.direction === "DEBIT" && <span className="text-caption text-ink-2">{t("recon.row.debit")}</span>}
+  </span>
+);
+
+/** The rows of a lane: a real table from 768px, stacked cards below. */
+export function RowsView({ rows, caption }: { rows: readonly RowCard[]; caption: string }) {
+  return (
+    <>
+      <div className="hidden md:block">
+        <table className="w-full text-left text-body">
+          <caption className="sr-only">{caption}</caption>
+          <thead>
+            <tr className="border-b-2 border-ink">
+              <th scope="col" className="py-2 pr-4 font-semibold">{t("recon.col.date")}</th>
+              <th scope="col" className="py-2 pr-4 text-right font-semibold">{t("recon.col.amount")}</th>
+              <th scope="col" className="py-2 pr-4 font-semibold">{t("recon.col.narration")}</th>
+              <th scope="col" className="py-2 font-semibold">{t("recon.col.candidate")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.id} className="border-b border-hairline">
+                <td className="tnum py-2 pr-4">{formatDay(row.txnDate)}</td>
+                <td className="py-2 pr-4 text-right">{amountOf(row)}</td>
+                <td className="break-words py-2 pr-4">{shortNarration(row.narration)}</td>
+                <td className="py-2">
+                  <Candidate row={row} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <ul className="flex flex-col md:hidden">
+        {rows.map((row) => (
+          <li key={row.id} className="flex flex-col gap-2 border-b border-hairline py-3">
+            <span className="flex items-start justify-between gap-4">
+              <span className="tnum text-body">{formatDay(row.txnDate)}</span>
+              {amountOf(row)}
+            </span>
+            <span className="break-words text-body">{shortNarration(row.narration)}</span>
+            <Candidate row={row} />
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}

@@ -2,9 +2,10 @@ import { type Permission, can } from "@/domain/auth/permissions";
 import { istDateOf } from "@/domain/time/calendar";
 import type { Db } from "@/server/auth/db";
 import type { SessionUser } from "@/server/auth/session-service";
-import type { ImportListEntry, SummaryCounts } from "@/lib/reconciliation/types";
+import { z } from "zod";
+import type { Confidence, ImportListEntry, Lane, RowCard, SummaryCounts, WorkspaceHeader } from "@/lib/reconciliation/types";
 import { getStatementSummary } from "./import";
-import { listImports } from "./review";
+import { listImports, listRows } from "./review";
 
 /** Thrown by a loader for a person who does not hold the permission. A page has already sent such a person away; this is the second lock at the data. */
 export class StaffAccessError extends Error {
@@ -60,4 +61,73 @@ export async function loadImportList({ db, user }: { db: Db; user: Viewer }): Pr
       },
     ];
   });
+}
+
+export const PAGE_SIZE = 25;
+
+const storedDecision = z.object({ confidence: z.string().optional(), candidates: z.array(z.object({ flatCode: z.string() })).optional() });
+const CONFIDENCES: readonly string[] = ["HIGH", "MEDIUM", "LOW", "NONE"];
+
+/** The matcher's best candidate and confidence kept with a row, read out of `bank_rows.parsed.decision`. */
+function storedBest(parsed: unknown): { bestFlat: string | null; confidence: Confidence | null } {
+  const decision = storedDecision.safeParse((parsed as { decision?: unknown } | null)?.decision);
+  if (!decision.success) return { bestFlat: null, confidence: null };
+  const confidence = decision.data.confidence;
+  return { bestFlat: decision.data.candidates?.[0]?.flatCode ?? null, confidence: confidence !== undefined && CONFIDENCES.includes(confidence) ? (confidence as Confidence) : null };
+}
+
+/**
+ * One page of one lane as cards (keyset, biggest amount first): the T12b `listRows` page plus the best candidate flat of each row.
+ * Needs payments:match. Null for an id that is not an import.
+ */
+export async function loadRowCards({ db, user, importId, lane, cursor }: { db: Db; user: Viewer; importId: string; lane: Lane; cursor?: string }): Promise<{ rows: RowCard[]; nextCursor: string | null; laneCounts: Record<Lane, number> } | null> {
+  requirePermission(user, "payments:match");
+  const page = await listRows({ db, importId, lane, cursor, limit: PAGE_SIZE });
+  if (page === null) return null;
+  const stored = await db.bankRow.findMany({ where: { id: { in: page.items.map((i) => i.id) } }, select: { id: true, parsed: true } });
+  const parsedOf = new Map(stored.map((r) => [r.id, r.parsed]));
+  const rows = page.items.map(
+    (item): RowCard => ({
+      id: item.id,
+      rowNumber: item.rowNumber,
+      txnDate: item.txnDate,
+      amountPaise: item.amountPaise,
+      direction: item.direction,
+      narration: item.narrationRaw,
+      state: item.state,
+      version: item.version,
+      ...storedBest(parsedOf.get(item.id)),
+      request: null,
+      posted: null,
+      ignored: null,
+    }),
+  );
+  return { rows, nextCursor: page.nextCursor, laneCounts: page.laneCounts };
+}
+
+export type Workspace = {
+  header: WorkspaceHeader;
+  counts: SummaryCounts;
+  laneCounts: Record<Lane, number>;
+  rows: RowCard[];
+  nextCursor: string | null;
+};
+
+/** The workspace of one import: header, the counts read back from the database, and the first page of the chosen lane. Needs payments:match. Null for an id that is not an import. */
+export async function loadWorkspace({ db, user, importId, lane }: { db: Db; user: Viewer; importId: string; lane: Lane }): Promise<Workspace | null> {
+  requirePermission(user, "payments:match");
+  if (!z.uuid().safeParse(importId).success) return null;
+  const [record, counts, cards] = await Promise.all([
+    db.statementImport.findUnique({ where: { id: importId }, select: { filename: true, uploadedAt: true, uploadedBy: { select: { name: true } } } }),
+    countsOf(db, importId),
+    loadRowCards({ db, user, importId, lane }),
+  ]);
+  if (record === null || counts === null || cards === null) return null;
+  return {
+    header: { importId, filename: record.filename, uploadedOn: istDateOf(record.uploadedAt.getTime()), uploadedBy: record.uploadedBy.name },
+    counts,
+    laneCounts: cards.laneCounts,
+    rows: cards.rows,
+    nextCursor: cards.nextCursor,
+  };
 }
