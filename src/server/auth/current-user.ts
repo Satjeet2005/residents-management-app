@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { headers } from "next/headers";
 import { requireUserWith, runAction, type ActionContext, type ActionResult } from "./access";
-import { readSessionToken } from "./cookie";
+import { isHttpsFromHeaders, readSessionToken } from "./cookie";
 import { defaultDeps } from "./default-deps";
 import type { Need } from "./guard";
 import { resolveSession, type SessionUser } from "./session-service";
@@ -13,7 +13,8 @@ import { resolveSession, type SessionUser } from "./session-service";
  * deactivating takes effect on the next request.
  */
 export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
-  const token = readSessionToken((await headers()).get("cookie"));
+  const requestHeaders = await headers();
+  const token = readSessionToken(requestHeaders.get("cookie"), isHttpsFromHeaders(requestHeaders));
   if (token === null) return null;
   const deps = defaultDeps();
   return (await resolveSession(deps.db, token, deps.now()))?.user ?? null;
@@ -34,6 +35,6 @@ export function withPermissionAction<A extends unknown[], T>(
 ): (...args: A) => Promise<ActionResult<T>> {
   return async (...args) => {
     const requestHeaders = await headers();
-    return runAction(defaultDeps(), { cookie: requestHeaders.get("cookie"), referer: requestHeaders.get("referer"), ipHeaders: requestHeaders }, need, action, args);
+    return runAction(defaultDeps(), { cookie: requestHeaders.get("cookie"), secure: isHttpsFromHeaders(requestHeaders), referer: requestHeaders.get("referer"), ipHeaders: requestHeaders }, need, action, args);
   };
 }

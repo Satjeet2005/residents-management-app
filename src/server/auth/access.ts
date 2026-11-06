@@ -41,13 +41,13 @@ export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: "UNAUT
  */
 export async function runAction<A extends unknown[], T>(
   deps: AuthRouteDeps,
-  request: { cookie: string | null; referer: string | null; ipHeaders: Headers },
+  request: { cookie: string | null; secure: boolean; referer: string | null; ipHeaders: Headers },
   need: Need,
   action: (context: ActionContext, ...args: A) => Promise<T>,
   args: A,
 ): Promise<ActionResult<T>> {
   const now = deps.now();
-  const result = await authorize(deps, request.cookie, need, now);
+  const result = await authorize(deps, { cookie: request.cookie, secure: request.secure }, need, now);
   if (!result.ok && result.status === 401) return { ok: false, error: "UNAUTHENTICATED" };
   if (!result.ok) {
     await auditDenied(deps, new Request(refererUrl(request.referer), { method: "ACTION", headers: request.ipHeaders }), result.user, need, now);

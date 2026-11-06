@@ -175,11 +175,31 @@ carries `Cache-Control: no-store` (set by the guards since T8c).
   is never stored or logged (D77).
 - Only the newest code of a phone is valid (D80).
 
-### Cookie
+### Cookie follows the request scheme (D94)
 
-`__Host-session` in production (Secure, `Path=/`, no `Domain`), `session` elsewhere (no Secure, because
-`http://localhost` is not https). Always `HttpOnly` and `SameSite=Lax`. `Max-Age` is the time left to the absolute
-end. Clearing uses the same name and attributes with `Max-Age=0`.
+| Request | Cookie name | Secure |
+|---|---|---|
+| https (the URL scheme is https, or the first value of `x-forwarded-proto` is https) | `__Host-session` | yes |
+| plain http | `session` | no |
+
+Always `HttpOnly`, `SameSite=Lax`, `Path=/`, no `Domain`. `Max-Age` is the time left to the absolute end. `NODE_ENV` no
+longer decides: the earlier rule (production means `__Host-` and Secure) made the production build impossible to use on
+`http://localhost`, because a browser (Safari in particular) will not store a Secure or `__Host-` cookie from an http page, so a
+reviewer running the production build locally could not stay logged in.
+
+- **Reading** uses the name for the request's scheme. Over https only `__Host-session` is read, so a plain `session` cookie
+  planted by a sibling site is ignored; over http only `session` is read.
+- **Clearing** (logout, a stale or garbled session cookie, a 401 with a cookie) clears **both** names, each with its own
+  attributes, as two `Set-Cookie` lines. A person who moves between http and https is cleaned up.
+- **Spoofing.** `x-forwarded-proto` is a request header, so a client can send any value. What it changes is only the flags of the
+  cookie in the response to that same client: a client that claims https on an http connection gets a Secure `__Host-` cookie that
+  its own browser will probably refuse; a client that claims http on an https connection gets a plain cookie that it holds
+  itself. No other person's cookie, session or rights are affected, and the session token is still a 256-bit secret checked
+  in the database. The header is not used for any decision about who may do what. On Vercel the platform sets
+  `x-forwarded-proto` (https://vercel.com/docs/headers/request-headers, "typically `https` in production").
+- A server component or action has no URL to look at, so its scheme is taken from `x-forwarded-proto`, then the `Referer`
+  or `Origin`. A deployment that terminates TLS and sends none of them would not find the secure cookie in a page render;
+  Vercel does send the header.
 
 ### Client address
 
@@ -198,7 +218,7 @@ forge them. Local development shares one bucket, which is safe: the limits are s
 | Brute force on a code | 5 attempts per code, atomic in SQL; locked even for the right code; 5 codes per phone an hour, only the newest valid: at most 25 guesses an hour per phone (1 in 40,000). A CHECK keeps attempts between 0 and 100. | A distributed guess across many phones is not a guess at one account. |
 | Replay | The code is used up by a conditional UPDATE; expiry in 5 minutes; an older code is retired by the next request. | A code read from the phone's screen before the user types it (interception). |
 | Code interception (SMS) | Short life, single use, locked after 5 wrong tries. | SIM swap, SMS forwarding and screen reading. SMS is a single-factor, weak channel; staff sessions are short for that reason (D75). |
-| Session theft | Only the token hash is stored; HttpOnly, Secure and `__Host-` in production; idle and absolute limits; `logout-all`; the user's `active` flag is read on every request. | Malware on the device; a stolen unlocked staff phone inside its 12-hour window (see R23). |
+| Session theft | Only the token hash is stored; HttpOnly, and Secure and `__Host-` over https; idle and absolute limits; `logout-all`; the user's `active` flag is read on every request. | Malware on the device; a stolen unlocked staff phone inside its 12-hour window (see R23). |
 | Session fixation | A new random token is made at every login; the server never accepts a token chosen by the client. | None known. |
 | CSRF on logout and the other routes | `SameSite=Lax` (the cookie is not sent on a cross-site POST) and an Origin check: a POST whose Origin is another site is refused. | A same-site attacker (a hostile subdomain): the `__Host-` prefix stops it planting the cookie. |
 | Open redirect | `safeReturnPath` accepts a same-site path only, and decodes it twice to catch `%2f%2f`. | A `returnTo` to a staff page by a resident: access is decided by T8c, not here. |
@@ -347,3 +367,4 @@ guide lists it as optional).
 - **SA17** The guards catch any error from a handler, log the fixed text "route failed" and answer a plain 500.
 - **SA18** The 403 for a page (`requireUser`) is a redirect and is not audited; the 403 for a route and an action is audited.
 - **SA19** No Proxy or middleware file is added; the Next.js guide marks it optional, and our checks need the database.
+- **SA20** The scheme comes from the request, not `NODE_ENV` (D94). A server component without a URL uses `x-forwarded-proto`, the `Referer` or the `Origin`.

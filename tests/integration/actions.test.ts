@@ -17,7 +17,7 @@ beforeEach(() => {
 });
 
 const deps = () => ({ db: prisma, sender: mockOtpSender, now: () => T0 });
-const meta = (cookie: string | null, referer: string | null = "http://localhost/staff/payments?month=10") => ({ cookie, referer, ipHeaders: new Headers() });
+const meta = (cookie: string | null, referer: string | null = "http://localhost/staff/payments?month=10") => ({ cookie, secure: false, referer, ipHeaders: new Headers() });
 const double = async (_ctx: unknown, n: number) => n * 2;
 const run = (cookie: string | null, need: Need, referer?: string | null) => runAction(deps(), meta(cookie, referer), need, double, [21]);
 

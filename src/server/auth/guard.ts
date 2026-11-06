@@ -1,7 +1,7 @@
 import { can, type Permission } from "@/domain/auth/permissions";
 import { writeAccessDeniedAudit } from "./audit";
 import { clientIp } from "./client-ip";
-import { clearSessionCookie, hasSessionCookie, readSessionToken } from "./cookie";
+import { clearSessionCookies, hasSessionCookie, isHttps, readSessionToken } from "./cookie";
 import { ipHash } from "./crypto";
 import { csrfBlocked } from "./csrf";
 import { defaultDeps } from "./default-deps";
@@ -35,8 +35,9 @@ export type Authorization =
  * (src/server/auth/session-service.ts), so a revoked session or a deactivated user stops working at once.
  * `staleCookie` is true when a session cookie was sent but is not valid, so the caller can clear it.
  */
-export async function authorize(deps: AuthRouteDeps, cookieHeader: string | null, need: Need, now: number): Promise<Authorization> {
-  const token = readSessionToken(cookieHeader);
+export async function authorize(deps: AuthRouteDeps, request: { cookie: string | null; secure: boolean }, need: Need, now: number): Promise<Authorization> {
+  const cookieHeader = request.cookie;
+  const token = readSessionToken(cookieHeader, request.secure);
   const current = token === null ? null : await resolveSession(deps.db, token, now);
   if (current === null) return { ok: false, status: 401, staleCookie: hasSessionCookie(cookieHeader) };
   if (!isAllowed(current.user, need)) return { ok: false, status: 403, user: current.user };
@@ -48,14 +49,14 @@ export type PublicContext = { now: number; request: Request; deps: AuthRouteDeps
 export type RouteHandler = (request: Request) => Promise<Response>;
 
 /** Every response says "do not store": none of these answers is for a shared cache or the back button. */
-function finish(response: Response, extra: Record<string, string> = {}): Response {
+function finish(response: Response, extra: [string, string][] = []): Response {
   const headers = new Headers(response.headers);
   headers.set("Cache-Control", "no-store");
-  for (const [name, value] of Object.entries(extra)) headers.append(name, value);
+  for (const [name, value] of extra) headers.append(name, value);
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
-const error = (status: number, code: string, extra: Record<string, string> = {}): Response =>
+const error = (status: number, code: string, extra: [string, string][] = []): Response =>
   finish(Response.json({ error: code }, { status }), extra);
 
 /** The two wrappers every route handler must use (D81). `createGuards` takes the dependencies so tests control the clock and database. */
@@ -86,7 +87,7 @@ export function createGuards(getDeps: () => AuthRouteDeps) {
   /**
    * A route that needs a signed-in person. In this order: the CSRF check on unsafe methods; the session (401 and a
    * cleared stale cookie if there is none); the role or permission (403, audited as ACCESS_DENIED); then the handler.
-   * It sets a cookie only to clear a stale one.
+   * It sets a cookie only to clear a stale one (both cookie names).
    */
   function withPermission(need: Need, handler: (context: GuardContext) => Promise<Response> | Response): RouteHandler {
     return (request) =>
@@ -94,9 +95,9 @@ export function createGuards(getDeps: () => AuthRouteDeps) {
         if (csrfBlocked(request)) return error(403, "CSRF_BLOCKED");
         const deps = getDeps();
         const now = deps.now();
-        const result = await authorize(deps, request.headers.get("cookie"), need, now);
+        const result = await authorize(deps, { cookie: request.headers.get("cookie"), secure: isHttps(request) }, need, now);
         if (!result.ok && result.status === 401) {
-          return error(401, "UNAUTHENTICATED", result.staleCookie ? { "Set-Cookie": clearSessionCookie() } : {});
+          return error(401, "UNAUTHENTICATED", result.staleCookie ? clearSessionCookies().map((c): [string, string] => ["Set-Cookie", c]) : []);
         }
         if (!result.ok) {
           await auditDenied(deps, request, result.user, need, now);

@@ -4,7 +4,7 @@ import type { Role } from "@/domain/auth/policy";
 import type { z } from "zod";
 import { writeAuthAudit } from "./audit";
 import type { GuardContext } from "./guard";
-import { buildSessionCookie, clearSessionCookie, readSessionToken } from "./cookie";
+import { appendClearedCookies, buildSessionCookie, isHttps, readSessionToken } from "./cookie";
 import { ipHash } from "./crypto";
 import type { Db } from "./db";
 import { clientIp } from "./client-ip";
@@ -77,19 +77,19 @@ export async function handleOtpVerify(deps: AuthRouteDeps, request: Request): Pr
   const session = await createSession(deps.db, user, now);
   await writeAuthAudit(deps.db, { action: "LOGIN_SUCCEEDED", userId: user.id, phone: normalizePhone(body.phone), ipHash: ipHash(ip), reason: null, now });
   const target = safeReturnPath(body.returnTo);
-  return json(200, { role: user.role, redirectTo: target === "/" ? HOME[user.role] : target }, { "Set-Cookie": buildSessionCookie(session.token, session.expiresAt, now) });
+  return json(200, { role: user.role, redirectTo: target === "/" ? HOME[user.role] : target }, { "Set-Cookie": buildSessionCookie(session.token, session.expiresAt, now, isHttps(request)) });
 }
 
 /** Ends the session in the cookie. Always clears the cookie and answers 204, so it can be repeated and says nothing about the session. */
 export async function handleLogout(deps: AuthRouteDeps, request: Request): Promise<Response> {
   const now = deps.now();
-  const token = readSessionToken(request.headers.get("cookie"));
+  const token = readSessionToken(request.headers.get("cookie"), isHttps(request));
   const current = token === null ? null : await resolveSession(deps.db, token, now);
   if (current !== null) {
     await revokeSession(deps.db, current.sessionId, now);
     await writeAuthAudit(deps.db, { action: "LOGOUT", userId: current.user.id, phone: current.user.phone, ipHash: ipHash(addressOf(deps, request)), reason: null, now });
   }
-  return new Response(null, { status: 204, headers: { "Set-Cookie": clearSessionCookie() } });
+  return new Response(null, { status: 204, headers: appendClearedCookies(new Headers()) });
 }
 
 /**
@@ -99,5 +99,5 @@ export async function handleLogout(deps: AuthRouteDeps, request: Request): Promi
 export async function handleLogoutAll({ user, request, now, deps }: GuardContext): Promise<Response> {
   await revokeAllSessions(deps.db, user.id, now);
   await writeAuthAudit(deps.db, { action: "LOGOUT_ALL", userId: user.id, phone: user.phone, ipHash: ipHash(addressOf(deps, request)), reason: null, now });
-  return new Response(null, { status: 204, headers: { "Set-Cookie": clearSessionCookie() } });
+  return new Response(null, { status: 204, headers: appendClearedCookies(new Headers()) });
 }

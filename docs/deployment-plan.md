@@ -152,7 +152,7 @@ Names only. No value belongs in a commit, a chat, or a screenshot. "Set by" says
 | `CRON_SECRET` | Random string of 16 or more letters and digits; Vercel sends it as `Authorization: Bearer ...` to the cron route | You, in Vercel, **when the cron route is built** (not used by any code yet) | Production only | Secret |
 | `LLM_API_KEY` | Key for the complaint classifier (D73) | **Not set now.** Set it when the classifier is built | Production only | Secret |
 | `SESSION_SECRET` | Appears in `.env.example`, but **no code reads it**: sessions are database rows with hashed tokens (D16, D79) | **Do not set.** Remove it from `.env.example` in a later task | none | n/a |
-| `NODE_ENV` | `production` on Vercel; the app needs it to use the `__Host-session` cookie and to refuse a weak pepper | Vercel and Next.js set it. Do not set it by hand | automatic | no |
+| `NODE_ENV` | `production` on Vercel; the app needs it to refuse a weak pepper (the cookie name follows the request scheme, not this) | Vercel and Next.js set it. Do not set it by hand | automatic | no |
 | `VERCEL`, `VERCEL_ENV` | System variables. `clientIp` trusts proxy headers only when `VERCEL=1`, which exists only if **"Enable access to System Environment Variables"** is ticked (V4c) | You: tick the box once | automatic | no |
 | `DB_POOL_MAX` | Optional. The most database connections one function instance opens: a whole number from 1 to 10 (default 5). Anything else makes the app throw at first use | You, in Vercel, only if you want to change it | Production only | Config |
 | `BASE_URL` | The deployed address, for the smoke test only | You, in your own shell | n/a | no |
