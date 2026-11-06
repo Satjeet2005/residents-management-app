@@ -103,7 +103,7 @@ async function run() {
   check("GET / as the resident: 200 with one h1 (the flat code) and the dues", home.status === 200 && (home.html.match(/<h1/g) ?? []).length === 1 && /<h1[^>]*>T12-0408<\/h1>/.test(home.html), `status ${home.status}`);
   check(`GET / shows ${rupees(duePaise)} due`, home.text.includes(rupees(duePaise)), "");
   check(`GET / shows '${overdueDays} days overdue'`, home.text.includes(`${overdueDays} days overdue`), "");
-  check(`GET / labels the date: 'As of ${asOfText}'`, home.text.includes(`As of ${asOfText}`), "");
+  check(`GET / labels the date: 'Amount due, as of ${asOfText}'`, home.text.includes(`Amount due, as of ${asOfText}`), "");
   check("GET / shows the water-leak complaint at step 2 of 4", home.text.includes("Water leak under the kitchen sink") && home.text.includes("Step 2 of 4"), "");
   check(
     frozenToTheBrief ? "GET / shows two visitors today and the reply due today at 5 pm (the brief's date)" : "GET / shows no visitors today and the reply overdue (a later date)",

@@ -27,12 +27,21 @@ describe("HM5 Home: T12-0408, overdue (₹6,468, 47 days)", () => {
     expect(emergency).not.toContain("bg-accent");
   });
 
-  it("the dues card shows the amount, the overdue tag in words, the date it is worked out for, and the link to the breakdown", () => {
-    expect(words).toContain("Your dues");
+  it("the dues show the amount, the overdue tag in words, the date it is worked out for, and the link to the breakdown", () => {
     expect(words).toContain("₹6,468");
     expect(words).toContain("47 days overdue");
-    expect(words).toContain("As of 27 Oct");
+    expect(words).toContain("Amount due, as of 27 Oct");
     expect(words).toContain("See what makes up this amount");
+  });
+
+  it("the dues are not a bordered card: the label, then the hero amount with the tag on its row, then the double rule, then the link", () => {
+    const section = /<section aria-label="Your dues"[^>]*>[\s\S]*?<\/section>/.exec(html)?.[0].split("<dialog")[0] ?? "";
+    expect(section).not.toContain("border-hairline");
+    expect(section).not.toMatch(/\sp-4\b/);
+    const order = ["Amount due, as of 27 Oct", "text-hero", "47 days overdue", "h-[7px] border-y-2 border-ink", "See what makes up this amount"].map((needle) => section.indexOf(needle));
+    expect(order.every((i) => i >= 0)).toBe(true);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    expect(section).toMatch(/justify-between[^"]*"[^>]*><span class="tnum text-hero font-semibold">₹6,468<\/span><span[^>]*>47 days overdue/);
   });
 
   it("the amount is a hero amount in tabular numerals", () => {
@@ -99,7 +108,9 @@ describe("HM5 Home: T12-0408, overdue (₹6,468, 47 days)", () => {
 
 describe("HM5 Home: T21-1601, part paid", () => {
   const words = text(render(home("T21-1601")));
-  it("shows ₹5,698, 18 days overdue and the part-payment line", () => {
+  it("shows ₹5,698, 18 days overdue and the part-payment line under the double rule", () => {
+    const html = render(home("T21-1601"));
+    expect(html.indexOf("h-[7px]")).toBeLessThan(html.indexOf("₹5,000 paid on 12 Oct"));
     expect(words).toContain("₹5,698");
     expect(words).toContain("18 days overdue");
     expect(words).toContain("₹5,000 paid on 12 Oct. ₹5,660 still due, plus ₹38 late fee.");
@@ -122,6 +133,8 @@ describe("HM5 Home: T07-1203, nothing to pay", () => {
   it("says No dues with the last payment, and has no breakdown link or sheet", () => {
     expect(words).toContain("No dues");
     expect(words).toContain("Last payment ₹7,475 on 3 Oct");
+    expect(html.indexOf("h-[7px]")).toBeGreaterThan(html.indexOf("No dues"));
+    expect(html.indexOf("h-[7px]")).toBeLessThan(html.indexOf("Last payment"));
     expect(words).not.toContain("See what makes up this amount");
     expect(words).not.toContain("Amount as of 27 Oct 2026");
     expect(count(html, /<dialog/g)).toBe(1);
@@ -165,6 +178,7 @@ describe("HM5 Home: variants built by hand", () => {
     const data = assembleHome({ ...base, entries: [...base.entries, entry({ id: "p", entryType: "PAYMENT", direction: "PAYMENT", amountPaise: 63_000n, effectiveDate: day("2026-10-20"), billId: null })] });
     const words = text(render(data));
     expect(words).toContain("No dues. Credit ₹630");
+    expect(words).toContain("It will be used for your next bill. Ask accounts if you'd like a refund.");
     expect(words).not.toContain("See what makes up this amount");
   });
 

@@ -4,6 +4,7 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { StatusTag } from "@/components/ui/status-tag";
 import { Tracker, type TrackerStep } from "@/components/ui/tracker";
 import { LedgerLine } from "@/components/ui/ledger-line";
+import { DoubleRule } from "@/components/ui/rules";
 import { COMPLAINT_STEP_KEYS } from "@/domain/complaints/step";
 import { formatRupees } from "@/domain/money/money";
 import { formatDay, formatTimeIst } from "@/lib/format-date";
@@ -42,27 +43,34 @@ function DuesCard({ data }: { data: Ok }) {
   const { dues, asOf } = data;
   const tag = dueTag(dues);
   const open = dues.status === "OVERDUE" || dues.status === "NOT_YET_DUE" || dues.status === "PARTLY_PAID";
-  return (
-    <section aria-labelledby="dues-heading" className="flex flex-col gap-3 rounded-control border border-hairline p-4">
-      <h2 id="dues-heading" className="text-title font-semibold">
-        {t("dues.title")}
-      </h2>
-      {open ? (
-        <>
+  if (open) {
+    return (
+      <section aria-label={t("dues.title")} className="flex flex-col gap-3">
+        <p className="tnum text-caption text-ink-2">{t("dues.label", { date: formatDay(asOf) })}</p>
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <Money amount={dues.amountDuePaise} size="hero" />
-          {tag !== null && <div><StatusTag tone={tag.tone}>{tag.text}</StatusTag></div>}
-          {dues.partlyPaid !== null && <p className="tnum text-body">{partlyPaidText(dues.partlyPaid)}</p>}
-        </>
-      ) : dues.status === "CREDIT" ? (
+          {tag !== null && <StatusTag tone={tag.tone}>{tag.text}</StatusTag>}
+        </div>
+        <DoubleRule />
+        {dues.partlyPaid !== null && <p className="tnum text-body">{partlyPaidText(dues.partlyPaid)}</p>}
+        <DuesSheetButton dues={dues} asOf={asOf} />
+      </section>
+    );
+  }
+  if (dues.status === "CREDIT") {
+    return (
+      <section aria-label={t("dues.title")} className="flex flex-col gap-3">
         <p className="tnum text-heading font-semibold">{t("dues.credit", { amount: formatRupees(dues.creditPaise) })}</p>
-      ) : (
-        <>
-          <p className="text-heading font-semibold">{t("dues.none")}</p>
-          {dues.lastPayment !== null && <p className="tnum text-body text-ink-2">{t("dues.lastPayment", { amount: formatRupees(dues.lastPayment.amountPaise), date: formatDay(dues.lastPayment.date) })}</p>}
-        </>
-      )}
-      <p className="tnum text-caption text-ink-2">{t("dues.asOf", { date: formatDay(asOf) })}</p>
-      {open && <DuesSheetButton dues={dues} asOf={asOf} />}
+        <DoubleRule />
+        <p className="text-body">{t("dues.creditNote")}</p>
+      </section>
+    );
+  }
+  return (
+    <section aria-label={t("dues.title")} className="flex flex-col gap-3">
+      <p className="text-heading font-semibold">{t("dues.none")}</p>
+      <DoubleRule />
+      {dues.lastPayment !== null && <p className="tnum text-body">{t("dues.lastPayment", { amount: formatRupees(dues.lastPayment.amountPaise), date: formatDay(dues.lastPayment.date) })}</p>}
     </section>
   );
 }
