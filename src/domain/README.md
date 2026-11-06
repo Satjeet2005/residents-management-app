@@ -9,6 +9,7 @@ Pure TypeScript only. No imports from `next`, `react`, `@prisma/client`, `src/se
 - `billing/late-fee.ts`: the late-fee calculation. The rules and worked examples are in `docs/late-fee-policy.md`.
 - `matching/`: reads a bank statement CSV (`csv.ts`), the free-text narration (`narration.ts`, `flat-code.ts`, `names.ts`) and makes duplicate keys (`dedupe.ts`). See `docs/bank-statements.md`. It also decides each row (`decide.ts`, `evidence.ts`, `amounts.ts`, `context.ts`, `reasons.ts`) plans the ledger entries of an automatic match (`plan.ts`) and takes in a whole statement (`processor.ts`). See `docs/matching-design.md`.
 - `auth/`: rules for one-time-code login and sessions, with no input or output: phone normalisation, unbiased code generation, request and attempt limits, session validity and `can()`. See `docs/auth-design.md`.
+- `payments/`: what to do with a gateway event for a payment attempt (`attempt-state.ts`: post, mark failed, duplicate, or an exception for a person) and the amount locked when Pay is tapped (`amount-lock.ts`, the oldest open bill, worked out by `computeDues`). See `docs/payments-design.md`.
 - `seed/`: a deterministic generator for the fictional demo dataset (`generateDemoDataset`): flats, people, bills, ledger entries, settings, complaints (with events, classifications, duplicate clusters), visitors, known payers and notifications from a seeded random generator. See `docs/seed-data.md`.
 
 Tests live in `tests/domain`, because a test file here may not import `vitest` under the import allowlist.
