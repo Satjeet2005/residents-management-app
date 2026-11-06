@@ -11,6 +11,7 @@ import type { Db } from "@/server/auth/db";
 import type { SessionUser } from "@/server/auth/session-service";
 import { toDueBill, toDueEntry } from "@/server/home/mapper";
 import { lockBill } from "@/server/payments/bill-lock";
+import { bankReferences } from "./reference";
 import { loadMatchContext } from "./context";
 
 export const IMPORT_LIMITS = { maxChars: 2_000_000, maxRows: 20_000 } as const;
@@ -57,18 +58,10 @@ export type ReadBack = { stored: Record<"AUTO_MATCHED" | "QUEUED" | "IGNORED", n
 
 const MAX_ERRORS_SHOWN = 50;
 const CHUNK = 500;
-const REFERENCE_MAX = 120;
 
 const json = (value: unknown): Prisma.InputJsonValue => JSON.parse(JSON.stringify(value, (_k, v) => (typeof v === "bigint" ? v.toString() : v))) as Prisma.InputJsonValue;
 const dateOf = (calendarDate: string): Date => new Date(`${calendarDate}T00:00:00.000Z`);
 const chunks = <T>(items: readonly T[], size = CHUNK): T[][] => Array.from({ length: Math.ceil(items.length / size) }, (_x, i) => items.slice(i * size, (i + 1) * size));
-
-/** `bank:<dedupeKey>`, unique per row. A key too long to keep whole is cut and given a hash of the whole key, so two long keys never collide. */
-export function bankReference(dedupeKey: string): string {
-  const whole = `bank:${dedupeKey}`;
-  if (whole.length <= REFERENCE_MAX) return whole;
-  return `${whole.slice(0, REFERENCE_MAX - 17)}~${createHash("sha256").update(dedupeKey, "utf8").digest("hex").slice(0, 16)}`;
-}
 
 /** Postgres says "lock timeout" (SQLSTATE 55P03) in one of several places depending on the driver layer. */
 function isLockTimeout(error: unknown): boolean {
@@ -258,9 +251,11 @@ export async function importStatement(input: { db: Db; user: Pick<SessionUser, "
 
         const autos = fresh.filter((r) => r.state === "AUTO_MATCHED");
         const queued = fresh.filter((r) => r.state === "QUEUED");
-        const autoByRow = new Map(autos.map((r) => [r.rowNumber, r]));
+        const references = await bankReferences(
+          tx,
+          autos.map((row) => ({ key: row.rowNumber, source: { rail: row.parsed.rail, reference: row.parsed.reference, dedupeKey: row.dedupeKey } })),
+        );
         const entryRows = final.entriesToPost.map((entry) => {
-          const row = autoByRow.get(entry.rowNumber) as ProcessedRow;
           const isPayment = entry.entryType === "PAYMENT";
           return {
             flatId: flatIds.get(entry.flatCode) as string,
@@ -270,7 +265,7 @@ export async function importStatement(input: { db: Db; user: Pick<SessionUser, "
             amountPaise: entry.amountPaise,
             effectiveDate: dateOf(entry.effectiveDate),
             bankRowId: isPayment ? (bankRowIds.get(entry.rowNumber) as string) : null,
-            reference: isPayment ? bankReference(row.dedupeKey) : null,
+            reference: isPayment ? (references.get(entry.rowNumber) as string) : null,
             idempotencyKey: entry.idempotencyKey,
           };
         });

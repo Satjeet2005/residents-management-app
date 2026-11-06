@@ -45,7 +45,8 @@ describe("SI1 an exact payment is posted automatically", () => {
     ]);
     const payment = entries[1];
     expect(row.ledgerEntryId).toBe(payment.id);
-    expect(payment.reference).toBe(`bank:${row.dedupeKey}`);
+    expect(payment.reference).toMatch(/^bank:upi:[0-9]{12}$/);
+    expect(payment.reference).not.toContain(resident.name);
     expect(entries.map((e) => e.idempotencyKey)).toEqual([`bank:${row.dedupeKey}:LATE_FEE`, `bank:${row.dedupeKey}:PAYMENT`]);
     expect(await balanceOf(fx, resident.flatId)).toBe(0n);
   });
