@@ -47,12 +47,23 @@ describe("D81 page inventory", () => {
   const pages = files(APP, /^page\.tsx$/).map((file) => ({ file, address: addressOf(file), calls: callsIn(readFileSync(file, "utf8")) }));
 
   it("finds the pages", () => {
-    expect(pages.map((p) => p.address).sort()).toEqual(expect.arrayContaining(["/", "/profile", "/staff", "/login", "/forbidden", "/design"]));
+    expect(pages.map((p) => p.address).sort()).toEqual(expect.arrayContaining(["/", "/profile", "/staff", "/staff/reconciliation", "/login", "/forbidden", "/design"]));
   });
 
   it("every page that is not on the public allowlist calls requireUser", () => {
     const unguarded = pages.filter((p) => !(p.address in PUBLIC_PAGES) && !p.calls.has("requireUser")).map((p) => p.address);
     expect(unguarded, "these pages are not guarded: call requireUser, or add them to PUBLIC_PAGES with a reason").toEqual([]);
+  });
+
+  it("T12c the staff pages ask for a role: /staff for any active staff, every reconciliation page for payments:match (the data loaders check it again)", () => {
+    const need = (address: string): string | null => {
+      const page = pages.find((p) => p.address === address);
+      return page === undefined ? null : (/need:\s*"([^"]+)"/.exec(readFileSync(page.file, "utf8"))?.[1] ?? null);
+    };
+    expect(need("/staff")).toBe("STAFF");
+    const reconciliation = pages.filter((p) => p.address.startsWith("/staff/reconciliation"));
+    expect(reconciliation.length).toBeGreaterThanOrEqual(1);
+    for (const page of reconciliation) expect(need(page.address), page.address).toBe("payments:match");
   });
 
   it("every public page on the allowlist exists (no stale entry)", () => {

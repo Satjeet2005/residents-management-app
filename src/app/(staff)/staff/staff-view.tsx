@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { SignOutButtons } from "@/components/sign-out-buttons";
 import { t } from "@/lib/messages";
+import { type StaffTool, staffToolsFor } from "@/lib/staff-tools";
 
 /** The message for a staff permission. A permission this app does not know is shown as it is stored. */
 export function permissionLabel(permission: string): string {
@@ -19,14 +21,49 @@ export function permissionLabel(permission: string): string {
   }
 }
 
-/** The staff landing page. It links nowhere, because no staff feature exists yet: it says who is signed in and what they may do. */
+const toolLabel = (tool: StaffTool): string => {
+  switch (tool.key) {
+    case "reconciliation":
+      return t("staff.tool.reconciliation");
+  }
+};
+const toolHint = (tool: StaffTool): string => {
+  switch (tool.key) {
+    case "reconciliation":
+      return t("staff.tool.reconciliation.hint");
+  }
+};
+
+/** The staff landing page: who is signed in, the tools they may open, what they may do in words, and sign out. */
 export function StaffView({ name, permissions }: { name: string; permissions: readonly string[] }) {
+  const tools = staffToolsFor({ role: "STAFF", active: true, permissions });
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4">
       <h1 className="text-heading font-semibold">{t("staff.title")}</h1>
       <p className="text-body">{t("staff.signedInAs", { name })}</p>
-      <section className="flex flex-col gap-2">
-        <h2 className="text-title font-semibold">{t("staff.permissions")}</h2>
+      <section aria-labelledby="staff-tools" className="flex flex-col gap-2">
+        <h2 id="staff-tools" className="text-title font-semibold">
+          {t("staff.tools")}
+        </h2>
+        {tools.length === 0 ? (
+          <p className="text-body text-ink-2">{t("staff.tools.none")}</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {tools.map((tool) => (
+              <li key={tool.key} className="flex flex-col border-b border-hairline pb-3">
+                <Link href={tool.href} className="inline-flex min-h-12 items-center text-body font-semibold text-accent underline underline-offset-4">
+                  {toolLabel(tool)}
+                </Link>
+                <span className="text-caption text-ink-2">{toolHint(tool)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      <section aria-labelledby="staff-permissions" className="flex flex-col gap-2">
+        <h2 id="staff-permissions" className="text-title font-semibold">
+          {t("staff.permissions")}
+        </h2>
         {permissions.length === 0 ? (
           <p className="text-body text-ink-2">{t("staff.permissions.none")}</p>
         ) : (

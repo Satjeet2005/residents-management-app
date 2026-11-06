@@ -168,7 +168,7 @@ async function run() {
   check("login as staff", staffCookie !== null, staffCookie ? `cookie length ${staffCookie.length}` : "could not log in");
   if (staffCookie === null) return;
   const staff = await get("/staff", staffCookie);
-  check("GET /staff as staff: 200, one h1, the name and the permission in words, no links", staff.status === 200 && (staff.html.match(/<h1/g) ?? []).length === 1 && staff.text.includes("Signed in as Priya Nair") && staff.text.includes("Match bank payments") && !/<a [^>]*href/.test(staff.html.replace(/<link[^>]*>/g, "")), `status ${staff.status}`);
+  check("GET /staff as staff: 200, one h1, the name, the permission in words, and the Bank reconciliation tool", staff.status === 200 && (staff.html.match(/<h1/g) ?? []).length === 1 && staff.text.includes("Signed in as Priya Nair") && staff.text.includes("Match bank payments") && /<a [^>]*href="\/staff\/reconciliation"[^>]*>Bank reconciliation<\/a>/.test(staff.html), `status ${staff.status}`);
   const staffHome = redirectTarget(await get("/", staffCookie));
   check("GET / as staff goes to /staff", staffHome?.to === "/staff", staffHome ? `${staffHome.how} -> ${staffHome.to}` : "no redirect");
   if (expectDemoNote && paidCheckoutPath !== null) {
