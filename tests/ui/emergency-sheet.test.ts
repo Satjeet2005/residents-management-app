@@ -28,6 +28,28 @@ describe("HM5 the Emergency sheet (D43)", () => {
     for (const item of ["Water leak", "Lift not working with nobody inside", "Noise", "Parking"]) expect(out).toContain(item);
   });
 
+  it("is laid out as two columns: Call now with a phone icon, Raise a complaint with a chat icon", () => {
+    expect(out).toContain("grid grid-cols-2");
+    const columns = out.split("<section").slice(1);
+    expect(columns).toHaveLength(2);
+    expect(columns[0]).toMatch(/<h3[^>]*border-b-2 border-ink[^>]*><svg[\s\S]*?<\/svg>Call now<\/h3>/);
+    expect(columns[1]).toMatch(/<h3[^>]*border-b border-hairline[^>]*><svg[\s\S]*?<\/svg>Raise a complaint<\/h3>/);
+    expect(columns[0]).toContain("M5 3h4l2 5");
+    expect(columns[1]).toContain("M4 5h16v11H11l-4 4v-4H4z");
+  });
+
+  it("separates the items with hairlines, one row each", () => {
+    expect((out.match(/<li class="border-b border-hairline py-3 text-body">/g) ?? []).length).toBe(9);
+  });
+
+  it("the large Call duty manager link is in the accent colour with a phone icon", () => {
+    expect(out).toMatch(/<a class="[^"]*bg-accent[^"]*" href="tel:5900000001"><svg[^>]*aria-hidden="true"[\s\S]*?<\/svg>Call duty manager<\/a>/);
+  });
+
+  it("does not draw 'Not an emergency? Raise a complaint': complaints cannot be raised yet", () => {
+    expect(out).not.toMatch(/Not an emergency/);
+  });
+
   it("has no Raise a complaint button: complaints cannot be raised yet (the list is words only)", () => {
     expect(out).not.toContain("<button");
     expect((out.match(/<a /g) ?? []).length).toBe(1);
