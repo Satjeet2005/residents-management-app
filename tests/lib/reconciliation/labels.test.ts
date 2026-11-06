@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { confidenceLabel, entryLabel, ignoreKindLabel, postedByLabel, railLabel, reasonSentence, relationLabel, requestActionLabel, shortNarration, thresholdNotice } from "@/lib/reconciliation/labels";
+import { confidenceLabel, entryLabel, ignoreKindLabel, payerNoticeText, postedByLabel, railLabel, reasonSentence, relationLabel, requestActionLabel, shortNarration, thresholdNotice } from "@/lib/reconciliation/labels";
 
 describe("RB1 labels", () => {
   it("the confidence words are High, Medium, Low and No match (a missing one is No match)", () => {
@@ -44,6 +44,12 @@ describe("RB1 labels", () => {
     expect(entryLabel({ entryType: "PAYMENT", amountPaise: "566000" })).toBe("Payment ₹5,660");
     expect(requestActionLabel("MATCH", "T21-1601")).toBe("Match to T21-1601");
     expect(requestActionLabel("IGNORE", null)).toBe("Not a maintenance payment");
+  });
+
+  it("the payer notice says whether the UPI id was remembered, was already known, or belongs to another flat", () => {
+    expect(payerNoticeText("ADDED")).toBe("The payer's UPI id is now remembered for this flat.");
+    expect(payerNoticeText("ALREADY_KNOWN")).toContain("already remembered");
+    expect(payerNoticeText("VPA_ON_OTHER_FLAT")).toContain("belongs to another flat");
   });
 
   it("D116 the threshold notice names the amount it is given, not a fixed one", () => {

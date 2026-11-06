@@ -105,3 +105,15 @@ export function requestActionLabel(action: "MATCH" | "IGNORE", flatCode: string 
 export function thresholdNotice(thresholdPaise: bigint): string {
   return t("recon.threshold.notice", { amount: formatRupees(thresholdPaise) });
 }
+
+/** What happened to the payer's UPI id after a post with "Remember this payer's UPI id for this flat". */
+export function payerNoticeText(notice: string): string {
+  switch (notice) {
+    case "ADDED":
+      return t("recon.payer.added");
+    case "ALREADY_KNOWN":
+      return t("recon.payer.known");
+    default:
+      return t("recon.payer.otherFlat");
+  }
+}

@@ -107,7 +107,7 @@ describe("WS4 the lane tabs", () => {
 
 describe("WS5 the rows", () => {
   const rows = [card(), card({ id: "a0000000-0000-0000-0000-000000000002", amountPaise: "100000", bestFlat: null, confidence: "NONE", narration: "x".repeat(80) })];
-  const out = html(h(RowsView, { rows, caption: "Rows in Needs you" }));
+  const out = html(h(RowsView, { rows, caption: "Rows in Needs you", importId: IMPORT, lane: "NEEDS_YOU", selectedId: null }));
 
   it("is a real table with headers from 768px and stacked cards below", () => {
     expect(out).toContain('<div class="hidden md:block">');
@@ -137,13 +137,13 @@ describe("WS5 the rows", () => {
   });
 
   it("a debit says Money out", () => {
-    expect(html(h(RowsView, { rows: [card({ direction: "DEBIT" })], caption: "c" }))).toContain("Money out");
+    expect(html(h(RowsView, { rows: [card({ direction: "DEBIT" })], caption: "c", importId: IMPORT, lane: "NEEDS_YOU", selectedId: null }))).toContain("Money out");
   });
 });
 
 describe("WS6 the lane panel", () => {
   it("is a tabpanel named by its tab, and says what an empty lane means", () => {
-    const empty = html(h(RowList, { importId: IMPORT, lane: "NEEDS_YOU", initialRows: [], initialCursor: null }));
+    const empty = html(h(RowList, { importId: IMPORT, lane: "NEEDS_YOU", initialRows: [], initialCursor: null, selectedId: null }));
     expect(empty).toContain('role="tabpanel"');
     expect(empty).toContain('aria-labelledby="recon-tab-NEEDS_YOU"');
     expect(empty).toContain("Nothing needs you. Every row is accounted for.");
@@ -151,13 +151,13 @@ describe("WS6 the lane panel", () => {
   });
 
   it("offers Load more only when a next page exists", () => {
-    expect(html(h(RowList, { importId: IMPORT, lane: "NEEDS_YOU", initialRows: [card()], initialCursor: "abc" }))).toContain(">Load more<");
-    expect(html(h(RowList, { importId: IMPORT, lane: "NEEDS_YOU", initialRows: [card()], initialCursor: null }))).not.toContain("Load more");
+    expect(html(h(RowList, { importId: IMPORT, lane: "NEEDS_YOU", initialRows: [card()], initialCursor: "abc", selectedId: null }))).toContain(">Load more<");
+    expect(html(h(RowList, { importId: IMPORT, lane: "NEEDS_YOU", initialRows: [card()], initialCursor: null, selectedId: null }))).not.toContain("Load more");
   });
 });
 
 describe("WS7 the workspace", () => {
-  const data: Workspace = { header: { importId: IMPORT, filename: "sample-statement.csv", uploadedOn: "2026-10-27", uploadedBy: "Priya Nair" }, counts: counts(), laneCounts, rows: [card()], nextCursor: null };
+  const data: Workspace = { header: { importId: IMPORT, filename: "sample-statement.csv", uploadedOn: "2026-10-27", uploadedBy: "Priya Nair" }, counts: counts(), laneCounts, rows: [card()], nextCursor: null, review: null };
   const out = html(h(WorkspaceView, { data, lane: "NEEDS_YOU" }));
 
   it("has one h1 (the file name), who uploaded it and when, a main landmark and a link back", () => {

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DEMO_NOW } from "@/domain/seed/types";
 import { importStatement } from "@/server/statements/import";
 import { getSampleStatement } from "@/server/statements/sample-statement";
-import { PAGE_SIZE, StaffAccessError, loadImportList, loadRowCards, loadWorkspace } from "@/server/statements/ui-data";
+import { PAGE_SIZE, StaffAccessError, loadImportList, loadReview, loadRowCards, loadWorkspace, readThreshold } from "@/server/statements/ui-data";
 import { type PaymentsFixture, createPaymentsFixture } from "./payments-fixture";
 import { newStaff, seedStaff } from "./reconciliation-helpers";
 import { csv } from "./statements-helpers";
@@ -70,7 +70,7 @@ describe("UD3 who can load it", () => {
 
 describe("UD4 the workspace of the sample import", () => {
   it("the header, the counts read back from the database, and the lane counts agree with the rows stored", async () => {
-    const data = await loadWorkspace({ db: fx.app, user: priya, importId: sampleImportId, lane: "NEEDS_YOU" });
+    const data = await loadWorkspace({ db: fx.app, user: priya, importId: sampleImportId, lane: "NEEDS_YOU", now: DEMO_NOW });
     expect(data).not.toBeNull();
     expect(data?.header).toMatchObject({ importId: sampleImportId, filename: "sample-statement.csv", uploadedBy: "Priya Nair" });
     expect(data?.counts).toEqual({ rowsRead: 106, autoMatched: 25, manuallyMatched: 0, needsYou: 43, awaitingApproval: 0, notMaintenance: 38, alreadyImported: 0, invalidRows: 0, accounted: true });
@@ -111,8 +111,8 @@ describe("UD4 the workspace of the sample import", () => {
   });
 
   it("an id that is not an import, or not an id, is null", async () => {
-    expect(await loadWorkspace({ db: fx.app, user: priya, importId: crypto.randomUUID(), lane: "NEEDS_YOU" })).toBeNull();
-    expect(await loadWorkspace({ db: fx.app, user: priya, importId: "not-an-id", lane: "NEEDS_YOU" })).toBeNull();
+    expect(await loadWorkspace({ db: fx.app, user: priya, importId: crypto.randomUUID(), lane: "NEEDS_YOU", now: DEMO_NOW })).toBeNull();
+    expect(await loadWorkspace({ db: fx.app, user: priya, importId: "not-an-id", lane: "NEEDS_YOU", now: DEMO_NOW })).toBeNull();
     expect(await loadRowCards({ db: fx.app, user: priya, importId: crypto.randomUUID(), lane: "NEEDS_YOU" })).toBeNull();
   });
 
@@ -121,8 +121,61 @@ describe("UD4 the workspace of the sample import", () => {
     const reports = await newStaff(fx, ["reports:view"]);
     const asResident = { id: resident.user.id, role: "RESIDENT" as const, active: true, permissions: ["payments:match"] };
     for (const user of [asResident, reports]) {
-      await expect(loadWorkspace({ db: fx.app, user, importId: sampleImportId, lane: "NEEDS_YOU" })).rejects.toBeInstanceOf(StaffAccessError);
+      await expect(loadWorkspace({ db: fx.app, user, importId: sampleImportId, lane: "NEEDS_YOU", now: DEMO_NOW })).rejects.toBeInstanceOf(StaffAccessError);
       await expect(loadRowCards({ db: fx.app, user, importId: sampleImportId, lane: "MATCHED" })).rejects.toBeInstanceOf(StaffAccessError);
+    }
+  });
+});
+
+describe("UD5 the review of a row", () => {
+  const principalRow = async () => fx.owner.bankRow.findFirstOrThrow({ where: { importId: sampleImportId, narrationRaw: { contains: "710000000003" } } });
+
+  it("holds the bank facts, the stored reasons, the candidates with their open positions and the threshold from the society setting", async () => {
+    const row = await principalRow();
+    const review = await loadReview({ db: fx.app, user: priya, importId: sampleImportId, rowId: row.id, now: DEMO_NOW });
+    expect(review).toMatchObject({ id: row.id, importId: sampleImportId, version: 1, state: "QUEUED", txnDate: "2026-10-27", creditPaise: "566000", rail: "UPI", reference: "710000000003", thresholdPaise: "1000000" });
+    expect(review?.narration).toBe(row.narrationRaw);
+    expect(review?.reasons.map((r) => r.code)).toContain("AMOUNT_PRINCIPAL_ONLY");
+    const t21 = review?.candidates.find((c) => c.flatCode === "T21-1601");
+    expect(t21).toMatchObject({ amountRelation: "EQUALS_PRINCIPAL", residents: ["Aamir Shaikh"] });
+    expect(t21?.openPositions[0]).toMatchObject({ kind: "PRINCIPAL_OPEN", principalOutstandingPaise: "566000", feePaise: "3800", amountDuePaise: "569800" });
+    expect(review?.payerName).not.toBeUndefined();
+  });
+
+  it("D116 the threshold is read from the setting, so changing the setting changes what the panel says", async () => {
+    expect(await readThreshold(fx.app)).toBe(1_000_000n);
+    await fx.owner.$executeRaw`UPDATE society_settings SET value = '2500000'::jsonb WHERE key = 'approval_threshold_paise'`;
+    try {
+      const row = await principalRow();
+      expect((await loadReview({ db: fx.app, user: priya, importId: sampleImportId, rowId: row.id, now: DEMO_NOW }))?.thresholdPaise).toBe("2500000");
+    } finally {
+      await fx.owner.$executeRaw`UPDATE society_settings SET value = '1000000'::jsonb WHERE key = 'approval_threshold_paise'`;
+    }
+  });
+
+  it("a row of another import, a row that does not exist and an id that is not an id are null", async () => {
+    const row = await principalRow();
+    const other = await importStatement({ db: fx.app, user: { id: priya.id }, filename: "third.csv", csvText: csv("2026-10-25,CASH DEPOSIT,12.00,"), now: DEMO_NOW });
+    if (other.status !== "IMPORTED") throw new Error(other.status);
+    expect(await loadReview({ db: fx.app, user: priya, importId: other.importId, rowId: row.id, now: DEMO_NOW })).toBeNull();
+    expect(await loadReview({ db: fx.app, user: priya, importId: sampleImportId, rowId: crypto.randomUUID(), now: DEMO_NOW })).toBeNull();
+    expect(await loadReview({ db: fx.app, user: priya, importId: sampleImportId, rowId: "nope", now: DEMO_NOW })).toBeNull();
+  });
+
+  it("the workspace carries the review of ?row= and none without it", async () => {
+    const row = await principalRow();
+    const withRow = await loadWorkspace({ db: fx.app, user: priya, importId: sampleImportId, lane: "NEEDS_YOU", rowId: row.id, now: DEMO_NOW });
+    expect(withRow?.review?.id).toBe(row.id);
+    const without = await loadWorkspace({ db: fx.app, user: priya, importId: sampleImportId, lane: "NEEDS_YOU", now: DEMO_NOW });
+    expect(without?.review).toBeNull();
+  });
+
+  it("a resident and staff without payments:match cannot load a review", async () => {
+    const row = await principalRow();
+    const resident = await fx.makeResident();
+    const reports = await newStaff(fx, ["reports:view"]);
+    for (const user of [{ id: resident.user.id, role: "RESIDENT" as const, active: true, permissions: ["payments:match"] }, reports]) {
+      await expect(loadReview({ db: fx.app, user, importId: sampleImportId, rowId: row.id, now: DEMO_NOW })).rejects.toBeInstanceOf(StaffAccessError);
     }
   });
 });
