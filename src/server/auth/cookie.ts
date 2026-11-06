@@ -42,3 +42,10 @@ export function readSessionToken(cookieHeader: string | null, env: Env = process
   }
   return null;
 }
+
+/** Is a cookie of the session name present at all, whatever its value? Used to clear a stale or garbled one. */
+export function hasSessionCookie(cookieHeader: string | null, env: Env = process.env): boolean {
+  if (cookieHeader === null) return false;
+  const name = sessionCookieName(env);
+  return cookieHeader.split(";").some((part) => part.slice(0, Math.max(part.indexOf("="), 0)).trim() === name);
+}
