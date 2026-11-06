@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { can } from "@/domain/auth/permissions";
 import type { Db } from "@/server/auth/db";
+import { TRANSACTION_RETRIES, withDeadlockRetry } from "@/server/db-retry";
 import {
   type ActingUser,
   type ManualFailure,
@@ -61,7 +62,7 @@ export async function postManualMatch(input: {
   if (!parsed.success) return failure(parsed.error.issues.some((i) => i.path[0] === "reason") ? "REASON_REQUIRED" : "FLAT_NOT_FOUND");
   const { flatCode, reason, rememberPayer, expectedVersion } = parsed.data;
 
-  return input.db.$transaction(
+  return withDeadlockRetry(() => input.db.$transaction(
     async (tx): Promise<MatchResult> => {
       const row = await lockAndReadRow(tx, input.rowId);
       if (row === null) return failure("NOT_FOUND");
@@ -95,5 +96,5 @@ export async function postManualMatch(input: {
       return { status: "POSTED", flatCode: flat.code, entries: posted.entries, payerNotice: posted.payerNotice, remaining: posted.remaining };
     },
     { timeout: 30_000, maxWait: 10_000 },
-  );
+  ), { retries: TRANSACTION_RETRIES });
 }

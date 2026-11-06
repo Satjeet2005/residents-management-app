@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { can } from "@/domain/auth/permissions";
 import type { Db } from "@/server/auth/db";
+import { TRANSACTION_RETRIES, withDeadlockRetry } from "@/server/db-retry";
 import {
   type ActingUser,
   type ManualFailure,
@@ -35,7 +36,7 @@ export async function ignoreRow(input: { db: Db; user: ActingUser; rowId: string
   if (!z.uuid().safeParse(input.rowId).success) return failure("NOT_FOUND");
   const reason = reasonSchema.safeParse(input.reason);
   if (!reason.success) return failure("REASON_REQUIRED");
-  return input.db.$transaction(
+  return withDeadlockRetry(() => input.db.$transaction(
     async (tx): Promise<IgnoreResult> => {
       const row = await lockAndReadRow(tx, input.rowId);
       if (row === null) return failure("NOT_FOUND");
@@ -55,7 +56,7 @@ export async function ignoreRow(input: { db: Db; user: ActingUser; rowId: string
       return { status: "IGNORED" };
     },
     { timeout: 30_000, maxWait: 10_000 },
-  );
+  ), { retries: TRANSACTION_RETRIES });
 }
 
 export type ApproveResult =
@@ -78,7 +79,7 @@ export async function approveRequest(input: { db: Db; user: ActingUser; rowId: s
   const noteText = written === "" ? "Approved" : written;
   if (!reasonSchema.safeParse(noteText).success) return failure("REASON_REQUIRED");
 
-  return input.db.$transaction(
+  return withDeadlockRetry(() => input.db.$transaction(
     async (tx): Promise<ApproveResult> => {
       const row = await lockAndReadRow(tx, input.rowId);
       if (row === null) return failure("NOT_FOUND");
@@ -120,7 +121,7 @@ export async function approveRequest(input: { db: Db; user: ActingUser; rowId: s
       return { status: "APPROVED", action: "MATCH", flatCode: flat.code, entries: posted.entries, payerNotice: posted.payerNotice, remaining: posted.remaining };
     },
     { timeout: 30_000, maxWait: 10_000 },
-  );
+  ), { retries: TRANSACTION_RETRIES });
 }
 
 export type RejectResult = { status: "REJECTED" } | ManualFailure;
@@ -134,7 +135,7 @@ export async function rejectRequest(input: { db: Db; user: ActingUser; rowId: st
   if (!z.uuid().safeParse(input.rowId).success) return failure("NOT_FOUND");
   const reason = reasonSchema.safeParse(input.reason);
   if (!reason.success) return failure("REASON_REQUIRED");
-  return input.db.$transaction(
+  return withDeadlockRetry(() => input.db.$transaction(
     async (tx): Promise<RejectResult> => {
       const row = await lockAndReadRow(tx, input.rowId);
       if (row === null) return failure("NOT_FOUND");
@@ -146,5 +147,5 @@ export async function rejectRequest(input: { db: Db; user: ActingUser; rowId: st
       return { status: "REJECTED" };
     },
     { timeout: 30_000, maxWait: 10_000 },
-  );
+  ), { retries: TRANSACTION_RETRIES });
 }

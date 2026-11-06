@@ -10,3 +10,8 @@ import type { Prisma } from "../../../generated/prisma/client";
 export async function lockBill(tx: Prisma.TransactionClient, billId: string): Promise<void> {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${billId}))`;
 }
+
+/** Locks several bills in sorted id order (each once), so two transactions that need the same bills never wait for each other in opposite orders. */
+export async function lockBills(tx: Prisma.TransactionClient, billIds: readonly string[]): Promise<void> {
+  for (const billId of [...new Set(billIds)].sort()) await lockBill(tx, billId);
+}

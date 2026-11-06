@@ -10,7 +10,8 @@ import type { Prisma } from "../../../generated/prisma/client";
 import type { Db } from "@/server/auth/db";
 import type { SessionUser } from "@/server/auth/session-service";
 import { toDueBill, toDueEntry } from "@/server/home/mapper";
-import { lockBill } from "@/server/payments/bill-lock";
+import { TRANSACTION_RETRIES, withDeadlockRetry } from "@/server/db-retry";
+import { lockBills } from "@/server/payments/bill-lock";
 import { bankIdempotencyKey, bankReferences } from "./reference";
 import { loadMatchContext } from "./context";
 
@@ -133,7 +134,7 @@ async function staleRows(tx: Prisma.TransactionClient, processed: ProcessedState
   const autos = processed.rows.filter((r) => r.state === "AUTO_MATCHED" && r.decision?.plan !== null && r.decision?.plan !== undefined);
   const billOf = (row: ProcessedRow): string => (row.decision?.plan?.entries[0]?.billKey ?? "");
   const billIds = [...new Set(autos.map(billOf))].sort();
-  for (const billId of billIds) await lockBill(tx, billId);
+  await lockBills(tx, billIds);
   if (billIds.length === 0) return new Set();
   const bills = await tx.bill.findMany({ where: { id: { in: billIds } }, select: { id: true, flatId: true, period: true, issuedOn: true, dueOn: true, amountPaise: true } });
   const entries = await tx.ledgerEntry.findMany({
@@ -201,7 +202,7 @@ export async function importStatement(input: { db: Db; user: Pick<SessionUser, "
   const rowByNumber = new Map(rows.map((r) => [r.rowNumber, r]));
 
   try {
-    return await input.db.$transaction(
+    return await withDeadlockRetry(() => input.db.$transaction(
       async (tx): Promise<ImportResult> => {
         await tx.$executeRawUnsafe(`SET LOCAL lock_timeout = ${input.hooks?.lockTimeoutMs === undefined ? "'5s'" : String(Math.trunc(input.hooks.lockTimeoutMs))}`);
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('statement-import'))`;
@@ -319,7 +320,7 @@ export async function importStatement(input: { db: Db; user: Pick<SessionUser, "
         return { status: "IMPORTED", importId: statementImport.id, summary: summaryOf(final, stale.size), accounted: true, csvErrors: final.csvErrors.slice(0, MAX_ERRORS_SHOWN) };
       },
       { timeout: 120_000, maxWait: 10_000 },
-    );
+    ), { retries: TRANSACTION_RETRIES });
   } catch (error) {
     if (isLockTimeout(error)) return { status: "IMPORT_IN_PROGRESS" };
     throw error;

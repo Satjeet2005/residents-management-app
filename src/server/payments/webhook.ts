@@ -4,6 +4,7 @@ import { positionsForFlat } from "@/domain/billing/dues";
 import { type ExceptionReason, type GatewayAttempt, decideGatewayEvent, describeException } from "@/domain/payments/attempt-state";
 import { istDateOf } from "@/domain/time/calendar";
 import type { Db } from "@/server/auth/db";
+import { TRANSACTION_RETRIES, withDeadlockRetry } from "@/server/db-retry";
 import { parsePolicy, toDueBill, toDueEntry } from "@/server/home/mapper";
 import { lockBill } from "./bill-lock";
 
@@ -107,7 +108,7 @@ async function queueException(tx: Tx, attemptId: string, reason: ExceptionReason
  * Every outcome writes an audit row. `now` is the real clock.
  */
 export async function applyGatewayEvent(db: Db, event: WebhookEvent, now: number): Promise<ApplyOutcome | { outcome: "UNKNOWN_REFERENCE" }> {
-  return db.$transaction(async (tx) => {
+  return withDeadlockRetry(() => db.$transaction(async (tx) => {
     const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM payment_attempts WHERE gateway_reference = ${event.reference} FOR UPDATE`;
     if (locked.length === 0) {
       await audit(tx, "PAYMENT_EXCEPTION", "unknown", { reason: "UNKNOWN_REFERENCE", eventId: event.eventId, reference: event.reference }, now);
@@ -172,5 +173,5 @@ export async function applyGatewayEvent(db: Db, event: WebhookEvent, now: number
         await audit(tx, "PAYMENT_EXCEPTION", row.id, { ...detail, reason: decision.reason }, now);
         return { outcome: "EXCEPTION", reason: decision.reason } as const;
     }
-  });
+  }), { retries: TRANSACTION_RETRIES });
 }
