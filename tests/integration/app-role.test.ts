@@ -71,6 +71,26 @@ describe("D95 what the app role may do", () => {
     expect(await sqlState(app.query("DELETE FROM payment_attempts WHERE false"))).toBe(DENIED);
   });
 
+  it("D95 statement import: INSERT statement_imports, bank_rows, payment_matches and queue items; UPDATE of a bank row's state, flat, ledger entry and version only", async () => {
+    const importId = await insertRow(app, "statement_imports", { uploaded_by_id: userId, filename: "s.csv", file_sha256: uuid(), rows_read: 1 });
+    const rowId = await insertRow(app, "bank_rows", { import_id: importId, row_number: 1, txn_date: "2026-10-27", narration_raw: "x", credit_paise: 1000, dedupe_key: `k-${uuid()}` });
+    const billId = await insertBill(owner, flatId, "2026-05-01");
+    const entryId = await insertRow(app, "ledger_entries", { flat_id: flatId, entry_type: "PAYMENT", direction: "PAYMENT", amount_paise: 1000, effective_date: "2026-10-27", bill_id: billId, bank_row_id: rowId, idempotency_key: `i-${uuid()}` });
+    await app.query("UPDATE bank_rows SET state = 'AUTO_MATCHED', flat_id = $2, ledger_entry_id = $3, version = version + 1 WHERE id = $1", [rowId, flatId, entryId]);
+    await insertRow(app, "payment_matches", { bank_row_id: rowId, decision: "AUTO", flat_id: flatId, score: 90 });
+    await insertRow(app, "accounts_queue_items", { item_type: "BANK_ROW", bank_row_id: (await insertRow(app, "bank_rows", { import_id: importId, row_number: 2, txn_date: "2026-10-27", narration_raw: "y", credit_paise: 5, dedupe_key: `k-${uuid()}` })) });
+    expect((await owner.query("SELECT state, version FROM bank_rows WHERE id = $1", [rowId])).rows[0]).toEqual({ state: "AUTO_MATCHED", version: 2 });
+  });
+
+  it("D95 bank rows: the narration, amounts, dates, dedupe key and import are read-only for the app, and payment matches cannot be changed or deleted", async () => {
+    for (const column of ["narration_raw", "credit_paise", "debit_paise", "balance_paise", "txn_date", "value_date", "dedupe_key", "import_id", "row_number", "parsed"]) {
+      expect(await sqlState(app.query(`UPDATE bank_rows SET ${column} = ${column} WHERE false`)), column).toBe(DENIED);
+    }
+    expect(await sqlState(app.query("DELETE FROM bank_rows WHERE false"))).toBe(DENIED);
+    expect(await sqlState(app.query("UPDATE payment_matches SET score = 1 WHERE false"))).toBe(DENIED);
+    expect(await sqlState(app.query("DELETE FROM statement_imports WHERE false"))).toBe(DENIED);
+  });
+
   it("D95 SELECT on every table the matrix gives SELECT", async () => {
     for (const [table, grant] of Object.entries(PRIVILEGE_MATRIX)) {
       if (grant.select) await app.query(`SELECT 1 FROM "${table}" LIMIT 1`);

@@ -25,8 +25,8 @@ export const APPEND_ONLY_TABLES = ["ledger_entries", "payment_matches", "complai
 
 /**
  * Every table in the public schema and what the app may do with it. No table gets DELETE, TRUNCATE, REFERENCES or
- * TRIGGER. UPDATE is granted by column, and today only for sessions, one-time codes and three columns of payment attempts;
- * the other tables whose rows change (bank_rows, ...) get SELECT and INSERT now and their UPDATE columns when the feature
+ * TRIGGER. UPDATE is granted by column, and today only for sessions, one-time codes, three columns of payment attempts and four of bank rows;
+ * the other tables whose rows change (complaints, ...) get SELECT and INSERT now and their UPDATE columns when the feature
  * that writes them ships.
  */
 export const PRIVILEGE_MATRIX: Readonly<Record<string, TableGrant>> = {
@@ -55,8 +55,10 @@ export const PRIVILEGE_MATRIX: Readonly<Record<string, TableGrant>> = {
   // The payment flow: an attempt is inserted, then moved to SUCCEEDED or FAILED by the signed webhook. Nothing else about it
   // may change (not its amount, bill, flat or reference). A row lock (SELECT ... FOR UPDATE) needs only a column UPDATE.
   payment_attempts: { ...SI, updateColumns: ["status", "debit_status", "resolved_at"] },
+  // Statement import: a bank row is inserted QUEUED, then moved to AUTO_MATCHED with its flat and ledger entry. The narration, amounts,
+  // dates and dedupe key of a row can never be changed by the app.
+  bank_rows: { ...SI, updateColumns: ["state", "flat_id", "ledger_entry_id", "version"] },
   // Feature not built yet: SELECT and INSERT now; UPDATE columns are added with the feature.
-  bank_rows: SI,
   accounts_queue_items: SI,
   complaints: SI,
   outbox_jobs: SI,
