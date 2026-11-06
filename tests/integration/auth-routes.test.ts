@@ -190,7 +190,7 @@ describe("V5 bodies", () => {
 
   it("V5 a request from another origin is refused, and from this origin is allowed", async () => {
     const user = await makeUser(prisma);
-    expect((await call(await handleOtpRequest(deps(), post("otp/request", { phone: user.phone }, { origin: "https://evil.example" })))).status).toBe(400);
+    expect(await call(await handleOtpRequest(deps(), post("otp/request", { phone: user.phone }, { origin: "https://evil.example" })))).toMatchObject({ status: 403, body: { error: "CSRF_BLOCKED" } });
     expect((await call(await handleOtpRequest(deps(), post("otp/request", { phone: user.phone }, { origin: "http://localhost" })))).status).toBe(200);
   });
 });
@@ -236,7 +236,7 @@ describe("V4 logout and logout-all through the routes", () => {
   it("V4 a logout from another origin is refused and the session stays", async () => {
     const { cookie } = await login(await demoUser());
     const refused = await call(await handleLogout(deps(), post("logout", undefined, { cookie, origin: "https://evil.example" })));
-    expect(refused.status).toBe(400);
+    expect(refused).toMatchObject({ status: 403, body: { error: "CSRF_BLOCKED" } });
     expect((await call(await handleLogoutAll(deps(), post("logout-all", undefined, { cookie })))).status).toBe(204);
   });
 });

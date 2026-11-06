@@ -4,6 +4,7 @@ import type { Role } from "@/domain/auth/policy";
 import type { z } from "zod";
 import { writeAuthAudit } from "./audit";
 import { buildSessionCookie, clearSessionCookie, readSessionToken } from "./cookie";
+import { csrfBlocked } from "./csrf";
 import { ipHash } from "./crypto";
 import type { Db } from "./db";
 import { clientIp } from "./client-ip";
@@ -23,7 +24,7 @@ export type AuthRouteDeps = {
 /**
  * Response shapes (one rule for all four routes):
  * - success: 200 with a JSON body, or 204 with none;
- * - every refusal: a JSON body `{ error: KEY }` and no more. 400 for a bad body (INVALID_REQUEST), a bad
+ * - every refusal: a JSON body `{ error: KEY }` and no more. 403 CSRF_BLOCKED for an unsafe request from another site (src/server/auth/csrf.ts); 400 for a bad body (INVALID_REQUEST), a bad
  *   phone format on a request (INVALID_PHONE), and a code that is not accepted or is locked (OTP_NOT_ACCEPTED,
  *   OTP_LOCKED); 429 with `retryAfterSeconds` and a Retry-After header (TOO_MANY_REQUESTS); 401 only for
  *   logout-all without a session.
@@ -34,17 +35,6 @@ const json = (status: number, body: unknown, headers: Record<string, string> = {
 const refusal = (status: number, error: string): Response => json(status, { error });
 
 const HOME: Record<Role, string> = { RESIDENT: "/", STAFF: "/staff" };
-
-/** A browser always sends Origin on a POST. When it is present it must be this site: a cross-site page cannot call these routes. */
-function sameOrigin(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  if (origin === null) return true;
-  try {
-    return new URL(origin).host === (request.headers.get("host") ?? new URL(request.url).host);
-  } catch {
-    return false;
-  }
-}
 
 async function parseBody<T extends z.ZodType>(request: Request, schema: T): Promise<z.output<T> | null> {
   const text = await request.text();
@@ -62,7 +52,7 @@ async function parseBody<T extends z.ZodType>(request: Request, schema: T): Prom
 const addressOf = (deps: AuthRouteDeps, request: Request): string => (deps.ip ?? clientIp)(request.headers);
 
 export async function handleOtpRequest(deps: AuthRouteDeps, request: Request): Promise<Response> {
-  if (!sameOrigin(request)) return refusal(400, "INVALID_REQUEST");
+  if (csrfBlocked(request)) return refusal(403, "CSRF_BLOCKED");
   const body = await parseBody(request, requestOtpBody);
   if (body === null) return refusal(400, "INVALID_REQUEST");
   const result = await requestOtp(deps, { phoneInput: body.phone, ip: addressOf(deps, request), now: deps.now() });
@@ -77,7 +67,7 @@ export async function handleOtpRequest(deps: AuthRouteDeps, request: Request): P
 }
 
 export async function handleOtpVerify(deps: AuthRouteDeps, request: Request): Promise<Response> {
-  if (!sameOrigin(request)) return refusal(400, "INVALID_REQUEST");
+  if (csrfBlocked(request)) return refusal(403, "CSRF_BLOCKED");
   const body = await parseBody(request, verifyOtpBody);
   if (body === null) return refusal(400, "INVALID_REQUEST");
   const ip = addressOf(deps, request);
@@ -94,7 +84,7 @@ export async function handleOtpVerify(deps: AuthRouteDeps, request: Request): Pr
 
 /** Ends the session in the cookie. Always clears the cookie and answers 204, so it can be repeated and says nothing about the session. */
 export async function handleLogout(deps: AuthRouteDeps, request: Request): Promise<Response> {
-  if (!sameOrigin(request)) return refusal(400, "INVALID_REQUEST");
+  if (csrfBlocked(request)) return refusal(403, "CSRF_BLOCKED");
   const now = deps.now();
   const token = readSessionToken(request.headers.get("cookie"));
   const current = token === null ? null : await resolveSession(deps.db, token, now);
@@ -107,7 +97,7 @@ export async function handleLogout(deps: AuthRouteDeps, request: Request): Promi
 
 /** Ends every session of the person in the cookie. Without a valid session it answers 401. */
 export async function handleLogoutAll(deps: AuthRouteDeps, request: Request): Promise<Response> {
-  if (!sameOrigin(request)) return refusal(400, "INVALID_REQUEST");
+  if (csrfBlocked(request)) return refusal(403, "CSRF_BLOCKED");
   const now = deps.now();
   const token = readSessionToken(request.headers.get("cookie"));
   const current = token === null ? null : await resolveSession(deps.db, token, now);
