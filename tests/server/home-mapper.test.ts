@@ -1,48 +1,12 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { computeDues, type DueBill, type DueEntry } from "@/domain/billing/dues";
 import { defaultLateFeePolicy } from "@/domain/billing/late-fee";
 import { complaintStep } from "@/domain/complaints/step";
-import { generateDemoDataset } from "@/domain/seed/generate";
-import { buildSettings } from "@/domain/seed/settings";
-import { DEMO_NOW, type DemoDataset } from "@/domain/seed/types";
+import { DEMO_NOW } from "@/domain/seed/types";
 import { addDays, diffDays } from "@/domain/time/calendar";
-import { assembleHome, complaintTitle, computeReplyDue, parsePolicy, type BillRow, type ComplaintRow, type EntryRow, type HomeInput } from "@/server/home/mapper";
-import type { HomeData } from "@/server/home/types";
+import { assembleHome, complaintTitle, computeReplyDue, parsePolicy, type ComplaintRow } from "@/server/home/mapper";
 import { replyDueText } from "@/lib/home-text";
-
-const day = (d: string) => new Date(`${d}T00:00:00.000Z`);
-const SETTINGS = buildSettings().map((s) => ({ key: s.key, value: s.value }));
-
-let dataset: DemoDataset;
-beforeAll(() => {
-  dataset = generateDemoDataset();
-});
-
-/** The rows the queries would return for one flat, built from the seed data, with the same member the seed gave it. */
-function inputFor(flatCode: string, now = DEMO_NOW): HomeInput {
-  const flat = dataset.flats.find((f) => f.code === flatCode);
-  if (flat === undefined) throw new Error(`no flat ${flatCode}`);
-  const member = dataset.members.find((m) => m.flatKey === flat.key);
-  const user = dataset.users.find((u) => u.key === member?.userKey);
-  if (member === undefined || user === undefined) throw new Error("no member");
-  const bills: BillRow[] = dataset.bills.filter((b) => b.flatKey === flat.key).map((b) => ({ id: b.key, period: day(b.period), issuedOn: day(b.issuedOn), dueOn: day(b.dueOn), amountPaise: b.amountPaise }));
-  const entries: EntryRow[] = dataset.ledgerEntries
-    .filter((e) => e.flatKey === flat.key)
-    .map((e, i) => ({ id: e.key, entryType: e.entryType, direction: e.direction, amountPaise: e.amountPaise, effectiveDate: day(e.effectiveDate), billId: e.billKey, reversesEntryId: null, createdAt: new Date(1_700_000_000_000 + i) }));
-  const complaints: ComplaintRow[] = dataset.complaints
-    .filter((c) => c.flatKey === flat.key)
-    .map((c) => ({ body: c.body, status: c.status, createdAt: new Date(c.createdAt), responseDueAt: new Date(c.responseDueAt), firstResponseAt: c.firstResponseAt === null ? null : new Date(c.firstResponseAt) }));
-  const visitors = dataset.visitorPasses
-    .filter((v) => v.flatKey === flat.key && v.status !== "CANCELLED" && v.expectedAt >= DEMO_NOW - 12 * 3_600_000 && v.expectedAt < DEMO_NOW + 12 * 3_600_000)
-    .map((v) => ({ visitorName: v.visitorName, expectedAt: new Date(v.expectedAt) }));
-  return { userName: user.name, now, memberships: [{ flatId: flat.key, flatCode: flat.code, relation: member.relation }], bills, entries, complaints, visitors, settings: SETTINGS };
-}
-
-const home = (flatCode: string, now = DEMO_NOW): Extract<HomeData, { kind: "OK" }> => {
-  const data = assembleHome(inputFor(flatCode, now));
-  if (data.kind !== "OK") throw new Error("expected OK");
-  return data;
-};
+import { SETTINGS, dataset, home, inputFor } from "./home-fixtures";
 
 /** An independent computation of one bill's fee: a loop over each overdue day with BigInt, rounded once at the end. */
 function independentDue(amount: bigint, dueOn: string, asOf: string, payments: { date: string; amountPaise: bigint }[]): bigint {
@@ -92,8 +56,8 @@ describe("HM1 dues for the sample flats at 27 Oct 2026, 12:00 India time", () =>
   it("T15-0902: two open bills (47 and 17 days), the total equals an independent BigInt computation", () => {
     const { dues } = home("T15-0902");
     expect(dues.openBills.map((b) => b.overdueDays)).toEqual([47, 17]);
-    const flat = dataset.flats.find((f) => f.code === "T15-0902");
-    const bills = dataset.bills.filter((b) => b.flatKey === flat?.key && b.dueOn >= "2026-09-01");
+    const flat = dataset().flats.find((f) => f.code === "T15-0902");
+    const bills = dataset().bills.filter((b) => b.flatKey === flat?.key && b.dueOn >= "2026-09-01");
     const expected = bills.map((b) => independentDue(b.amountPaise, b.dueOn, "2026-10-27", [])).reduce((a, b) => a + b, 0n);
     expect(bills).toHaveLength(2);
     expect(dues.amountDuePaise).toBe(expected);
