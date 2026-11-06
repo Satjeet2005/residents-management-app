@@ -6,7 +6,7 @@ export type TrackerStep = { label: string; state: TrackerState };
 const STATE_WORDS: Record<TrackerState, string> = { done: "Done: ", current: "Current: ", upcoming: "Next: " };
 
 /** The step the person is on: the current one, else the first one not done, else the last. */
-function stepNumber(steps: readonly TrackerStep[]): number {
+export function stepNumber(steps: readonly TrackerStep[]): number {
   const current = steps.findIndex((s) => s.state === "current");
   if (current !== -1) return current + 1;
   const upcoming = steps.findIndex((s) => s.state === "upcoming");
@@ -31,15 +31,18 @@ function Marker({ state }: { state: TrackerState }) {
  * Progress through three or four steps, such as "Payment received, Posted to your
  * account". A check is done, a thick ring is current, a hollow marker is
  * upcoming; the line after a done step is solid, after the others dashed. The
- * position is also text ("Step 2 of 4") and the current step has aria-current.
+ * position is also text ("Step 2 of 4", above the steps unless the screen writes its own line) and the current step has
+ * aria-current.
  */
-export function Tracker({ steps, label = "Progress" }: { steps: readonly TrackerStep[]; label?: string }) {
+export function Tracker({ steps, label = "Progress", showStepText = true }: { steps: readonly TrackerStep[]; label?: string; showStepText?: boolean }) {
   return (
     <div>
-      <p className="tnum text-caption text-ink-2">
-        Step {stepNumber(steps)} of {steps.length}
-      </p>
-      <ol aria-label={label} className="mt-2 flex">
+      {showStepText && (
+        <p className="tnum text-caption text-ink-2">
+          Step {stepNumber(steps)} of {steps.length}
+        </p>
+      )}
+      <ol aria-label={label} className={cx("flex", showStepText && "mt-2")}>
         {steps.map((step, index) => (
           <li
             key={step.label}

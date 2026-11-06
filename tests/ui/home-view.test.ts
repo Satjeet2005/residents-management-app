@@ -62,25 +62,40 @@ describe("HM5 Home: T12-0408, overdue (₹6,468, 47 days)", () => {
     expect(html).toContain("Your dues");
   });
 
-  it("the complaint card: title, four-step tracker at step 2, reply due today", () => {
+  it("the complaint: title at the left and the status at the right on one row, the tracker, then one line with the step and the reply", () => {
     expect(words).toContain("Your complaints");
     expect(words).toContain("Water leak under the kitchen sink");
-    expect(words).toContain("Step 2 of 4");
     for (const label of ["Raised", "Assigned", "In progress", "Resolved"]) expect(words).toContain(label);
     expect(html).toContain('aria-current="step"');
-    expect(words).toContain("Reply due today, 5 pm");
+    expect(words).toContain("Step 2 of 4. Reply due today, 5 pm");
+    expect(count(html, /Step 2 of 4/g)).toBe(1);
+    const row = /<div class="flex items-start justify-between[^"]*"><p[^>]*>Water leak under the kitchen sink<\/p><span[^>]*><span aria-hidden="true"[^>]*><\/span>Assigned<\/span><\/div>/.exec(html);
+    expect(row).not.toBeNull();
+    expect(html.indexOf("Water leak under the kitchen sink")).toBeLessThan(html.indexOf("Step 2 of 4"));
+    expect(html.indexOf("aria-label=\"Complaint progress\"")).toBeLessThan(html.indexOf("Step 2 of 4"));
   });
 
-  it("visitors: two expected today, with their times", () => {
-    expect(words).toContain("2 visitors expected today");
-    expect(words).toContain("Ramesh Gupta, 11 am");
-    expect(words).toContain("Anita Singh, 4:30 pm");
+  it("the complaints section has a hairline under its header", () => {
+    expect(html).toMatch(/Your complaints<\/h2><\/div><hr class="m-0 border-0 border-t border-hairline"\/>/);
   });
 
-  it("recent activity: two plain ledger lines", () => {
+  it("visitors: one bold summary line and one line with the times only, between hairlines, and no name", () => {
+    const section = /<section aria-label="Visitors">[\s\S]*?<\/section>/.exec(html)?.[0] ?? "";
+    expect(section).toMatch(/^<section aria-label="Visitors"><hr[^>]*\/>/);
+    expect(section).toMatch(/<hr[^>]*\/><\/section>$/);
+    expect(section).toContain('<p class="text-body font-semibold">2 visitors expected today</p>');
+    expect(text(section)).toContain("11:00 am and 4:30 pm");
+    expect(html).not.toMatch(/Ramesh|Anita/);
+  });
+
+  it("recent activity: hairline-ruled rows, date at the left, particulars, the amount in semibold, and no links under it", () => {
     expect(words).toContain("Recent activity");
+    expect(words).toContain("1 Sep");
     expect(words).toContain("Bill issued");
-    expect(count(html, /grid-cols-\[4\.5rem_1fr_auto\]/g)).toBeGreaterThanOrEqual(2);
+    const list = /<ul class="border-t border-hairline">[\s\S]*?<\/ul>/.exec(html)?.[0] ?? "";
+    expect(count(list, /<li class="grid grid-cols-\[4\.5rem_1fr_auto\][^"]*border-b border-hairline/g)).toBe(2);
+    expect(list).toContain('<span class="tnum text-body font-semibold">₹6,370</span>');
+    expect(html).not.toMatch(/View ledger|Receipt/);
   });
 
   it("builds nothing that is not built: no Pay, no View ledger, no Receipt, no complaint buttons", () => {
@@ -202,10 +217,26 @@ describe("HM5 Home: variants built by hand", () => {
     expect(words).toContain("Showing T07-1203");
   });
 
+  it("three visitors read as a list of times", () => {
+    const at = (h: number) => new Date(DEMO_NOW + h * 3_600_000);
+    expect(text(render(assembleHome({ ...inputFor("T12-0408"), visitors: [{ expectedAt: at(-2) }, { expectedAt: at(1) }, { expectedAt: at(3) }] })))).toContain("3 visitors expected today 10:00 am, 1:00 pm and 3:00 pm");
+  });
+
+  it("a complaint that has had its first reply shows only the step", () => {
+    const base = inputFor("T12-0408");
+    const data = assembleHome({ ...base, complaints: base.complaints.map((c) => ({ ...c, firstResponseAt: new Date(DEMO_NOW - 3_600_000) })) });
+    const words = text(render(data));
+    expect(words).toContain("Step 2 of 4");
+    expect(words).not.toContain("Step 2 of 4. Reply");
+  });
+
   it("one visitor reads in the singular, and none reads 'No visitors expected today'", () => {
-    const one = text(render(assembleHome({ ...inputFor("T12-0408"), visitors: [{ visitorName: "Ramesh Gupta", expectedAt: new Date(DEMO_NOW + 3_600_000) }] })));
+    const one = text(render(assembleHome({ ...inputFor("T12-0408"), visitors: [{ expectedAt: new Date(DEMO_NOW + 3_600_000) }] })));
     expect(one).toContain("1 visitor expected today");
-    expect(text(render(home("T07-1203")))).toContain("No visitors expected today");
+    expect(one).toContain("1:00 pm");
+    const none = text(render(home("T07-1203")));
+    expect(none).toContain("No visitors expected today");
+    expect(none).not.toMatch(/ am| pm/);
   });
 
   it("a day overdue is singular", () => {

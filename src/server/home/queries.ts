@@ -40,12 +40,12 @@ export async function loadOpenComplaints(db: Db, flatId: string): Promise<Compla
   });
 }
 
-/** Visitors of the flat expected on the India day `today`, not cancelled. */
+/** The expected times of the visitors of the flat on the India day `today`, not cancelled. Names are personal data and are not read. */
 export async function loadTodaysVisitors(db: Db, flatId: string, today: CalendarDate): Promise<VisitorRow[]> {
   return db.visitorPass.findMany({
     where: { flatId, status: { not: "CANCELLED" }, expectedAt: { gte: new Date(dayStartInstant(today)), lt: new Date(dayStartInstant(addDays(today, 1))) } },
     orderBy: { expectedAt: "asc" },
-    select: { visitorName: true, expectedAt: true },
+    select: { expectedAt: true },
   });
 }
 

@@ -29,3 +29,13 @@ export function formatTimeIst(instant: number): string {
   const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
   return `${hour12}${minute === 0 ? "" : `:${String(minute).padStart(2, "0")}`} ${hour24 < 12 ? "am" : "pm"}`;
 }
+
+/** The time of day in India Standard Time with minutes always: "11:00 am", "4:30 pm". */
+export function formatClockIst(instant: number): string {
+  if (!Number.isFinite(instant)) throw new RangeError(`formatClockIst needs a finite instant, got ${instant}`);
+  const msOfDay = (((instant + IST_OFFSET_MS) % 86_400_000) + 86_400_000) % 86_400_000;
+  const hour24 = Math.floor(msOfDay / 3_600_000);
+  const minute = Math.floor((msOfDay % 3_600_000) / 60_000);
+  const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+  return `${hour12}:${String(minute).padStart(2, "0")} ${hour24 < 12 ? "am" : "pm"}`;
+}

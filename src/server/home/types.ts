@@ -19,7 +19,8 @@ export type HomeComplaint = {
   reply: ReplyDue | null;
 };
 
-export type HomeVisitor = { name: string; expectedAt: number };
+/** A visitor expected today. Only the time: the name is personal data and the Home does not show it. */
+export type HomeVisitor = { expectedAt: number };
 export type RecentEntry = { entryType: EntryType; date: CalendarDate; amountPaise: Paise };
 
 /**

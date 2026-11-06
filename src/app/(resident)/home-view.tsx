@@ -1,16 +1,16 @@
 import { EmergencyButton } from "@/components/emergency-sheet";
+import { CheckIcon } from "@/components/icons";
 import { Money } from "@/components/ui/money";
 import { SectionHeader } from "@/components/ui/section-header";
 import { StatusTag } from "@/components/ui/status-tag";
-import { Tracker, type TrackerStep } from "@/components/ui/tracker";
-import { LedgerLine } from "@/components/ui/ledger-line";
-import { DoubleRule } from "@/components/ui/rules";
+import { Tracker, stepNumber, type TrackerStep } from "@/components/ui/tracker";
+import { DoubleRule, Hairline } from "@/components/ui/rules";
 import { COMPLAINT_STEP_KEYS } from "@/domain/complaints/step";
 import { formatRupees } from "@/domain/money/money";
-import { formatDay, formatTimeIst } from "@/lib/format-date";
-import { dueTag, entryLabel, otherComplaintsText, partlyPaidText, replyDueText, visitorsText } from "@/lib/home-text";
+import { formatDay } from "@/lib/format-date";
+import { complaintStepLine, dueTag, entryLabel, otherComplaintsText, partlyPaidText, visitorTimesText, visitorsText } from "@/lib/home-text";
 import { t } from "@/lib/messages";
-import type { FlatRelation, HomeComplaint, HomeData } from "@/server/home/types";
+import type { FlatRelation, HomeComplaint, HomeData, RecentEntry } from "@/server/home/types";
 import { DuesSheetButton } from "./dues-sheet";
 
 type Ok = Extract<HomeData, { kind: "OK" }>;
@@ -75,22 +75,47 @@ function DuesCard({ data }: { data: Ok }) {
   );
 }
 
+/** The status of a complaint at the right of its title: a small mark and the word of the current step. */
+function ComplaintStatus({ current, label }: { current: number; label: string }) {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-2 text-body font-semibold">
+      {current === COMPLAINT_STEP_KEYS.length - 1 ? <CheckIcon size={20} /> : <span aria-hidden="true" className="h-4 w-4 rounded-full border-[5px] border-accent" />}
+      {label}
+    </span>
+  );
+}
+
 function ComplaintCard({ complaint, others }: { complaint: HomeComplaint; others: number }) {
   const steps: TrackerStep[] = COMPLAINT_STEP_KEYS.map((key, index) => ({ label: stepLabel(key), state: index < complaint.current ? "done" : index === complaint.current ? "current" : "upcoming" }));
   return (
-    <div className="flex flex-col gap-3 rounded-control border border-hairline p-4">
-      <p className="text-body font-semibold">{complaint.title}</p>
-      <Tracker steps={steps} label={t("complaint.progress")} />
-      {complaint.reply !== null && <p className="tnum text-body">{replyDueText(complaint.reply)}</p>}
+    <div className="flex flex-col gap-3">
+      <div className="flex items-start justify-between gap-3">
+        <p className="min-w-0 break-words text-body font-semibold">{complaint.title}</p>
+        <ComplaintStatus current={complaint.current} label={steps[complaint.current].label} />
+      </div>
+      <Tracker steps={steps} label={t("complaint.progress")} showStepText={false} />
+      <p className="tnum text-body">{complaintStepLine(stepNumber(steps), steps.length, complaint.reply)}</p>
       {others > 0 && <p className="text-body text-ink-2">{otherComplaintsText(others)}</p>}
     </div>
   );
 }
 
+/** One row of Recent activity: the date at the left, the particulars, the amount right-aligned in semibold, a hairline under it. */
+function ActivityRow({ entry }: { entry: RecentEntry }) {
+  return (
+    <li className="grid grid-cols-[4.5rem_1fr_auto] items-baseline gap-x-3 border-b border-hairline py-3 text-body">
+      <span className="tnum">{formatDay(entry.date)}</span>
+      <span className="min-w-0 break-words">{entryLabel(entry.entryType)}</span>
+      <Money amount={entry.amountPaise} size="strong" />
+    </li>
+  );
+}
+
 /**
  * The resident Home for one set of data (D23): the flat and who is signed in, the dues card with the breakdown sheet, the
- * newest open complaint with its tracker, today's visitors, and the last two ledger lines. It draws data and decides
- * nothing about money. No Pay, no View ledger, no Receipt, no complaint buttons: those arrive with their features.
+ * newest open complaint with its tracker, a summary of today's visitors (times only, no names), and the last two ledger
+ * lines. It draws data and decides nothing about money. No View ledger, no Receipt, no complaint buttons: those arrive
+ * with their features.
  */
 export function HomeView({ data }: { data: HomeData }) {
   if (data.kind === "NO_FLAT") {
@@ -101,6 +126,7 @@ export function HomeView({ data }: { data: HomeData }) {
       </main>
     );
   }
+  const times = visitorTimesText(data.visitors.map((visitor) => visitor.expectedAt));
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4">
       <header className="flex items-start justify-between gap-4">
@@ -116,21 +142,17 @@ export function HomeView({ data }: { data: HomeData }) {
 
       <section className="flex flex-col gap-3">
         <SectionHeader title={t("complaints.title")} />
+        <Hairline />
         {data.complaint === null ? <p className="text-body text-ink-2">{t("complaint.none")}</p> : <ComplaintCard complaint={data.complaint} others={data.otherOpenComplaints} />}
       </section>
 
-      <section className="flex flex-col gap-2">
-        <SectionHeader title={t("visitors.title")} />
-        <p className="text-body">{visitorsText(data.visitors.length)}</p>
-        {data.visitors.length > 0 && (
-          <ul>
-            {data.visitors.map((visitor) => (
-              <li key={`${visitor.name}-${visitor.expectedAt}`} className="tnum border-b border-hairline py-2 text-body">
-                {t("visitors.row", { name: visitor.name, time: formatTimeIst(visitor.expectedAt) })}
-              </li>
-            ))}
-          </ul>
-        )}
+      <section aria-label={t("visitors.title")}>
+        <Hairline />
+        <div className="py-3">
+          <p className="text-body font-semibold">{visitorsText(data.visitors.length)}</p>
+          {times !== null && <p className="tnum text-body">{times}</p>}
+        </div>
+        <Hairline />
       </section>
 
       <section className="flex flex-col gap-2">
@@ -138,9 +160,9 @@ export function HomeView({ data }: { data: HomeData }) {
         {data.recent.length === 0 ? (
           <p className="text-body text-ink-2">{t("recent.none")}</p>
         ) : (
-          <ul>
+          <ul className="border-t border-hairline">
             {data.recent.map((entry, index) => (
-              <LedgerLine key={`${entry.date}-${index}`} date={formatDay(entry.date)} particulars={entryLabel(entry.entryType)} amount={entry.amountPaise} />
+              <ActivityRow key={`${entry.date}-${index}`} entry={entry} />
             ))}
           </ul>
         )}

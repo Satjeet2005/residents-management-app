@@ -22,7 +22,7 @@ export type EntryRow = {
   createdAt: Date;
 };
 export type ComplaintRow = { body: string; status: ComplaintStatus; createdAt: Date; responseDueAt: Date | null; firstResponseAt: Date | null };
-export type VisitorRow = { visitorName: string; expectedAt: Date };
+export type VisitorRow = { expectedAt: Date };
 export type SettingsRow = { key: string; value: unknown };
 
 export type HomeInput = {
@@ -125,7 +125,7 @@ export function assembleHome(input: HomeInput): HomeData {
     dues,
     complaint,
     otherOpenComplaints: Math.max(0, open.length - 1),
-    visitors: [...input.visitors].sort((a, b) => a.expectedAt.getTime() - b.expectedAt.getTime()).map((v) => ({ name: v.visitorName, expectedAt: v.expectedAt.getTime() })),
+    visitors: [...input.visitors].sort((a, b) => a.expectedAt.getTime() - b.expectedAt.getTime()).map((v) => ({ expectedAt: v.expectedAt.getTime() })),
     recent: recentEntries(input.entries, today),
     hasActivity: input.entries.length > 0,
     emergency: { dutyManagerPhone: phoneSetting(input.settings, "duty_manager_phone"), emergencyServicesPhone: phoneSetting(input.settings, "emergency_services_phone") },

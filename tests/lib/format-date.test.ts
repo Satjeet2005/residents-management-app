@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MONTHS_LONG, MONTHS_SHORT, formatDay, formatDayYear, formatTimeIst, monthName } from "@/lib/format-date";
+import { MONTHS_LONG, MONTHS_SHORT, formatDay, formatClockIst, formatDayYear, formatTimeIst, monthName } from "@/lib/format-date";
 
 describe("HM3 format-date (no Intl)", () => {
   it.each([["2026-10-27", "27 Oct"], ["2026-01-01", "1 Jan"], ["2026-09-10", "10 Sep"], ["2028-02-29", "29 Feb"], ["2026-12-31", "31 Dec"]])("formatDay %s is %s", (date, text) => {
@@ -46,5 +46,21 @@ describe("HM3 format-date (no Intl)", () => {
 
   it("rejects a non-finite instant", () => {
     expect(() => formatTimeIst(Number.NaN)).toThrow(RangeError);
+  });
+});
+
+describe("formatClockIst: the time with minutes always, in India time", () => {
+  it.each([
+    [Date.UTC(2026, 9, 27, 5, 30), "11:00 am"],
+    [Date.UTC(2026, 9, 27, 11, 0), "4:30 pm"],
+    [Date.UTC(2026, 9, 26, 18, 30), "12:00 am"],
+    [Date.UTC(2026, 9, 27, 6, 30), "12:00 pm"],
+    [Date.UTC(2026, 9, 27, 18, 29), "11:59 pm"],
+  ])("%i is %s", (instant, text) => {
+    expect(formatClockIst(instant)).toBe(text);
+  });
+
+  it("rejects a non-finite instant", () => {
+    expect(() => formatClockIst(Number.POSITIVE_INFINITY)).toThrow(RangeError);
   });
 });

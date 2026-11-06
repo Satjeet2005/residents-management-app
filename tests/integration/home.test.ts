@@ -87,7 +87,9 @@ describe("HM6 getHomeData for the sample residents (27 Oct 2026, 12:00 IST)", ()
     expect(data.dues.openBills[0]).toMatchObject({ outstandingPaise: 637_000n, feePaise: 9_800n });
     expect(data.complaint).toMatchObject({ title: "Water leak under the kitchen sink", status: "ASSIGNED", current: 1 });
     expect(data.complaint?.reply).toMatchObject({ kind: "DUE", today: true });
-    expect(data.visitors.map((v) => v.name)).toEqual(["Ramesh Gupta", "Anita Singh"]);
+    expect(data.visitors).toHaveLength(2);
+    expect(Object.keys(data.visitors[0])).toEqual(["expectedAt"]);
+    expect(asText(data)).not.toMatch(/Ramesh|Anita/);
     expect(data.recent[0]).toEqual({ entryType: "BILL", date: "2026-09-01", amountPaise: 637_000n });
     expect(data.emergency).toEqual({ dutyManagerPhone: "5900000001", emergencyServicesPhone: null });
     expect(data.hasActivity).toBe(true);

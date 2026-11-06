@@ -170,8 +170,9 @@ describe("HM1 the other parts of the Home data", () => {
     expect(data.complaint?.reply).toMatchObject({ kind: "DUE", today: true });
     expect(replyDueText(data.complaint?.reply as never)).toBe("Reply due today, 5 pm");
     expect(data.otherOpenComplaints).toBe(0);
-    expect(data.visitors.map((v) => v.name)).toEqual(["Ramesh Gupta", "Anita Singh"]);
     expect(data.visitors.length).toBe(2);
+    expect(data.visitors.every((v) => Object.keys(v).join() === "expectedAt")).toBe(true);
+    expect(JSON.stringify(data, (_k, v) => (typeof v === "bigint" ? v.toString() : v))).not.toMatch(/Ramesh|Anita/);
   });
 
   it("T07-1203: PENDING_CONFIRMATION is step 4 and needs an answer; it already had a reply", () => {

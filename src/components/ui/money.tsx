@@ -1,11 +1,12 @@
 import { type Paise, formatRupees } from "@/domain/money/money";
 import { cx } from "./cx";
 
-export type MoneySize = "hero" | "large" | "body";
+export type MoneySize = "hero" | "large" | "strong" | "body";
 
 const SIZES: Record<MoneySize, string> = {
   hero: "text-hero font-semibold",
   large: "text-heading font-semibold",
+  strong: "text-body font-semibold",
   body: "text-body",
 };
 
