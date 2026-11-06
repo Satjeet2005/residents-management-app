@@ -284,7 +284,7 @@ that writes those columns is built. No table gets DELETE.
 | `statement_imports` | S, I | One row per file, never edited. |
 | `known_payers` | S, I | A learned payer is added; removal is a decision for later. |
 | `complaint_links`, `complaint_affected` | S, I | Links and affected flats are added, not edited. |
-| `payment_attempts` | S, I; U later (`status`, `debit_status`, `gateway_reference`, `hold_*`, `escalated_at`, `resolved_*`, `release_reason`) | An attempt moves through states. |
+| `payment_attempts` | S, I, U(`status`, `debit_status`, `resolved_at`); more U later (`hold_*`, `escalated_at`, `resolved_by_id`, `release_reason`) | The signed webhook moves an attempt from INITIATED to SUCCEEDED or FAILED. The amount, bill, flat and gateway reference can never be changed by the app. |
 | `bank_rows` | S, I; U later (`state`, `flat_id`, `ledger_entry_id`, `version`) | A row is matched after import. |
 | `accounts_queue_items` | S, I; U later (`status`, `resolved_at`, `resolved_by_id`, `note`) | Staff resolve items. |
 | `complaints` | S, I; U later (`status`, `assignee_id`, `urgency`, `first_response_at`, `closed_at`, `close_kind`, `rating`, `reopen_count`, `needs_review`, `version`, ...) | A complaint has a life cycle. |

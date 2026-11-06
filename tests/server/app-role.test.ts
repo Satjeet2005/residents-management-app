@@ -64,9 +64,13 @@ describe("D95 buildAppRoleSql: what it grants", () => {
     expect(given[table].updateColumns.size).toBe(0);
   });
 
-  it("the only UPDATE grants are the columns of sessions and one-time codes", () => {
+  it("the only UPDATE grants are the columns of sessions, one-time codes and three columns of payment attempts", () => {
     const withUpdate = Object.entries(given).filter(([, g]) => g.updateColumns.size > 0).map(([t, g]) => [t, [...g.updateColumns].sort()]);
-    expect(withUpdate).toEqual([["sessions", ["last_seen_at", "revoked_at"]], ["otp_codes", ["attempts", "consumed_at"]]]);
+    expect(withUpdate).toEqual([
+      ["sessions", ["last_seen_at", "revoked_at"]],
+      ["otp_codes", ["attempts", "consumed_at"]],
+      ["payment_attempts", ["debit_status", "resolved_at", "status"]],
+    ]);
   });
 
   it("every GRANT is one of three known forms: USAGE on the schema, SELECT/INSERT on tables, or UPDATE on named columns (a whole-table UPDATE is not a form)", () => {

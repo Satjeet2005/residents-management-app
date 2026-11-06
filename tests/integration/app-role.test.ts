@@ -1,7 +1,7 @@
 import type { Client } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { APPEND_ONLY_TABLES, NO_ACCESS_TABLES, PRIVILEGE_MATRIX, buildAppRoleStatements } from "@/server/db-roles/app-role";
-import { SQLSTATE, connect, insertComplaint, insertFlat, insertRow, insertUser } from "./db";
+import { SQLSTATE, connect, insertBill, insertComplaint, insertFlat, insertRow, insertUser } from "./db";
 import { createAppRole, sqlState, type TestAppRole } from "./app-role-helpers";
 
 let owner: Client;
@@ -50,6 +50,25 @@ describe("D95 what the app role may do", () => {
     await app.query("INSERT INTO audit_log (action, entity_type, entity_id) VALUES ('TEST', 'auth', 'unknown')");
     const complaintId = await insertComplaint(owner, flatId, userId);
     await app.query("INSERT INTO complaint_events (complaint_id, event_type) VALUES ($1, 'COMMENT')", [complaintId]);
+  });
+
+  it("D95 payment attempts: INSERT, SELECT ... FOR UPDATE, and UPDATE of status, debit_status and resolved_at only; INSERT on accounts_queue_items", async () => {
+    const billId = await insertBill(owner, flatId);
+    const attemptId = await insertRow(app, "payment_attempts", { bill_id: billId, flat_id: flatId, amount_paise: 1000, status: "INITIATED", gateway_reference: `MOCK-${uuid()}` });
+    await app.query("BEGIN");
+    await app.query("SELECT id FROM payment_attempts WHERE id = $1 FOR UPDATE", [attemptId]);
+    await app.query("UPDATE payment_attempts SET status = 'SUCCEEDED', debit_status = 'CONFIRMED', resolved_at = now() WHERE id = $1", [attemptId]);
+    await app.query("COMMIT");
+    await insertRow(app, "accounts_queue_items", { item_type: "EXCEPTION", payment_attempt_id: attemptId, note: "test" });
+    const { rows } = await owner.query("SELECT status, debit_status FROM payment_attempts WHERE id = $1", [attemptId]);
+    expect(rows[0]).toEqual({ status: "SUCCEEDED", debit_status: "CONFIRMED" });
+  });
+
+  it("D95 payment attempts: every other column is read-only for the app (amount, bill, flat, reference, start time, resolver), and there is no DELETE", async () => {
+    for (const column of ["amount_paise", "bill_id", "flat_id", "gateway_reference", "started_at", "resolved_by_id", "release_reason", "escalated_at", "hold_started_at"]) {
+      expect(await sqlState(app.query(`UPDATE payment_attempts SET ${column} = ${column} WHERE false`)), column).toBe(DENIED);
+    }
+    expect(await sqlState(app.query("DELETE FROM payment_attempts WHERE false"))).toBe(DENIED);
   });
 
   it("D95 SELECT on every table the matrix gives SELECT", async () => {
