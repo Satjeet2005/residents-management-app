@@ -3,7 +3,7 @@ import { evaluateSession, newSessionExpiry } from "@/domain/auth/session";
 import { newSessionToken, sessionTokenHash } from "./crypto";
 import type { Db } from "./db";
 
-export type SessionUser = { id: string; role: Role; active: boolean; permissions: string[]; name: string };
+export type SessionUser = { id: string; role: Role; active: boolean; permissions: string[]; name: string; phone: string };
 
 /**
  * Starts a session. Only the SHA-256 of the token is stored; the raw token is returned once, for the cookie,
@@ -30,7 +30,7 @@ export async function resolveSession(db: Db, token: string, now: number): Promis
   if (token === "") return null;
   const session = await db.session.findUnique({
     where: { tokenHash: sessionTokenHash(token) },
-    include: { user: { select: { id: true, name: true, role: true, active: true, permissions: { select: { permission: true } } } } },
+    include: { user: { select: { id: true, name: true, phone: true, role: true, active: true, permissions: { select: { permission: true } } } } },
   });
   if (session === null) return null;
   const { user } = session;
@@ -49,7 +49,7 @@ export async function resolveSession(db: Db, token: string, now: number): Promis
   );
   if (!decision.valid) return null;
   if (decision.shouldTouch) await db.session.update({ where: { id: session.id }, data: { lastSeenAt: new Date(now) } });
-  return { user: { id: user.id, role: user.role, active: user.active, name: user.name, permissions: user.permissions.map((p) => p.permission) }, sessionId: session.id };
+  return { user: { id: user.id, role: user.role, active: user.active, name: user.name, phone: user.phone, permissions: user.permissions.map((p) => p.permission) }, sessionId: session.id };
 }
 
 /** Ends one session. Ending it twice changes nothing. */
