@@ -4,6 +4,7 @@
 //   npm run smoke:auth -- http://localhost:3000 5000000006
 //
 // BASE_URL and the phone may also come from the BASE_URL and SMOKE_PHONE environment variables.
+// The cookie checks depend on the scheme of BASE_URL: https expects __Host-session with Secure; http expects session without Secure.
 // The server must be in demo mode (DEMO_MODE=true), because the check signs in with the code the API returns for a
 // demo phone. The script never prints the code, the session token or the cookie value, only their lengths.
 
@@ -77,10 +78,16 @@ async function run() {
   const cookieName = pair.split("=")[0];
   const cookieValue = pair.slice(cookieName.length + 1);
   const flags = attributes.map((a) => a.toLowerCase());
-  const hostPrefixed = cookieName.startsWith("__Host-");
+  // The cookie follows the scheme of BASE_URL (D94): https gets __Host-session and Secure, http gets session without Secure.
+  const https = baseUrl.startsWith("https://");
+  const expectedName = https ? "__Host-session" : "session";
   check("verify: 200 with a role and a redirect", verified.status === 200 && ["RESIDENT", "STAFF"].includes(verified.json?.role) && typeof verified.json?.redirectTo === "string", `status ${verified.status}, role ${verified.json?.role}, redirectTo ${verified.json?.redirectTo}`);
   check("cookie: HttpOnly and SameSite=Lax, Path=/, no Domain", flags.includes("httponly") && flags.includes("samesite=lax") && flags.includes("path=/") && !flags.some((f) => f.startsWith("domain=")), `name ${cookieName}, value length ${cookieValue.length}, attributes ${flags.join(" ")}`);
-  check("cookie: Secure and __Host- prefix in production mode", !hostPrefixed || flags.includes("secure"), hostPrefixed ? "__Host- cookie, Secure present" : "development cookie name (no __Host- prefix)");
+  check(
+    https ? "cookie over https: __Host-session and Secure" : "cookie over http: session, and not Secure",
+    cookieName === expectedName && flags.includes("secure") === https,
+    `expected ${expectedName}${https ? " with Secure" : " without Secure"}, got ${cookieName}${flags.includes("secure") ? " with Secure" : " without Secure"}`,
+  );
   const cookie = `${cookieName}=${cookieValue}`;
 
   // 6. /api/me with and without the cookie.
@@ -101,7 +108,12 @@ async function run() {
 
   // 8. Log out everywhere; the cookie stops working at once.
   const out = await call("POST", "/api/auth/logout-all", { cookie });
-  check("logout-all with the cookie: 204 and the cookie cleared", out.status === 204 && /max-age=0/i.test(out.headers.getSetCookie?.()[0] ?? ""), `status ${out.status}`);
+  const cleared = out.headers.getSetCookie?.() ?? [];
+  check(
+    "logout-all with the cookie: 204 and both cookie names cleared",
+    out.status === 204 && cleared.length === 2 && cleared.every((line) => /max-age=0/i.test(line)) && cleared.map((line) => line.split("=")[0]).sort().join(",") === "__Host-session,session",
+    `status ${out.status}, ${cleared.length} Set-Cookie lines`,
+  );
   const after = await call("GET", "/api/me", { cookie });
   check("/api/me after logout-all: 401", after.status === 401 && after.json?.error === "UNAUTHENTICATED", `status ${after.status}`);
 }
