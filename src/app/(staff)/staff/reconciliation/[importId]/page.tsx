@@ -18,5 +18,5 @@ export default async function WorkspacePage({ params, searchParams }: { params: 
   const user = await requireUser({ need: "payments:match", returnTo: workspaceHref({ importId, lane, row: rowId }) });
   const data = await loadWorkspace({ db: defaultDeps().db, user, importId, lane, rowId, now: businessNow() });
   if (data === null) notFound();
-  return <WorkspaceView data={data} lane={lane} />;
+  return <WorkspaceView data={data} lane={lane} viewer={{ id: user.id, role: user.role, active: user.active, permissions: user.permissions }} />;
 }

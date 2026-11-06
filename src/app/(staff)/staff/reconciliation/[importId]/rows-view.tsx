@@ -6,7 +6,9 @@ import { formatDay } from "@/lib/format-date";
 import { t } from "@/lib/messages";
 import { confidenceLabel, shortNarration } from "@/lib/reconciliation/labels";
 import { workspaceHref } from "@/lib/reconciliation/lanes";
+import type { Viewer } from "@/lib/reconciliation/permission-view";
 import type { Confidence, Lane, RowCard } from "@/lib/reconciliation/types";
+import { AwaitingDetails, IgnoredDetails, PostedDetails } from "./lane-details";
 import { rowLinkId } from "./review-panel";
 
 const TONE: Record<Confidence, StatusTone> = { HIGH: "positive", MEDIUM: "neutral", LOW: "caution", NONE: "neutral" };
@@ -44,7 +46,21 @@ const amountOf = (row: RowCard) => (
 );
 
 /** The rows of a lane: a real table from 768px, stacked cards below. */
-export function RowsView({ rows, caption, importId, lane, selectedId }: { rows: readonly RowCard[]; caption: string; importId: string; lane: Lane; selectedId: string | null }) {
+/** What a lane says about a row beyond the bank's facts. */
+function Details({ row, lane, viewer }: { row: RowCard; lane: Lane; viewer: Viewer }) {
+  switch (lane) {
+    case "NEEDS_YOU":
+      return <Candidate row={row} />;
+    case "AWAITING_APPROVAL":
+      return <AwaitingDetails row={row} viewer={viewer} />;
+    case "MATCHED":
+      return <PostedDetails row={row} />;
+    case "NOT_MAINTENANCE":
+      return <IgnoredDetails row={row} />;
+  }
+}
+
+export function RowsView({ rows, caption, importId, lane, selectedId, viewer }: { rows: readonly RowCard[]; caption: string; importId: string; lane: Lane; selectedId: string | null; viewer: Viewer }) {
   const reviewable = lane === "NEEDS_YOU";
   return (
     <>
@@ -56,7 +72,7 @@ export function RowsView({ rows, caption, importId, lane, selectedId }: { rows: 
               <th scope="col" className="py-2 pr-4 font-semibold">{t("recon.col.date")}</th>
               <th scope="col" className="py-2 pr-4 text-right font-semibold">{t("recon.col.amount")}</th>
               <th scope="col" className="py-2 pr-4 font-semibold">{t("recon.col.narration")}</th>
-              <th scope="col" className="py-2 pr-4 font-semibold">{t("recon.col.candidate")}</th>
+              <th scope="col" className="py-2 pr-4 font-semibold">{reviewable ? t("recon.col.candidate") : t("recon.col.details")}</th>
               {reviewable && <th scope="col" className="py-2 font-semibold"><span className="sr-only">{t("recon.col.review")}</span></th>}
             </tr>
           </thead>
@@ -67,7 +83,7 @@ export function RowsView({ rows, caption, importId, lane, selectedId }: { rows: 
                 <td className="py-2 pr-4 text-right">{amountOf(row)}</td>
                 <td className="break-words py-2 pr-4">{shortNarration(row.narration)}</td>
                 <td className="py-2 pr-4">
-                  <Candidate row={row} />
+                  <Details row={row} lane={lane} viewer={viewer} />
                 </td>
                 {reviewable && (
                   <td className="py-1">
@@ -87,7 +103,7 @@ export function RowsView({ rows, caption, importId, lane, selectedId }: { rows: 
               {amountOf(row)}
             </span>
             <span className="break-words text-body">{shortNarration(row.narration)}</span>
-            <Candidate row={row} />
+            <Details row={row} lane={lane} viewer={viewer} />
             {reviewable && <ReviewLink row={row} importId={importId} lane={lane} selectedId={selectedId} />}
           </li>
         ))}

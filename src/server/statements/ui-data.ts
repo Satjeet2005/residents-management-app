@@ -3,8 +3,9 @@ import { istDateOf } from "@/domain/time/calendar";
 import type { Db } from "@/server/auth/db";
 import type { SessionUser } from "@/server/auth/session-service";
 import { z } from "zod";
-import type { Confidence, ImportListEntry, Lane, ReviewData, RowCard, SummaryCounts, WorkspaceHeader } from "@/lib/reconciliation/types";
+import type { Confidence, EntryLine, ImportListEntry, Lane, ReviewData, RowCard, SummaryCounts, WorkspaceHeader } from "@/lib/reconciliation/types";
 import { getStatementSummary } from "./import";
+import { bankIdempotencyKey } from "./reference";
 import { getRowReview, listImports, listRows } from "./review";
 
 /** Thrown by a loader for a person who does not hold the permission. A page has already sent such a person away; this is the second lock at the data. */
@@ -65,6 +66,79 @@ export async function loadImportList({ db, user }: { db: Db; user: Viewer }): Pr
 
 export const PAGE_SIZE = 25;
 
+type DecisionRow = {
+  bankRowId: string;
+  decision: string;
+  reason: string | null;
+  reasons: unknown;
+  decidedAt: Date;
+  decidedBy: { id: string; name: string } | null;
+  approver: { name: string } | null;
+};
+
+/** The decisions of the given rows, oldest first. The log is append-only, so the last of a kind is the current one. */
+async function decisionsOf(db: Db, ids: readonly string[]): Promise<Map<string, DecisionRow[]>> {
+  const found = await db.paymentMatch.findMany({
+    where: { bankRowId: { in: [...ids] } },
+    orderBy: [{ decidedAt: "asc" }, { id: "asc" }],
+    select: { bankRowId: true, decision: true, reason: true, reasons: true, decidedAt: true, decidedBy: { select: { id: true, name: true } }, approver: { select: { name: true } } },
+  });
+  return Map.groupBy(found, (d) => d.bankRowId);
+}
+
+const requestReasons = z.object({ action: z.enum(["MATCH", "IGNORE"]), flatCode: z.string().optional() });
+
+/** Who asked for approval, for what, why and when: the latest REQUEST_APPROVAL decision of the row. */
+function requestOf(history: readonly DecisionRow[]): RowCard["request"] {
+  const request = history.findLast((d) => d.decision === "REQUEST_APPROVAL");
+  const action = requestReasons.safeParse(request?.reasons);
+  if (request === undefined || request.decidedBy === null || !action.success) return null;
+  return {
+    requestedById: request.decidedBy.id,
+    requestedBy: request.decidedBy.name,
+    action: action.data.action,
+    flatCode: action.data.flatCode ?? null,
+    reason: request.reason ?? "",
+    requestedOn: istDateOf(request.decidedAt.getTime()),
+  };
+}
+
+/** Automatic, or by whom (and who approved it): the decision that posted the row. */
+function postedBy(history: readonly DecisionRow[]): NonNullable<RowCard["posted"]>["by"] {
+  const posting = history.findLast((d) => d.decision === "AUTO" || d.decision === "MANUAL" || d.decision === "APPROVED");
+  if (posting === undefined || posting.decision === "AUTO" || posting.decidedBy === null) return { kind: "AUTO" };
+  return { kind: "MANUAL", name: posting.decidedBy.name, approvedBy: posting.approver?.name ?? null };
+}
+
+/** The reason a person gave for setting a row aside (an IGNORE, or an approved ignore). An automatic ignore has none. */
+function ignoreReasonOf(history: readonly DecisionRow[]): string | null {
+  return history.findLast((d) => d.decision === "IGNORE" || d.decision === "APPROVED")?.reason ?? null;
+}
+
+const storedIgnore = z.object({ ignoreKind: z.string().nullish() });
+function storedIgnoreKind(parsed: unknown): string | null {
+  const decision = storedIgnore.safeParse((parsed as { decision?: unknown } | null)?.decision);
+  return decision.success ? (decision.data.ignoreKind ?? null) : null;
+}
+
+/** The entries a posted row made: its LATE_FEE (when there was one) and its PAYMENT, found by their idempotency keys (the bank's hashed key or the manual one). */
+async function postedEntries(db: Db, rows: readonly { id: string; dedupeKey: string }[]): Promise<Map<string, EntryLine[]>> {
+  const keyOwner = new Map<string, string>();
+  for (const row of rows) {
+    for (const type of ["LATE_FEE", "PAYMENT"]) {
+      keyOwner.set(bankIdempotencyKey(row.dedupeKey, type), row.id);
+      keyOwner.set(`manual:${row.id}:${type}`, row.id);
+    }
+  }
+  const found = await db.ledgerEntry.findMany({ where: { idempotencyKey: { in: [...keyOwner.keys()] } }, select: { idempotencyKey: true, entryType: true, amountPaise: true }, orderBy: [{ entryType: "asc" }] });
+  const byRow = new Map<string, EntryLine[]>();
+  for (const entry of found) {
+    const owner = keyOwner.get(entry.idempotencyKey);
+    if (owner !== undefined) byRow.set(owner, [...(byRow.get(owner) ?? []), { entryType: entry.entryType, amountPaise: entry.amountPaise.toString() }]);
+  }
+  return byRow;
+}
+
 const storedDecision = z.object({ confidence: z.string().optional(), candidates: z.array(z.object({ flatCode: z.string() })).optional() });
 const CONFIDENCES: readonly string[] = ["HIGH", "MEDIUM", "LOW", "NONE"];
 
@@ -84,10 +158,15 @@ export async function loadRowCards({ db, user, importId, lane, cursor }: { db: D
   requirePermission(user, "payments:match");
   const page = await listRows({ db, importId, lane, cursor, limit: PAGE_SIZE });
   if (page === null) return null;
-  const stored = await db.bankRow.findMany({ where: { id: { in: page.items.map((i) => i.id) } }, select: { id: true, parsed: true } });
-  const parsedOf = new Map(stored.map((r) => [r.id, r.parsed]));
-  const rows = page.items.map(
-    (item): RowCard => ({
+  const ids = page.items.map((i) => i.id);
+  const stored = await db.bankRow.findMany({ where: { id: { in: ids } }, select: { id: true, parsed: true, dedupeKey: true } });
+  const storedOf = new Map(stored.map((r) => [r.id, r]));
+  const decisions = lane === "NEEDS_YOU" ? new Map<string, DecisionRow[]>() : await decisionsOf(db, ids);
+  const entries = lane === "MATCHED" ? await postedEntries(db, stored) : new Map<string, EntryLine[]>();
+  const rows = page.items.map((item): RowCard => {
+    const row = storedOf.get(item.id);
+    const history = decisions.get(item.id) ?? [];
+    return {
       id: item.id,
       rowNumber: item.rowNumber,
       txnDate: item.txnDate,
@@ -96,12 +175,12 @@ export async function loadRowCards({ db, user, importId, lane, cursor }: { db: D
       narration: item.narrationRaw,
       state: item.state,
       version: item.version,
-      ...storedBest(parsedOf.get(item.id)),
-      request: null,
-      posted: null,
-      ignored: null,
-    }),
-  );
+      ...storedBest(row?.parsed),
+      request: lane === "AWAITING_APPROVAL" ? requestOf(history) : null,
+      posted: lane === "MATCHED" && item.flatCode !== null ? { flatCode: item.flatCode, by: postedBy(history), entries: entries.get(item.id) ?? [] } : null,
+      ignored: lane === "NOT_MAINTENANCE" ? { ignoreKind: storedIgnoreKind(row?.parsed), reason: ignoreReasonOf(history) } : null,
+    };
+  });
   return { rows, nextCursor: page.nextCursor, laneCounts: page.laneCounts };
 }
 

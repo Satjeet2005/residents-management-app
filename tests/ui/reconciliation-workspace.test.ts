@@ -16,6 +16,7 @@ vi.mock("@/app/(staff)/staff/reconciliation/[importId]/actions", () => ({ loadMo
 const html = renderToStaticMarkup;
 const count = (text: string, pattern: RegExp) => (text.match(pattern) ?? []).length;
 const IMPORT = "11111111-2222-3333-4444-555555555555";
+const viewer = { id: "priya", role: "STAFF" as const, active: true, permissions: ["payments:match"] };
 
 const counts = (over: Partial<SummaryCounts> = {}): SummaryCounts => ({ rowsRead: 106, autoMatched: 25, manuallyMatched: 0, needsYou: 43, awaitingApproval: 0, notMaintenance: 38, alreadyImported: 0, invalidRows: 0, accounted: true, ...over });
 const laneCounts = { NEEDS_YOU: 43, AWAITING_APPROVAL: 0, MATCHED: 25, NOT_MAINTENANCE: 38 };
@@ -107,7 +108,7 @@ describe("WS4 the lane tabs", () => {
 
 describe("WS5 the rows", () => {
   const rows = [card(), card({ id: "a0000000-0000-0000-0000-000000000002", amountPaise: "100000", bestFlat: null, confidence: "NONE", narration: "x".repeat(80) })];
-  const out = html(h(RowsView, { rows, caption: "Rows in Needs you", importId: IMPORT, lane: "NEEDS_YOU", selectedId: null }));
+  const out = html(h(RowsView, { rows, caption: "Rows in Needs you", importId: IMPORT, lane: "NEEDS_YOU", selectedId: null, viewer }));
 
   it("is a real table with headers from 768px and stacked cards below", () => {
     expect(out).toContain('<div class="hidden md:block">');
@@ -137,13 +138,13 @@ describe("WS5 the rows", () => {
   });
 
   it("a debit says Money out", () => {
-    expect(html(h(RowsView, { rows: [card({ direction: "DEBIT" })], caption: "c", importId: IMPORT, lane: "NEEDS_YOU", selectedId: null }))).toContain("Money out");
+    expect(html(h(RowsView, { rows: [card({ direction: "DEBIT" })], caption: "c", importId: IMPORT, lane: "NEEDS_YOU", selectedId: null, viewer }))).toContain("Money out");
   });
 });
 
 describe("WS6 the lane panel", () => {
   it("is a tabpanel named by its tab, and says what an empty lane means", () => {
-    const empty = html(h(RowList, { importId: IMPORT, lane: "NEEDS_YOU", initialRows: [], initialCursor: null, selectedId: null }));
+    const empty = html(h(RowList, { importId: IMPORT, lane: "NEEDS_YOU", initialRows: [], initialCursor: null, selectedId: null, viewer }));
     expect(empty).toContain('role="tabpanel"');
     expect(empty).toContain('aria-labelledby="recon-tab-NEEDS_YOU"');
     expect(empty).toContain("Nothing needs you. Every row is accounted for.");
@@ -151,14 +152,14 @@ describe("WS6 the lane panel", () => {
   });
 
   it("offers Load more only when a next page exists", () => {
-    expect(html(h(RowList, { importId: IMPORT, lane: "NEEDS_YOU", initialRows: [card()], initialCursor: "abc", selectedId: null }))).toContain(">Load more<");
-    expect(html(h(RowList, { importId: IMPORT, lane: "NEEDS_YOU", initialRows: [card()], initialCursor: null, selectedId: null }))).not.toContain("Load more");
+    expect(html(h(RowList, { importId: IMPORT, lane: "NEEDS_YOU", initialRows: [card()], initialCursor: "abc", selectedId: null, viewer }))).toContain(">Load more<");
+    expect(html(h(RowList, { importId: IMPORT, lane: "NEEDS_YOU", initialRows: [card()], initialCursor: null, selectedId: null, viewer }))).not.toContain("Load more");
   });
 });
 
 describe("WS7 the workspace", () => {
   const data: Workspace = { header: { importId: IMPORT, filename: "sample-statement.csv", uploadedOn: "2026-10-27", uploadedBy: "Priya Nair" }, counts: counts(), laneCounts, rows: [card()], nextCursor: null, review: null };
-  const out = html(h(WorkspaceView, { data, lane: "NEEDS_YOU" }));
+  const out = html(h(WorkspaceView, { data, lane: "NEEDS_YOU", viewer }));
 
   it("has one h1 (the file name), who uploaded it and when, a main landmark and a link back", () => {
     expect(count(out, /<h1/g)).toBe(1);

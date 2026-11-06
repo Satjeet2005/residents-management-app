@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { formatDayYear } from "@/lib/format-date";
 import { t } from "@/lib/messages";
+import type { Viewer } from "@/lib/reconciliation/permission-view";
 import { actionsAllowed } from "@/lib/reconciliation/summary";
 import type { Lane } from "@/lib/reconciliation/types";
 import type { Workspace } from "@/server/statements/ui-data";
@@ -17,7 +18,7 @@ export function nextRowOf(rows: readonly { id: string }[], selectedId: string | 
 }
 
 /** The workspace of one import: header, summary bar, lane tabs, the rows of the chosen lane and, when ?row= names one, its review panel. */
-export function WorkspaceView({ data, lane }: { data: Workspace; lane: Lane }) {
+export function WorkspaceView({ data, lane, viewer }: { data: Workspace; lane: Lane; viewer: Viewer }) {
   const { header, counts, laneCounts, review } = data;
   return (
     <>
@@ -32,7 +33,7 @@ export function WorkspaceView({ data, lane }: { data: Workspace; lane: Lane }) {
           </div>
           <SummaryBar counts={counts} />
           <LaneTabs importId={header.importId} lane={lane} laneCounts={laneCounts} />
-          <RowList key={`${lane}:${JSON.stringify(laneCounts)}`} importId={header.importId} lane={lane} initialRows={data.rows} initialCursor={data.nextCursor} selectedId={review?.id ?? null} />
+          <RowList key={`${lane}:${JSON.stringify(laneCounts)}`} importId={header.importId} lane={lane} initialRows={data.rows} initialCursor={data.nextCursor} selectedId={review?.id ?? null} viewer={viewer} />
         </main>
       </div>
       {review !== null && <ReviewPanel key={review.id} review={review} importId={header.importId} lane={lane} nextRowId={nextRowOf(data.rows, review.id)} actionsAllowed={actionsAllowed(counts)} />}

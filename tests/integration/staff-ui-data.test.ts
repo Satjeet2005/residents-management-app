@@ -1,5 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DEMO_NOW } from "@/domain/seed/types";
+import type { RowCard } from "@/lib/reconciliation/types";
+import { approvalView } from "@/lib/reconciliation/permission-view";
+import { approveRequest, ignoreRow, rejectRequest } from "@/server/statements/approval";
+import { postManualMatch } from "@/server/statements/manual";
 import { importStatement } from "@/server/statements/import";
 import { getSampleStatement } from "@/server/statements/sample-statement";
 import { PAGE_SIZE, StaffAccessError, loadImportList, loadReview, loadRowCards, loadWorkspace, readThreshold } from "@/server/statements/ui-data";
@@ -177,5 +181,101 @@ describe("UD5 the review of a row", () => {
     for (const user of [{ id: resident.user.id, role: "RESIDENT" as const, active: true, permissions: ["payments:match"] }, reports]) {
       await expect(loadReview({ db: fx.app, user, importId: sampleImportId, rowId: row.id, now: DEMO_NOW })).rejects.toBeInstanceOf(StaffAccessError);
     }
+  });
+});
+
+describe("UD6 the lanes after people have acted (the requester and the approver, as the app role)", () => {
+  const rowWith = async (text: string) => fx.owner.bankRow.findFirstOrThrow({ where: { importId: sampleImportId, narrationRaw: { contains: text } } });
+  const lane = async (name: "AWAITING_APPROVAL" | "MATCHED" | "NOT_MAINTENANCE" | "NEEDS_YOU") => {
+    const out: RowCard[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await loadRowCards({ db: fx.app, user: rahul, importId: sampleImportId, lane: name, cursor });
+      out.push(...(page?.rows ?? []));
+      cursor = page?.nextCursor ?? undefined;
+    } while (cursor !== undefined);
+    return out;
+  };
+
+  it("an automatic posting is 'Automatic' with its late fee and payment, found through the hashed keys", async () => {
+    const posted = await lane("MATCHED");
+    const swati = posted.find((r) => r.narration.includes("710000000001"));
+    expect(swati?.posted).toMatchObject({ flatCode: "T12-0408", by: { kind: "AUTO" } });
+    expect(swati?.posted?.entries).toEqual([
+      { entryType: "LATE_FEE", amountPaise: "9800" },
+      { entryType: "PAYMENT", amountPaise: "646800" },
+    ]);
+    expect(posted.filter((r) => r.posted?.by.kind === "AUTO")).toHaveLength(25);
+  });
+
+  it("a manual match shows 'Manual by <name>' with the entries it posted, in Posted", async () => {
+    const row = await rowWith("710000000003");
+    const done = await postManualMatch({ db: fx.app, user: priya, rowId: row.id, flatCode: "T21-1601", reason: "Owner paid at the branch", rememberPayer: false, expectedVersion: 1, now: DEMO_NOW });
+    expect(done.status).toBe("POSTED");
+    const card = (await lane("MATCHED")).find((r) => r.id === row.id);
+    expect(card?.posted).toEqual({ flatCode: "T21-1601", by: { kind: "MANUAL", name: "Priya Nair", approvedBy: null }, entries: [{ entryType: "LATE_FEE", amountPaise: "3800" }, { entryType: "PAYMENT", amountPaise: "566000" }] });
+    expect((await lane("NEEDS_YOU")).some((r) => r.id === row.id)).toBe(false);
+  });
+
+  it("a request shows who asked, what, why and when; the requester waits, a different approver acts; then it is posted with the approver named", async () => {
+    const row = await rowWith("730000000001");
+    const review = await loadReview({ db: fx.app, user: priya, importId: sampleImportId, rowId: row.id, now: DEMO_NOW });
+    const flat = review?.candidates[0];
+    expect(BigInt(review?.creditPaise ?? "0") >= 1_000_000n).toBe(true);
+    const asked = await postManualMatch({ db: fx.app, user: priya, rowId: row.id, flatCode: flat?.flatCode ?? "", reason: "The code and the name agree", rememberPayer: false, expectedVersion: 1, expectedAmountDuePaise: BigInt(flat?.openPositions[0].amountDuePaise ?? "0"), now: DEMO_NOW });
+    expect(asked).toEqual({ status: "AWAITING_APPROVAL", thresholdPaise: "1000000" });
+
+    const waiting = (await lane("AWAITING_APPROVAL")).find((r) => r.id === row.id);
+    expect(waiting?.request).toEqual({ requestedById: priya.id, requestedBy: "Priya Nair", action: "MATCH", flatCode: flat?.flatCode, reason: "The code and the name agree", requestedOn: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
+    expect(approvalView(priya, waiting?.request?.requestedById ?? "")).toBe("WAITING");
+    expect(approvalView(rahul, waiting?.request?.requestedById ?? "")).toBe("ACTIONS");
+    expect(await approveRequest({ db: fx.app, user: priya, rowId: row.id, now: DEMO_NOW })).toEqual({ status: "ERROR", error: "FORBIDDEN" });
+
+    const approved = await approveRequest({ db: fx.app, user: rahul, rowId: row.id, note: "Checked the statement", now: DEMO_NOW });
+    expect(approved).toMatchObject({ status: "APPROVED", action: "MATCH", flatCode: flat?.flatCode });
+    const posted = (await lane("MATCHED")).find((r) => r.id === row.id);
+    expect(posted?.posted?.by).toEqual({ kind: "MANUAL", name: "Priya Nair", approvedBy: "Rahul Menon" });
+    expect(posted?.posted?.entries.map((e) => e.entryType)).toEqual(["LATE_FEE", "PAYMENT"]);
+  });
+
+  it("the requester who also holds payments:approve still waits, and cannot approve (SELF_APPROVAL)", async () => {
+    const row = await rowWith("N710000000007");
+    expect(await ignoreRow({ db: fx.app, user: rahul, rowId: row.id, reason: "Looks like a vendor refund", expectedVersion: 1, now: DEMO_NOW })).toEqual({ status: "AWAITING_APPROVAL", thresholdPaise: "1000000" });
+    const card = (await lane("AWAITING_APPROVAL")).find((r) => r.id === row.id);
+    expect(card?.request).toMatchObject({ requestedBy: "Rahul Menon", action: "IGNORE", flatCode: null, reason: "Looks like a vendor refund" });
+    expect(approvalView(rahul, card?.request?.requestedById ?? "")).toBe("WAITING");
+    expect(await approveRequest({ db: fx.app, user: rahul, rowId: row.id, now: DEMO_NOW })).toEqual({ status: "ERROR", error: "SELF_APPROVAL" });
+    expect(await rejectRequest({ db: fx.app, user: priya, rowId: row.id, reason: "Not mine to approve", now: DEMO_NOW })).toEqual({ status: "ERROR", error: "FORBIDDEN" });
+  });
+
+  it("an approved ignore is in Not maintenance with the reason; an automatic ignore shows its kind", async () => {
+    const row = await rowWith("N710000000007");
+    const second = await newStaff(fx, ["payments:match", "payments:approve"]);
+    expect(await approveRequest({ db: fx.app, user: second, rowId: row.id, note: "Agreed, a vendor refund", now: DEMO_NOW })).toMatchObject({ status: "APPROVED", action: "IGNORE" });
+    const ignored = await lane("NOT_MAINTENANCE");
+    expect(ignored.find((r) => r.id === row.id)?.ignored).toEqual({ ignoreKind: null, reason: "Agreed, a vendor refund" });
+    const charge = ignored.find((r) => r.narration.includes("SMS CHARGES Q2"));
+    expect(charge?.ignored).toEqual({ ignoreKind: "DEBIT", reason: null });
+    expect(ignored.find((r) => r.narration.includes("INT PD 01-07-2026"))?.ignored).toEqual({ ignoreKind: "INTEREST", reason: null });
+    expect(ignored.find((r) => r.narration.includes("ACME HOUSEKEEPING"))?.ignored?.ignoreKind).toBe("DEBIT");
+  });
+
+  it("a rejection sends the row back to Needs you, out of Awaiting approval", async () => {
+    const row = await rowWith("730000000002");
+    const review = await loadReview({ db: fx.app, user: priya, importId: sampleImportId, rowId: row.id, now: DEMO_NOW });
+    const flat = review?.candidates[0];
+    expect(await postManualMatch({ db: fx.app, user: priya, rowId: row.id, flatCode: flat?.flatCode ?? "", reason: "The loose code and the name agree", rememberPayer: false, expectedVersion: 1, now: DEMO_NOW })).toMatchObject({ status: "AWAITING_APPROVAL" });
+    expect((await lane("AWAITING_APPROVAL")).some((r) => r.id === row.id)).toBe(true);
+    expect(await rejectRequest({ db: fx.app, user: rahul, rowId: row.id, reason: "The name belongs to another flat", now: DEMO_NOW })).toEqual({ status: "REJECTED" });
+    expect((await lane("AWAITING_APPROVAL")).some((r) => r.id === row.id)).toBe(false);
+    expect((await lane("NEEDS_YOU")).some((r) => r.id === row.id)).toBe(true);
+  });
+
+  it("the lane counts and the summary still add up after all of that, and the books are accounted for", async () => {
+    const data = await loadWorkspace({ db: fx.app, user: rahul, importId: sampleImportId, lane: "NEEDS_YOU", now: DEMO_NOW });
+    const c = data?.counts;
+    expect(c?.accounted).toBe(true);
+    expect((c?.autoMatched ?? 0) + (c?.manuallyMatched ?? 0) + (c?.needsYou ?? 0) + (c?.awaitingApproval ?? 0) + (c?.notMaintenance ?? 0)).toBe(106);
+    expect(c?.manuallyMatched).toBe(2);
   });
 });

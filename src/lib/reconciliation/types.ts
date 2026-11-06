@@ -50,7 +50,7 @@ export type RowCard = {
   /** AWAITING_APPROVAL lane. */
   request: { requestedById: string; requestedBy: string; action: "MATCH" | "IGNORE"; flatCode: string | null; reason: string; requestedOn: string } | null;
   /** Posted lane. */
-  posted: { flatCode: string; by: { kind: "AUTO" } | { kind: "MANUAL"; name: string }; entries: EntryLine[] } | null;
+  posted: { flatCode: string; by: { kind: "AUTO" } | { kind: "MANUAL"; name: string; approvedBy: string | null }; entries: EntryLine[] } | null;
   /** Not maintenance lane. */
   ignored: { ignoreKind: string | null; reason: string | null } | null;
 };

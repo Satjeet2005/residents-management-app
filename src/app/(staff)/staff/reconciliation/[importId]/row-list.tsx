@@ -5,6 +5,7 @@ import { BlockError } from "@/components/ui/block-error";
 import { Button } from "@/components/ui/button";
 import { t } from "@/lib/messages";
 import { laneLabel } from "@/lib/reconciliation/lanes";
+import type { Viewer } from "@/lib/reconciliation/permission-view";
 import type { Lane, RowCard } from "@/lib/reconciliation/types";
 import { loadMoreRows } from "./actions";
 import { lanePanelId, laneTabId } from "./lane-tabs";
@@ -24,7 +25,7 @@ export function emptyLaneText(lane: Lane): string {
 }
 
 /** The rows of the chosen lane, as the tab panel: the first page from the server, then "Load more" (keyset, 25 at a time). */
-export function RowList({ importId, lane, initialRows, initialCursor, selectedId }: { importId: string; lane: Lane; initialRows: RowCard[]; initialCursor: string | null; selectedId: string | null }) {
+export function RowList({ importId, lane, initialRows, initialCursor, selectedId, viewer }: { importId: string; lane: Lane; initialRows: RowCard[]; initialCursor: string | null; selectedId: string | null; viewer: Viewer }) {
   const [rows, setRows] = useState(initialRows);
   const [cursor, setCursor] = useState(initialCursor);
   const [phase, setPhase] = useState<"IDLE" | "LOADING" | "FAILED">("IDLE");
@@ -46,7 +47,7 @@ export function RowList({ importId, lane, initialRows, initialCursor, selectedId
 
   return (
     <div role="tabpanel" id={lanePanelId} aria-labelledby={laneTabId(lane)} className="flex min-w-0 flex-col gap-3">
-      {rows.length === 0 ? <p className="text-body text-ink-2">{emptyLaneText(lane)}</p> : <RowsView rows={rows} caption={t("recon.list.caption", { lane: laneLabel(lane) })} importId={importId} lane={lane} selectedId={selectedId} />}
+      {rows.length === 0 ? <p className="text-body text-ink-2">{emptyLaneText(lane)}</p> : <RowsView rows={rows} caption={t("recon.list.caption", { lane: laneLabel(lane) })} importId={importId} lane={lane} selectedId={selectedId} viewer={viewer} />}
       {phase === "FAILED" && <BlockError message={t("recon.list.loadError")} onRetry={loadMore} />}
       {cursor !== null && phase !== "FAILED" && (
         <Button variant="outlined" loading={phase === "LOADING"} loadingLabel={t("recon.list.loading")} onClick={loadMore}>

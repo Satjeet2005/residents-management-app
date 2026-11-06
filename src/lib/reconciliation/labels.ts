@@ -80,8 +80,10 @@ export function railLabel(rail: string | null): string {
   }
 }
 
-export function postedByLabel(by: { kind: "AUTO" } | { kind: "MANUAL"; name: string }): string {
-  return by.kind === "AUTO" ? t("recon.posted.automatic") : t("recon.posted.manual", { name: by.name });
+export function postedByLabel(by: { kind: "AUTO" } | { kind: "MANUAL"; name: string; approvedBy?: string | null }): string {
+  if (by.kind === "AUTO") return t("recon.posted.automatic");
+  const manual = t("recon.posted.manual", { name: by.name });
+  return by.approvedBy === undefined || by.approvedBy === null ? manual : t("recon.posted.approved", { manual, name: by.approvedBy });
 }
 
 export function entryLabel(entry: EntryLine): string {
