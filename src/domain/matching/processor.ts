@@ -3,9 +3,9 @@ import { recordPayment } from "./amounts";
 import { buildMatchContext } from "./context";
 import type { RowError, StatementRow } from "./csv";
 import { matchRow } from "./decide";
-import { rowDedupeKey } from "./dedupe";
+import { byDateThenRow, computeRowKeys } from "./dedupe";
 import { parseNarration, type ParsedNarration } from "./narration";
-import type { FlatContext, MatchSettings, PostingEntry, RowDecision } from "./types";
+import type { FlatContext, MatchSettings, PostingEntry, Reason, RowDecision } from "./types";
 
 /** A valid row from the CSV reader. */
 export type ImportRow = StatementRow;
@@ -67,10 +67,6 @@ export type ProcessedStatement = {
   entriesToPost: PlannedEntry[];
 };
 
-/** Date, then row number: the order is the same whatever order the rows arrive in. */
-const byDateThenRow = (a: ImportRow, b: ImportRow): number =>
-  a.txnDate === b.txnDate ? a.rowNumber - b.rowNumber : a.txnDate < b.txnDate ? -1 : 1;
-
 const STATE_OF: Readonly<Record<RowDecision["kind"], RowState>> = { AUTO_MATCH: "AUTO_MATCHED", QUEUE: "QUEUED", IGNORE: "IGNORED" };
 
 function plannedEntries(row: ProcessedRow, flatCode: string, decision: RowDecision): PlannedEntry[] {
@@ -123,17 +119,14 @@ function onlyPayment(decision: RowDecision): PostingEntry | null {
 export function processStatement(input: ProcessInput): ProcessedStatement {
   const context = buildMatchContext(input.flats, input.settings);
   const ordered = [...input.rows].sort(byDateThenRow);
-  const occurrences = new Map<string, number>();
+  const keys = computeRowKeys(input.rows);
   const taken = new Set<string>(input.alreadyImportedKeys);
   const rows: ProcessedRow[] = [];
   const entriesToPost: PlannedEntry[] = [];
 
   for (const row of ordered) {
     const parsed = parseNarration(row.narrationRaw);
-    const base = rowDedupeKey(row, parsed, 1);
-    const occurrence = (occurrences.get(base) ?? 0) + 1;
-    occurrences.set(base, occurrence);
-    const dedupeKey = occurrence === 1 ? base : rowDedupeKey(row, parsed, occurrence);
+    const dedupeKey = keys.get(row.rowNumber) as string;
     const header = { rowNumber: row.rowNumber, creditPaise: row.creditPaise, dedupeKey, parsed };
 
     if (taken.has(dedupeKey)) {
@@ -151,6 +144,28 @@ export function processStatement(input: ProcessInput): ProcessedStatement {
     }
   }
   const draft: ProcessedStatement = { rows, csvErrors: input.csvErrors.map((e) => ({ ...e })), summary: summarise(rows, input.csvErrors), accounted: false, entriesToPost };
+  return { ...draft, accounted: accountingReport(draft).length === 0 };
+}
+
+/**
+ * The statement after some AUTO_MATCHED rows could not be posted after all (the database changed under them): each is QUEUED
+ * with `reason` added, has no plan, and its entries are removed from `entriesToPost`; the summary and `accounted` are worked out
+ * again from the new rows. Rows that are not AUTO_MATCHED are left alone. Pure: the input is not changed.
+ */
+export function downgradeRows(processed: ProcessedStatement, rowNumbers: ReadonlySet<number>, why: Reason): ProcessedStatement {
+  const downgraded = new Set(processed.rows.filter((r) => r.state === "AUTO_MATCHED" && rowNumbers.has(r.rowNumber)).map((r) => r.rowNumber));
+  const rows = processed.rows.map((row): ProcessedRow =>
+    downgraded.has(row.rowNumber) && row.decision !== null
+      ? { ...row, state: "QUEUED", decision: { ...row.decision, kind: "QUEUE", plan: null, reasons: [...row.decision.reasons, why] } }
+      : row,
+  );
+  const draft: ProcessedStatement = {
+    rows,
+    csvErrors: processed.csvErrors.map((e) => ({ ...e })),
+    summary: summarise(rows, processed.csvErrors),
+    accounted: false,
+    entriesToPost: processed.entriesToPost.filter((e) => !downgraded.has(e.rowNumber)),
+  };
   return { ...draft, accounted: accountingReport(draft).length === 0 };
 }
 

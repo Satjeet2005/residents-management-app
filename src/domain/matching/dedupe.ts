@@ -1,6 +1,6 @@
 import type { StatementRow } from "./csv";
 import { normalizeName } from "./names";
-import type { ParsedNarration } from "./narration";
+import { parseNarration, type ParsedNarration } from "./narration";
 
 const MAX_NARRATION_CHARS = 80;
 
@@ -28,4 +28,27 @@ export function rowDedupeKey(
   const narration = normalizeName(row.narrationRaw).slice(0, MAX_NARRATION_CHARS);
   const balance = row.balancePaise === null ? "nobal" : String(row.balancePaise);
   return `row|${row.txnDate}|${row.creditPaise}|${row.debitPaise}|${narration}|${balance}|${occurrence}`;
+}
+
+/** Date, then row number: the order rows are processed in, whatever order they arrive in. */
+export const byDateThenRow = (a: Pick<StatementRow, "txnDate" | "rowNumber">, b: Pick<StatementRow, "txnDate" | "rowNumber">): number =>
+  a.txnDate === b.txnDate ? a.rowNumber - b.rowNumber : a.txnDate < b.txnDate ? -1 : 1;
+
+/**
+ * The dedupe key of every row of a statement, by row number, worked out the way `processStatement` works it out: rows are taken
+ * by date then row number, and a row with no reference is occurrence 1, 2, 3 ... of its base key within the file, so two identical
+ * cash deposits get two keys. A row with a reference has the same key whichever occurrence it is. Pure; the rows are not changed.
+ * The server uses it to ask the database which of a file's rows an earlier import already took in, before the processor runs.
+ */
+export function computeRowKeys(rows: readonly StatementRow[]): Map<number, string> {
+  const occurrences = new Map<string, number>();
+  const keys = new Map<number, string>();
+  for (const row of [...rows].sort(byDateThenRow)) {
+    const parsed = parseNarration(row.narrationRaw);
+    const base = rowDedupeKey(row, parsed, 1);
+    const occurrence = (occurrences.get(base) ?? 0) + 1;
+    occurrences.set(base, occurrence);
+    keys.set(row.rowNumber, occurrence === 1 ? base : rowDedupeKey(row, parsed, occurrence));
+  }
+  return keys;
 }
