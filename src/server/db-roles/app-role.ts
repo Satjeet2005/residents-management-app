@@ -146,3 +146,15 @@ export function buildAppRoleSql(options: { appRole: string; ownerRole: string })
 `;
   return `${header}${buildAppRoleStatements(options).join("\n\n")}\n`;
 }
+
+/** Tables that exist in the schema but have no decision in the matrix or the no-access list. A table added without deciding its privileges shows up here. */
+export function undecidedTables(existing: readonly string[]): string[] {
+  const known = new Set(knownTables());
+  return existing.filter((table) => !known.has(table)).sort();
+}
+
+/** Tables the matrix names that do not exist in the schema (a renamed or dropped table that was not updated here). */
+export function staleMatrixTables(existing: readonly string[]): string[] {
+  const present = new Set(existing);
+  return knownTables().filter((table) => !present.has(table));
+}
