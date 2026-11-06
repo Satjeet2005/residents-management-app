@@ -178,11 +178,12 @@ async function run() {
     check("a staff member calling POST /api/payments gets 403", staffPay.status === 403, `status ${staffPay.status}`);
   }
   if (expectDemoNote) await staffImportsSample(staffCookie);
+  if (expectDemoNote && paidCheckoutPath !== null) await partPaidResidentFails(paidCheckoutPath, staffCookie);
   await post("/api/auth/logout-all", undefined, staffCookie);
-  if (expectDemoNote && paidCheckoutPath !== null) await partPaidResidentFails(paidCheckoutPath);
 }
 
 let paidCheckoutPath = null;
+let sampleImportId = null;
 
 /**
  * Staff upload the sample statement (src/server/statements/sample-statement.ts, read with Node's type stripping). The T12-0408 resident paid
@@ -195,17 +196,18 @@ async function staffImportsSample(staffCookie) {
   const first = await post("/api/statements", { filename: "sample-statement.csv", csv }, staffCookie);
   const s = first.json?.summary ?? {};
   check(
-    "POST /api/statements with the sample: 200, 114 rows, 6 posted, 71 queued, 37 ignored, none repeated, accounted true",
-    first.status === 200 && s.rowsRead === 114 && s.validRows === 114 && s.invalidRows === 0 && s.autoMatched === 6 && s.queued === 71 && s.ignored === 37 && s.alreadyImported === 0 && s.downgraded === 0 && first.json?.accounted === true,
+    "POST /api/statements with the sample: 200, 105 rows, 26 posted, 41 queued, 38 ignored, none repeated, accounted true",
+    first.status === 200 && s.rowsRead === 105 && s.validRows === 105 && s.invalidRows === 0 && s.autoMatched === 26 && s.queued === 41 && s.ignored === 38 && s.alreadyImported === 0 && s.downgraded === 0 && first.json?.accounted === true,
     `status ${first.status}, ${JSON.stringify({ a: s.autoMatched, q: s.queued, i: s.ignored })}`,
   );
-  check("the sample's posted total is ₹49,081 (₹55,549 less T12-0408, which the gateway had already paid) and the credits ₹13,47,773", s.autoMatchedTotalPaise === "4908100" && s.creditTotalPaise === "134777300", `${s.autoMatchedTotalPaise} of ${s.creditTotalPaise}`);
+  check("the sample's posted total is ₹1,61,412 (₹1,67,880 less T12-0408, which the gateway had already paid) and the credits ₹8,84,193", s.autoMatchedTotalPaise === "16141200" && s.creditTotalPaise === "88419300", `${s.autoMatchedTotalPaise} of ${s.creditTotalPaise}`);
   if (first.status !== 200) return;
+  sampleImportId = first.json.importId;
   const stored = await fetch(`${baseUrl}/api/statements/${first.json.importId}`, { headers: { cookie: staffCookie } });
   const storedJson = await stored.json();
-  check("GET /api/statements/<id> reads the same counts back from the database", stored.status === 200 && storedJson.accounted === true && storedJson.summary?.autoMatched === 6 && storedJson.summary?.queued === 71 && storedJson.summary?.ignored === 37, `status ${stored.status}`);
+  check("GET /api/statements/<id> reads the same counts back from the database", stored.status === 200 && storedJson.accounted === true && storedJson.summary?.autoMatched === 26 && storedJson.summary?.queued === 41 && storedJson.summary?.ignored === 38, `status ${stored.status}`);
   const again = await post("/api/statements", { filename: "sample-statement.csv", csv }, staffCookie);
-  check("POSTing the sample again: every one of the 114 rows is ALREADY_IMPORTED, nothing new is posted or queued", again.status === 200 && again.json?.summary?.alreadyImported === 114 && again.json?.summary?.autoMatched === 0 && again.json?.summary?.queued === 0 && again.json?.accounted === true, `status ${again.status}`);
+  check("POSTing the sample again: every one of the 105 rows is ALREADY_IMPORTED, nothing new is posted or queued", again.status === 200 && again.json?.summary?.alreadyImported === 105 && again.json?.summary?.autoMatched === 0 && again.json?.summary?.queued === 0 && again.json?.accounted === true, `status ${again.status}`);
   const bad = await post("/api/statements", { filename: "bad.csv", csv: "Date,Credit\n2026-10-26,5.00\n" }, staffCookie);
   check("a statement with no narration column is 422 INVALID_CSV", bad.status === 422 && bad.json?.error === "INVALID_CSV", `status ${bad.status}`);
 }
@@ -262,7 +264,7 @@ async function residentPays(cookie, homeBefore) {
 }
 
 /** The T21-1601 resident starts a payment and the gateway reports a failure: the strip shows and Pay is still there. */
-async function partPaidResidentFails(otherCheckoutPath) {
+async function partPaidResidentFails(otherCheckoutPath, staffCookie) {
   const cookie = await login(RESIDENT_PART_PAID);
   check("login as the T21-1601 resident", cookie !== null, cookie ? `cookie length ${cookie.length}` : "could not log in");
   if (cookie === null) return;
@@ -286,7 +288,100 @@ async function partPaidResidentFails(otherCheckoutPath) {
     after.text.includes("That payment didn't go through. No money left your account.") && payButtonPaise(after.html) === shown && stripAt(after.html) >= 0 && stripAt(after.html) < after.html.indexOf("Amount due, as of"),
     `strip at ${stripAt(after.html)}, amount label at ${after.html.indexOf("Amount due, as of")}, button ${payButtonPaise(after.html) ?? "missing"}`,
   );
+  await reconcile(staffCookie, cookie);
   await post("/api/auth/logout-all", undefined, cookie);
+}
+
+async function api(method, path, cookie, body) {
+  const headers = cookie ? { cookie } : {};
+  if (body !== undefined) headers["content-type"] = "application/json";
+  const response = await fetch(`${baseUrl}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), redirect: "manual" });
+  let json = null;
+  try {
+    json = await response.json();
+  } catch {
+    json = null;
+  }
+  return { status: response.status, json };
+}
+
+/** The first row of a lane page, or the row whose narration holds `text`, looking through every page of the NEEDS_YOU lane. */
+async function findQueuedRow(cookie, text) {
+  let cursor = "";
+  for (let page = 0; page < 10; page++) {
+    const result = await api("GET", `/api/statements/${sampleImportId}/rows?lane=NEEDS_YOU&limit=50${cursor}`, cookie);
+    const hit = result.json?.items?.find((row) => row.narrationRaw.includes(text));
+    if (hit) return hit;
+    if (!result.json?.nextCursor) return null;
+    cursor = `&cursor=${result.json.nextCursor}`;
+  }
+  return null;
+}
+
+/**
+ * Reconciliation over HTTP (T12b): staff list the imports and the NEEDS_YOU lane, review the first row, match the principal-only payment of T21-1601
+ * by hand (the counts move by one and the resident's Home then says "Late fee due"), ask for approval of a credit above the threshold and approve it
+ * as a second staff user, and a resident is refused everywhere. Every number is the sample's own. No code, cookie or secret is printed.
+ */
+async function reconcile(staffCookie, residentCookie) {
+  const second = await login("5000000002");
+  check("login as the second staff user (Rahul Menon, who may approve)", second !== null, second ? `cookie length ${second.length}` : "could not log in");
+  if (second === null || sampleImportId === null) return;
+
+  const imports = await api("GET", "/api/statements", staffCookie);
+  check("GET /api/statements lists the imports, the sample's first import among them, newest first, at most 10", imports.status === 200 && imports.json?.imports?.some((i) => i.importId === sampleImportId) && imports.json.imports.length <= 10 && imports.json.imports.every((i, k, all) => k === 0 || all[k - 1].uploadedAt >= i.uploadedAt), `status ${imports.status}`);
+  const before = await api("GET", `/api/statements/${sampleImportId}/rows?lane=NEEDS_YOU&limit=50`, staffCookie);
+  const lanes = before.json?.laneCounts ?? {};
+  check("the NEEDS_YOU lane holds 41 rows, 26 are matched and 38 are not maintenance; a page has at most 50, biggest amount first", before.status === 200 && lanes.NEEDS_YOU === 41 && lanes.MATCHED === 26 && lanes.NOT_MAINTENANCE === 38 && lanes.AWAITING_APPROVAL === 0 && before.json.items.length === 41 && before.json.items.every((row, i, all) => i === 0 || BigInt(all[i - 1].amountPaise) >= BigInt(row.amountPaise)), JSON.stringify(lanes));
+  const first = before.json?.items?.[0];
+  const reviewed = await api("GET", `/api/bank-rows/${first?.id}`, staffCookie);
+  check("GET /api/bank-rows/<id> reviews the first row: its version, plain-English reasons and at most 5 candidate flats", reviewed.status === 200 && reviewed.json?.version === 1 && reviewed.json?.decision?.reasons?.length > 0 && reviewed.json.decision.reasons.every((r) => r.text.length > 10) && reviewed.json.candidates.length <= 5, `status ${reviewed.status}`);
+
+  const principal = await findQueuedRow(staffCookie, "710000000003");
+  const principalReview = principal ? await api("GET", `/api/bank-rows/${principal.id}`, staffCookie) : null;
+  const t21 = principalReview?.json?.candidates?.find((c) => c.flatCode === "T21-1601");
+  check("the ₹5,660 row of T21-1601 is reviewed: the flat's open position is ₹5,660 principal plus ₹38, ₹5,698 due", principal !== null && t21?.openPositions?.[0]?.principalOutstandingPaise === "566000" && t21.openPositions[0].feePaise === "3800" && t21.openPositions[0].amountDuePaise === "569800" && t21.amountRelation === "EQUALS_PRINCIPAL", principal ? `relation ${t21?.amountRelation}` : "row not found");
+  if (!principal || !t21) return;
+
+  const noReason = await api("POST", `/api/bank-rows/${principal.id}/match`, staffCookie, { flatCode: "T21-1601", reason: "ok", rememberPayer: false, expectedVersion: 1 });
+  check("a match with a one-word reason is 422 REASON_REQUIRED and changes nothing", noReason.status === 422 && noReason.json?.error === "REASON_REQUIRED", `status ${noReason.status}`);
+  const posted = await api("POST", `/api/bank-rows/${principal.id}/match`, staffCookie, { flatCode: "T21-1601", reason: "Owner paid the bill at the branch, confirmed by phone", rememberPayer: false, expectedVersion: 1, expectedAmountDuePaise: "569800" });
+  check(
+    "POST /api/bank-rows/<id>/match below the threshold: 200 POSTED, a LATE_FEE of ₹38 and ONE PAYMENT of ₹5,660, ₹38 of late fee still owing",
+    posted.status === 200 && posted.json?.status === "POSTED" && JSON.stringify(posted.json.entries) === '[{"entryType":"LATE_FEE","amountPaise":"3800"},{"entryType":"PAYMENT","amountPaise":"566000"}]' && posted.json.remaining?.kind === "FEE_ONLY" && posted.json.remaining.feeOwedPaise === "3800",
+    `status ${posted.status}`,
+  );
+  const repeated = await api("POST", `/api/bank-rows/${principal.id}/match`, staffCookie, { flatCode: "T21-1601", reason: "Owner paid the bill at the branch, confirmed by phone", rememberPayer: false, expectedVersion: 1 });
+  check("the same match again is 409 (the row is no longer queued)", repeated.status === 409 && ["NOT_QUEUED", "STALE"].includes(repeated.json?.error), `status ${repeated.status}`);
+  const afterMatch = await api("GET", `/api/statements/${sampleImportId}/rows?lane=NEEDS_YOU&limit=1`, staffCookie);
+  check("the counts moved by one: NEEDS_YOU 40, MATCHED 27", afterMatch.json?.laneCounts?.NEEDS_YOU === 40 && afterMatch.json.laneCounts.MATCHED === 27, JSON.stringify(afterMatch.json?.laneCounts));
+  const residentHome = await get("/", residentCookie);
+  check("GET / as the T21-1601 resident now says 'Late fee due' with ₹38 and a Pay ₹38 button", residentHome.text.includes("Late fee due") && payButtonPaise(residentHome.html) === 3800n && !residentHome.text.includes("days overdue"), `button ${payButtonPaise(residentHome.html) ?? "missing"}`);
+
+  const big = await findQueuedRow(staffCookie, "N710000000007");
+  const asked = big ? await api("POST", `/api/bank-rows/${big.id}/ignore`, staffCookie, { reason: "Looks like a vendor refund, not maintenance", expectedVersion: 1 }) : null;
+  check("an ignore of the ₹30,000 credit (above the ₹25,000 threshold) is 200 AWAITING_APPROVAL, not decided", asked?.status === 200 && asked.json?.status === "AWAITING_APPROVAL" && asked.json.thresholdPaise === "2500000", `status ${asked?.status}`);
+  const awaiting = await api("GET", `/api/statements/${sampleImportId}/rows?lane=AWAITING_APPROVAL`, staffCookie);
+  check("the AWAITING_APPROVAL lane holds that one row", awaiting.json?.items?.length === 1 && awaiting.json.items[0].id === big?.id && awaiting.json.laneCounts.AWAITING_APPROVAL === 1, `status ${awaiting.status}`);
+  const noPermission = big ? await api("POST", `/api/bank-rows/${big.id}/approve`, staffCookie, {}) : null;
+  check("the person who asked (payments:match only) cannot approve: 403", noPermission?.status === 403, `status ${noPermission?.status}`);
+  const approved = big ? await api("POST", `/api/bank-rows/${big.id}/approve`, second, { note: "Checked on the statement" }) : null;
+  check("the second staff user approves: 200 APPROVED", approved?.status === 200 && approved.json?.status === "APPROVED" && approved.json.action === "IGNORE", `status ${approved?.status}`);
+  const finalLanes = await api("GET", `/api/statements/${sampleImportId}/rows?lane=NOT_MAINTENANCE&limit=1`, staffCookie);
+  check("the lanes now: NEEDS_YOU 39, AWAITING_APPROVAL 0, MATCHED 27, NOT_MAINTENANCE 39 (105 rows in all)", JSON.stringify(finalLanes.json?.laneCounts) === JSON.stringify({ NEEDS_YOU: 39, AWAITING_APPROVAL: 0, MATCHED: 27, NOT_MAINTENANCE: 39 }), JSON.stringify(finalLanes.json?.laneCounts));
+  const found = await api("GET", "/api/flats/search?q=T21-16", staffCookie);
+  check("GET /api/flats/search?q=T21-16 finds T21-1601 with its resident and no phone number", found.status === 200 && found.json.flats.some((f) => f.flatCode === "T21-1601" && f.residents.includes("Aamir Shaikh")) && !JSON.stringify(found.json).match(/[0-9]{10}/), `status ${found.status}`);
+
+  const denied = await Promise.all([
+    api("GET", "/api/statements", residentCookie),
+    api("GET", `/api/statements/${sampleImportId}/rows`, residentCookie),
+    api("GET", `/api/bank-rows/${first?.id}`, residentCookie),
+    api("GET", "/api/flats/search?q=T12", residentCookie),
+    api("POST", `/api/bank-rows/${first?.id}/match`, residentCookie, { flatCode: "T12-0408", reason: "A reason here", rememberPayer: false, expectedVersion: 1 }),
+    api("POST", `/api/bank-rows/${first?.id}/approve`, residentCookie, {}),
+  ]);
+  check("a resident gets 403 on every reconciliation route", denied.every((r) => r.status === 403), denied.map((r) => r.status).join(" "));
+  await post("/api/auth/logout-all", undefined, second);
 }
 
 try {
