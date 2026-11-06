@@ -63,7 +63,7 @@ describe("CP6 purity", () => {
 });
 
 describe("CP6 speed", () => {
-  it("1,000 decisions take well under 0.5 s of work on 2 CPUs (the limit here allows a loaded machine)", () => {
+  it("1,000 decisions take under 0.5 s on 2 CPUs", () => {
     const texts = ["water leak in the bathroom", "लिफ्ट में फंस गए हैं", "garbage not collected for three days, urgent", "the lift light is out", "gas ka smell aa raha hai", "नल से पानी टपक रहा है", "something is wrong"];
     const arms: ArmResult[] = [
       { arm: "NATIVE", categories: CATEGORY_CODES.map((label, i) => ({ label, probability: i === 0 ? 0.6 : 0.1 })), urgencies: MODEL_URGENCIES.map((label, i) => ({ label, probability: i === 1 ? 0.8 : 0.1 })) },
@@ -72,7 +72,7 @@ describe("CP6 speed", () => {
     decideClassification({ rawText: "warm up", arms, policy: defaultClassificationPolicy });
     const started = performance.now();
     for (let i = 0; i < 1000; i++) decideClassification({ rawText: texts[i % texts.length], arms, policy: defaultClassificationPolicy });
-    expect(performance.now() - started).toBeLessThan(1500);
+    expect(performance.now() - started).toBeLessThan(500);
   });
 });
 
