@@ -18,9 +18,13 @@ export function replyDueText(reply: ReplyDue): string {
 
 export const overdueText = (days: number): string => (days === 1 ? t("dues.overdueOne", { days: 1 }) : t("dues.overdue", { days }));
 
-/** The tag on the dues card: "47 days overdue" in caution, or "Due 10 Nov, in 14 days". Null when nothing is open. */
+/**
+ * The tag on the dues card: "47 days overdue" in caution, "Due 10 Nov, in 14 days", or the late-fee-due tag when the oldest open
+ * bill's principal is paid and only its fee is owed (D107). Null when nothing is open.
+ */
 export function dueTag(dues: Dues): { tone: "caution" | "neutral"; text: string } | null {
   if (dues.oldest === null) return null;
+  if (dues.openBills[0].kind === "FEE_ONLY") return { tone: "caution", text: t("dues.lateFeeDue") };
   if (dues.oldest.overdueDays > 0) return { tone: "caution", text: overdueText(dues.oldest.overdueDays) };
   const date = formatDay(dues.oldest.dueOn);
   const days = dues.oldest.daysUntilDue;
@@ -84,7 +88,7 @@ export function workingLines(bill: OpenBill, working: FeeWorking): { name: strin
 
 /** "It grows by about ₹2 a day until you pay." Only for one open bill, and only when a day's growth rounds to at least a rupee. */
 export function dailyGrowthText(dues: Dues): string | null {
-  if (dues.openBills.length !== 1) return null;
+  if (dues.openBills.length !== 1 || dues.openBills[0].kind === "FEE_ONLY") return null;
   const working = dues.openBills[0].working;
   if (working === null) return null;
   const amount = formatRupeesRounded(working.dailyPaise);
