@@ -1,0 +1,133 @@
+import { z } from "zod";
+import { type DueBill, type DueEntry, computeDues } from "@/domain/billing/dues";
+import { type LateFeePolicy, validateLateFeePolicy } from "@/domain/billing/late-fee";
+import { type ComplaintStatus, complaintStep } from "@/domain/complaints/step";
+import { type CalendarDate, istDateOf } from "@/domain/time/calendar";
+import type { EntryType, FlatRelation, HomeComplaint, HomeData, RecentEntry, ReplyDue } from "./types";
+
+/**
+ * The rows the queries return, as plain values (the queries file turns a Prisma row into one of these). The mapper below is
+ * pure: rows in, the Home data out, so it is tested without a database.
+ */
+export type MembershipRow = { flatId: string; flatCode: string; relation: FlatRelation };
+export type BillRow = { id: string; period: Date; issuedOn: Date; dueOn: Date; amountPaise: bigint };
+export type EntryRow = {
+  id: string;
+  entryType: EntryType;
+  direction: "CHARGE" | "PAYMENT";
+  amountPaise: bigint;
+  effectiveDate: Date;
+  billId: string | null;
+  reversesEntryId: string | null;
+  createdAt: Date;
+};
+export type ComplaintRow = { body: string; status: ComplaintStatus; createdAt: Date; responseDueAt: Date | null; firstResponseAt: Date | null };
+export type VisitorRow = { visitorName: string; expectedAt: Date };
+export type SettingsRow = { key: string; value: unknown };
+
+export type HomeInput = {
+  userName: string;
+  now: number;
+  memberships: readonly MembershipRow[];
+  /** Everything below belongs to the flat of the first membership by code, and to no other flat. */
+  bills: readonly BillRow[];
+  entries: readonly EntryRow[];
+  complaints: readonly ComplaintRow[];
+  visitors: readonly VisitorRow[];
+  settings: readonly SettingsRow[];
+};
+
+/** A database DATE (UTC midnight) as "YYYY-MM-DD". */
+export const calendarDateOf = (date: Date): CalendarDate => date.toISOString().slice(0, 10);
+
+const policySchema = z.object({ annualRateBps: z.number().int(), capBps: z.number().int(), daysInYear: z.number().int() });
+
+/** The society's late-fee policy from its setting. A missing or invalid setting throws: never guess a rate for money. */
+export function parsePolicy(settings: readonly SettingsRow[]): LateFeePolicy {
+  const row = settings.find((s) => s.key === "late_fee_policy");
+  const parsed = policySchema.safeParse(row?.value);
+  if (!parsed.success) throw new Error("The late_fee_policy setting is missing or not valid");
+  validateLateFeePolicy(parsed.data);
+  return parsed.data;
+}
+
+const phoneSetting = (settings: readonly SettingsRow[], key: string): string | null => {
+  const value = settings.find((s) => s.key === key)?.value;
+  return typeof value === "string" && value.trim() !== "" ? value.trim() : null;
+};
+
+/** The first line of a complaint, at most 60 characters (a cut one ends with an ellipsis). */
+export function complaintTitle(body: string): string {
+  const first = (body.split(/\r?\n/).find((line) => line.trim() !== "") ?? "").trim();
+  const chars = Array.from(first);
+  return chars.length <= 60 ? first : `${chars.slice(0, 59).join("").trimEnd()}…`;
+}
+
+/** When the reply is due, or null once someone has replied. Overdue means the due time has passed and nobody has replied. */
+export function computeReplyDue(input: { responseDueAt: number | null; firstResponseAt: number | null; now: number }): ReplyDue | null {
+  if (input.firstResponseAt !== null || input.responseDueAt === null) return null;
+  if (input.now > input.responseDueAt) return { kind: "OVERDUE" };
+  return { kind: "DUE", dueAt: input.responseDueAt, today: istDateOf(input.responseDueAt) === istDateOf(input.now) };
+}
+
+const toDueBill = (b: BillRow): DueBill => ({ id: b.id, period: calendarDateOf(b.period), issuedOn: calendarDateOf(b.issuedOn), dueOn: calendarDateOf(b.dueOn), amountPaise: b.amountPaise });
+const toDueEntry = (e: EntryRow): DueEntry => ({
+  id: e.id,
+  entryType: e.entryType,
+  direction: e.direction,
+  amountPaise: e.amountPaise,
+  effectiveDate: calendarDateOf(e.effectiveDate),
+  billId: e.billId,
+  reversesEntryId: e.reversesEntryId,
+});
+
+/** The last two ledger entries up to today, newest first by effective date, then by the time they were recorded. */
+function recentEntries(entries: readonly EntryRow[], today: CalendarDate): RecentEntry[] {
+  return entries
+    .filter((e) => calendarDateOf(e.effectiveDate) <= today)
+    .sort((a, b) => (a.effectiveDate.getTime() !== b.effectiveDate.getTime() ? b.effectiveDate.getTime() - a.effectiveDate.getTime() : b.createdAt.getTime() - a.createdAt.getTime()))
+    .slice(0, 2)
+    .map((e) => ({ entryType: e.entryType, date: calendarDateOf(e.effectiveDate), amountPaise: e.amountPaise }));
+}
+
+/**
+ * Builds the Home data. The flat shown is the first current membership by flat code (D6; several flats are out of scope, so
+ * the first is shown and `moreThanOneFlat` says so). With no current membership the answer is NO_FLAT.
+ */
+export function assembleHome(input: HomeInput): HomeData {
+  const today = istDateOf(input.now);
+  const memberships = [...input.memberships].sort((a, b) => (a.flatCode < b.flatCode ? -1 : a.flatCode > b.flatCode ? 1 : 0));
+  const shown = memberships[0];
+  if (shown === undefined) return { kind: "NO_FLAT", userName: input.userName, asOf: today };
+
+  const policy = parsePolicy(input.settings);
+  const dues = computeDues({ bills: input.bills.map(toDueBill), entries: input.entries.map(toDueEntry), policy, today });
+
+  const open = [...input.complaints].filter((c) => c.status !== "CLOSED").sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  const newest = open[0];
+  const complaint: HomeComplaint | null =
+    newest === undefined
+      ? null
+      : {
+          title: complaintTitle(newest.body),
+          status: newest.status,
+          current: complaintStep(newest.status).current,
+          needsAnswer: complaintStep(newest.status).needsAnswer,
+          reply: computeReplyDue({ responseDueAt: newest.responseDueAt?.getTime() ?? null, firstResponseAt: newest.firstResponseAt?.getTime() ?? null, now: input.now }),
+        };
+
+  return {
+    kind: "OK",
+    asOf: today,
+    userName: input.userName,
+    flat: { code: shown.flatCode, relation: shown.relation },
+    moreThanOneFlat: new Set(memberships.map((m) => m.flatId)).size > 1,
+    dues,
+    complaint,
+    otherOpenComplaints: Math.max(0, open.length - 1),
+    visitors: [...input.visitors].sort((a, b) => a.expectedAt.getTime() - b.expectedAt.getTime()).map((v) => ({ name: v.visitorName, expectedAt: v.expectedAt.getTime() })),
+    recent: recentEntries(input.entries, today),
+    hasActivity: input.entries.length > 0,
+    emergency: { dutyManagerPhone: phoneSetting(input.settings, "duty_manager_phone"), emergencyServicesPhone: phoneSetting(input.settings, "emergency_services_phone") },
+  };
+}
