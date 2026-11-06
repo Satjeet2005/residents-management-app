@@ -15,7 +15,9 @@ the Emergency sheet (the call link there is the large accent link the task descr
 | `/` | `src/app/(resident)/page.tsx` | resident (a staff member is sent to `/staff`) | The Home: flat, dues with Pay, complaint, visitors (times only), recent activity, Emergency. |
 | `/pay/mock/[attemptId]` | `src/app/(demo)/pay/mock/[attemptId]/` | resident, own flat, demo mode only (404 otherwise) | The demo payment page of the mock gateway (D100). |
 | `/profile` | `src/app/(resident)/profile/` | resident | Name, phone masked to the last 4 digits, role, current flats, sign out here or everywhere, the demo note (demo mode only). |
-| `/staff` | `src/app/(staff)/staff/` | staff | Name and permissions, sign out. No links: no staff feature exists yet. |
+| `/staff` | `src/app/(staff)/staff/` | staff | Name, the tools the person may open, permissions in words, sign out. |
+| `/staff/reconciliation` | `src/app/(staff)/staff/reconciliation/` | staff with `payments:match` | Upload a bank statement, recent imports (T12c, `docs/staff-ui.md`). |
+| `/staff/reconciliation/[importId]` | `.../[importId]/` | staff with `payments:match` | The workspace: summary bar, lanes, rows, review panel. |
 | `/forbidden` | `src/app/forbidden/` | anyone | Plain message and a link home. Where `requireUser` sends a wrong role. |
 | `/design` | `src/app/design/` | hidden unless `SHOW_DESIGN_PAGE=true` | The component reference. |
 
@@ -30,7 +32,8 @@ What Next.js says (the copy in `node_modules/next/dist/docs/01-app`, version 16.
   200 status code", and `redirect()` in a streaming context "will insert a meta tag to emit the redirect on the client side"
   (`04-functions/redirect.md`). Because the resident pages have a `loading.tsx`, a request for `/`, `/profile` without a session
   answers **200** with the loading skeleton and a `<meta http-equiv="refresh" content="1;url=/login?returnTo=...">`; `/staff`,
-  which has no loading page, answers a real **307**. No data is in the 200 body (the smoke test checks that). A true 307 for
+  which has no loading page, answers a real **307**. The reconciliation pages have a `loading.tsx`, so they answer **200** with a meta refresh to
+  `/forbidden` or `/login` (the smoke test follows either). No data is in the 200 body (the smoke test checks that). A true 307 for
   the resident pages would need a Proxy that checks the cookie first (the same page says to run the check before the body streams
   to get the status); that is left out on purpose, and the page-level check stays the one that matters.
 - `searchParams` of a page is a Promise in Next.js 16 (`page.md`); the login page awaits it.
@@ -115,7 +118,7 @@ numbers (`DEMO_AS_OF=2026-10-27`). It is never shown otherwise (tests: `tests/ui
 | Notifications bell (D22, D55) | Not built | The notifications task |
 | Offline banner, service worker | A later task | The installable-app task |
 | Hindi and Marathi UI, the language choice (D44) | English only for now (D2) | The translation task, if time allows |
-| Staff features (matching queue, approvals, reports) | Not built | The staff tasks |
+| Staff features other than bank reconciliation (reports, complaints) | Not built | The staff tasks. Bank reconciliation is built: `docs/staff-ui.md` |
 | A Proxy (true 307 for resident pages) | See above | Not planned |
 | Waiving a late fee | A waiver is a separate approved workflow; today a fee stays owing until paid (D107) | A later task, if the committee wants it |
 
@@ -126,3 +129,11 @@ Every control on screen works; every control that would not is not drawn.
 `getCurrentUser`, the `headers()` reads and the Next.js redirect plumbing need a running request, so they are checked by the HTTP smoke test
 (`npm run smoke:app`, run against the built app, frozen and with the real date) and not by unit tests. The visual look (spacing at 360px and 1280px)
 cannot be tested here: it needs a person to look (see the commands in the T11a report and the README).
+
+## Staff screens (T12c)
+
+Bank reconciliation is built over the T12b services; `docs/staff-ui.md` has the pages, the workspace, the assumptions and what is absent
+(undo, accept-all, advance credit, waivers). Pure logic sits in `src/lib/reconciliation/` (lanes, the summary bar, the review panel's reducer,
+labels, who sees Approve), the loaders in `src/server/statements/ui-data.ts`, and the screens in `src/app/(staff)/staff/reconciliation/`. The staff
+frame (`src/app/(staff)/layout.tsx`) is a banner with one link home and checks nobody. A client component receives only plain data (money as
+decimal strings) and talks to the existing API routes; the one server action ("Load more") is built with `withPermissionAction("payments:match")`.

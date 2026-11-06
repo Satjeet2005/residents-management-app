@@ -1,6 +1,6 @@
 # Manual reconciliation of queued bank rows (T12b)
 
-What staff can do with a bank row the matcher did not post by itself, on the server only (no screen yet). Decisions: D106, D108,
+What staff can do with a bank row the matcher did not post by itself, on the server; the screens over it are in `docs/staff-ui.md` (T12c). Decisions: D106, D108,
 D109 (`docs/decisions.md`), with D7, D14, D104, D107 and D110 behind them. The import is in `docs/statement-import-design.md`, the
 matcher in `docs/matching-design.md`, the late-fee position model in `docs/late-fee-policy.md` ("Principal paid, fee owed").
 
@@ -65,7 +65,7 @@ Every mutating call is one transaction. It locks the bank row (`SELECT ... FOR U
 second sees the first one's result (NOT_QUEUED). For a match it reads the flat's open positions, takes the OLDEST position's bill lock
 (`lockBill`, the lock the gateway and the import use) and READS THE LEDGER AGAIN under it; if the oldest position changed meanwhile it
 locks and reads again. A gateway success and a manual or approved posting for one bill therefore give exactly ONE PAYMENT: the second
-sees the first one's payment and is an exception (gateway) or a refusal (NO_OPEN_BILL, STATE_CHANGED). Real concurrent
+sees the first one's payment and is an exception (gateway) or a refusal (NO_OPEN_BILL, STATE_CHANGED). A deadlock between two transactions is retried (`withDeadlockRetry`, D115). Real concurrent
 transactions test it (`tests/integration/manual-concurrency.test.ts`).
 
 STATE_CHANGED: the review shows the oldest position's amount due; a post may send it as `expectedAmountDuePaise`, and a different amount
@@ -96,7 +96,7 @@ One new grant: UPDATE of `status`, `resolved_at`, `resolved_by_id` and `note` of
 - **Undo.** A posting is corrected by a person with a new entry, later (the `UNDO` decision exists in the enum and is unused).
 - **Advance credit and several bills in one payment.** A credit above the oldest position's amount due is NEEDS_ADVANCE_HANDLING.
 - **Waivers.** The late fee stays owing (D107); a waiver would be a separate, approved workflow.
-- Any screen, and notifications.
+- Notifications.
 
 ## Assumptions
 

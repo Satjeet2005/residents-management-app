@@ -1,6 +1,6 @@
 # Bank statement import on the server (T12a)
 
-How an uploaded statement becomes bank rows, ledger postings and queue items, in one transaction, with no screen yet.
+How an uploaded statement becomes bank rows, ledger postings and queue items, in one transaction. The screens over it are in `docs/staff-ui.md` (T12c).
 Decisions: D103 to D105 (`docs/decisions.md`). The matching rules are in `docs/matching-design.md`, the CSV format in
 `docs/bank-statements.md`, the gateway side of paying a bill in `docs/payments-design.md`.
 
@@ -38,7 +38,7 @@ postings, throw before the commit, or shorten the lock wait. Production callers 
 | `hashtext(<bill id>)` (`lockBill`, `src/server/payments/bill-lock.ts`) | the import (for each automatic bill) and `applyGatewayEvent` | A bill can be paid by the gateway or by a bank row. Both read the bill's payments only after this lock and keep it until they commit, so the second one sees the first one's payment. The gateway side then becomes BILL_ALREADY_PAID or LATER_PAYMENT, the bank side a downgrade. Never two PAYMENTs. |
 | the attempt row (`FOR UPDATE`) | `applyGatewayEvent` | Two events for one attempt run one after the other. |
 
-Deadlocks: the import takes its global lock first and then bill locks in sorted order and never locks an attempt row; the gateway takes one attempt row and
+Deadlocks (D115): every import, manual action and gateway event runs through `withDeadlockRetry`, which runs the whole transaction again after a deadlock (40P01) or a serialization failure (40001), twice at most, and the bills of the automatic rows are locked together in sorted order (`lockBills`). The import takes its global lock first and then bill locks in sorted order and never locks an attempt row; the gateway takes one attempt row and
 then one bill lock and never the global lock. No two of them can wait for each other. The 5 s `lock_timeout` also covers the bill locks.
 
 ## State mapping
@@ -75,8 +75,8 @@ equals-due credit), or the row becomes QUEUED with STATE_CHANGED. Only equals-du
 
 ## Limits (not built yet)
 
-No undo and no screen. A payment above the approval threshold, an advance, a payment for several bills, a part payment and an unclear payer are all queued
-for a person; what a person can do with a queued row is in `docs/manual-reconciliation-design.md` (T12b), and a later task builds the screens.
+No undo. A payment above the approval threshold, an advance, a payment for several bills, a part payment and an unclear payer are all queued
+for a person; what a person can do with a queued row is in `docs/manual-reconciliation-design.md` (T12b), and the screens are `docs/staff-ui.md` (T12c).
 
 ## Assumptions
 

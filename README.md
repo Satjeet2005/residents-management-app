@@ -83,6 +83,32 @@ https it is `__Host-session` (D94), so both work.
 - `npm run smoke:app -- http://localhost:3100 --as-of=2026-10-27 --demo=true` (or `--as-of=real`) checks the pages over HTTP against a running server.
   Design notes: `docs/ui-architecture.md`.
 
+## Walking the reconciliation (staff)
+
+The bank reconciliation screens are in `docs/staff-ui.md`. With a seeded database and the app running in demo mode (`DEMO_MODE=true`, see Run and
+Demo data above; `DEMO_AS_OF=2026-10-27` reproduces the numbers below):
+
+```bash
+npm run db:seed -- --yes && npm run build && npm run start     # http://localhost:3000
+```
+
+1. Log in as **Priya Nair** (`5000000001`, `payments:match`; the code is in the banner). `/staff` lists **Bank reconciliation**.
+2. Open it and press **Use the sample statement** (or upload any .csv with the columns Txn Date, Narration, Credit, Debit). You land on the recent
+   imports; open the new one. The summary bar reads 25 posted automatically, 43 need you, 0 awaiting approval, 38 not maintenance, and "All 106 rows accounted for" (one fewer posted and one more needing you if Swati Joshi has paid through the demo gateway first).
+3. In **Needs you** the biggest credits are first. Press **Review** on the principal-only payment of T21-1601 (₹5,660): the panel shows the full
+   narration, why it needs a person, the candidates and "Equals the unpaid bill, ₹38 of late fee would still be due". Choose T21-1601, write a
+   reason, **Post to T21-1601**. It says what was posted ("Late fee ₹38", "Payment ₹5,660", "₹38 late fee still due"). Log in as the resident
+   Aamir Shaikh (`5000000009`): the Home says "Late fee due ₹38".
+4. Review one of the three credits of about ₹10,660 (a flat code and a name, queued because the demo's second-approver threshold is ₹10,000, D116) and
+   match it: the panel says it needs a second approver, and the row moves to **Awaiting approval**, where Priya sees "Waiting for another approver".
+5. In a second browser profile log in as **Rahul Menon** (`5000000002`, `payments:approve`): Awaiting approval shows **Approve** and **Reject**.
+   Approve it; it appears in **Posted** as "Manual by Priya Nair, approved by Rahul Menon".
+6. **Posted** and **Not maintenance** are read only. There is no undo, no accept-all, no advance credit and no waiver (docs/staff-ui.md).
+
+To look at it at 1280px and at 360px, open the page in Chrome or Firefox, press F12 and then Ctrl+Shift+M (device toolbar), choose Responsive and
+type 1280 x 800, then 360 x 800. At 1280px the review panel is docked at the right and the rows are a table; at 360px the rows are cards and the panel
+is a full-screen sheet (Escape or Close returns to the row). Tab through the page: every control shows a ring, and the tabs move with the arrow keys.
+
 ## Demo logins
 
 Login is a one-time code. With `DEMO_MODE=true` and a demo phone (starts with 5), the API returns the code in
