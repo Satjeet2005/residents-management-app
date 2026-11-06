@@ -63,4 +63,5 @@ These are numbered inside their own files. Read them there.
 | `docs/bank-statements.md` | B1 to B16 | The CSV reader, narration parser, flat codes, names and dedupe keys. |
 | `docs/auth-design.md` | AU-A1 to AU-A12, SA1 to SA12 | Phone formats, rejection limit, policy shapes, clock skew, uniformity bound; then the server layer: clock, demo code, audit, cookies, Origin check, pepper. |
 | `docs/ui-architecture.md` | (no numbered list) | Pages, data flow, the two clocks, what is absent and who adds it. |
+| `docs/payments-design.md` | P1 to P12 | The payment flow: effective dates, the failure strip's clock, abandoned attempts, ids on the decision, no-dues answer, holds not applied yet, the demo checkout route group. |
 | `docs/design-system.md` | A1 to A10 | Colours, radii, tracker markers, fonts, spacing, motion, placeholder translations. |

@@ -1,16 +1,19 @@
-# UI architecture (T11a)
+# UI architecture (T11a, T11b)
 
-The login screen, the app shell, Profile and the read-only resident Home. This page says how the screens are built, where
+The login screen, the app shell, Profile and the resident Home with its Pay flow (T11b). This page says how the screens are built, where
 the data comes from, which clock they use, and what is deliberately **not** here yet and which task adds it. The look is
-in `docs/design-system.md` (Passbook). No screenshots exist in the repository (`docs/design/passbook/` is empty), so the
-screens were built from that text and the existing components.
+in `docs/design-system.md` (Passbook). T11a was built from that text alone; T11b compared the screens with the images in
+`docs/design/passbook/` and matched them (D98). Where an image disagrees with the text rules, the rules win: the image shows a single
+heavy line under the amount (the rule is the double rule), a notifications bell (not built, D55), and a filled call button inside
+the Emergency sheet (the call link there is the large accent link the task describes).
 
 ## Pages
 
 | Address | File | Who | What it shows |
 |---|---|---|---|
 | `/login` | `src/app/login/` | anyone | Phone, then one code field. Handles every answer of `/api/auth/otp/*`. A signed-in person is sent on. |
-| `/` | `src/app/(resident)/page.tsx` | resident (a staff member is sent to `/staff`) | The Home: flat, dues, complaint, visitors, recent activity, Emergency. |
+| `/` | `src/app/(resident)/page.tsx` | resident (a staff member is sent to `/staff`) | The Home: flat, dues with Pay, complaint, visitors (times only), recent activity, Emergency. |
+| `/pay/mock/[attemptId]` | `src/app/(demo)/pay/mock/[attemptId]/` | resident, own flat, demo mode only (404 otherwise) | The demo payment page of the mock gateway (D100). |
 | `/profile` | `src/app/(resident)/profile/` | resident | Name, phone masked to the last 4 digits, role, current flats, sign out here or everywhere, the demo note (demo mode only). |
 | `/staff` | `src/app/(staff)/staff/` | staff | Name and permissions, sign out. No links: no staff feature exists yet. |
 | `/forbidden` | `src/app/forbidden/` | anyone | Plain message and a link home. Where `requireUser` sends a wrong role. |
@@ -54,7 +57,31 @@ requireUser()  ->  getHomeData({ db, user, now: businessNow() })  ->  HomeView(d
    are formatted by `src/lib/format-date.ts` (no Intl).
 
 The queries run with the SELECT grants of the app role only (`docs/deployment-plan.md`, matrix); `tests/integration/home.test.ts` runs
-them through a client that logs in as that role. **No privilege was added.**
+them through a client that logs in as that role. T11b adds two more reads (the newest payment attempt of the flat and the
+`society_bank_account` setting) and no privilege for them. A visitor's name is not read at all: the Home shows a count and the times.
+
+## The Pay flow (T11b, D98 to D102)
+
+```
+Home: [Pay ₹X] -> POST /api/payments {expectedAmountPaise} -> 200 {checkoutPath} -> /pay/mock/<id> -> a button
+                                                          -> 409 AMOUNT_CHANGED: show "The amount changed to ₹Y. Tap Pay again." and refresh
+                                                          -> 503 / network / 5xx: a message and Try again
+demo page button -> server action -> signed event -> verifyWebhook -> applyGatewayEvent -> redirect "/"
+```
+
+- `src/app/(resident)/dues-sheet.tsx` (`DuesActions`, a client component) holds one payment state shared by the Home button and the
+  sheet's sticky footer, posts the amount on screen as a decimal string, and ignores taps while loading. `src/lib/pay.ts` is the
+  pure part: `interpretPayResponse`, `payLabel` ("Pay oldest bill ₹X" only with more than one open bill, D99).
+- `pay-control.tsx` draws the button in each state; `bank-transfer-panel.tsx` has the payment note chip, the copy button with a visible
+  "Copied", and the society's account as given by the setting.
+- After a success the Home reads the ledger and shows "No dues" with the late fee and payment lines in Recent activity. After a failure
+  the Home shows a strip above the dues while the newest attempt FAILED within 24 hours (`paymentNoticeOf` in `mapper.ts`).
+- The demo page is in its own `(demo)` route group. A page behind `loading.tsx` streams, so a `notFound()` or `redirect()` after
+  that starts as a 200 and is only drawn by the browser (see the finding above for `/`); outside it they are a real 404 and 307.
+- What the Next.js docs say that this relies on (the copy in `node_modules/next/dist/docs/01-app`, version 16.4.2, read 2026-11-06):
+  a Route Handler reads a webhook body with `request.text()` and needs no body parser (`route.md`, "Webhooks"); a Server Action is
+  reachable by a direct POST, so each one re-verifies the person and the resource it acts on (`data-security.md`, "Authentication and
+  authorization"); `redirect()` and `notFound()` work inside Server Functions (`redirect.md`, `not-found.md`).
 
 ## Two clocks (D97)
 
@@ -75,7 +102,7 @@ numbers (`DEMO_AS_OF=2026-10-27`). It is never shown otherwise (tests: `tests/ui
 
 | Absent now | Why | Added by |
 |---|---|---|
-| Pay (button, sheet footer, payment states) | The payment flow is not built | The payment task (D33, D34, D36) |
+| Payment in flight (PROCESSING, UNKNOWN, RELEASED) variants of the dues, "Contact accounts" | Only INITIATED, SUCCEEDED and FAILED exist | The next payment task (D33, D36, D52) |
 | View ledger, Receipt | Their pages do not exist | The ledger page task (optional, behind a flag) |
 | Bills and Complaints pages, and their navigation items | The pages do not exist (`enabled: false` in `src/lib/nav.ts`) | The bills and complaints tasks |
 | Raise a complaint, confirm or reopen, safety alert | Complaint actions are not built | The complaints task |

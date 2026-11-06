@@ -51,6 +51,18 @@ key, login, the cookie flags, `GET /api/me`, a cross-site `logout-all` refused, 
 prints PASS/FAIL lines (lengths only, never the code or cookie) and exits non-zero on failure. To try it safely, use a
 scratch database such as `township_seed_scratch` (see Demo data) and drop it afterwards.
 
+## Paying in the demo
+
+With the app running in demo mode (`DEMO_MODE=true` and a `PAYMENT_WEBHOOK_SECRET` of any value in `.env`; copy it from `.env.example`):
+
+1. Log in as Swati Joshi (`5000000007`) at `/login`; the code is shown in the banner.
+2. On the Home, tap **Pay ₹X** (or open "See what makes up this amount" and tap Pay in the sheet's footer).
+3. On the **Demo payment page (mock gateway)**, tap **Pay successfully**. You land on the Home, which now says "No dues" and lists the late fee and the payment.
+   Tap **Payment fails, no money taken** instead to see the strip "That payment didn't go through" and Pay still available.
+
+The page stands in for a real provider and charges nothing. In `DEMO_MODE` other than `true` there is no payment at all (503 and a 404). More in `docs/payments-design.md`;
+the whole flow over real HTTP is `scripts/smoke-app.mjs`.
+
 ## The app
 
 ```bash
@@ -95,4 +107,4 @@ curl -s -X POST localhost:3000/api/auth/otp/request -H 'content-type: applicatio
 curl -si -X POST localhost:3000/api/auth/otp/verify -H 'content-type: application/json' -d '{"phone":"5000000001","code":"123456"}'
 ```
 
-Set `OTP_PEPPER` in `.env` (at least 32 characters in production). Design and threat notes: `docs/auth-design.md`.
+Set `OTP_PEPPER` in `.env` (at least 32 characters in production). `PAYMENT_WEBHOOK_SECRET` is the same kind of secret (32 characters or more in production) and signs the payment gateway's webhook events. Design and threat notes: `docs/auth-design.md`.

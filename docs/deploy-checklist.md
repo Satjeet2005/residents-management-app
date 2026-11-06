@@ -29,7 +29,7 @@ If you pasted a secret by mistake: treat it as leaked. Rotate it (plan, "Rollbac
 Generate secrets on your machine and keep them in your password manager. Do not copy them into a file in the repository.
 
 ```bash
-node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"   # for OTP_PEPPER (64 characters)
+node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"   # for OTP_PEPPER (64 characters); run it again for PAYMENT_WEBHOOK_SECRET
 node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"         # for CRON_SECRET (48 letters and digits)
 node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"   # for the township_app password (32 characters)
 ```
@@ -144,6 +144,7 @@ installed).
       |---|---|---|
       | `DATABASE_URL` | "neon-app-pooled" | Secret |
       | `OTP_PEPPER` | the 64-character value you generated | Secret |
+      | `PAYMENT_WEBHOOK_SECRET` | another 64-character value you generated (not the pepper, **not the Neon string**). It is set only here, in the dashboard | Secret |
       | `DEMO_MODE` | `true` (Decision 7) or `false` | Config |
       | `SHOW_DESIGN_PAGE` | `false` | Config |
 

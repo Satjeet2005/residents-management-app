@@ -119,7 +119,7 @@ Reviewer's browser
       v
 Vercel (Hobby, one region: sin1)
   - Next.js 16 on Node 24.x, one Vercel Function per route
-  - env (Production only): DATABASE_URL (app role, pooled), OTP_PEPPER, DEMO_MODE, ...
+  - env (Production only): DATABASE_URL (app role, pooled), OTP_PEPPER, PAYMENT_WEBHOOK_SECRET, DEMO_MODE, ...
   - daily cron (UTC, any time in the hour) -> GET /api/cron/... with Authorization: Bearer CRON_SECRET
       |  TLS, role township_app (not the table owner), host ...-pooler...
       v
@@ -148,6 +148,7 @@ Names only. No value belongs in a commit, a chat, or a screenshot. "Set by" says
 | `DATABASE_URL` | Neon **pooled** connection string (host contains `-pooler`) for the **app role** `township_app`, with `?sslmode=require` | You, in the Vercel dashboard (Settings > Environment Variables) | **Production only** (Preview and Development: not set) | Secret |
 | `DATABASE_URL_UNPOOLED` | Neon **direct** connection string for the **owner** role, for migrations, the seed and the grants | You, in your own shell only, for one command at a time | **Not in Vercel at all** | Secret |
 | `OTP_PEPPER` | Random value, at least 32 characters, not starting with `replace-with` (the app refuses it in production) | You: generate it on your machine and paste it only into the Vercel dashboard | Production only | Secret |
+| `PAYMENT_WEBHOOK_SECRET` | Random value, at least 32 characters, not starting with `replace-with` (the webhook refuses to verify with a weaker one in production). It signs the payment events, so it is **not** the Neon string and not the pepper | You: generate it on your machine and paste it **only into the Vercel dashboard** | Production only | Secret |
 | `DEMO_MODE` | `true` returns the login code in the response for demo phones (D77); see Decision 7. In your shell it also unlocks the seed | You, in Vercel (`true` or `false`) | Production only | Config (not secret) |
 | `SHOW_DESIGN_PAGE` | `false` hides `/design` | You, in Vercel | Production only | Config |
 | `DEMO_AS_OF` | **Optional, leave unset.** Freezes the business date to 12:00 India time on that date, to reproduce the brief's sample numbers locally (D97). On a live site the real date is the truth | **Nobody sets it in Vercel** | none | Config |
