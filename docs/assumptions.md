@@ -37,6 +37,9 @@ Decision numbers (D4, D14 and so on) refer to `docs/decisions.md`.
 | R21 | One-time code defaults: 6 digits, 300 s life, 5 attempts, 30 s resend cooldown, 5 codes per phone and 30 per address an hour. They are the human's confirmed defaults. | `authPolicy.otp` in `src/domain/auth/policy.ts`; `tests/domain/auth/otp-rules.test.ts`. The login that uses them: not built yet. | Edit `authPolicy`. The policy-values test and the boundary tests in `otp-rules.test.ts` will fail and need the new numbers. |
 | R22 | Session windows (D74, D75): resident 14 days idle and 30 days overall; staff 30 minutes idle and 12 hours overall; `last_seen` is written at most once a minute. | `authPolicy.session` and `touchThrottleSeconds` in `src/domain/auth/policy.ts`; `tests/domain/auth/session.test.ts` (AU5). | Edit `authPolicy`. The AU5 tests will fail and need the new numbers; update D74 or D75. |
 | R23 | A fresh one-time code before a large manual payment is approved is a documented next step, not built. The second-approver rule at 25,000 rupees is the only control today. | `docs/auth-design.md`. Not built yet. | A later task. |
+| R24 | The session cookie is `__Host-session` in production and `session` elsewhere, always HttpOnly and SameSite=Lax, with Secure only in production. | `src/server/auth/cookie.ts`; `tests/server/cookie.test.ts`. | Edit `cookie.ts`; the cookie tests will fail and need the new names. |
+| R25 | The client address is read only on Vercel (`VERCEL=1`), from `x-vercel-forwarded-for`, then `x-real-ip`, then `x-forwarded-for`, and is `"unknown"` everywhere else. Source: Vercel request-headers documentation (page last updated 2025-12-13). | `src/server/auth/client-ip.ts`; `tests/server/client-ip.test.ts`. | Edit `HEADERS` in `client-ip.ts`. Check the Vercel documentation first; another host needs its own trusted header. |
+| R26 | The demo logins are the phones 5000000001 to 5000000010 (see the README). In production the demo flag is off and these users do not exist. | `src/domain/seed/people.ts`; `README.md`. | Change the seed; update the README table. |
 
 ## Assumptions kept in other documents
 
@@ -49,5 +52,5 @@ These are numbered inside their own files. Read them there.
 | `docs/late-fee-policy.md` | A1 to A10 | Holds, skipped days, payment dates, rounding, calendar range. |
 | `docs/matching-design.md` | C1 to C25 | The matcher and the statement processor: one-bill-at-a-time rule, shared ids, ambiguous tokens, notes, scores, plans, dedupe, state. |
 | `docs/bank-statements.md` | B1 to B16 | The CSV reader, narration parser, flat codes, names and dedupe keys. |
-| `docs/auth-design.md` | AU-A1 to AU-A12 | Phone formats, rejection limit, policy shapes, clock skew, uniformity seed. |
+| `docs/auth-design.md` | AU-A1 to AU-A12, SA1 to SA12 | Phone formats, rejection limit, policy shapes, clock skew, uniformity bound; then the server layer: clock, demo code, audit, cookies, Origin check, pepper. |
 | `docs/design-system.md` | A1 to A10 | Colours, radii, tracker markers, fonts, spacing, motion, placeholder translations. |

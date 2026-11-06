@@ -1,9 +1,9 @@
 # Decision log
 
 Every row is a decision that was made and confirmed. The numbers are fixed:
-D24, D25, D28 to D32 and D59 are not in this log, and are left unused so that
+D24, D25, D28 to D32, D59 and D76 are not in this log, and are left unused so that
 the numbers other documents quote do not change. Rows D1 to D58 are product and
-design decisions. Rows D60 to D75 are engineering decisions made during the
+design decisions. Rows D60 to D80 are engineering decisions made during the
 build.
 
 "Where in code" names the file or test that implements the decision today.
@@ -90,3 +90,7 @@ the decision helps; they are not quotes from the people who decided.
 | D73 | The complaint classifier runs the safety rules first, then a real language-model provider, then the keyword fallback. | Safety words must always escalate by rule before any model runs (CLAUDE.md). A real provider reads more cases; the keywords keep the product working when it is down. | Confirmed | Not built yet. Only the table `classifications` exists in `prisma/schema.prisma`; the safety rules, the provider call and the keyword fallback are not built. |
 | D74 | A resident session ends after 14 days idle or 30 days overall. | 30 days is the NIST SP 800-63B ceiling for re-authentication at its lowest level (AAL1); a shorter idle limit opens a lost phone for less time. This is guidance we followed, not a certification claim. Sources considered: NIST SP 800-63B and the OWASP session management guidance. | Confirmed | `authPolicy.session.RESIDENT` in `src/domain/auth/policy.ts`; test AU5 in `tests/domain/auth/session.test.ts`; `docs/auth-design.md`. |
 | D75 | A staff session ends after 30 minutes idle or 12 hours overall (43,200 s). | Staff can move money and sign in with a single-factor SMS code, so the classic NIST SP 800-63B middle-level (AAL2) values are used: 30 minutes idle and 12 hours overall, which is one login per working day. This is guidance we followed, not a certification claim. Sources considered: NIST SP 800-63B and the OWASP session management guidance. | Confirmed | `authPolicy.session.STAFF` in `src/domain/auth/policy.ts`; test AU5; `docs/auth-design.md`. |
+| D77 | In demo mode the one-time code is returned in the API response only, for demo phones (those starting with 5), and is never stored or logged. | A reviewer with no SMS provider must be able to log in, and the real code must still never sit in a table or a log. The flag is the exact string `"true"`, so a typo does not turn it on. | Confirmed | `requestOtp` in `src/server/auth/otp-service.ts`; tests V1 in `tests/integration/otp-service.test.ts` scan every text column and every console call. |
+| D78 | One-time codes are stored as HMAC-SHA256 with a secret pepper, over the phone and the code. | A code has only a million values, so a plain hash of a stolen table could be reversed at once. The pepper is not in the database. | Confirmed | `codeHash` in `src/server/auth/crypto.ts`; the pepper fails closed in production (test V7). |
+| D79 | Session tokens are stored as SHA-256 hashes. The raw token is only in the cookie. | A token is 256 random bits, so a plain hash cannot be reversed, and a database leak gives no working session. | Confirmed | `sessionTokenHash` in `src/server/auth/crypto.ts`; `createSession` in `src/server/auth/session-service.ts`; test V4. |
+| D80 | Only the newest code for a phone is valid. | A new request retires the old codes, so a guesser cannot spread attempts over several live codes, and a person is never confused by two codes. | Confirmed | `requestOtp` marks earlier codes used in the same transaction; `verifyOtp` reads the newest row; tests V1 and V3. |
