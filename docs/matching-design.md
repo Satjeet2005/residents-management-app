@@ -200,11 +200,11 @@ English and is empty when all hold:
 number, the flat code, the bill key, the amount, the effective date and the idempotency key
 `bank:<dedupeKey>:<entryType>`.
 
-### How the database layer will use it (not built yet)
+### How the database layer uses it (built in T12a: `docs/statement-import-design.md`)
 
 1. Read the file with `parseStatementCsv`. Record the import in `statement_imports`, with the row errors.
 2. Open one transaction. Take a lock that keeps other imports and manual matches away from the same bills: an
-   advisory lock for the society, or `SELECT ... FOR UPDATE` on the open bills. Inside the lock, load the flats with
+   advisory lock for the society (built: `statement-import`, and one per bill shared with the gateway, D103 and D104). Inside the lock, load the flats with
    their open bills, residents and known payers, and the existing `bank_rows.dedupe_key` values that match the file's
    keys, as `alreadyImportedKeys`.
 3. Call `processStatement`. If `accounted` is false, roll back and report `accountingReport`; do not write anything.

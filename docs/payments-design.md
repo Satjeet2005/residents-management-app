@@ -84,7 +84,8 @@ next morning posts nothing new for the day in between. The idempotency keys are 
 ## Idempotence and concurrency
 
 `applyGatewayEvent` runs in ONE transaction whose first statement is `SELECT ... FOR UPDATE` on the attempt's row. Ten parallel
-success events are run one after the other: the first posts, the other nine see SUCCEEDED and are DUPLICATE. Three more
+success events are run one after the other: the first posts, the other nine see SUCCEEDED and are DUPLICATE. After the attempt row, `applyGatewayEvent` takes the bill's advisory lock (`lockBill`), which the bank statement import takes too (D104,
+`docs/statement-import-design.md`), so a gateway success and a bank posting cannot both pay one bill. Three more
 barriers sit behind it: the unique `ledger_entries.reference`, the unique `idempotency_key`, and the unique index of one
 unresolved attempt per bill. Skipping the lock and the state check makes the race test fail (the mutation in the T11b report).
 

@@ -64,4 +64,5 @@ These are numbered inside their own files. Read them there.
 | `docs/auth-design.md` | AU-A1 to AU-A12, SA1 to SA12 | Phone formats, rejection limit, policy shapes, clock skew, uniformity bound; then the server layer: clock, demo code, audit, cookies, Origin check, pepper. |
 | `docs/ui-architecture.md` | (no numbered list) | Pages, data flow, the two clocks, what is absent and who adds it. |
 | `docs/payments-design.md` | P1 to P12 | The payment flow: effective dates, the failure strip's clock, abandoned attempts, ids on the decision, no-dues answer, holds not applied yet, the demo checkout route group. |
+| `docs/statement-import-design.md` | S1 to S9 | The statement import: fatal header, the business clock, batched bill locks, the ledger reference, repeats, the empty `created_by_id`. |
 | `docs/design-system.md` | A1 to A10 | Colours, radii, tracker markers, fonts, spacing, motion, placeholder translations. |
