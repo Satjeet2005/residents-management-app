@@ -4,6 +4,8 @@ import type { RowCard } from "@/lib/reconciliation/types";
 import { approvalView } from "@/lib/reconciliation/permission-view";
 import { approveRequest, ignoreRow, rejectRequest } from "@/server/statements/approval";
 import { postManualMatch } from "@/server/statements/manual";
+import { decideAccess } from "@/server/auth/access";
+import { resolveSession } from "@/server/auth/session-service";
 import { importStatement } from "@/server/statements/import";
 import { getSampleStatement } from "@/server/statements/sample-statement";
 import { PAGE_SIZE, StaffAccessError, loadImportList, loadReview, loadRowCards, loadWorkspace, readThreshold } from "@/server/statements/ui-data";
@@ -277,5 +279,33 @@ describe("UD6 the lanes after people have acted (the requester and the approver,
     expect(c?.accounted).toBe(true);
     expect((c?.autoMatched ?? 0) + (c?.manuallyMatched ?? 0) + (c?.needsYou ?? 0) + (c?.awaitingApproval ?? 0) + (c?.notMaintenance ?? 0)).toBe(106);
     expect(c?.manuallyMatched).toBe(2);
+  });
+});
+
+describe("UD7 who the pages let in (the decision requireUser makes, with real sessions)", () => {
+  const sessionUser = async (userId: string, role: "STAFF" | "RESIDENT") => {
+    const cookie = await fx.signIn(userId, role, DEMO_NOW);
+    const found = await resolveSession(fx.app, cookie.split(";")[0].split("=").slice(1).join("="), DEMO_NOW);
+    if (found === null) throw new Error("no session");
+    return found.user;
+  };
+
+  it("for payments:match: Priya and Rahul are in; a resident, reports-only staff and approve-only staff are sent to /forbidden; nobody signed in goes to login", async () => {
+    const resident = await fx.makeResident();
+    const reports = await newStaff(fx, ["reports:view"]);
+    const approveOnly = await newStaff(fx, ["payments:approve"]);
+    expect(decideAccess(await sessionUser(priya.id, "STAFF"), "payments:match").kind).toBe("ok");
+    expect(decideAccess(await sessionUser(rahul.id, "STAFF"), "payments:match").kind).toBe("ok");
+    expect(decideAccess(await sessionUser(resident.user.id, "RESIDENT"), "payments:match").kind).toBe("forbidden");
+    expect(decideAccess(await sessionUser(reports.id, "STAFF"), "payments:match").kind).toBe("forbidden");
+    expect(decideAccess(await sessionUser(approveOnly.id, "STAFF"), "payments:match").kind).toBe("forbidden");
+    expect(decideAccess(null, "payments:match").kind).toBe("login");
+  });
+
+  it("for /staff (any active staff): reports-only staff are in, a resident is not", async () => {
+    const resident = await fx.makeResident();
+    const reports = await newStaff(fx, ["reports:view"]);
+    expect(decideAccess(await sessionUser(reports.id, "STAFF"), "STAFF").kind).toBe("ok");
+    expect(decideAccess(await sessionUser(resident.user.id, "RESIDENT"), "STAFF").kind).toBe("forbidden");
   });
 });
