@@ -5,7 +5,7 @@ export type DateParts = { year: number; month: number; day: number };
 
 const MS_PER_DAY = 86_400_000;
 /** India Standard Time is UTC+05:30 all year (no daylight saving). */
-const IST_OFFSET_MS = 19_800_000;
+export const IST_OFFSET_MS = 19_800_000;
 const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const MIN_YEAR = 1000;
 const MAX_YEAR = 9999;
