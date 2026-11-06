@@ -19,7 +19,7 @@ vi.mock("@/server/auth/default-deps", () => ({ defaultDeps: () => ({ db: untouch
 afterEach(() => vi.unstubAllEnvs());
 
 const open = async (attemptId: string) => {
-  const { default: Page } = await import("@/app/(resident)/pay/mock/[attemptId]/page");
+  const { default: Page } = await import("@/app/(demo)/pay/mock/[attemptId]/page");
   return Page({ params: Promise.resolve({ attemptId }) });
 };
 
@@ -45,7 +45,7 @@ describe("PY7 the demo payment page is a 404 unless DEMO_MODE is exactly 'true'"
 
 describe("PY7 the demo payment page view", () => {
   const view = async (status: "INITIATED" | "SUCCEEDED" | "FAILED" | "RELEASED") => {
-    const { MockCheckoutView } = await import("@/app/(resident)/pay/mock/[attemptId]/mock-checkout-view");
+    const { MockCheckoutView } = await import("@/app/(demo)/pay/mock/[attemptId]/mock-checkout-view");
     const noop = () => {};
     return renderToStaticMarkup(h(MockCheckoutView, { checkout: { attemptId: "33333333-3333-4333-8333-333333333333", flatCode: "T12-0408", amountPaise: 646_800n, status }, onSuccess: noop, onFailure: noop }));
   };
