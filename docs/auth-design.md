@@ -137,7 +137,7 @@ step, not built** (R23): the 25,000 rupee second-approver rule stays as the only
 - **AU-A9** `createdAt` is part of the stored session but the end is the stored `absoluteExpiresAt`. Changing
   the policy later does not shorten sessions that already exist.
 - **AU-A10** The caller records requests for unregistered phones too (see the threat table).
-- **AU-A11** The uniformity test uses a fixed seed (1). A fair generator fails its 3% bound on about 58% of
-  random seeds, so the bound is only meaningful with a fixed seed. It sees a gross skew, not the 1-in-4,294
-  bias; the rejection tests see that.
+- **AU-A11** The uniformity test is seeded (seeds 1, 2 and 3) and allows 5 standard deviations per count.
+  A 3% bound was only 2.45 standard deviations and a fair generator would fail it on about 58% of seeds. The
+  test sees a gross skew, not the 1-in-4,294 bias; the rejection tests see that.
 - **AU-A12** The policy numbers are the human's confirmed defaults (R21, R22).
