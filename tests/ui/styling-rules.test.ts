@@ -7,6 +7,7 @@ import { BlockError } from "@/components/ui/block-error";
 import { Button } from "@/components/ui/button";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Sheet } from "@/components/ui/sheet";
+import { SCANNED_FILES } from "./class-scan";
 import { GLOBALS_CSS } from "./css-tokens";
 
 const UI_DIR = path.resolve(process.cwd(), "src/components/ui");
@@ -44,7 +45,7 @@ describe("T3 no forbidden styling", () => {
 
   it("T3 no italic in any file that renders text", () => {
     for (const [file, text] of allCode) expect(text, file).not.toMatch(/\bitalic\b|font-style:\s*italic/);
-    for (const file of ["layout.tsx", "page.tsx"]) expect(code(readFileSync(path.resolve(process.cwd(), "src/app", file), "utf8")), file).not.toMatch(/\bitalic\b/);
+    for (const file of SCANNED_FILES) expect(code(readFileSync(file, "utf8")), file).not.toMatch(/\bitalic\b/);
   });
 
   it("T3 only weights 400 and 600, and no hex colours inside components (colours come from tokens)", () => {
