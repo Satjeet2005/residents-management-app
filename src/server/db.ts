@@ -1,4 +1,5 @@
 import { PrismaPg } from "@prisma/adapter-pg";
+import { dbPoolOptions } from "./db-options";
 import { PrismaClient } from "../../generated/prisma/client";
 
 const globalForDb = globalThis as unknown as { townshipDb?: PrismaClient };
@@ -8,7 +9,7 @@ export function getDb(): PrismaClient {
   if (globalForDb.townshipDb === undefined) {
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) throw new Error("DATABASE_URL is not set");
-    globalForDb.townshipDb = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+    globalForDb.townshipDb = new PrismaClient({ adapter: new PrismaPg({ connectionString, ...dbPoolOptions(process.env) }) });
   }
   return globalForDb.townshipDb;
 }

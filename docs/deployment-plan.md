@@ -154,6 +154,7 @@ Names only. No value belongs in a commit, a chat, or a screenshot. "Set by" says
 | `SESSION_SECRET` | Appears in `.env.example`, but **no code reads it**: sessions are database rows with hashed tokens (D16, D79) | **Do not set.** Remove it from `.env.example` in a later task | none | n/a |
 | `NODE_ENV` | `production` on Vercel; the app needs it to use the `__Host-session` cookie and to refuse a weak pepper | Vercel and Next.js set it. Do not set it by hand | automatic | no |
 | `VERCEL`, `VERCEL_ENV` | System variables. `clientIp` trusts proxy headers only when `VERCEL=1`, which exists only if **"Enable access to System Environment Variables"** is ticked (V4c) | You: tick the box once | automatic | no |
+| `DB_POOL_MAX` | Optional. The most database connections one function instance opens: a whole number from 1 to 10 (default 5). Anything else makes the app throw at first use | You, in Vercel, only if you want to change it | Production only | Config |
 | `BASE_URL` | The deployed address, for the smoke test only | You, in your own shell | n/a | no |
 
 Rules that go with this table:
@@ -163,6 +164,29 @@ Rules that go with this table:
   back, keep the pepper in your own password manager.
 - Variable changes apply only to **new** deployments (V4a). After any change, redeploy.
 - `DATABASE_URL` is scoped to Production only. A preview then has no database and fails closed (Decision 4).
+
+## Connection settings (T9b)
+
+`src/server/db-options.ts` (`dbPoolOptions`) holds the numbers; `src/server/db.ts` passes them to the Prisma pg adapter.
+
+| Setting | Value | Why |
+|---|---|---|
+| Pool size (`max`) | **5** by default; `DB_POOL_MAX` may set 1 to 10; any other value throws a `RangeError` | Each function instance has its own pool. Neon's pooler shares the real connections (10,000 clients, N11a), so a small pool is enough, and many instances times a large pool would waste connections. A wrong setting stops the app loudly instead of quietly changing behaviour. |
+| Connection timeout | **8,000 ms** | Prisma 7's pg adapter defaults to 0, which means no timeout ("Connection timeout: 0 (no timeout) vs v6's 5s"). Without a limit a database that cannot be reached holds the request until Vercel ends the function (300 s on Hobby). Neon wakes "within a few hundred milliseconds" (N10), so 8 s is far above a normal cold start and far below the function limit. |
+| Idle timeout | **10,000 ms** | The adapter's own default in Prisma 7. An idle connection is closed before a suspended function would hold it. |
+| Per-query timeout (`query_timeout`) | **10,000 ms** | A client-side limit: the pool stops waiting for a slow query. It does not tell the server to stop, so a runaway query keeps running on Neon until it finishes. |
+
+Source for the adapter: https://www.prisma.io/docs/orm/overview/databases/postgresql (no last-updated date on the page). It
+shows `new PrismaPg({ connectionString })`, names `connectionTimeoutMillis`, and gives the Prisma 7 defaults (connection
+timeout 0, idle timeout 10 s). `PrismaPg` takes a `pg` pool configuration (its type is `pg.PoolConfig | string`), so `max`,
+`idleTimeoutMillis` and `query_timeout` pass through; the page does not list them, so they are tested rather than assumed
+(`tests/integration/db-timeouts.test.ts`: a server that never answers is given up on within 1,500 ms for a 500 ms setting,
+through both a `pg` pool and Prisma; a 2-second `pg_sleep` is abandoned after 300 ms and the pool still works).
+
+Not set on purpose: `statement_timeout`. As a connection setting it is sent when the connection starts, and Neon's pooler
+does not accept some start-up options (its Prisma guide says `options=-c search_path=...` "works only on the direct
+(unpooled) connection", N11b). A server-side limit could instead be set on the app role (`ALTER ROLE ... SET statement_timeout`);
+that is untested on Neon and left for a later decision.
 
 ## Database role design
 
