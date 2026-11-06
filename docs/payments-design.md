@@ -9,7 +9,7 @@ Decisions: D98 to D102 (`docs/decisions.md`). The late-fee rules are in `docs/la
 |---|---|
 | Pay on the Home and in the review sheet; the amount lock; `POST /api/payments` | PROCESSING, UNKNOWN and RELEASED attempts, and the Home variants for them (D33, D36, D52) |
 | The mock gateway, the demo checkout page, the signed webhook | The escalation to accounts after 24 hours, and "Contact accounts" |
-| Posting a confirmed success: a LATE_FEE charge and one PAYMENT (D45, D50) | Skipped late-fee days while an attempt is unresolved (D41): the dues still pass `holds: []` |
+| Posting a confirmed success: what `planPosting` plans, a LATE_FEE charge (once, when the principal is reached) and one PAYMENT (D45, D50, D107, D110) | Skipped late-fee days while an attempt is unresolved (D41): the dues still pass `holds: []` |
 | A failure: FAILED, no debit, Pay still there, a strip on the Home | The staff screens that resolve an exception |
 | An exception for anything that does not fit: one OPEN accounts queue item, nothing posted | Receipts, the ledger page, notifications, the payment-confirmed animation (optional) |
 
@@ -19,7 +19,7 @@ An attempt is created INITIATED, with the amount locked and the gateway referenc
 
 | Attempt is | Event | Result |
 |---|---|---|
-| INITIATED | SUCCEEDED, every guard holds | POST: LATE_FEE (if above zero) and one PAYMENT; attempt SUCCEEDED, debit CONFIRMED, resolved_at |
+| INITIATED | SUCCEEDED, every guard holds | POST: what `planPosting` plans (LATE_FEE if above zero, then one PAYMENT; a PAYMENT alone for a fee-only bill); attempt SUCCEEDED, debit CONFIRMED, resolved_at |
 | INITIATED | SUCCEEDED, a guard fails | EXCEPTION (the reason below); the attempt stays INITIATED; nothing posted |
 | INITIATED | FAILED | MARK_FAILED: attempt FAILED, debit NOT_DEBITED, resolved_at; nothing posted |
 | SUCCEEDED | SUCCEEDED, same reference and amount | DUPLICATE: nothing changes |
@@ -33,16 +33,18 @@ seeded random cases (`tests/domain/payments/`). The guards on a success, in orde
 1. the event's reference is the attempt's (else UNKNOWN_REFERENCE);
 2. the event amount equals the locked amount (else AMOUNT_MISMATCH);
 3. no payment on the bill is dated after the attempt's start day (else LATER_PAYMENT);
-4. the bill still owed something on the start day (else BILL_ALREADY_PAID);
-5. the locked amount equals outstanding principal plus fee on the start day (else AMOUNT_MISMATCH).
+4. the bill still owed something on the start day: its position is not SETTLED (else BILL_ALREADY_PAID);
+5. the locked amount equals the bill's amount due on the start day, principal plus fee or the fee alone (else AMOUNT_MISMATCH);
+6. `planPosting` gives entries (a refusal is BILL_ALREADY_PAID or AMOUNT_MISMATCH; with guard 5 it cannot happen).
 
 ## The amount lock and AMOUNT_CHANGED (D99, D101)
 
 The amount is locked when Pay is tapped, not when the Home was drawn. `initiatePayment` (`src/server/payments/initiate.ts`):
 
 1. loads the signed-in person's own current flat (the Home's rule; nothing in the request names a flat or a bill);
-2. calls `lockAmount`, which calls `computeDues`, the function the Home uses: the OLDEST open bill's outstanding principal plus its
-   late fee on the business date. A test compares it with `computeDues` on 500 random flats;
+2. calls `lockAmount`, which reads `positionsForFlat`, the function the Home uses: the OLDEST open position's amount due on the
+   business date. An open position is a bill with principal open (principal plus fee) or a bill whose principal is paid and whose
+   posted late fee is not (the remainder of the fee, D107). A test compares it with `computeDues` on 500 random flats;
 3. if the amount the person saw (`expectedAmountPaise`) differs, answers AMOUNT_CHANGED with today's amount and creates nothing.
    This is what happens when midnight passes while the sheet is open: the fee grew by a day. The screen shows "The amount
    changed to ₹X. Tap Pay again." and refreshes the page behind it;
@@ -50,8 +52,8 @@ The amount is locked when Pay is tapped, not when the Home was drawn. `initiateP
 5. otherwise inserts the attempt and the audit row PAYMENT_STARTED in one transaction. A concurrent request that lost the race
    gets the database's unique-index refusal (D40) and returns the winner.
 
-The Pay button and the footer say "Pay ₹X", or "Pay oldest bill ₹X" only when more than one bill is open. X is the oldest bill's
-amount, never the total, and the sheet says "Your oldest bill. Other bills stay due."
+The Pay button and the footer say "Pay ₹X", or "Pay oldest bill ₹X" only when more than one position is open. X is the oldest
+position's amount, never the total ("Pay ₹38" for a bill that owes only its late fee), and the sheet says "Your oldest bill. Other bills stay due."
 
 ## The mock gateway and the signed webhook (D100, D102)
 
@@ -76,10 +78,20 @@ route, then go Home. The page prints no secret and no reference.
 
 ## Effective dates
 
-Both ledger entries of a payment carry the IST date the attempt STARTED, not the day the event arrived. The fee was worked out for
+Every ledger entry of a payment carries the IST date the attempt STARTED, not the day the event arrived. The fee was worked out for
 that day and the person agreed to that amount on that day, so the entries must say the same day: a success reported at 00:05 the
 next morning posts nothing new for the day in between. The idempotency keys are `payment:<attemptId>:LATE_FEE` and
 `payment:<attemptId>:PAYMENT`; the PAYMENT carries the gateway reference, which the ledger keeps unique.
+
+## A fee paid after the principal (D107, D110)
+
+A success on a bill with principal open posts `LATE_FEE` (once, only when the credit reaches the principal) and ONE `PAYMENT`.
+A success on a bill whose principal is paid posts ONE `PAYMENT` and never a second `LATE_FEE`; the key
+`payment:<attemptId>:LATE_FEE` exists only for the first. `applyGatewayEvent` reads the flat's PAYMENT, REVERSAL, LATE_FEE and
+ADJUSTMENT entries and asks `positionsForFlat` for the bill's position AS OF the start day, so the decision uses the same
+position the Home showed. If the fee was part paid by another route between the tap and the success, the amount no longer equals
+the amount due and the success is an AMOUNT_MISMATCH exception. If another route paid the whole bill with its fee, it is
+BILL_ALREADY_PAID. `tests/integration/fee-aware-dues.test.ts` runs this against a database as the app role; no new grant is needed.
 
 ## Idempotence and concurrency
 
@@ -132,3 +144,8 @@ app, and nothing can be deleted. `tests/integration/app-role.test.ts` reads the 
 - **P11.** The webhook timestamp is whole seconds since the epoch; milliseconds are refused.
 - **P12.** The demo checkout lives in its own `(demo)` route group so that a 404 or a redirect is a real HTTP status (a page behind
   `loading.tsx` starts with a 200).
+- **P13.** The input of `decideGatewayEvent` is the bill's position as of the start day (`position`, null when the bill was not yet
+  issued, which is BILL_ALREADY_PAID) plus `hasPaymentAfterStart`; `planPosting` refuses a position of another date.
+- **P14.** A bill whose principal was paid by a route that posted no LATE_FEE (for example a hand-made ledger entry) shows
+  `FEE_NOT_POSTED`: the computed fee is owed, so a later gateway attempt locks the fee and a success for the old, larger amount is
+  an AMOUNT_MISMATCH exception.

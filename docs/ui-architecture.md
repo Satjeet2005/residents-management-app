@@ -53,6 +53,8 @@ requireUser()  ->  getHomeData({ db, user, now: businessNow() })  ->  HomeView(d
    texts, epoch milliseconds. Dues come from `computeDues` (`src/domain/billing/dues.ts`) which calls `computeLateFee` on the
    society's validated `late_fee_policy`; the exact working of the fee is `buildFeeWorking` (`working.ts`). A missing or invalid policy
    is an error, never a guess.
+   A bill is open while its position is `PRINCIPAL_OPEN` or `FEE_ONLY` (`positionsForFlat`, D107). The dues status is
+   `LATE_FEE_DUE` when only fees are owed.
 4. `HomeView` draws it. It decides nothing about money. Every visible string is a key in `src/lib/messages/en.ts`, read with `t()`; dates
    are formatted by `src/lib/format-date.ts` (no Intl).
 
@@ -74,6 +76,10 @@ demo page button -> server action -> signed event -> verifyWebhook -> applyGatew
   pure part: `interpretPayResponse`, `payLabel` ("Pay oldest bill ₹X" only with more than one open bill, D99).
 - `pay-control.tsx` draws the button in each state; `bank-transfer-panel.tsx` has the payment note chip, the copy button with a visible
   "Copied", and the society's account as given by the setting.
+- **Late fee due (D107).** When the oldest open bill's principal is paid and only its fee is owed, the tag says "Late fee due", the
+  label is the usual "Amount due, as of <date>", the button is "Pay ₹<fee>", and the breakdown lists "Bill issued, <Month>, paid in
+  full", its payments (a part payment of the fee is one of them) and "Late fee, accrued until <the day the principal was paid>",
+  with the working as of that day. The fee does not grow, so there is no "grows by about" line. The strings are catalog keys.
 - After a success the Home reads the ledger and shows "No dues" with the late fee and payment lines in Recent activity. After a failure
   the Home shows a strip above the dues while the newest attempt FAILED within 24 hours (`paymentNoticeOf` in `mapper.ts`).
 - The demo page is in its own `(demo)` route group. A page behind `loading.tsx` streams, so a `notFound()` or `redirect()` after
@@ -111,6 +117,7 @@ numbers (`DEMO_AS_OF=2026-10-27`). It is never shown otherwise (tests: `tests/ui
 | Hindi and Marathi UI, the language choice (D44) | English only for now (D2) | The translation task, if time allows |
 | Staff features (matching queue, approvals, reports) | Not built | The staff tasks |
 | A Proxy (true 307 for resident pages) | See above | Not planned |
+| Waiving a late fee | A waiver is a separate approved workflow; today a fee stays owing until paid (D107) | A later task, if the committee wants it |
 
 Every control on screen works; every control that would not is not drawn.
 

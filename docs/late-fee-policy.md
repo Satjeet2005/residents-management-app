@@ -91,6 +91,60 @@ T12-0408 as of 2026-10-31, with a hold from 2026-10-27 18:00 IST to
 The same bill with the hold starting 2026-10-27 18:00 IST and `asOf` 2026-10-27
 skips nothing: 27 October began at 00:00, before the hold.
 
+## Principal paid, fee owed
+
+Decisions D107 and D110. The code is `billPosition` (`src/domain/billing/position.ts`), `planPosting`
+(`src/domain/billing/posting.ts`) and `positionsForFlat` (`src/domain/billing/dues.ts`).
+
+A bill is in one of three positions on a date:
+
+| Position | When | Amount due |
+|---|---|---|
+| `PRINCIPAL_OPEN` | payments up to the date are below the bill | outstanding principal + the computed fee (as above) |
+| `FEE_ONLY` | payments reach the bill, but the posted late fee is not all paid | what remains of the posted fee |
+| `SETTLED` | payments reach the bill and the fee is paid (or there was none) | 0 |
+
+The fee is **posted when the principal reaches zero** (D110): a payment that brings the payments on a bill to at least the bill
+also posts a `LATE_FEE` charge for the fee accrued through that payment's date, dated that day. While the principal is open no
+fee is posted, so a part payment of the principal posts a `PAYMENT` alone and the fee keeps accruing as before. After the
+principal is paid the fee stops growing (the balance is 0), and it **stays owing** (D107): nothing waives it silently. A waiver
+would be a separate, approved workflow (a next step, not built). Payments above the bill ("excess") count toward the fee.
+
+`planPosting(position, credit, paymentDate)` for a bill with principal O and fee f on the payment date:
+
+| Credit | Entries | Position after |
+|---|---|---|
+| `O + f` | `LATE_FEE f` (if above 0), `PAYMENT credit` | SETTLED |
+| `O` | `LATE_FEE f`, `PAYMENT credit` | FEE_ONLY, f owing |
+| between `O` and `O + f` | `LATE_FEE f`, `PAYMENT credit` | FEE_ONLY, `O + f - credit` owing |
+| below `O` | `PAYMENT credit` | PRINCIPAL_OPEN, the fee keeps accruing |
+| above `O + f` | refused: EXCESS | unchanged |
+| a bill that is FEE_ONLY, up to the remainder | `PAYMENT credit` (never a second `LATE_FEE`) | FEE_ONLY or SETTLED |
+| a SETTLED bill | refused: NO_DUES | unchanged |
+
+### F7: T21-1601 pays ₹5,660 (the principal) on 27 October
+
+Before: ₹5,660 principal and ₹38 fee, ₹5,698 due (F2). The credit equals the principal, so the entries are `PAYMENT ₹5,660`
+and `LATE_FEE ₹38`, both dated 2026-10-27. The ledger is BILL +₹10,660, PAYMENT -₹5,000, PAYMENT -₹5,660, LATE_FEE +₹38: a
+balance of ₹38. The Home shows the tag "Late fee due", "Amount due, as of 27 Oct" and ₹38, with a Pay ₹38 button; the breakdown
+lists "Bill issued, October, paid in full", the two payments and "Late fee, accrued until 27 Oct" ₹38, with the working of F2.
+On 31 December the amount is still ₹38: the fee does not grow after the principal is paid.
+
+A later payment of ₹38 posts one `PAYMENT` (no second `LATE_FEE`) and the position is SETTLED. Paid in two parts, ₹18 and then
+₹20, the first leaves ₹20 due and the second settles it. Paying ₹5,698 in one go posts `LATE_FEE ₹38` and `PAYMENT ₹5,698`:
+SETTLED at once, the same shape the seed gives a bill paid late.
+
+### Anomalies
+
+The position says so, and never hides it:
+
+- `FEE_POSTED_ON_OPEN_BILL`: a `LATE_FEE` on a bill whose principal is open (for example after the principal payment was
+  reversed). The posted fee is not trusted; the computed fee is used.
+- `FEE_NOT_POSTED`: the principal is paid, no fee was posted, but the fee at the settling date is above 0. The computed fee is
+  owed, so money does not vanish.
+
+A seeded database has neither (a test reads every flat).
+
 ## Assumptions
 
 These are choices the rules above leave open. They are written in the code and
@@ -120,3 +174,11 @@ tested.
   very large span is a long loop.
 - **A10.** Rounding a negative amount to whole rupees goes half away from zero,
   so it mirrors the positive case. The late fee itself is never negative.
+- **A11.** The settling date of a bill is the first date on which the payments dated up to and including it reach the bill. The
+  fee posted and the fee shown are the fee accrued through that date.
+- **A12.** An ADJUSTMENT entry on a bill moves the fee side only, never the principal: a CHARGE adds to the fee owed, a PAYMENT
+  takes from it, never below zero. It also applies to the fee of a bill whose principal is still open. The app does not create
+  adjustments yet.
+- **A13.** Reversing a principal payment does not reverse the late fee that was posted with it. The bill reopens and the posted
+  fee is flagged `FEE_POSTED_ON_OPEN_BILL`; a person must correct it with a new entry.
+- **A14.** The position takes holds as input (R-c) but the Home, the lock and the import still pass none (P10).

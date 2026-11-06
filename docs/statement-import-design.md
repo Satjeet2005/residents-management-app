@@ -62,6 +62,17 @@ needs the row.
   The posting plan is not kept (the ledger holds what was posted).
 - Audit: `STATEMENT_IMPORTED` (counts only) and `BANK_ROW_AUTO_POSTED` per batch of 50 automatic rows (bank row and ledger entry ids). Neither holds narration text.
 
+## Bills whose principal is paid (D107)
+
+The matcher is not changed. `loadMatchContext` hands it only the bills whose position is `PRINCIPAL_OPEN`, which is exactly the
+bills whose payments are below the bill amount. A bill whose principal is paid but whose posted late fee is not (`FEE_ONLY`) is
+therefore **invisible to the matcher**: a bank payment for that fee has no open bill, so it is queued as NO_OPEN_BILL for a
+person. This is a documented limit; the benchmark, the dev and holdout snapshots and the sample statement's state counts are
+unchanged (their tests pass untouched). Inside the transaction `staleRows` re-validates each automatic row with `billPosition`
+(through `positionsForFlat`, which also reads the bill's LATE_FEE and ADJUSTMENT entries): the bill must still be `PRINCIPAL_OPEN`
+on the row's date and `planPosting` must give exactly the entries the matcher planned (a LATE_FEE and one PAYMENT for an
+equals-due credit), or the row becomes QUEUED with STATE_CHANGED. Only equals-due payments are posted automatically.
+
 ## Limits (not built yet)
 
 No manual posting, no approvals (the AWAITING_APPROVAL state is unused), no undo, no screen. A payment above the approval threshold, an advance, a payment for
@@ -79,3 +90,8 @@ several bills, a part payment and an unclear payer are all queued for a person. 
 - **S7.** `created_by_id` of the ledger entries is empty: an automatic posting has no human, like its `payment_matches` row. The uploader is in the audit log.
 - **S8.** The commit that adds the per-bill lock to the gateway comes before the commit that adds the import, so no commit posts from the bank without it.
 - **S9.** The sample statement's expected counts (7 posted, 70 queued, 37 ignored) are for the seeded database; after T12-0408 pays through the gateway, 6 are posted and 71 queued.
+- **S10.** The match context decides "open" with the matcher's own rule (payments below the bill) instead of running `billPosition` for
+  every bill of the society: the two are the same set (PRINCIPAL_OPEN), a test compares them for every flat of a seeded database, and
+  it keeps the context to six queries.
+- **S11.** A bank payment for the late fee of a FEE_ONLY bill is queued, not matched: a person posts it. Matching it needs a matcher
+  change, which this task does not make.

@@ -58,11 +58,11 @@ These are numbered inside their own files. Read them there.
 |---|---|---|
 | `docs/seed-data.md` | A1 to A12 | Flats, owners, phones, payments and bills in the seed. |
 | `docs/seed-data.md` | A13 to A26 | Complaints, visitors, payers, notifications and the quota fix. |
-| `docs/late-fee-policy.md` | A1 to A10 | Holds, skipped days, payment dates, rounding, calendar range. |
+| `docs/late-fee-policy.md` | A1 to A14 | Holds, skipped days, payment dates, rounding, calendar range; the settling date, adjustments, a reversed principal payment (A11 to A14, D107). |
 | `docs/matching-design.md` | C1 to C25 | The matcher and the statement processor: one-bill-at-a-time rule, shared ids, ambiguous tokens, notes, scores, plans, dedupe, state. |
 | `docs/bank-statements.md` | B1 to B16 | The CSV reader, narration parser, flat codes, names and dedupe keys. |
 | `docs/auth-design.md` | AU-A1 to AU-A12, SA1 to SA12 | Phone formats, rejection limit, policy shapes, clock skew, uniformity bound; then the server layer: clock, demo code, audit, cookies, Origin check, pepper. |
 | `docs/ui-architecture.md` | (no numbered list) | Pages, data flow, the two clocks, what is absent and who adds it. |
-| `docs/payments-design.md` | P1 to P12 | The payment flow: effective dates, the failure strip's clock, abandoned attempts, ids on the decision, no-dues answer, holds not applied yet, the demo checkout route group. |
-| `docs/statement-import-design.md` | S1 to S9 | The statement import: fatal header, the business clock, batched bill locks, the ledger reference, repeats, the empty `created_by_id`. |
+| `docs/payments-design.md` | P1 to P14 | The payment flow: effective dates, the failure strip's clock, abandoned attempts, ids on the decision, no-dues answer, holds not applied yet, the demo checkout route group; the position as the decision input, a fee that was never posted (P13, P14). |
+| `docs/statement-import-design.md` | S1 to S11 | The statement import: fatal header, the business clock, batched bill locks, the ledger reference, repeats, the empty `created_by_id`; fee-only bills are not shown to the matcher (S10, S11). |
 | `docs/design-system.md` | A1 to A10 | Colours, radii, tracker markers, fonts, spacing, motion, placeholder translations. |
