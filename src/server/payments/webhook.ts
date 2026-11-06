@@ -5,6 +5,7 @@ import { type ExceptionReason, type GatewayAttempt, decideGatewayEvent, describe
 import { istDateOf } from "@/domain/time/calendar";
 import type { Db } from "@/server/auth/db";
 import { parsePolicy, toDueBill, toDueEntry } from "@/server/home/mapper";
+import { lockBill } from "./bill-lock";
 
 const MIN_SECRET_LENGTH = 32;
 /** The placeholder in .env.example: long enough to pass a length check, so it is named and refused in production. */
@@ -95,8 +96,9 @@ async function queueException(tx: Tx, attemptId: string, reason: ExceptionReason
 /**
  * Applies one verified gateway event (D45, D50). Everything happens in ONE transaction, and the first statement locks the
  * attempt's row (`SELECT ... FOR UPDATE`), so two events for the same attempt run one after the other: the second sees what the
- * first did and is a DUPLICATE, never a second posting. The decision is `decideGatewayEvent`; this function only loads the
- * facts and writes the answer.
+ * first did and is a DUPLICATE, never a second posting. It then takes the bill's lock (`lockBill`, shared with the bank statement
+ * import, D104), so a bank posting and a gateway success cannot both pay one bill: whichever is second sees the first one's payment
+ * and becomes an exception. The decision is `decideGatewayEvent`; this function only loads the facts and writes the answer.
  * - POST: the ledger entries, the attempt SUCCEEDED with debit CONFIRMED and resolved_at.
  * - MARK_FAILED: the attempt FAILED with debit NOT_DEBITED and resolved_at; nothing is posted.
  * - DUPLICATE: nothing changes.
@@ -112,6 +114,8 @@ export async function applyGatewayEvent(db: Db, event: WebhookEvent, now: number
       return { outcome: "UNKNOWN_REFERENCE" } as const;
     }
     const row = await tx.paymentAttempt.findUniqueOrThrow({ where: { id: locked[0].id }, include: { bill: true } });
+    // The bank import takes the same lock before it posts to a bill (D104): after it, what is read below is the bill's final state.
+    await lockBill(tx, row.billId);
     const startedOn = istDateOf(row.startedAt.getTime());
     const attempt: GatewayAttempt = { id: row.id, billId: row.billId, flatId: row.flatId, status: row.status, amountPaise: row.amountPaise, reference: row.gatewayReference ?? "", startedOn };
 
