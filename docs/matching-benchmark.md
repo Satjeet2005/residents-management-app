@@ -174,6 +174,14 @@ Every one of them is a row sent to a person. None is a wrong post. The largest g
 credit that is not maintenance and is queued rather than ignored, because a credit with no identity is never thrown away (M7).
 About 1,400 `PAYS_BILL` rows per set reach the queue with a candidate list; the true flat is first in about 55% and in the first five in about 67%.
 
+## The demo sample statement is not the benchmark
+
+`src/domain/matching/sample-statement.ts` makes the 105-row statement of the demo: 14 hand-written cases, 20 well-formed payments from
+residents with a registered UPI id (flat code in the note, a clean name, exactly the amount due) and simulated rows chosen so the demo
+shows about 27 rows posted automatically, 40 queued and 38 ignored. **That mix is illustrative.** It is made to show the screens and
+every kind of row, and it is NOT a measurement: on the benchmark's statements the matcher posts about 4 percent of the credits by itself,
+because most real residents do not write their flat code. The matcher and the benchmark fixtures were not touched to make the sample.
+
 ## Mutations: does the benchmark itself catch a broken rule?
 
 Each change was made to the matcher, the tests were run, and the change was undone (`git diff` of `src` was empty afterwards).
