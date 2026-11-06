@@ -6,6 +6,7 @@ import { DEMO_NOW } from "@/domain/seed/types";
 import { addDays, diffDays } from "@/domain/time/calendar";
 import { assembleHome, complaintTitle, computeReplyDue, parsePolicy, type ComplaintRow } from "@/server/home/mapper";
 import { replyDueText } from "@/lib/home-text";
+import { parseBankAccount, paymentNoticeOf } from "@/server/home/mapper";
 import { SETTINGS, dataset, home, inputFor } from "./home-fixtures";
 
 /** An independent computation of one bill's fee: a loop over each overdue day with BigInt, rounded once at the end. */
@@ -300,5 +301,40 @@ describe("HM3 complaintTitle", () => {
   ])("%j -> %j", (body, title) => {
     expect(complaintTitle(body)).toBe(title);
     expect(Array.from(complaintTitle(body)).length).toBeLessThanOrEqual(60);
+  });
+});
+
+describe("PY8 the payment notice and the bank account in the Home data", () => {
+  const NOW = DEMO_NOW;
+  const attempt = (status: "INITIATED" | "PROCESSING" | "SUCCEEDED" | "FAILED" | "RELEASED", ago: number) => ({ status, startedAt: new Date(NOW - ago) });
+  it.each<[string, ReturnType<typeof attempt> | null, "LAST_FAILED" | null]>([
+    ["no attempt", null, null],
+    ["FAILED an hour ago", attempt("FAILED", 3_600_000), "LAST_FAILED"],
+    ["FAILED exactly 24 hours ago", attempt("FAILED", 86_400_000), "LAST_FAILED"],
+    ["FAILED 24 hours and a millisecond ago", attempt("FAILED", 86_400_001), null],
+    ["FAILED a week ago", attempt("FAILED", 7 * 86_400_000), null],
+    ["INITIATED a minute ago", attempt("INITIATED", 60_000), null],
+    ["SUCCEEDED a minute ago", attempt("SUCCEEDED", 60_000), null],
+    ["PROCESSING a minute ago", attempt("PROCESSING", 60_000), null],
+    ["RELEASED a minute ago", attempt("RELEASED", 60_000), null],
+    ["FAILED, started 'in the future' (the date is frozen for a demo)", attempt("FAILED", -5_000), "LAST_FAILED"],
+  ])("%s", (_label, latest, expected) => {
+    expect(paymentNoticeOf(latest, NOW)).toBe(expected);
+  });
+
+  it("the Home data carries the notice and the account of the settings", () => {
+    const data = home("T12-0408");
+    expect(data.paymentNotice).toBeNull();
+    expect(data.bankAccount).toEqual({ name: "Sample Society Maintenance Account", number: "000000000000", ifsc: "SAMP0000000" });
+  });
+
+  it.each<[string, unknown]>([
+    ["missing", undefined],
+    ["not an object", "000000000000"],
+    ["no ifsc", { name: "A", number: "1" }],
+    ["an empty name", { name: "", number: "1", ifsc: "X" }],
+    ["a number instead of text", { name: "A", number: 1, ifsc: "X" }],
+  ])("a bank account setting that is %s is null, never a half-filled panel", (_label, value) => {
+    expect(parseBankAccount(value === undefined ? [] : [{ key: "society_bank_account", value }])).toBeNull();
   });
 });

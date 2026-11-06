@@ -3,7 +3,7 @@ import { type DueBill, type DueEntry, computeDues } from "@/domain/billing/dues"
 import { type LateFeePolicy, validateLateFeePolicy } from "@/domain/billing/late-fee";
 import { type ComplaintStatus, complaintStep } from "@/domain/complaints/step";
 import { type CalendarDate, istDateOf } from "@/domain/time/calendar";
-import type { EntryType, FlatRelation, HomeComplaint, HomeData, RecentEntry, ReplyDue } from "./types";
+import type { BankAccount, EntryType, FlatRelation, HomeComplaint, HomeData, RecentEntry, ReplyDue } from "./types";
 
 /**
  * The rows the queries return, as plain values (the queries file turns a Prisma row into one of these). The mapper below is
@@ -23,6 +23,8 @@ export type EntryRow = {
 };
 export type ComplaintRow = { body: string; status: ComplaintStatus; createdAt: Date; responseDueAt: Date | null; firstResponseAt: Date | null };
 export type VisitorRow = { expectedAt: Date };
+/** The newest payment attempt of the flat. */
+export type AttemptRow = { status: "INITIATED" | "PROCESSING" | "SUCCEEDED" | "FAILED" | "RELEASED"; startedAt: Date };
 export type SettingsRow = { key: string; value: unknown };
 
 export type HomeInput = {
@@ -35,6 +37,8 @@ export type HomeInput = {
   complaints: readonly ComplaintRow[];
   visitors: readonly VisitorRow[];
   settings: readonly SettingsRow[];
+  /** The flat's newest payment attempt, or null when it has none. */
+  latestAttempt: AttemptRow | null;
 };
 
 /** A database DATE (UTC midnight) as "YYYY-MM-DD". */
@@ -49,6 +53,26 @@ export function parsePolicy(settings: readonly SettingsRow[]): LateFeePolicy {
   if (!parsed.success) throw new Error("The late_fee_policy setting is missing or not valid");
   validateLateFeePolicy(parsed.data);
   return parsed.data;
+}
+
+const bankSchema = z.object({ name: z.string().min(1).max(100), number: z.string().min(1).max(40), ifsc: z.string().min(1).max(20) });
+
+/** The society's bank account for a transfer, or null when the setting is missing or not valid (the panel then shows no payee lines). */
+export function parseBankAccount(settings: readonly SettingsRow[]): BankAccount | null {
+  const parsed = bankSchema.safeParse(settings.find((s) => s.key === "society_bank_account")?.value);
+  return parsed.success ? parsed.data : null;
+}
+
+const DAY_MS = 86_400_000;
+
+/**
+ * "LAST_FAILED" when the newest attempt FAILED and started within the last 24 hours (so a failure of an older attempt, or
+ * any later attempt of any state, shows nothing). Age is counted from the start time, which is on the same clock as `now`
+ * (the business clock, D97), so the notice also works when the date is frozen for a demo.
+ */
+export function paymentNoticeOf(latest: AttemptRow | null, now: number): "LAST_FAILED" | null {
+  if (latest === null || latest.status !== "FAILED") return null;
+  return now - latest.startedAt.getTime() <= DAY_MS ? "LAST_FAILED" : null;
 }
 
 const phoneSetting = (settings: readonly SettingsRow[], key: string): string | null => {
@@ -128,6 +152,8 @@ export function assembleHome(input: HomeInput): HomeData {
     visitors: [...input.visitors].sort((a, b) => a.expectedAt.getTime() - b.expectedAt.getTime()).map((v) => ({ expectedAt: v.expectedAt.getTime() })),
     recent: recentEntries(input.entries, today),
     hasActivity: input.entries.length > 0,
+    bankAccount: parseBankAccount(input.settings),
+    paymentNotice: paymentNoticeOf(input.latestAttempt, input.now),
     emergency: { dutyManagerPhone: phoneSetting(input.settings, "duty_manager_phone"), emergencyServicesPhone: phoneSetting(input.settings, "emergency_services_phone") },
   };
 }

@@ -20,6 +20,9 @@ export type HomeComplaint = {
 };
 
 /** A visitor expected today. Only the time: the name is personal data and the Home does not show it. */
+/** The society's account for a bank transfer, from the society_bank_account setting, shown as given. */
+export type BankAccount = { name: string; number: string; ifsc: string };
+
 export type HomeVisitor = { expectedAt: number };
 export type RecentEntry = { entryType: EntryType; date: CalendarDate; amountPaise: Paise };
 
@@ -46,4 +49,8 @@ export type HomeData =
       /** False when the flat has no ledger entry at all (a first-run flat). */
       hasActivity: boolean;
       emergency: { dutyManagerPhone: string | null; emergencyServicesPhone: string | null };
+      /** Where to pay by bank transfer instead; null when the setting is missing or not valid. */
+      bankAccount: BankAccount | null;
+      /** "LAST_FAILED": the latest payment attempt failed within the last 24 hours and no later attempt exists. */
+      paymentNotice: "LAST_FAILED" | null;
     };

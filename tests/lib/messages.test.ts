@@ -63,7 +63,8 @@ describe("HM4 message catalog completeness", () => {
 
   it("no message uses upper case for effect: all-capital words are not used (the design bans uppercase)", () => {
     for (const [key, message] of Object.entries(en as Record<string, string>)) {
-      expect(/\b[A-Z]{4,}\b/.test(message.replace(/\{[^}]*\}/g, "")), `${key}: ${message}`).toBe(false);
+      // IFSC is the bank's own name for a branch code, not capitals used for effect: it is the one allowed acronym.
+      expect(/\b[A-Z]{4,}\b/.test(message.replace(/\{[^}]*\}/g, "").replace(/\bIFSC\b/g, "")), `${key}: ${message}`).toBe(false);
     }
   });
 });

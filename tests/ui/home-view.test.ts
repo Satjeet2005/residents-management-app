@@ -1,11 +1,13 @@
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { HomeView } from "@/app/(resident)/home-view";
 import { DEMO_NOW } from "@/domain/seed/types";
 import { assembleHome, type EntryRow } from "@/server/home/mapper";
 import type { HomeData } from "@/server/home/types";
 import { home, inputFor } from "../server/home-fixtures";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: () => {}, refresh: () => {} }) }));
 
 const render = (data: HomeData) => renderToStaticMarkup(h(HomeView, { data }));
 const text = (html: string) => html.replace(/<[^>]*>/g, " ").replace(/&#x27;/g, "'").replace(/&amp;/g, "&").replace(/\s+/g, " ");
@@ -98,19 +100,21 @@ describe("HM5 Home: T12-0408, overdue (₹6,468, 47 days)", () => {
     expect(html).not.toMatch(/View ledger|Receipt/);
   });
 
-  it("builds nothing that is not built: no Pay, no View ledger, no Receipt, no complaint buttons", () => {
-    expect(html).not.toMatch(/\bPay\b/);
+  it("builds nothing that is not built: no View ledger, no Receipt, no complaint buttons", () => {
     expect(html).not.toMatch(/View ledger|Receipt|Confirm|Reopen/);
     expect(html).not.toMatch(/<button[^>]*>Raise a complaint/);
     expect(html).not.toMatch(/<a [^>]*href="\/(bills|complaints|ledger)/);
   });
 
-  it("at most one filled control on the page (the only filled one is the call link inside the Emergency sheet)", () => {
-    expect(count(html, /bg-accent text-white/g)).toBeLessThanOrEqual(1);
+  it("one filled control on the page itself: the Pay button (the other filled controls are inside the closed sheets)", () => {
+    const outsideSheets = html.replace(/<dialog[\s\S]*?<\/dialog>/g, "");
+    expect(count(outsideSheets, /bg-accent text-white/g)).toBe(1);
+    expect(count(html, /bg-accent text-white/g)).toBe(3);
   });
 
   it("uses no all-capital words and no uppercase styling", () => {
-    expect(words).not.toMatch(/\b[A-Z]{4,}\b/);
+    // IFSC is the bank's own name for a branch code, not capitals used for effect: it is the one allowed acronym.
+    expect(words.replace(/\bIFSC\b/g, "")).not.toMatch(/\b[A-Z]{4,}\b/);
     expect(html).not.toMatch(/\buppercase\b|tracking-/);
   });
 

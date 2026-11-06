@@ -1,6 +1,7 @@
 import { EmergencyButton } from "@/components/emergency-sheet";
 import { CheckIcon } from "@/components/icons";
 import { Money } from "@/components/ui/money";
+import { Notice } from "@/components/ui/notice";
 import { SectionHeader } from "@/components/ui/section-header";
 import { StatusTag } from "@/components/ui/status-tag";
 import { Tracker, stepNumber, type TrackerStep } from "@/components/ui/tracker";
@@ -11,7 +12,7 @@ import { formatDay } from "@/lib/format-date";
 import { complaintStepLine, dueTag, entryLabel, otherComplaintsText, partlyPaidText, visitorTimesText, visitorsText } from "@/lib/home-text";
 import { t } from "@/lib/messages";
 import type { FlatRelation, HomeComplaint, HomeData, RecentEntry } from "@/server/home/types";
-import { DuesSheetButton } from "./dues-sheet";
+import { DuesActions } from "./dues-sheet";
 
 type Ok = Extract<HomeData, { kind: "OK" }>;
 
@@ -53,7 +54,7 @@ function DuesCard({ data }: { data: Ok }) {
         </div>
         <DoubleRule />
         {dues.partlyPaid !== null && <p className="tnum text-body">{partlyPaidText(dues.partlyPaid)}</p>}
-        <DuesSheetButton dues={dues} asOf={asOf} />
+        <DuesActions dues={dues} asOf={asOf} flatCode={data.flat.code} bankAccount={data.bankAccount} />
       </section>
     );
   }
@@ -114,8 +115,8 @@ function ActivityRow({ entry }: { entry: RecentEntry }) {
 /**
  * The resident Home for one set of data (D23): the flat and who is signed in, the dues card with the breakdown sheet, the
  * newest open complaint with its tracker, a summary of today's visitors (times only, no names), and the last two ledger
- * lines. It draws data and decides nothing about money. No View ledger, no Receipt, no complaint buttons: those arrive
- * with their features.
+ * lines. It draws data and decides nothing about money: the Pay button's amount comes from the dues, and tapping it asks
+ * the server to lock the amount. No View ledger, no Receipt, no complaint buttons: those arrive with their features.
  */
 export function HomeView({ data }: { data: HomeData }) {
   if (data.kind === "NO_FLAT") {
@@ -137,6 +138,8 @@ export function HomeView({ data }: { data: HomeData }) {
         </div>
         <EmergencyButton numbers={data.emergency} />
       </header>
+
+      {data.paymentNotice === "LAST_FAILED" && <Notice>{t("pay.failedStrip")}</Notice>}
 
       <DuesCard data={data} />
 

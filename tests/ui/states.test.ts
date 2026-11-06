@@ -1,11 +1,13 @@
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import ResidentError from "@/app/(resident)/error";
 import Loading from "@/app/(resident)/loading";
 import { HomeView } from "@/app/(resident)/home-view";
 import { assembleHome } from "@/server/home/mapper";
 import { inputFor } from "../server/home-fixtures";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: () => {}, refresh: () => {} }) }));
 
 const html = renderToStaticMarkup;
 const count = (text: string, pattern: RegExp) => (text.match(pattern) ?? []).length;

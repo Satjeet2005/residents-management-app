@@ -32,7 +32,7 @@ export function inputFor(flatCode: string, now = DEMO_NOW): HomeInput {
   const visitors = data.visitorPasses
     .filter((v) => v.flatKey === flat.key && v.status !== "CANCELLED" && v.expectedAt >= DEMO_NOW - 12 * 3_600_000 && v.expectedAt < DEMO_NOW + 12 * 3_600_000)
     .map((v) => ({ expectedAt: new Date(v.expectedAt) }));
-  return { userName: user.name, now, memberships: [{ flatId: flat.key, flatCode: flat.code, relation: member.relation }], bills, entries, complaints, visitors, settings: SETTINGS };
+  return { userName: user.name, now, memberships: [{ flatId: flat.key, flatCode: flat.code, relation: member.relation }], bills, entries, complaints, visitors, settings: SETTINGS, latestAttempt: null };
 }
 
 export const home = (flatCode: string, now = DEMO_NOW): Extract<HomeData, { kind: "OK" }> => {

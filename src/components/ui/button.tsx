@@ -11,6 +11,8 @@ export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "classNa
   /** Shows `loadingLabel` instead of the children and ignores clicks. */
   loading?: boolean;
   loadingLabel?: string;
+  /** Stretches to the width of its container (the Pay button). */
+  fullWidth?: boolean;
 };
 
 const BASE =
@@ -27,14 +29,14 @@ const DISABLED = "bg-paper text-ink-2 border-2 border-dashed border-control curs
 
 const SIZES: Record<ButtonSize, string> = { default: "min-h-12", large: "min-h-14" };
 
-export function Button({ variant = "primary", size = "default", loading = false, loadingLabel = "Please wait", type = "button", disabled, children, ...rest }: ButtonProps) {
+export function Button({ variant = "primary", size = "default", loading = false, loadingLabel = "Please wait", fullWidth = false, type = "button", disabled, children, ...rest }: ButtonProps) {
   const inert = disabled === true || loading;
   return (
     <button
       type={type}
       disabled={inert}
       aria-busy={loading || undefined}
-      className={cx(BASE, SIZES[size], inert && !loading ? DISABLED : VARIANTS[variant], loading && "cursor-progress")}
+      className={cx(BASE, SIZES[size], fullWidth && "w-full", inert && !loading ? DISABLED : VARIANTS[variant], loading && "cursor-progress")}
       {...rest}
     >
       {loading ? loadingLabel : children}

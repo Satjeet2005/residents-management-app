@@ -46,6 +46,7 @@ export function DuesBreakdown({ dues, asOf }: { dues: Dues; asOf: CalendarDate }
           </li>
         ))}
       </ul>
+      <LedgerTotal label={t("dues.sheet.total")} amount={dues.amountDuePaise} />
       {withWorking.length > 0 && (
         <section aria-labelledby="working-title" className="flex flex-col gap-3 rounded-control border border-control bg-paper-2 p-4">
           <h3 id="working-title" className="text-body font-semibold">
@@ -68,7 +69,6 @@ export function DuesBreakdown({ dues, asOf }: { dues: Dues; asOf: CalendarDate }
           {daily !== null && <p className="text-body">{daily}</p>}
         </section>
       )}
-      <LedgerTotal label={t("dues.sheet.total")} amount={dues.amountDuePaise} />
     </div>
   );
 }
