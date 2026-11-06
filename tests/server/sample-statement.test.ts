@@ -60,6 +60,32 @@ describe("D105 the sample statement", () => {
     expect(new Set(processed.rows.filter((r) => cash.some((c) => c.rowNumber === r.rowNumber)).map((r) => r.dedupeKey)).size).toBe(2);
   });
 
+  it("MP8 the mix: 105 rows, 27 posted automatically, 40 queued, 38 ignored, accounted, in well under a second (an illustration, not the benchmark)", () => {
+    const parsed = parseStatementCsv(getSampleStatement());
+    const started = performance.now();
+    const processed = processStatement({ rows: parsed.rows, csvErrors: [], flats: flatContextsFromDataset(dataset), settings: defaultMatchSettings, alreadyImportedKeys: new Set() });
+    const elapsed = performance.now() - started;
+    expect(parsed.rows).toHaveLength(105);
+    expect(processed.summary).toMatchObject({ rowsRead: 105, validRows: 105, invalidRows: 0, autoMatched: 27, queued: 40, ignored: 38, alreadyImported: 0 });
+    expect(processed.summary.creditTotalPaise).toBe(88_419_300n);
+    expect(processed.summary.autoMatchedTotalPaise).toBe(16_788_000n);
+    expect(processed.accounted).toBe(true);
+    expect(elapsed, `${Math.round(elapsed)} ms`).toBeLessThan(2000);
+  });
+
+  it("the 20 well-formed payments name a registered UPI id, the flat code and a clean name, pay exactly the amount due, and are all posted", () => {
+    const parsed = parseStatementCsv(getSampleStatement());
+    const processed = processStatement({ rows: parsed.rows, csvErrors: [], flats: flatContextsFromDataset(dataset), settings: defaultMatchSettings, alreadyImportedKeys: new Set() });
+    const formed = parsed.rows.filter((r) => /^UPI\/72000000\d{4}\//.test(r.narrationRaw));
+    expect(formed).toHaveLength(20);
+    for (const row of formed) {
+      const decided = processed.rows.find((r) => r.rowNumber === row.rowNumber);
+      expect(decided?.state, row.narrationRaw).toBe("AUTO_MATCHED");
+      expect(decided?.decision?.reasons.map((r) => r.code)).toEqual(expect.arrayContaining(["CODE_FOUND", "PAYER_KNOWN", "AMOUNT_EQUALS_DUE"]));
+    }
+    expect(new Set(formed.map((r) => r.narrationRaw.split("/")[4])).size).toBe(20);
+  });
+
   it("the processor accounts for every row of it", () => {
     const parsed = parseStatementCsv(getSampleStatement());
     const processed = processStatement({ rows: parsed.rows, csvErrors: [], flats: flatContextsFromDataset(dataset), settings: defaultMatchSettings, alreadyImportedKeys: new Set() });

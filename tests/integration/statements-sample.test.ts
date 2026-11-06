@@ -6,7 +6,7 @@ import { type ImportResult, getStatementSummary, importStatement } from "@/serve
 import { getSampleStatement } from "@/server/statements/sample-statement";
 import { type PaymentsFixture, createPaymentsFixture } from "./payments-fixture";
 
-/** SI1, SI2, SI3 and SI9 on the 114-row sample statement, imported into the seeded 2,400-flat database as the app role. */
+/** SI1, SI2, SI3 and SI9 on the 105-row sample statement, imported into the seeded 2,400-flat database as the app role. */
 let fx: PaymentsFixture;
 let staffId: string;
 let first: Extract<ImportResult, { status: "IMPORTED" }>;
@@ -38,18 +38,18 @@ afterAll(async () => {
 const rowByText = async (text: string) => fx.owner.bankRow.findFirstOrThrow({ where: { importId: first.importId, narrationRaw: { contains: text } } });
 
 describe("SI1 the sample statement: exact counts per state", () => {
-  it("114 rows: 7 posted automatically, 70 queued for a person, 37 ignored, none repeated, none refused", () => {
+  it("105 rows: 27 posted automatically, 40 queued for a person, 38 ignored, none repeated, none refused", () => {
     expect(first.summary).toEqual({
-      rowsRead: 114,
-      validRows: 114,
+      rowsRead: 105,
+      validRows: 105,
       invalidRows: 0,
-      autoMatched: 7,
-      queued: 70,
-      ignored: 37,
+      autoMatched: 27,
+      queued: 40,
+      ignored: 38,
       alreadyImported: 0,
       downgraded: 0,
-      creditTotalPaise: "134777300",
-      autoMatchedTotalPaise: "5554900",
+      creditTotalPaise: "88419300",
+      autoMatchedTotalPaise: "16788000",
     });
     expect(first.accounted).toBe(true);
     expect(first.csvErrors).toEqual([]);
@@ -57,8 +57,8 @@ describe("SI1 the sample statement: exact counts per state", () => {
 
   it("the database holds the same counts: rows per state, one OPEN queue item per queued row, nothing else queued", async () => {
     const states = await fx.owner.bankRow.groupBy({ by: ["state"], where: { importId: first.importId }, _count: { _all: true } });
-    expect(Object.fromEntries(states.map((s) => [s.state, s._count._all]))).toEqual({ AUTO_MATCHED: 7, QUEUED: 70, IGNORED: 37 });
-    expect(await fx.owner.accountsQueueItem.count({ where: { itemType: "BANK_ROW", status: "OPEN", bankRow: { importId: first.importId } } })).toBe(70);
+    expect(Object.fromEntries(states.map((s) => [s.state, s._count._all]))).toEqual({ AUTO_MATCHED: 27, QUEUED: 40, IGNORED: 38 });
+    expect(await fx.owner.accountsQueueItem.count({ where: { itemType: "BANK_ROW", status: "OPEN", bankRow: { importId: first.importId } } })).toBe(40);
     expect(await fx.owner.accountsQueueItem.count({ where: { bankRow: { importId: first.importId, state: { not: "QUEUED" } } } })).toBe(0);
   });
 
@@ -112,7 +112,7 @@ describe("SI1 the sample statement: exact counts per state", () => {
   });
 
   it("the payments side of the ledger moves by exactly the automatic total, and the charges side by exactly the late fees", async () => {
-    expect(ledgerAfter.payments - ledgerBefore.payments).toBe(5_554_900n);
+    expect(ledgerAfter.payments - ledgerBefore.payments).toBe(16_788_000n);
     const autoRows = await fx.owner.bankRow.findMany({ where: { importId: first.importId, state: "AUTO_MATCHED" }, select: { id: true } });
     const fees = await fx.owner.ledgerEntry.aggregate({ where: { entryType: "LATE_FEE", effectiveDate: { gte: new Date("2026-10-20T00:00:00Z") }, bill: { ledgerEntries: { some: { bankRowId: { in: autoRows.map((r) => r.id) } } } } }, _sum: { amountPaise: true } });
     expect(ledgerAfter.charges - ledgerBefore.charges).toBe(fees._sum.amountPaise);
@@ -120,7 +120,7 @@ describe("SI1 the sample statement: exact counts per state", () => {
 
   it("every AUTO row has exactly one payment_matches row with the reasons, and one PAYMENT; nothing else has a match", async () => {
     const autoRows = await fx.owner.bankRow.findMany({ where: { importId: first.importId, state: "AUTO_MATCHED" }, include: { matches: true, fundedEntries: true } });
-    expect(autoRows).toHaveLength(7);
+    expect(autoRows).toHaveLength(27);
     for (const row of autoRows) {
       expect(row.matches, row.narrationRaw).toHaveLength(1);
       expect(row.matches[0]).toMatchObject({ decision: "AUTO", decidedById: null, flatId: row.flatId });
@@ -128,7 +128,26 @@ describe("SI1 the sample statement: exact counts per state", () => {
       expect(row.fundedEntries.filter((e) => e.entryType === "PAYMENT")).toHaveLength(1);
       expect(row.fundedEntries.find((e) => e.entryType === "PAYMENT")?.amountPaise).toBe(row.creditPaise);
     }
-    expect(await fx.owner.paymentMatch.count({ where: { bankRow: { importId: first.importId } } })).toBe(7);
+    expect(await fx.owner.paymentMatch.count({ where: { bankRow: { importId: first.importId } } })).toBe(27);
+  });
+});
+
+describe("MP7 D106 ledger references of the sample's postings", () => {
+  it("every bank reference is bank:<rail>:<reference> in clear or bank:h: and 32 hex, and none contains narration text", async () => {
+    const entries = await fx.owner.ledgerEntry.findMany({ where: { reference: { startsWith: "bank:" } }, select: { reference: true, bankRow: { select: { narrationRaw: true, parsed: true } } } });
+    expect(entries).toHaveLength(27);
+    for (const e of entries) {
+      const reference = e.reference as string;
+      expect(reference, reference).toMatch(/^bank:(?:[a-z]+:[A-Za-z0-9]{4,40}|h:[0-9a-f]{32})$/);
+      const parsed = e.bankRow?.parsed as { reference: string | null; rail: string };
+      if (parsed.reference !== null) expect(reference).toBe(`bank:${parsed.rail.toLowerCase()}:${parsed.reference}`);
+      for (const word of (e.bankRow?.narrationRaw ?? "").split(/[^A-Za-z]+/).filter((w) => w.length >= 4)) expect(reference.split(":").slice(2).join(":").toLowerCase(), word).not.toContain(word.toLowerCase());
+    }
+  });
+
+  it("the 20 well-formed payments are posted automatically with their bank reference in clear", async () => {
+    const rows = await fx.owner.bankRow.findMany({ where: { importId: first.importId, narrationRaw: { contains: "/maintenance" }, state: "AUTO_MATCHED", ledgerEntry: { reference: { startsWith: "bank:upi:72000000" } } } });
+    expect(rows).toHaveLength(20);
   });
 });
 
@@ -136,7 +155,7 @@ describe("SI2 accounted for the sample", () => {
   it("the stored summary read back from the database equals the one returned, and every row is accounted for", async () => {
     const stored = await getStatementSummary(fx.app, first.importId);
     expect(stored?.accounted).toBe(true);
-    expect(stored?.summary).toMatchObject({ rowsRead: 114, validRows: 114, autoMatched: 7, queued: 70, ignored: 37, alreadyImported: 0, invalidRows: 0 });
+    expect(stored?.summary).toMatchObject({ rowsRead: 105, validRows: 105, autoMatched: 27, queued: 40, ignored: 38, alreadyImported: 0, invalidRows: 0 });
     const rows = parseStatementCsv(getSampleStatement()).rows.length;
     const { autoMatched, queued, ignored } = first.summary;
     expect(autoMatched + queued + ignored).toBe(rows);
@@ -144,17 +163,17 @@ describe("SI2 accounted for the sample", () => {
 });
 
 describe("SI3 importing the sample again", () => {
-  it("gives 114 ALREADY_IMPORTED and changes no bank row, ledger entry, match or queue item", async () => {
+  it("gives 105 ALREADY_IMPORTED and changes no bank row, ledger entry, match or queue item", async () => {
     const before = await Promise.all([fx.owner.bankRow.count(), fx.owner.ledgerEntry.count(), fx.owner.paymentMatch.count(), fx.owner.accountsQueueItem.count()]);
     const again = await importStatement({ db: fx.app, user: { id: staffId }, filename: "sample-again.csv", csvText: getSampleStatement(), now: DEMO_NOW });
-    expect(again.status === "IMPORTED" && again.summary).toMatchObject({ validRows: 114, alreadyImported: 114, autoMatched: 0, queued: 0, ignored: 0 });
+    expect(again.status === "IMPORTED" && again.summary).toMatchObject({ validRows: 105, alreadyImported: 105, autoMatched: 0, queued: 0, ignored: 0 });
     const after = await Promise.all([fx.owner.bankRow.count(), fx.owner.ledgerEntry.count(), fx.owner.paymentMatch.count(), fx.owner.accountsQueueItem.count()]);
     expect(after).toEqual(before);
   });
 });
 
 describe("SI9 speed", () => {
-  it("importing the 114-row sample took under 2 s", () => {
+  it("importing the 105-row sample took under 2 s", () => {
     expect(importMs, `${Math.round(importMs)} ms`).toBeLessThan(2000);
   });
 });

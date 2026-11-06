@@ -1,15 +1,26 @@
+import { formatRupees } from "../money/money";
 import type { DemoDataset } from "../seed/types";
 import { generateDemoDataset } from "../seed/generate";
+import { addDays } from "../time/calendar";
+import { oldestDue, sortedByDue } from "./amounts";
 import { prepareBase } from "./benchmark/population";
 import { simulateStatement } from "./benchmark/simulate";
+import { defaultMatchSettings } from "./context";
+import { parseStatementCsv } from "./csv";
+import { processStatement } from "./processor";
+import type { FlatContext } from "./types";
 
 /** The flats the hand-written rows are about. The simulated rows never use them, so a hand-written row decides alone. */
 const HAND_FLATS = new Set(["T12-0408", "T21-1601", "T15-0902", "T07-1203", "T03-0702", "T18-1105", "T26-0301"]);
 
 /** The simulator is asked for more rows than are kept, because a few of its rows are dated before the statement window (stale ones). */
-const SIMULATED_DRAWN = 125;
-/** How many simulated rows are kept, all dated inside the window. */
-const SIMULATED_KEPT = 100;
+const SIMULATED_DRAWN = 230;
+/** The simulated rows kept, by what the matcher makes of them: this is what sets the demo's mix (see the comment on `buildSampleStatement`). */
+const SIMULATED_QUEUED = 32;
+const SIMULATED_IGNORED = 34;
+const SIMULATED_AUTO = 5;
+/** How many well-formed payments from residents with a registered UPI id are written (each one exactly its flat's amount due). */
+const WELL_FORMED = 20;
 const FIRST_DAY = "2026-10-20";
 const LAST_DAY = "2026-10-27";
 const SIMULATED_SEED = 20261027;
@@ -49,18 +60,66 @@ const HAND_ROWS: readonly string[] = [
 const dateOf = (line: string): string => line.slice(0, 10);
 
 /**
- * The sample bank statement of the demo: about 115 rows dated 20 to 27 October 2026, as CSV text. Fourteen are written by hand (above)
- * and the rest come from the benchmark simulator on the demo flats (without the hand-written ones' flats), so the statement has the mess
- * of a real one: UPI, NEFT, IMPS, cheques and cash, flat codes written many ways, names cut short, debits and charges. It is
- * deterministic: the same bytes every time. `src/server/statements/sample-statement.ts` holds a copy and a test fails when they differ.
+ * Well-formed payments, the way a society that follows the payment-note instruction receives them: a UPI id the society already
+ * knows (the seed's known payers, one flat only), the flat code in the note, a clean name and exactly the amount due on the
+ * row's date. They are for flats that have an open bill and are not among the hand-written ones. Each is checked on its own and
+ * kept only if the matcher posts it, so the demo never promises an automatic match that does not happen.
+ */
+function wellFormedRows(flats: readonly FlatContext[]): { lines: string[]; flatCodes: Set<string> } {
+  const flatsByVpa = new Map<string, number>();
+  for (const f of flats) for (const p of f.knownPayers) flatsByVpa.set(p.value, (flatsByVpa.get(p.value) ?? 0) + 1);
+  const eligible = flats
+    .filter((f) => !HAND_FLATS.has(f.code) && f.openBills.length > 0 && f.residents.length > 0 && f.knownPayers.length === 1 && flatsByVpa.get(f.knownPayers[0].value) === 1)
+    .sort((a, b) => (a.code < b.code ? -1 : 1));
+  const lines: string[] = [];
+  const flatCodes = new Set<string>();
+  for (let i = 0; lines.length < WELL_FORMED && i * 7 < eligible.length + 7 * WELL_FORMED; i++) {
+    const flat = eligible[(i * 7) % eligible.length];
+    if (flatCodes.has(flat.code)) continue;
+    const date = addDays(FIRST_DAY, lines.length % 8);
+    const due = oldestDue(sortedByDue(flat.openBills), date, defaultMatchSettings.lateFeePolicy);
+    if (due === null) continue;
+    const amount = formatRupees(due.duePaise).replace(/[₹,]/g, "");
+    const reference = `72000000${String(lines.length + 1).padStart(4, "0")}`;
+    const line = `${date},UPI/${reference}/${flat.residents[0].name.toUpperCase()}/${flat.knownPayers[0].value}/${flat.code}/maintenance,${amount}.00,`;
+    const parsed = parseStatementCsv(`Txn Date,Narration,Credit,Debit\n${line}\n`).rows;
+    const processed = processStatement({ rows: parsed, csvErrors: [], flats: [...flats], settings: defaultMatchSettings, alreadyImportedKeys: new Set() });
+    if (processed.rows[0]?.state !== "AUTO_MATCHED") continue;
+    lines.push(line);
+    flatCodes.add(flat.code);
+  }
+  return { lines, flatCodes };
+}
+
+/**
+ * The sample bank statement of the demo: about 105 rows dated 20 to 27 October 2026, as CSV text. Fourteen are written by hand (above),
+ * twenty are well-formed payments from residents with a registered UPI id, and the rest come from the benchmark simulator on the demo
+ * flats (without the flats of the other rows), so the statement has the mess of a real one: UPI, NEFT, IMPS, cheques and cash, flat
+ * codes written many ways, names cut short, debits and charges. The simulated rows are chosen by what the matcher makes of them to
+ * give about 27 posted automatically, 40 queued and 38 ignored.
+ *
+ * THIS MIX IS ILLUSTRATIVE. It is made to show the screens and every kind of row, and it is NOT the benchmark: on the benchmark's
+ * statements (docs/matching-benchmark.md) the matcher posts about 4 percent of the credits by itself, because most real residents do
+ * not write their flat code. It is deterministic: the same bytes every time. `src/server/statements/sample-statement.ts` holds a copy
+ * and a test fails when they differ.
  */
 export function buildSampleStatement(dataset: DemoDataset = generateDemoDataset()): string {
   const base = prepareBase(dataset);
-  const simulated = simulateStatement({ seed: SIMULATED_SEED, rows: SIMULATED_DRAWN, base: { ...base, flats: base.flats.filter((f) => !HAND_FLATS.has(f.code)) } });
+  const formed = wellFormedRows(base.flats);
+  const simulated = simulateStatement({ seed: SIMULATED_SEED, rows: SIMULATED_DRAWN, base: { ...base, flats: base.flats.filter((f) => !HAND_FLATS.has(f.code) && !formed.flatCodes.has(f.code)) } });
   const [header, ...lines] = simulated.csvText.trimEnd().split("\n");
-  const inWindow = lines.filter((line) => dateOf(line) >= FIRST_DAY && dateOf(line) <= LAST_DAY).slice(0, SIMULATED_KEPT);
-  const all = [...inWindow, ...HAND_ROWS].map((line, index) => ({ line, index }));
-  // By date, the order within a day being the order they were made in (simulated rows first, then the hand-written ones).
+  const inWindow = lines.filter((line) => dateOf(line) >= FIRST_DAY && dateOf(line) <= LAST_DAY);
+  const parsed = parseStatementCsv(`${header}\n${inWindow.join("\n")}\n`).rows;
+  const states = processStatement({ rows: parsed, csvErrors: [], flats: base.flats, settings: defaultMatchSettings, alreadyImportedKeys: new Set() }).rows;
+  const quota: Record<string, number> = { QUEUED: SIMULATED_QUEUED, IGNORED: SIMULATED_IGNORED, AUTO_MATCHED: SIMULATED_AUTO };
+  const kept = inWindow.filter((_line, index) => {
+    const state = states.find((r) => r.rowNumber === parsed[index]?.rowNumber)?.state ?? "";
+    if ((quota[state] ?? 0) <= 0) return false;
+    quota[state] -= 1;
+    return true;
+  });
+  const all = [...kept, ...formed.lines, ...HAND_ROWS].map((line, index) => ({ line, index }));
+  // By date, the order within a day being the order they were made in (simulated rows first, then the others).
   all.sort((a, b) => (dateOf(a.line) === dateOf(b.line) ? a.index - b.index : dateOf(a.line) < dateOf(b.line) ? -1 : 1));
   return `${[header, ...all.map((x) => x.line)].join("\n")}\n`;
 }
