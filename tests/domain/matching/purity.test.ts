@@ -18,7 +18,7 @@ const FORBIDDEN: [string, RegExp][] = [
 
 describe("P5 matching purity", () => {
   it("covers the matching modules", () => {
-    expect(FILES).toEqual(["amounts.ts", "context.ts", "csv.ts", "decide.ts", "dedupe.ts", "evidence.ts", "flat-code.ts", "names.ts", "narration.ts", "plan.ts", "processor.ts", "reasons.ts", "types.ts"]);
+    expect(FILES).toEqual(["amounts.ts", "context.ts", "csv.ts", "decide.ts", "dedupe.ts", "evidence.ts", "flat-code.ts", "names.ts", "narration.ts", "plan.ts", "processor.ts", "reasons.ts", "sample-statement.ts", "types.ts"]);
   });
 
   it.each(FILES)("%s imports only relative paths and uses no clock, randomness, Intl or Node built-ins", (file) => {
