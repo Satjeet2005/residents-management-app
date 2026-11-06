@@ -18,7 +18,9 @@ const thresholdSchema = z.number().int().positive();
  * ledger entry, and the society settings. Joining them is done in memory with maps, so 2,400 flats cost the same six queries as 20.
  *
  * A bill is open when it was issued on or before `now`'s India date and the payments dated up to then that were not reversed
- * leave some of it unpaid (the matcher's own rule, docs/matching-design.md). The payments of an open bill are all its live
+ * leave some of it unpaid (the matcher's own rule, docs/matching-design.md): exactly the bills whose position is PRINCIPAL_OPEN
+ * (billPosition). A bill whose principal is paid but whose late fee is not (FEE_ONLY, D107) is NOT given to the matcher, so a bank
+ * payment for it queues as NO_OPEN_BILL for a person: a documented limit, the matcher's rules are unchanged. The payments of an open bill are all its live
  * payments, including one dated later, because the matcher refuses to post before a later payment (LATER_PAYMENT).
  * A missing or invalid late_fee_policy or approval_threshold_paise setting throws: a rule for money is never guessed.
  * Reads only: call it with the transaction that will also write, so the facts and the postings share a lock.

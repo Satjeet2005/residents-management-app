@@ -3,7 +3,9 @@ import { computeRowKeys } from "@/domain/matching/dedupe";
 import { parseStatementCsv, type RowError, type StatementRow } from "@/domain/matching/csv";
 import { type ProcessedRow, type ProcessedStatement, downgradeRows, processStatement } from "@/domain/matching/processor";
 import { FIXED_REASONS } from "@/domain/matching/reasons";
-import { lockAmount } from "@/domain/payments/amount-lock";
+import { positionsForFlat } from "@/domain/billing/dues";
+import type { LateFeePolicy } from "@/domain/billing/late-fee";
+import { planPosting } from "@/domain/billing/posting";
 import type { Prisma } from "../../../generated/prisma/client";
 import type { Db } from "@/server/auth/db";
 import type { SessionUser } from "@/server/auth/session-service";
@@ -128,11 +130,13 @@ async function storedKeys(tx: Prisma.TransactionClient, keys: readonly string[])
 }
 
 /**
- * Takes the bills of the AUTO_MATCHED rows (locking each, in a fixed order) and reads their payments afresh, once. A row whose bill
- * no longer owes exactly what the plan pays on the row's date, or has a live payment dated after the row, can no longer be posted.
+ * Takes the bills of the AUTO_MATCHED rows (locking each, in a fixed order) and reads their payments, late fees and adjustments
+ * afresh, once. A row can no longer be posted when its bill is no longer PRINCIPAL_OPEN on the row's date, no longer owes exactly the
+ * amount the plan pays, would not get exactly the entries the plan holds from `planPosting` (D107, D110), or has a live payment
+ * dated after the row.
  * Returns those rows' numbers. The locks are held until the transaction ends, so what is read here is still true when the entries are written.
  */
-async function staleRows(tx: Prisma.TransactionClient, processed: ProcessedStatement, policy: Parameters<typeof lockAmount>[0]["policy"], flatIds: ReadonlyMap<string, string>): Promise<Set<number>> {
+async function staleRows(tx: Prisma.TransactionClient, processed: ProcessedStatement, policy: LateFeePolicy, flatIds: ReadonlyMap<string, string>): Promise<Set<number>> {
   const autos = processed.rows.filter((r) => r.state === "AUTO_MATCHED" && r.decision?.plan !== null && r.decision?.plan !== undefined);
   const billOf = (row: ProcessedRow): string => (row.decision?.plan?.entries[0]?.billKey ?? "");
   const billIds = [...new Set(autos.map(billOf))].sort();
@@ -140,7 +144,7 @@ async function staleRows(tx: Prisma.TransactionClient, processed: ProcessedState
   if (billIds.length === 0) return new Set();
   const bills = await tx.bill.findMany({ where: { id: { in: billIds } }, select: { id: true, flatId: true, period: true, issuedOn: true, dueOn: true, amountPaise: true } });
   const entries = await tx.ledgerEntry.findMany({
-    where: { OR: [{ billId: { in: billIds }, entryType: "PAYMENT" }, { entryType: "REVERSAL", reverses: { billId: { in: billIds } } }] },
+    where: { OR: [{ billId: { in: billIds }, entryType: { in: ["PAYMENT", "LATE_FEE", "ADJUSTMENT"] } }, { entryType: "REVERSAL", reverses: { billId: { in: billIds } } }] },
     select: { id: true, entryType: true, direction: true, amountPaise: true, effectiveDate: true, billId: true, reversesEntryId: true, createdAt: true },
   });
   const byId = new Map(bills.map((b) => [b.id, b]));
@@ -157,8 +161,15 @@ async function staleRows(tx: Prisma.TransactionClient, processed: ProcessedState
     }
     const live = due.filter((e) => e.entryType === "PAYMENT" && e.billId === bill.id && !reversed.has(e.id));
     const rowDate = planned.effectiveDate;
-    const locked = lockAmount({ openBills: [toDueBill(bill)], asOf: rowDate, policy, payments: due.filter((e) => e.billId === bill.id || e.entryType === "REVERSAL") });
-    if (locked === null || locked.billId !== bill.id || locked.totalPaise !== planned.amountPaise || live.some((e) => e.effectiveDate > rowDate)) stale.add(row.rowNumber);
+    const position = positionsForFlat({ bills: [toDueBill(bill)], entries: due.filter((e) => e.billId === bill.id || e.entryType === "REVERSAL"), policy, asOf: rowDate })[0]?.position;
+    const posting = position === undefined || position.kind !== "PRINCIPAL_OPEN" ? null : planPosting({ position, creditPaise: planned.amountPaise, paymentDate: rowDate });
+    const held = row.decision?.plan?.entries ?? [];
+    const sameEntries =
+      posting !== null &&
+      "entries" in posting &&
+      posting.entries.length === held.length &&
+      posting.entries.every((e, i) => held[i].entryType === e.entryType && held[i].amountPaise === e.amountPaise && held[i].effectiveDate === e.effectiveDate);
+    if (!sameEntries || live.some((e) => e.effectiveDate > rowDate)) stale.add(row.rowNumber);
   }
   return stale;
 }
