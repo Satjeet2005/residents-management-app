@@ -31,13 +31,15 @@ export type PaymentsFixture = {
 };
 
 export type ResidentOptions = {
+  /** The resident's name; a unique one is made when not given (a name the matcher can use as a second signal). */
+  name?: string;
   billAmountPaise?: bigint;
   /** The bill's due date; the bill is issued 9 days before it. */
   dueOn?: string;
   payments?: { date: string; amountPaise: bigint }[];
   secondBill?: { amountPaise: bigint; dueOn: string };
 };
-export type Resident = { user: { id: string; phone: string }; flatId: string; flatCode: string; billId: string; secondBillId: string | null };
+export type Resident = { user: { id: string; phone: string }; name: string; flatId: string; flatCode: string; billId: string; secondBillId: string | null };
 
 export async function createPaymentsFixture(): Promise<PaymentsFixture> {
   const admin = await connect();
@@ -68,9 +70,24 @@ async function build(admin: Client, remember: (scratchName: string) => void): Pr
   const owner = new PrismaClient({ adapter: new PrismaPg({ connectionString: scratchUrl }) });
   const app = new PrismaClient({ adapter: new PrismaPg({ connectionString: role.url, ...dbPoolOptions({ DB_POOL_MAX: "10" }) }) });
 
+  // Flat codes the matcher can read (T28 and a free floor and unit), so a test statement can name a flat the way a bank narration does.
+  const taken = new Set((await owner.flat.findMany({ select: { code: true } })).map((f) => f.code));
+  const free: string[] = [];
+  for (let floor = 1; floor <= 16; floor++) for (let unit = 1; unit <= 8; unit++) free.push(`T28-${String(floor).padStart(2, "0")}${String(unit).padStart(2, "0")}`);
+  const freeCodes = free.filter((code) => !taken.has(code));
+  let residents = 0;
+  const uniqueName = (n: number): string => {
+    const letters = (value: number): string => (value === 0 ? "" : letters(Math.floor((value - 1) / 26)) + String.fromCharCode(97 + ((value - 1) % 26)));
+    return `Tarun${letters(n)} Kasliwal${letters(n * 7 + 3)}`;
+  };
+
   const makeResident = async (options: ResidentOptions = {}): Promise<Resident> => {
-    const flat = await makeFlat(owner);
-    const user = await makeUser(owner, { role: "RESIDENT", name: "Test Resident" });
+    const index = residents++;
+    const code = freeCodes[index];
+    if (code === undefined) throw new Error("the fixture ran out of free flat codes");
+    const flat = await makeFlat(owner, code);
+    const name = options.name ?? uniqueName(index + 1);
+    const user = await makeUser(owner, { role: "RESIDENT", name });
     await addMember(owner, flat.id, user.id, "2026-01-01");
     const addBill = async (amountPaise: bigint, dueOn: string): Promise<string> => {
       const issuedOn = addDays(dueOn, -9);
@@ -89,7 +106,7 @@ async function build(admin: Client, remember: (scratchName: string) => void): Pr
         data: { flatId: flat.id, billId, entryType: "PAYMENT", direction: "PAYMENT", amountPaise: payment.amountPaise, effectiveDate: new Date(`${payment.date}T00:00:00Z`), idempotencyKey: `test-payment:${billId}:${index}` },
       });
     }
-    return { user, flatId: flat.id, flatCode: flat.code, billId, secondBillId };
+    return { user, name, flatId: flat.id, flatCode: flat.code, billId, secondBillId };
   };
 
   return {
