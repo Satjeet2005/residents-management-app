@@ -5,7 +5,10 @@ import { t } from "@/lib/messages";
 export default function Loading() {
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4">
-      <h1 className="text-heading font-semibold">{t("home.loading")}</h1>
+      {/* Not a heading: Next.js streams this fallback and the page into one document, which must keep a single h1. */}
+      <p role="status" className="text-heading font-semibold">
+        {t("home.loading")}
+      </p>
       <div className="flex flex-col gap-3 rounded-control border border-hairline p-4">
         <Skeleton lines={3} />
       </div>

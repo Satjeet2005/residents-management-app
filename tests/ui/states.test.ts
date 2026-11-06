@@ -13,10 +13,11 @@ const plain = (markup: string) => markup.replace(/<[^>]*>/g, " ").replace(/&#x27
 
 describe("HM5 loading state", () => {
   const out = html(h(Loading));
-  it("is skeleton blocks marked busy, with one h1 and a main landmark, and no spinner or shimmer", () => {
+  it("is skeleton blocks marked busy, in a main landmark, with no h1 (the page that replaces it has the h1), and no spinner or shimmer", () => {
     expect(out).toContain('aria-busy="true"');
     expect(count(out, /aria-busy="true"/g)).toBe(3);
-    expect(count(out, /<h1/g)).toBe(1);
+    expect(count(out, /<h1/g)).toBe(0);
+    expect(out).toContain('role="status"');
     expect(out).toContain("<main");
     expect(out).not.toMatch(/animate-|spin|shimmer/);
   });
