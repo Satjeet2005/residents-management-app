@@ -22,7 +22,7 @@ describe("HM5 Home: T12-0408, overdue (₹6,468, 47 days)", () => {
     expect(html).toContain("<main");
     expect(html).toMatch(/<h1[^>]*>T12-0408<\/h1>/);
     expect(words).toMatch(/Swati Joshi, (Tenant|Owner)|Anil Joshi, (Tenant|Owner)/);
-    const emergency = /<button[^>]*>Emergency<\/button>/.exec(html)?.[0] ?? "";
+    const emergency = /<button[^>]*>(?:(?!<\/button>).)*Emergency<\/button>/.exec(html)?.[0] ?? "";
     expect(emergency).toContain("border-control");
     expect(emergency).not.toContain("bg-accent");
   });

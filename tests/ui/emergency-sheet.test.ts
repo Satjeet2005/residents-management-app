@@ -54,9 +54,10 @@ describe("HM5 the Emergency sheet (D43)", () => {
 
   it("the Emergency control is outlined, never filled", () => {
     const button = html(h(EmergencyButton, { numbers: { dutyManagerPhone: "5900000001", emergencyServicesPhone: null } }));
-    const control = /<button[^>]*>Emergency<\/button>/.exec(button)?.[0] ?? "";
+    const control = /<button[^>]*>(?:(?!<\/button>).)*Emergency<\/button>/.exec(button)?.[0] ?? "";
     expect(control).toContain("border-control");
     expect(control).not.toContain("bg-accent");
+    expect(control).toMatch(/<svg[^>]*aria-hidden="true"/);
   });
 
   it("the sheet is a dialog titled Emergency help, with a Close button, closed until opened", () => {

@@ -30,7 +30,15 @@ describe("HM5 bottom navigation", () => {
   it("marks the active item with aria-current and every item is at least 48px tall", () => {
     expect(count(out, /aria-current="page"/g)).toBe(1);
     expect(out).toMatch(/href="\/"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/"/);
-    expect(count(out, /min-h-12/g)).toBe(2);
+    expect(count(out, /min-h-14/g)).toBe(2);
+  });
+
+  it("draws an icon above each label, hidden from screen readers, and marks the active item with a top bar and a tint", () => {
+    expect(count(out, /<svg[^>]*aria-hidden="true"/g)).toBe(2);
+    expect(out).toMatch(/<a [^>]*class="[^"]*flex-col[^"]*"[^>]*><svg/);
+    expect(out).toContain("aria-[current=page]:border-accent");
+    expect(out).toContain("aria-[current=page]:bg-paper-2");
+    expect(out).not.toContain("underline");
   });
 
   it("draws four items when all are enabled, and none is active when the path is unknown", () => {

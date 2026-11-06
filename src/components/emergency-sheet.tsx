@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { telHref } from "@/lib/phone-link";
 import { t } from "@/lib/messages";
+import { WarningIcon } from "./icons";
 import { Button } from "./ui/button";
 import { ButtonLink } from "./ui/button-link";
 import { Sheet } from "./ui/sheet";
@@ -59,6 +60,7 @@ export function EmergencyButton({ numbers }: { numbers: EmergencyNumbers }) {
   return (
     <>
       <Button variant="outlined" onClick={() => setOpen(true)}>
+        <WarningIcon />
         {t("emergency.button")}
       </Button>
       <Sheet open={open} onClose={() => setOpen(false)} title={t("emergency.title")}>
