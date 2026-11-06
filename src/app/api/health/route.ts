@@ -1,3 +1,3 @@
-export function GET() {
-  return Response.json({ status: "ok" });
-}
+import { publicRoute } from "@/server/auth/guard";
+
+export const GET = publicRoute(() => Response.json({ status: "ok" }));

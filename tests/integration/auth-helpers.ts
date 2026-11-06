@@ -67,3 +67,18 @@ export async function dumpTables(prisma: PrismaClient, tables = ["otp_codes", "a
   }
   return parts.join("\n");
 }
+
+let flatCounter = 0;
+/** A flat with a code that sorts predictably: `Z<run>-<n>` unless a code is given. */
+export async function makeFlat(prisma: PrismaClient, code?: string): Promise<{ id: string; code: string }> {
+  const flatCode = code ?? `Z${String(randomInt(0, 1e9)).padStart(9, "0")}-${++flatCounter}`;
+  const flat = await prisma.flat.create({ data: { code: flatCode, tower: "T1", number: String(flatCounter), areaSqft: 1000 } });
+  return { id: flat.id, code: flat.code };
+}
+
+/** A membership from `startsOn` to `endsOn` (both `YYYY-MM-DD`; `endsOn` null means no end). */
+export async function addMember(prisma: PrismaClient, flatId: string, userId: string, startsOn: string, endsOn: string | null = null): Promise<void> {
+  await prisma.flatMember.create({
+    data: { flatId, userId, relation: "OWNER", startsOn: new Date(`${startsOn}T00:00:00Z`), endsOn: endsOn === null ? null : new Date(`${endsOn}T00:00:00Z`) },
+  });
+}

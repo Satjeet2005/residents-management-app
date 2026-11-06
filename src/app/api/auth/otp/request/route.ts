@@ -1,8 +1,6 @@
-import { defaultDeps } from "@/server/auth/default-deps";
+import { publicRoute } from "@/server/auth/guard";
 import { handleOtpRequest } from "@/server/auth/handlers";
 
 export const runtime = "nodejs";
 
-export function POST(request: Request): Promise<Response> {
-  return handleOtpRequest(defaultDeps(), request);
-}
+export const POST = publicRoute(({ request, deps }) => handleOtpRequest(deps, request));

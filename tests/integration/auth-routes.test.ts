@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "../../generated/prisma/client";
+import { createGuards } from "@/server/auth/guard";
 import { handleLogout, handleLogoutAll, handleOtpRequest, handleOtpVerify, type AuthRouteDeps } from "@/server/auth/handlers";
 import { mockOtpSender, type OtpSender } from "@/server/auth/otp-service";
 import { requestOtpBody, verifyOtpBody } from "@/server/auth/schemas";
@@ -24,6 +25,12 @@ afterEach(() => {
 
 const deps = (sender: OtpSender = mockOtpSender): AuthRouteDeps => ({ db: prisma, sender, now: () => clock });
 const URL_BASE = "http://localhost/api/auth";
+
+/** The same wrappers the route files use, built with the test clock and database. */
+const guards = createGuards(() => deps());
+const otpRequestRoute = guards.publicRoute(({ request, deps: d }) => handleOtpRequest(d, request));
+const logoutRoute = guards.publicRoute(({ request, deps: d }) => handleLogout(d, request));
+const logoutAllRoute = guards.withPermission("ANY_USER", handleLogoutAll);
 
 function post(path: string, body: unknown, options: { ip?: string; cookie?: string; origin?: string; raw?: string } = {}): Request {
   const headers: Record<string, string> = { "content-type": "application/json", "x-vercel-forwarded-for": options.ip ?? freshIp() };
@@ -190,8 +197,8 @@ describe("V5 bodies", () => {
 
   it("V5 a request from another origin is refused, and from this origin is allowed", async () => {
     const user = await makeUser(prisma);
-    expect(await call(await handleOtpRequest(deps(), post("otp/request", { phone: user.phone }, { origin: "https://evil.example" })))).toMatchObject({ status: 403, body: { error: "CSRF_BLOCKED" } });
-    expect((await call(await handleOtpRequest(deps(), post("otp/request", { phone: user.phone }, { origin: "http://localhost" })))).status).toBe(200);
+    expect(await call(await otpRequestRoute(post("otp/request", { phone: user.phone }, { origin: "https://evil.example" })))).toMatchObject({ status: 403, body: { error: "CSRF_BLOCKED" } });
+    expect((await call(await otpRequestRoute(post("otp/request", { phone: user.phone }, { origin: "http://localhost" })))).status).toBe(200);
   });
 });
 
@@ -204,7 +211,7 @@ describe("V4 logout and logout-all through the routes", () => {
     expect(out.headers.get("set-cookie")).toMatch(/^session=; .*Max-Age=0/);
     const again = await call(await handleLogout(deps(), post("logout", undefined, { cookie })));
     expect(again.status).toBe(204);
-    expect((await call(await handleLogoutAll(deps(), post("logout-all", undefined, { cookie })))).status).toBe(401);
+    expect((await call(await logoutAllRoute(post("logout-all", undefined, { cookie })))).status).toBe(401);
   });
 
   it("V4 logout without a cookie is a 204 that clears the cookie", async () => {
@@ -221,23 +228,23 @@ describe("V4 logout and logout-all through the routes", () => {
     const laptop = await login(user);
     const bystander = await login(other);
     clock = T0 + 90_000;
-    const out = await call(await handleLogoutAll(deps(), post("logout-all", undefined, { cookie: phone.cookie })));
+    const out = await call(await logoutAllRoute(post("logout-all", undefined, { cookie: phone.cookie })));
     expect(out.status).toBe(204);
     for (const device of [phone, laptop]) {
-      expect((await call(await handleLogoutAll(deps(), post("logout-all", undefined, { cookie: device.cookie })))).status).toBe(401);
+      expect((await call(await logoutAllRoute(post("logout-all", undefined, { cookie: device.cookie })))).status).toBe(401);
     }
-    expect((await call(await handleLogoutAll(deps(), post("logout-all", undefined, { cookie: bystander.cookie })))).status).toBe(204);
+    expect((await call(await logoutAllRoute(post("logout-all", undefined, { cookie: bystander.cookie })))).status).toBe(204);
   });
 
   it("V4 logout-all without a session is a 401 with a generic body", async () => {
-    expect(await call(await handleLogoutAll(deps(), post("logout-all", undefined)))).toMatchObject({ status: 401, body: { error: "UNAUTHENTICATED" } });
+    expect(await call(await logoutAllRoute(post("logout-all", undefined)))).toMatchObject({ status: 401, body: { error: "UNAUTHENTICATED" } });
   });
 
   it("V4 a logout from another origin is refused and the session stays", async () => {
     const { cookie } = await login(await demoUser());
-    const refused = await call(await handleLogout(deps(), post("logout", undefined, { cookie, origin: "https://evil.example" })));
+    const refused = await call(await logoutRoute(post("logout", undefined, { cookie, origin: "https://evil.example" })));
     expect(refused).toMatchObject({ status: 403, body: { error: "CSRF_BLOCKED" } });
-    expect((await call(await handleLogoutAll(deps(), post("logout-all", undefined, { cookie })))).status).toBe(204);
+    expect((await call(await logoutAllRoute(post("logout-all", undefined, { cookie })))).status).toBe(204);
   });
 });
 
@@ -263,7 +270,7 @@ describe("V6 audit", () => {
     const again = await login(user);
     secrets.push(again.cookie.split("=")[1]);
     clock = T0 + 90_000;
-    await handleLogoutAll(deps(), post("logout-all", undefined, { cookie: again.cookie, ip }));
+    await logoutAllRoute(post("logout-all", undefined, { cookie: again.cookie, ip }));
 
     const masked = `******${user.phone.slice(-4)}`;
     const rows = await prisma.auditLog.findMany({ where: { entityType: "auth", detail: { path: ["phone"], equals: masked } } });

@@ -3,8 +3,8 @@ import { normalizePhone } from "@/domain/auth/phone";
 import type { Role } from "@/domain/auth/policy";
 import type { z } from "zod";
 import { writeAuthAudit } from "./audit";
+import type { GuardContext } from "./guard";
 import { buildSessionCookie, clearSessionCookie, readSessionToken } from "./cookie";
-import { csrfBlocked } from "./csrf";
 import { ipHash } from "./crypto";
 import type { Db } from "./db";
 import { clientIp } from "./client-ip";
@@ -26,12 +26,12 @@ export type AuthRouteDeps = {
  * - success: 200 with a JSON body, or 204 with none;
  * - every refusal: a JSON body `{ error: KEY }` and no more. 403 CSRF_BLOCKED for an unsafe request from another site (src/server/auth/csrf.ts); 400 for a bad body (INVALID_REQUEST), a bad
  *   phone format on a request (INVALID_PHONE), and a code that is not accepted or is locked (OTP_NOT_ACCEPTED,
- *   OTP_LOCKED); 429 with `retryAfterSeconds` and a Retry-After header (TOO_MANY_REQUESTS); 401 only for
- *   logout-all without a session.
+ *   OTP_LOCKED); 429 with `retryAfterSeconds` and a Retry-After header (TOO_MANY_REQUESTS). 401 and 403 come from
+ *   the guards (src/server/auth/guard.ts), not from here.
  * A request for a code answers 200 for every valid phone, registered or not.
  */
 const json = (status: number, body: unknown, headers: Record<string, string> = {}): Response =>
-  Response.json(body, { status, headers: { "Cache-Control": "no-store", ...headers } });
+  Response.json(body, { status, headers });
 const refusal = (status: number, error: string): Response => json(status, { error });
 
 const HOME: Record<Role, string> = { RESIDENT: "/", STAFF: "/staff" };
@@ -52,7 +52,6 @@ async function parseBody<T extends z.ZodType>(request: Request, schema: T): Prom
 const addressOf = (deps: AuthRouteDeps, request: Request): string => (deps.ip ?? clientIp)(request.headers);
 
 export async function handleOtpRequest(deps: AuthRouteDeps, request: Request): Promise<Response> {
-  if (csrfBlocked(request)) return refusal(403, "CSRF_BLOCKED");
   const body = await parseBody(request, requestOtpBody);
   if (body === null) return refusal(400, "INVALID_REQUEST");
   const result = await requestOtp(deps, { phoneInput: body.phone, ip: addressOf(deps, request), now: deps.now() });
@@ -67,7 +66,6 @@ export async function handleOtpRequest(deps: AuthRouteDeps, request: Request): P
 }
 
 export async function handleOtpVerify(deps: AuthRouteDeps, request: Request): Promise<Response> {
-  if (csrfBlocked(request)) return refusal(403, "CSRF_BLOCKED");
   const body = await parseBody(request, verifyOtpBody);
   if (body === null) return refusal(400, "INVALID_REQUEST");
   const ip = addressOf(deps, request);
@@ -84,7 +82,6 @@ export async function handleOtpVerify(deps: AuthRouteDeps, request: Request): Pr
 
 /** Ends the session in the cookie. Always clears the cookie and answers 204, so it can be repeated and says nothing about the session. */
 export async function handleLogout(deps: AuthRouteDeps, request: Request): Promise<Response> {
-  if (csrfBlocked(request)) return refusal(403, "CSRF_BLOCKED");
   const now = deps.now();
   const token = readSessionToken(request.headers.get("cookie"));
   const current = token === null ? null : await resolveSession(deps.db, token, now);
@@ -92,17 +89,15 @@ export async function handleLogout(deps: AuthRouteDeps, request: Request): Promi
     await revokeSession(deps.db, current.sessionId, now);
     await writeAuthAudit(deps.db, { action: "LOGOUT", userId: current.user.id, phone: current.user.phone, ipHash: ipHash(addressOf(deps, request)), reason: null, now });
   }
-  return new Response(null, { status: 204, headers: { "Set-Cookie": clearSessionCookie(), "Cache-Control": "no-store" } });
+  return new Response(null, { status: 204, headers: { "Set-Cookie": clearSessionCookie() } });
 }
 
-/** Ends every session of the person in the cookie. Without a valid session it answers 401. */
-export async function handleLogoutAll(deps: AuthRouteDeps, request: Request): Promise<Response> {
-  if (csrfBlocked(request)) return refusal(403, "CSRF_BLOCKED");
-  const now = deps.now();
-  const token = readSessionToken(request.headers.get("cookie"));
-  const current = token === null ? null : await resolveSession(deps.db, token, now);
-  if (current === null) return json(401, { error: "UNAUTHENTICATED" }, { "Set-Cookie": clearSessionCookie() });
-  await revokeAllSessions(deps.db, current.user.id, now);
-  await writeAuthAudit(deps.db, { action: "LOGOUT_ALL", userId: current.user.id, phone: current.user.phone, ipHash: ipHash(addressOf(deps, request)), reason: null, now });
-  return new Response(null, { status: 204, headers: { "Set-Cookie": clearSessionCookie(), "Cache-Control": "no-store" } });
+/**
+ * Ends every session of the signed-in person, on every device. It runs behind withPermission("ANY_USER"), so a
+ * missing or invalid session never gets here (that is a 401 from the guard).
+ */
+export async function handleLogoutAll({ user, request, now, deps }: GuardContext): Promise<Response> {
+  await revokeAllSessions(deps.db, user.id, now);
+  await writeAuthAudit(deps.db, { action: "LOGOUT_ALL", userId: user.id, phone: user.phone, ipHash: ipHash(addressOf(deps, request)), reason: null, now });
+  return new Response(null, { status: 204, headers: { "Set-Cookie": clearSessionCookie() } });
 }
