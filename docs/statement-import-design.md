@@ -83,7 +83,7 @@ for a person; what a person can do with a queued row is in `docs/manual-reconcil
 - **S1.** A fatal header problem is any error on row 0. A NUL byte is answered like a bad file (422 INVALID_CSV with one error), not like a big one.
 - **S2.** `now` is the business clock (D97). It decides which bills are open and which memberships are current; the amounts are worked out as of each row's own date.
 - **S3.** The automatic rows' bills are locked together and read once, instead of lock-and-read per row: the same guarantee in a constant number of queries.
-- **S4.** The ledger `reference` is `bank:<dedupeKey>`, as asked. A key of a row without a payment reference holds up to 80 characters of the normalised narration, so a
+- **S4.** (Superseded by D106 and M9: the reference and the idempotency key now carry a hash, not narration text.) The ledger `reference` was `bank:<dedupeKey>`. A key of a row without a payment reference holds up to 80 characters of the normalised narration, so a
   name can end up in a ledger reference. A key longer than 120 characters is cut and given a hash of the whole key. Whether to hash it fully is a decision for the human.
 - **S5.** A row that the processor queued because an automatic row of the same statement paid its bill stays queued if that automatic row is downgraded afterwards.
 - **S6.** A file whose rows are all repeats still creates an import row and an audit row, and changes no bank row, entry, match or queue item.

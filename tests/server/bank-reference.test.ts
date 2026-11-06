@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bankReference, bankReferences, hashedBankReference } from "@/server/statements/reference";
+import { bankIdempotencyKey, bankReference, bankReferences, hashedBankReference } from "@/server/statements/reference";
 import type { DbOrTx } from "@/server/auth/db";
 
 const KEY = "2026-10-27|646800|upi|aamir shaikh t21-1601 maintenance";
@@ -24,6 +24,13 @@ describe("D106 ledger references of a bank posting", () => {
   it("a reference that is not letters and digits (so could carry narration text) is hashed instead", () => {
     expect(bankReference({ rail: "UPI", reference: "T21-1601 Aamir", dedupeKey: KEY })).toMatch(/^bank:h:/);
     expect(bankReference({ rail: "UPI", reference: "12", dedupeKey: KEY })).toMatch(/^bank:h:/);
+  });
+
+  it("M9: an idempotency key is the hashed form plus the entry type, with no narration text", () => {
+    expect(bankIdempotencyKey(KEY, "PAYMENT")).toBe(`${hashedBankReference(KEY)}:PAYMENT`);
+    expect(bankIdempotencyKey(KEY, "LATE_FEE")).toMatch(/^bank:h:[0-9a-f]{32}:LATE_FEE$/);
+    expect(bankIdempotencyKey(KEY, "PAYMENT")).not.toMatch(/aamir|shaikh|maintenance/i);
+    expect(bankIdempotencyKey(KEY, "PAYMENT")).not.toBe(bankIdempotencyKey(`${KEY}x`, "PAYMENT"));
   });
 
   it("two different dedupe keys give two different hashed references", () => {

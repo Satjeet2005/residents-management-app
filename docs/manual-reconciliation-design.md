@@ -112,8 +112,9 @@ One new grant: UPDATE of `status`, `resolved_at`, `resolved_by_id` and `note` of
 - **M7.** A rail and reference that another ledger entry already holds, or that two rows of one call share, are given the hashed D106
   reference instead of failing.
 - **M8.** An AWAITING_APPROVAL row has no `flat_id` (the flat is in the request's `reasons`); the matched flat is set when it is posted.
-- **M9.** The idempotency keys of the import (T12a) are still `bank:<dedupeKey>:<TYPE>` and the dedupe key can hold up to 80
-  characters of normalised narration. D106 covers the ledger REFERENCE only; the key is not shown to anyone.
+- **M9 (closed in T12c).** The import's idempotency keys are `bank:h:<first 32 hex of SHA-256 of the dedupe key>:<TYPE>`, so no narration text is
+  in a key. Only new rows get it; stored keys are not rewritten. The processor (the matcher, unchanged) still builds `bank:<dedupeKey>:<TYPE>` as an internal
+  identifier; `importStatement` replaces it with the hashed key before anything is written (`bankIdempotencyKey`, `reference.ts`).
 - **M10.** The search and the review use the business clock for "current residents" and "open positions today"; audit and resolution times
   use the real clock (D97).
 - **M11.** A row's amount for ordering is the larger of its credit and debit (one of them is zero).

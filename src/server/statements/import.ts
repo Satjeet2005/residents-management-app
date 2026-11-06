@@ -11,7 +11,7 @@ import type { Db } from "@/server/auth/db";
 import type { SessionUser } from "@/server/auth/session-service";
 import { toDueBill, toDueEntry } from "@/server/home/mapper";
 import { lockBill } from "@/server/payments/bill-lock";
-import { bankReferences } from "./reference";
+import { bankIdempotencyKey, bankReferences } from "./reference";
 import { loadMatchContext } from "./context";
 
 export const IMPORT_LIMITS = { maxChars: 2_000_000, maxRows: 20_000 } as const;
@@ -255,6 +255,8 @@ export async function importStatement(input: { db: Db; user: Pick<SessionUser, "
           tx,
           autos.map((row) => ({ key: row.rowNumber, source: { rail: row.parsed.rail, reference: row.parsed.reference, dedupeKey: row.dedupeKey } })),
         );
+        const dedupeKeyOf = new Map(final.rows.map((r) => [r.rowNumber, r.dedupeKey]));
+        const keyOf = (entry: { rowNumber: number; entryType: string }): string => bankIdempotencyKey(dedupeKeyOf.get(entry.rowNumber) as string, entry.entryType);
         const entryRows = final.entriesToPost.map((entry) => {
           const isPayment = entry.entryType === "PAYMENT";
           return {
@@ -266,7 +268,7 @@ export async function importStatement(input: { db: Db; user: Pick<SessionUser, "
             effectiveDate: dateOf(entry.effectiveDate),
             bankRowId: isPayment ? (bankRowIds.get(entry.rowNumber) as string) : null,
             reference: isPayment ? (references.get(entry.rowNumber) as string) : null,
-            idempotencyKey: entry.idempotencyKey,
+            idempotencyKey: keyOf(entry),
           };
         });
         const paymentIdByRow = new Map<number, string>();
@@ -276,7 +278,7 @@ export async function importStatement(input: { db: Db; user: Pick<SessionUser, "
           for (const c of created) ledgerIdByKey.set(c.idempotencyKey, c.id);
         }
         for (const entry of final.entriesToPost) {
-          if (entry.entryType === "PAYMENT") paymentIdByRow.set(entry.rowNumber, ledgerIdByKey.get(entry.idempotencyKey) as string);
+          if (entry.entryType === "PAYMENT") paymentIdByRow.set(entry.rowNumber, ledgerIdByKey.get(keyOf(entry)) as string);
         }
         for (const row of autos) {
           await tx.bankRow.update({

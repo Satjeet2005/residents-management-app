@@ -3,6 +3,7 @@ import { computeLateFee, defaultLateFeePolicy } from "@/domain/billing/late-fee"
 import { DEMO_NOW } from "@/domain/seed/types";
 import { initiatePayment } from "@/server/payments/initiate";
 import { applyGatewayEvent } from "@/server/payments/webhook";
+import { bankIdempotencyKey } from "@/server/statements/reference";
 import { IMPORT_LIMITS, StatementLimitError, getStatementSummary, importStatement, isAccounted, type ImportHooks, type ImportResult } from "@/server/statements/import";
 import { type PaymentsFixture, createPaymentsFixture } from "./payments-fixture";
 import { DUE_ON_27_OCT, HEADER, balanceOf, counts, csv, nextReference, upiRow } from "./statements-helpers";
@@ -47,7 +48,8 @@ describe("SI1 an exact payment is posted automatically", () => {
     expect(row.ledgerEntryId).toBe(payment.id);
     expect(payment.reference).toMatch(/^bank:upi:[0-9]{12}$/);
     expect(payment.reference).not.toContain(resident.name);
-    expect(entries.map((e) => e.idempotencyKey)).toEqual([`bank:${row.dedupeKey}:LATE_FEE`, `bank:${row.dedupeKey}:PAYMENT`]);
+    expect(entries.map((e) => e.idempotencyKey)).toEqual([bankIdempotencyKey(row.dedupeKey, "LATE_FEE"), bankIdempotencyKey(row.dedupeKey, "PAYMENT")]);
+    expect(entries.every((e) => /^bank:h:[0-9a-f]{32}:(LATE_FEE|PAYMENT)$/.test(e.idempotencyKey))).toBe(true);
     expect(await balanceOf(fx, resident.flatId)).toBe(0n);
   });
 

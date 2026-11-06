@@ -12,6 +12,11 @@ export function hashedBankReference(dedupeKey: string): string {
   return `bank:h:${createHash("sha256").update(dedupeKey, "utf8").digest("hex").slice(0, 32)}`;
 }
 
+/** The idempotency key of a bank posting: `bank:h:<first 32 hex of SHA-256 of the dedupe key>:<TYPE>`. No narration text (M9 closed). */
+export function bankIdempotencyKey(dedupeKey: string, entryType: string): string {
+  return `${hashedBankReference(dedupeKey)}:${entryType}`;
+}
+
 /** `bank:<rail>:<reference>` in clear when the row has a bank reference (D106), otherwise the hashed form. */
 export function bankReference(source: BankReferenceSource): string {
   const reference = source.reference;

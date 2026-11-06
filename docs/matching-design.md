@@ -198,7 +198,7 @@ English and is empty when all hold:
 
 **Entries.** `entriesToPost` holds the LATE_FEE and PAYMENT entries of the AUTO_MATCHED rows only. Each has the row
 number, the flat code, the bill key, the amount, the effective date and the idempotency key
-`bank:<dedupeKey>:<entryType>`.
+`bank:<dedupeKey>:<entryType>` inside the processor; the database layer replaces it with `bank:h:<32 hex of SHA-256 of the dedupe key>:<entryType>` before writing (M9 in `docs/manual-reconciliation-design.md`).
 
 ### How the database layer uses it (built in T12a: `docs/statement-import-design.md`)
 
