@@ -77,6 +77,7 @@ dated after the row is also STATE_CHANGED (the order of payments needs a person,
 | Route | Permission |
 |---|---|
 | `GET /api/statements`, `GET /api/statements/[id]/rows?lane=&cursor=&limit=`, `GET /api/bank-rows/[id]`, `GET /api/flats/search?q=` | `payments:match` |
+| `POST /api/statements/sample` | `payments:match`, and only when `DEMO_MODE` is exactly `"true"` (else 404 NOT_FOUND): imports the committed sample statement as `sample-statement.csv` |
 | `POST /api/bank-rows/[id]/match`, `/ignore` | `payments:match` |
 | `POST /api/bank-rows/[id]/approve`, `/reject` | `payments:approve` |
 

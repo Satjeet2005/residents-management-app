@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DEMO_NOW } from "@/domain/seed/types";
 import { createGuards } from "@/server/auth/guard";
 import { mockOtpSender } from "@/server/auth/otp-service";
-import { handleImport, handleSummary } from "@/server/statements/handlers";
+import { handleImport, handleImportSample, handleSummary } from "@/server/statements/handlers";
 import { importStatement } from "@/server/statements/import";
 import { type PaymentsFixture, createPaymentsFixture } from "./payments-fixture";
 import { DUE_ON_27_OCT, HEADER, csv, upiRow } from "./statements-helpers";
@@ -133,5 +133,38 @@ describe("the routes' answers", () => {
   it("GET with an id that is not a UUID, or not an import, is 404", async () => {
     expect((await get(await staff(), "not-a-uuid")).status).toBe(404);
     expect((await get(await staff(), crypto.randomUUID())).status).toBe(404);
+  });
+});
+
+describe("the sample statement route (demo only)", () => {
+  const sample = async (cookie: string | null, env: Record<string, string | undefined>) => {
+    const route = guards().withPermission("payments:match", (context) => handleImportSample(context, { env, now: DEMO_NOW }));
+    const headers: Record<string, string> = { host: "localhost" };
+    if (cookie !== null) headers.cookie = cookie;
+    return route(new Request("http://localhost/api/statements/sample", { method: "POST", headers }));
+  };
+
+  it("in demo mode it imports sample-statement.csv and answers like POST /api/statements", async () => {
+    const response = await sample(await as(matcher, "STAFF"), { DEMO_MODE: "true" });
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body).toMatchObject({ importId: expect.any(String), accounted: true, csvErrors: [], summary: { rowsRead: expect.any(Number), validRows: expect.any(Number), autoMatched: expect.any(Number), queued: expect.any(Number), ignored: expect.any(Number) } });
+    const stored = await fx.owner.statementImport.findUniqueOrThrow({ where: { id: body.importId } });
+    expect(stored.filename).toBe("sample-statement.csv");
+    expect(stored.uploadedById).toBe(matcher);
+  });
+
+  it.each([["unset", undefined], ["false", "false"], ["TRUE", "TRUE"], ["1", "1"], ["a space", "true "]])("DEMO_MODE %s is 404 NOT_FOUND and stores nothing", async (_label, value) => {
+    const before = await fx.owner.statementImport.count();
+    const response = await sample(await as(matcher, "STAFF"), { DEMO_MODE: value });
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "NOT_FOUND" });
+    expect(await fx.owner.statementImport.count()).toBe(before);
+  });
+
+  it("a resident and staff without payments:match are 403, and no session is 401, even in demo mode", async () => {
+    expect((await sample(await as(resident, "RESIDENT"), { DEMO_MODE: "true" })).status).toBe(403);
+    expect((await sample(await as(reporter, "STAFF"), { DEMO_MODE: "true" })).status).toBe(403);
+    expect((await sample(null, { DEMO_MODE: "true" })).status).toBe(401);
   });
 });
