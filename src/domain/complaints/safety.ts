@@ -1,3 +1,4 @@
+import { type MatchKind, compileTerms, foldForMatching } from "./match";
 import { normalizeComplaintText } from "./text";
 
 export type SafetyCategory = "FIRE" | "GAS" | "LIFT_STUCK" | "SHOCK";
@@ -9,7 +10,7 @@ export type SafetyHit = { rule: string; category: SafetyCategory; language: Safe
  * WORD: the term must stand as a whole word (a letter, vowel sign or digit may not touch it on either side): "gas" does not hit "gasket".
  * STEM: only the start must be a word start; the word may go on: a Devanagari stem covers its inflections (अडकल covers अडकली, अडकलो, अडकले).
  */
-type Kind = "WORD" | "STEM";
+type Kind = MatchKind;
 type Rule = { id: string; category: SafetyCategory; language: SafetyLanguage; kind: Kind; terms: readonly string[]; except?: RegExp };
 
 const rule = (id: string, category: SafetyCategory, language: SafetyLanguage, kind: Kind, terms: readonly string[], except?: RegExp): Rule => ({ id, category, language, kind, terms, except });
@@ -110,30 +111,13 @@ export const SAFETY_RULES: readonly Rule[] = [
   rule("SHOCK_MR_LATN_WIRE", "SHOCK", "mr-Latn", "WORD", ["ughadi tar", "ughadi wire", "wire tutli", "tar tutli", "ughdi wire"]),
 ];
 
-/** Nukta removed and chandrabindu made anusvara, so "फँस", "फंस" and a typed "फ़ंस" are one spelling. Applied to the text and to every term. */
-function foldDevanagari(text: string): string {
-  return text.replace(/़/g, "").replace(/ँ/g, "ं");
-}
-
-const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-const HAS_DEVANAGARI = /[ऀ-ॿ]/;
 const LETTER_OR_MARK_OR_DIGIT = /[\p{L}\p{M}\p{N}]/u;
-
-/** One term as a pattern: a space is flexible (Latin: spaces, hyphens, underscores, at least one; Devanagari: any spaces). Linear time, no nesting. */
-function termPattern(term: string): string {
-  const folded = foldDevanagari(term.toLowerCase());
-  const separator = HAS_DEVANAGARI.test(folded) ? "\\s*" : "[\\s\\-_]+";
-  return folded
-    .split(" ")
-    .map(escapeRegExp)
-    .join(separator);
-}
 
 type Compiled = Rule & { pattern: RegExp };
 
 const COMPILED: readonly Compiled[] = SAFETY_RULES.map((r) => ({
   ...r,
-  pattern: new RegExp(`(?<![\\p{L}\\p{M}\\p{N}])(?:${r.terms.map(termPattern).join("|")})${r.kind === "WORD" ? "(?![\\p{L}\\p{M}\\p{N}])" : ""}`, "gu"),
+  pattern: compileTerms(r.terms, r.kind),
 }));
 
 /**
@@ -145,8 +129,7 @@ const COMPILED: readonly Compiled[] = SAFETY_RULES.map((r) => ({
  * a missed fire. Known accepted false positives are listed in tests/domain/complaints/safety.test.ts and docs/complaint-classification.md.
  */
 export function detectSafetyWords(raw: string): SafetyHit[] {
-  // Apostrophes are dropped so "can't" and "cant", "won't" and "wont" are one spelling.
-  const text = foldDevanagari(normalizeComplaintText(raw).toLowerCase().replace(/['\u2019\u2018`\u00B4]/g, ""));
+  const text = foldForMatching(normalizeComplaintText(raw));
   if (text === "") return [];
   const hits: SafetyHit[] = [];
   for (const compiled of COMPILED) {
