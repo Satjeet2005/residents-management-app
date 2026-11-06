@@ -147,17 +147,20 @@ client (`src/server/db.ts`); services take it as an argument, and take the time 
 | Case | Status | Body |
 |---|---|---|
 | Code request, any valid phone | 200 | `{ message: "OTP_SENT_GENERIC", retryAfterSeconds }` (plus `demoCode` in demo mode for a demo phone) |
-| Bad body, wrong types, too large, wrong Origin | 400 | `{ error: "INVALID_REQUEST" }` |
+| Bad body, wrong types, too large | 400 | `{ error: "INVALID_REQUEST" }` |
+| An unsafe request from another site (T8c: shared check, D83) | 403 | `{ error: "CSRF_BLOCKED" }` |
 | Bad phone on a request | 400 | `{ error: "INVALID_PHONE" }` |
 | Code not accepted (wrong, old, used, expired, unknown phone, no active user) | 400 | `{ error: "OTP_NOT_ACCEPTED" }` |
 | Code locked | 400 | `{ error: "OTP_LOCKED" }` |
 | Cooldown, phone limit or address limit | 429 | `{ error: "TOO_MANY_REQUESTS", retryAfterSeconds }` and a `Retry-After` header |
 | Login accepted | 200 | `{ role, redirectTo }` and `Set-Cookie` |
 | Logout | 204 | none, and the cookie cleared (also when there was no session) |
-| Logout-all with no valid session | 401 | `{ error: "UNAUTHENTICATED" }` |
+| No valid session on a guarded route (T8c) | 401 | `{ error: "UNAUTHENTICATED" }`, and a cleared cookie only if a stale one was sent |
+| Signed in, but the role or permission is wrong (T8c) | 403 | `{ error: "FORBIDDEN" }` (audited, D82) |
+| A bug inside a route (T8c) | 500 | `{ error: "SERVER_ERROR" }`, no detail |
 
 No route answers 401 or 404 in a way that tells a registered phone from an unregistered one. Every response
-carries `Cache-Control: no-store`.
+carries `Cache-Control: no-store` (set by the guards since T8c).
 
 ### Storage
 
@@ -204,13 +207,92 @@ forge them. Local development shares one bucket, which is safe: the limits are s
 | Oversized or malformed input | zod on every body; a body over 4,096 characters is refused; unknown fields are dropped. | |
 | Audit growth | Only counted events are written (see SA8). | Audit rows are never deleted (the table is append-only). |
 
+## Route guards (T8c)
+
+### What the Next.js documentation says, and what we follow
+
+Source: https://nextjs.org/docs/app/guides/authentication (last updated 2026-09-16), and the copy that ships with the
+installed Next.js 16.4.2 at `node_modules/next/dist/docs/01-app/02-guides/authentication.md` and `data-security.md`.
+
+- Check the session in a **data access layer**, close to the data, and treat Route Handlers and Server Actions "with the
+  same security considerations as public-facing API endpoints". Each one verifies the user itself.
+- A **Proxy** (the new name for middleware, `proxy.ts`) is *optional*, for "optimistic checks" that read only the cookie,
+  not the database; it "should not be your only line of defense". **We do not add one.** Our session is a database row,
+  and a cookie-only check would add nothing a real check does not already do, on every request including prefetches.
+- React `cache` memoises inside one render pass, so it helps pages and components, but "Server Actions and Route Handlers
+  are not part of a render pass, so the wrapper does nothing". We use it for `getCurrentUser` only.
+- Layouts are not a place for auth checks (partial rendering): checks go in each page, component and action.
+- Server Actions already compare the `Origin` header with `Host` (or `X-Forwarded-Host`) and abort a mismatch
+  (`data-security.md`, "Allowed origins"), so actions get no extra CSRF code.
+- `forbidden()` and `unauthorized()` are experimental and need `authInterrupts`; we do not enable it. A page without
+  the right role is redirected to `/forbidden` instead (the page itself comes with the UI).
+
+### The guards (`src/server/auth/guard.ts`)
+
+`withPermission(need, handler)` for route handlers; `need` is a permission, `STAFF`, `RESIDENT` or `ANY_USER`.
+`publicRoute(handler)` for the four routes that are open on purpose. Every route file exports each method as
+`export const METHOD = withPermission(...)` or `publicRoute(...)`.
+
+| Order | Step | Result |
+|---|---|---|
+| 1 | Unsafe method (POST, PUT, PATCH, DELETE): is it from another site? | 403 `CSRF_BLOCKED`, before anything else, so no session lookup happens |
+| 2 | Read the session from the cookie, from the database, with the injected clock | none, or stale: 401 `UNAUTHENTICATED`; a stale or garbled session cookie is cleared |
+| 3 | Role or permission, using `can()` for staff permissions and requiring an active staff user | 403 `FORBIDDEN` and an `ACCESS_DENIED` audit row |
+| 4 | The handler runs with `{ user, sessionId, now, request, deps }` | its own response |
+
+Always: `Cache-Control: no-store`; a thrown error becomes a plain 500 with no detail; no cookie is ever set except the one
+that clears a stale cookie. `publicRoute` does step 1 and `no-store` only.
+
+**401 or 403.** 401 means "we do not know who you are": no cookie, a garbled or unknown token, an expired, revoked or
+inactive-user session. A deactivated user is a 401, because their session is not valid any more. 403 means "we know who you are
+and you may not": the wrong role or no permission. A 401 is not audited (D82): there is nobody to attribute it to, and
+anyone can send one. A 403 is audited as `ACCESS_DENIED` with the user, what was needed, the method, the path (no query
+string) and the address hash; never the cookie, the token, or the address.
+
+**CSRF (D83, `src/server/auth/csrf.ts`).** An unsafe request is blocked when `Sec-Fetch-Site` is `cross-site`, or when
+`Origin` is present and its host (with port) differs from the `Host` it was sent to. `Origin: null` and an `Origin` that
+is not a URL are blocked. No `Origin` is allowed (a script, curl, an app). The scheme is ignored, because behind a proxy
+the app may see http while the browser used https. This sits on top of `SameSite=Lax` cookies.
+
+**Route inventory rule (D81).** `tests/server/route-guards.test.ts` reads every `src/app/api/**/route.ts` with the TypeScript
+compiler API and fails, naming the route and method, when a method is exported as a bare function, an alias, or any
+call other than `withPermission(...)` or `publicRoute(...)`. The public routes are an allowlist in that test, one comment
+each: `/api/health`, `/api/auth/otp/request`, `/api/auth/otp/verify`, `/api/auth/logout`. A route file may not import the
+session service, the cookie helpers or `next/headers`, nor mention `resolveSession` or `cookies`.
+
+**`GET /api/me`.** `withPermission("ANY_USER")`. Returns `{ id, name, role, permissions, flats }`: `flats` are the codes of
+current memberships (`starts_on` on or before today and `ends_on` empty or on or after today, with today taken as the India
+date of the injected clock), sorted; `permissions` for staff only (a resident gets an empty list). No phone number.
+
+### Server components and actions (`src/server/auth/access.ts`, `current-user.ts`)
+
+- `getCurrentUser()`: the signed-in user or null, cached per render with React `cache`.
+- `requireUser({ need?, returnTo? })`: the user, or a redirect to `/login?returnTo=<safe path>` (no session) or `/forbidden`
+  (wrong role). `returnTo` goes through `safeReturnPath`.
+- `withPermissionAction(need, action)`: for Server Actions. No session gives `{ ok: false, error: "UNAUTHENTICATED" }`; the
+  wrong role gives `{ ok: false, error: "FORBIDDEN" }` and an `ACCESS_DENIED` row (method `ACTION`, path from the `Referer`,
+  or `/unknown`). The action runs only for a person who passes.
+
+### What is and is not tested
+
+Tested: the CSRF rules (36 cases); `isAllowed`, `decideAccess`, `loginPath` and the redirect targets of `requireUserWith`
+(26 cases); the guards against real Postgres with an injected clock (401 and 403 for every role, staff idle 30 minutes and
+absolute 12 hours, revoked and inactive-user sessions refused on the next request, CSRF on all four unsafe methods, no-store on every
+response, audit rows with no token or cookie); `runAction`; `/api/me`; the real `GET /api/me`, `POST /api/auth/logout-all`
+and `GET /api/health` route modules; the route inventory; and, over real HTTP against the built app, `npm run smoke:auth`.
+
+Not tested: the thin Next.js-bound parts, `getCurrentUser` (needs `headers()` and a render) and the `withPermissionAction`
+wrapper (needs `headers()`), because they only run inside a live Next.js request; their logic lives in the tested
+`resolveSession`, `authorize` and `runAction`. No page uses them yet, so the first UI task must exercise them. The
+forbidden redirect for pages is not audited.
+
 ## Not covered
 
-The `withPermission` wrapper and a test that every route is guarded (T8c); a global rate limit on all routes; a
-fresh OTP before approving a large manual payment (documented next step, **not built**, R23); the SMS provider
-and the screens; refresh of the pepper (changing it invalidates all codes in flight, which live 5 minutes);
-moving the rate-limit counters to a fast store (they are read from `otp_codes` with two indexes, which is enough
-for one society).
+A global rate limit on all routes; a fresh OTP before approving a large manual payment (documented next step, **not
+built**, R23); the SMS provider and the screens (`/login` and `/forbidden` do not exist yet); refresh of the pepper
+(changing it invalidates all codes in flight, which live 5 minutes); moving the rate-limit counters to a fast store (they
+are read from `otp_codes` with two indexes, which is enough for one society); a Proxy for optimistic redirects (the Next.js
+guide lists it as optional).
 
 ## Assumptions
 
@@ -245,16 +327,23 @@ for one society).
 - **SA5** A refused request (blocked) is not stored as a code row, so a blocked client cannot extend its own wait.
 - **SA6** `returnTo` is checked as a path only. A path with a bad percent sequence, such as `/50%25`, which
   decodes to `/50%`, is also sent home. This is conservative.
-- **SA7** `logout` always answers 204 and clears the cookie; `logout-all` answers 401 without a session.
+- **SA7** `logout` always answers 204 and clears the cookie; `logout-all` answers 401 without a session (from the guard, since T8c).
 - **SA8** `LOGIN_FAILED` is written for each counted wrong attempt and when the code becomes locked, and for a
   right code on a phone with no active user. It is not written for repeated tries on an already locked, used or
   expired code, or for a phone that never asked for a code, because an attacker could use those to fill the
   audit table.
 - **SA9** `sessions` has no `created_at`, so `evaluateSession` is given a start derived from the end and the
   role's absolute limit. It is not used in the decision.
-- **SA10** A request with an `Origin` header for another host is refused; one with no `Origin` is allowed (not a
-  browser form post). The host is compared with the `Host` header.
+- **SA10** The CSRF rule is `src/server/auth/csrf.ts` (D83), applied by both guards; it replaces the earlier per-handler Origin check, and
+  its answer changed from 400 `INVALID_REQUEST` to 403 `CSRF_BLOCKED`.
 - **SA11** In production the pepper must be at least 32 characters and must not start with `replace-with`
   (the `.env.example` placeholder). Elsewhere any non-empty value works.
 - **SA12** `codeHash` and `ipHash` use the same key and different message forms (`phone:code`, `ip:address`). A
   phone is 10 digits, so the two forms cannot collide.
+- **SA13** `/api/me` returns `permissions: []` for a resident, so the key is always present.
+- **SA14** A deactivated user is a 401, not a 403, because `resolveSession` treats their session as invalid.
+- **SA15** An `Origin` of `null` is blocked on unsafe methods; a request with no `Origin` and no `Sec-Fetch-Site` is allowed.
+- **SA16** `Sec-Fetch-Site: same-site` (a sibling subdomain) is not blocked by itself; the `Origin` host check still applies.
+- **SA17** The guards catch any error from a handler, log the fixed text "route failed" and answer a plain 500.
+- **SA18** The 403 for a page (`requireUser`) is a redirect and is not audited; the 403 for a route and an action is audited.
+- **SA19** No Proxy or middleware file is added; the Next.js guide marks it optional, and our checks need the database.

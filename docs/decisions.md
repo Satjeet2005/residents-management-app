@@ -3,7 +3,7 @@
 Every row is a decision that was made and confirmed. The numbers are fixed:
 D24, D25, D28 to D32, D59 and D76 are not in this log, and are left unused so that
 the numbers other documents quote do not change. Rows D1 to D58 are product and
-design decisions. Rows D60 to D80 are engineering decisions made during the
+design decisions. Rows D60 to D83 are engineering decisions made during the
 build.
 
 "Where in code" names the file or test that implements the decision today.
@@ -94,3 +94,6 @@ the decision helps; they are not quotes from the people who decided.
 | D78 | One-time codes are stored as HMAC-SHA256 with a secret pepper, over the phone and the code. | A code has only a million values, so a plain hash of a stolen table could be reversed at once. The pepper is not in the database. | Confirmed | `codeHash` in `src/server/auth/crypto.ts`; the pepper fails closed in production (test V7). |
 | D79 | Session tokens are stored as SHA-256 hashes. The raw token is only in the cookie. | A token is 256 random bits, so a plain hash cannot be reversed, and a database leak gives no working session. | Confirmed | `sessionTokenHash` in `src/server/auth/crypto.ts`; `createSession` in `src/server/auth/session-service.ts`; test V4. |
 | D80 | Only the newest code for a phone is valid. | A new request retires the old codes, so a guesser cannot spread attempts over several live codes, and a person is never confused by two codes. | Confirmed | `requestOtp` marks earlier codes used in the same transaction; `verifyOtp` reads the newest row; tests V1 and V3. |
+| D81 | Every route handler is either `withPermission(...)` or an allowlisted `publicRoute(...)`, and a test fails otherwise. | A guard that someone can forget is not a guard. The check is at the route, where the data is used, as the Next.js authentication guide advises, and does not rely on middleware. | Confirmed | `src/server/auth/guard.ts`; `tests/server/route-guards.test.ts` (the allowlist is in the test, one comment per route); `docs/auth-design.md`. |
+| D82 | A 403 (signed in but not allowed) is written to the audit log as ACCESS_DENIED; a 401 (not signed in) is not. | A refused person is someone to look at; a 401 has nobody to attribute it to and anyone can cause one, which would fill the table. | Confirmed | `writeAccessDeniedAudit` in `src/server/auth/audit.ts`; `withPermission` and `runAction`; tests in `tests/integration/authorization-matrix.test.ts` and `actions.test.ts`. |
+| D83 | CSRF is checked on POST, PUT, PATCH and DELETE by Origin against Host, and by Sec-Fetch-Site; a missing Origin is allowed. | Browsers always send Origin on a cross-site post, so comparing hosts stops a forged request, and a script or app with no Origin still works. It adds to `SameSite=Lax` and costs no state. | Confirmed | `src/server/auth/csrf.ts`; `tests/server/csrf.test.ts`; Server Actions are covered by Next.js itself (`data-security.md`). |

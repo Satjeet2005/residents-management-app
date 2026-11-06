@@ -17,8 +17,8 @@ assistants (install an agent skill, post feedback to a URL). It was not followed
 
 Nothing here needs a paid plan or a card unless it says so. Each decision has options, a recommendation, and what
 each option costs. None of them is in `docs/decisions.md` yet, so none is final until you answer.
-(`D85` and `smoke:auth` were named in the brief but do not exist: the decision log ends at D80 and `package.json`
-has no `smoke:auth` script. See "Post-deploy smoke test".)
+(`D85` was named in the brief but does not exist: the decision log ends at D83. `npm run smoke:auth` did not exist when
+this plan was written; it was added in T8c, see "Post-deploy smoke test".)
 
 | # | Decision | Options | Recommendation | Cost of each option |
 |---|---|---|---|---|
@@ -322,16 +322,17 @@ overwritten by a value in `.env` when `process.loadEnvFile` runs (tested with a 
    Check that the first printed line, `Target: host <your-endpoint>.neon.tech, database neondb`, is the Neon one. The
    command refuses a non-empty database, a remote host without `--allow-remote`, and a database name that does not
    match `--confirm-database` (`src/server/seed/guards.ts`). It prints row counts and `Database size`; compare the
-   size with the 1 GB cap (N9a). The expected size is **not recorded anywhere**, so this number is new information.
+   size with the 1 GB cap (N9a). A local seed into Postgres 16 measured **29.1 MB** on 2026-11-06 (T8c), so the 1 GB cap is not close; the Neon number will also include indexes and Neon's own overhead.
 6. **Never** run `npm run db:reset-demo` against Neon: it refuses any host except localhost. To start over, recreate
    the database or the project in the Neon console, then repeat steps 3 to 5.
 7. **Unset the shell variables** (`unset DATABASE_URL DEMO_MODE`) or close the terminal.
 
 ## Post-deploy smoke test
 
-`npm run smoke:auth` **does not exist yet**; no script in `package.json` has that name. It should be written as a
-small task before the first deploy. Specification (it takes `BASE_URL`, reads nothing secret, and changes only
-demo users' sessions and one-time codes):
+`npm run smoke:auth -- <BASE_URL> <demo phone>` exists (T8c, `scripts/smoke-auth.mjs`; it also reads `BASE_URL` and
+`SMOKE_PHONE`). It was run against the built app and a scratch database for a staff and a resident phone: 13 of 13 checks
+each. It reads nothing secret and changes only demo users' sessions and one-time codes. What it checks (the first list
+was the specification; the script also checks `/api/me`, the 30-second refusal and a cross-site `logout-all`):
 
 1. `POST /api/auth/otp/request` with `{ "phone": "5000000006" }` returns 200 and `message: "OTP_SENT_GENERIC"`, and, with
    `DEMO_MODE=true`, a six-digit `demoCode`. With an unknown demo phone the answer has the same shape.

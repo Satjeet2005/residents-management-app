@@ -39,9 +39,9 @@ node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"  
 - [ ] You have answered the **Decisions for the human** in `docs/deployment-plan.md`, above all 1 (is Hobby allowed for
       this work), 7 (demo mode on a public URL), 8 (Node version) and 11 (Hobby content terms). **Expected:** each has an
       answer written in the chat.
-- [ ] The agent has done the two small code tasks this plan needs: set `engines.node` to `24.x` (Decision 8) and added
-      `npm run smoke:auth` (plan, "Post-deploy smoke test"). **Expected:** `npm run smoke:auth` exists in `package.json`,
-      and `engines.node` reads `24.x`. Do **not** start Part D before this.
+- [ ] The agent has set `engines.node` to `24.x` (Decision 8; still to do as a code task). `npm run smoke:auth` already
+      exists (T8c). **Expected:** `npm run smoke:auth` is in `package.json`, and `engines.node` reads `24.x`. Do **not**
+      start Part D before this.
 - [ ] You have a password manager open and a terminal in the project folder, with Node 24 (`node -v` prints `v24.`).
 - [ ] If any sign-up below asks for a **payment card**, stop. The plan assumes none is needed, and the vendor pages did
       not confirm that either way (plan, "Things this research could not establish", item 1). Tell the agent at which
@@ -176,7 +176,7 @@ Put the address in your shell, then run the agent's smoke script:
 
 ```bash
 export BASE_URL=https://<your-project>.vercel.app
-npm run smoke:auth
+npm run smoke:auth -- "$BASE_URL" 5000000006     # a resident; then repeat with 5000000001 (staff)
 ```
 
 - [ ] **E1. Smoke test.** **Expected:** every step prints OK (request returns the generic answer; a wrong code is refused;

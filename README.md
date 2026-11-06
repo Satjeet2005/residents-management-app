@@ -36,6 +36,21 @@ databases `township`, `township_seed_scratch` and `township_test_*`, and you mus
 type the exact database name; a remote seed needs `--allow-remote` as well. The
 guards and the reasons for them are in `docs/seed-data.md`.
 
+## Smoke test (login over real HTTP)
+
+With the app running in demo mode (`DEMO_MODE=true`, an `OTP_PEPPER`, a database that holds the seed):
+
+```bash
+npm run build && npx next start -p 3100            # in one terminal, with DATABASE_URL, DEMO_MODE and OTP_PEPPER set
+npm run smoke:auth -- http://localhost:3100 5000000006    # a resident
+npm run smoke:auth -- http://localhost:3100 5000000001    # a staff member
+```
+
+It checks: request code, the 30-second refusal (429), an unknown phone looks like a known one, a wrong code gets the generic
+key, login, the cookie flags, `GET /api/me`, a cross-site `logout-all` refused, `logout-all`, and `/api/me` then 401. It
+prints PASS/FAIL lines (lengths only, never the code or cookie) and exits non-zero on failure. To try it safely, use a
+scratch database such as `township_seed_scratch` (see Demo data) and drop it afterwards.
+
 ## Demo logins
 
 Login is a one-time code. With `DEMO_MODE=true` and a demo phone (starts with 5), the API returns the code in
