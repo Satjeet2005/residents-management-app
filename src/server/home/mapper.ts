@@ -70,8 +70,8 @@ export function computeReplyDue(input: { responseDueAt: number | null; firstResp
   return { kind: "DUE", dueAt: input.responseDueAt, today: istDateOf(input.responseDueAt) === istDateOf(input.now) };
 }
 
-const toDueBill = (b: BillRow): DueBill => ({ id: b.id, period: calendarDateOf(b.period), issuedOn: calendarDateOf(b.issuedOn), dueOn: calendarDateOf(b.dueOn), amountPaise: b.amountPaise });
-const toDueEntry = (e: EntryRow): DueEntry => ({
+export const toDueBill = (b: BillRow): DueBill => ({ id: b.id, period: calendarDateOf(b.period), issuedOn: calendarDateOf(b.issuedOn), dueOn: calendarDateOf(b.dueOn), amountPaise: b.amountPaise });
+export const toDueEntry = (e: EntryRow): DueEntry => ({
   id: e.id,
   entryType: e.entryType,
   direction: e.direction,
