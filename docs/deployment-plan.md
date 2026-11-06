@@ -16,7 +16,8 @@ assistants (install an agent skill, post feedback to a URL). It was not followed
 ## Decisions for the human
 
 Nothing here needs a paid plan or a card unless it says so. Each decision has options, a recommendation, and what
-each option costs. None of them is in `docs/decisions.md` yet, so none is final until you answer.
+each option costs. **All 12 were accepted by the human (D93)**, as recommended unless a later decision says otherwise
+(D89 to D92, D94 and D95 record the outcomes in `docs/decisions.md`).
 (`D85` was named in the brief but does not exist: the decision log ends at D83. `npm run smoke:auth` did not exist when
 this plan was written; it was added in T8c, see "Post-deploy smoke test".)
 
