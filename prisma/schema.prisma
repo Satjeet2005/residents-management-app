@@ -298,7 +298,11 @@ model OtpCode {
   attempts   Int       @default(0)
   consumedAt DateTime? @map("consumed_at") @db.Timestamptz(6)
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// HMAC of the address that asked for the code, never the address itself.
+  requestedIpHash String? @map("requested_ip_hash")
 
+  @@index([phone, createdAt])
+  @@index([requestedIpHash, createdAt])
   @@map("otp_codes")
 }
 
