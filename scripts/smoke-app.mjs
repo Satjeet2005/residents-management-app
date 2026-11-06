@@ -193,10 +193,10 @@ let sampleImportId = null;
 async function staffImportsSample(staffCookie) {
   const { getSampleStatement } = await import("../src/server/statements/sample-statement.ts");
   const csv = getSampleStatement();
-  const first = await post("/api/statements", { filename: "sample-statement.csv", csv }, staffCookie);
+  const first = await post("/api/statements/sample", undefined, staffCookie);
   const s = first.json?.summary ?? {};
   check(
-    "POST /api/statements with the sample: 200, 106 rows, 24 posted, 44 queued, 38 ignored, none repeated, accounted true",
+    "POST /api/statements/sample (the demo route): 200, 106 rows, 24 posted, 44 queued, 38 ignored, none repeated, accounted true",
     first.status === 200 && s.rowsRead === 106 && s.validRows === 106 && s.invalidRows === 0 && s.autoMatched === 24 && s.queued === 44 && s.ignored === 38 && s.alreadyImported === 0 && s.downgraded === 0 && first.json?.accounted === true,
     `status ${first.status}, ${JSON.stringify({ a: s.autoMatched, q: s.queued, i: s.ignored })}`,
   );
@@ -318,6 +318,49 @@ async function findQueuedRow(cookie, text) {
   return null;
 }
 
+/** The text of a page with its tags and the hidden duplicate (table and cards) left as they are: a check looks for a phrase, not a position. */
+const phrase = (page, text) => page.text.includes(text);
+
+/**
+ * The reconciliation SCREENS over HTTP (T12c): the start page, the workspace of the sample import (the books accounted for, the four lane counts),
+ * the review panel for one row (?row=), the Awaiting approval lane as the requester and as another approver, and who is turned away.
+ * Run before any manual action, so the counts are the import's own (the gateway already paid T12-0408, so one row fewer is posted).
+ */
+async function reconciliationScreens(staffCookie, residentCookie, rowId) {
+  const start = await get("/staff/reconciliation", staffCookie);
+  check("GET /staff/reconciliation as staff: 200, one h1, the upload panel, the sample button (demo mode) and the sample import in Recent imports", start.status === 200 && (start.html.match(/<h1/g) ?? []).length === 1 && phrase(start, "Upload a bank statement") && phrase(start, "Use the sample statement") && phrase(start, "Recent imports") && phrase(start, "sample-statement.csv"), `status ${start.status}`);
+  const workspace = await get(`/staff/reconciliation/${sampleImportId}`, staffCookie);
+  check("the workspace shows 'All 106 rows accounted for' (read back from the database), one h1 and the file name", workspace.status === 200 && phrase(workspace, "All 106 rows accounted for") && (workspace.html.match(/<h1/g) ?? []).length === 1 && phrase(workspace, "sample-statement.csv"), `status ${workspace.status}`);
+  check(
+    "the workspace shows the lane counts: Needs you 44, Awaiting approval 0, Posted 24, Not maintenance 38, and the summary numbers",
+    ["Needs you 44", "Awaiting approval 0", "Posted 24", "Not maintenance 38", "Posted automatically 24", "Need you 44"].every((p) => phrase(workspace, p)),
+    "",
+  );
+  check("the workspace is a tablist with four tabs and a tab panel, and has no accept-all or checkbox", (workspace.html.match(/role="tab"/g) ?? []).length === 4 && workspace.html.includes('role="tabpanel"') && !/accept all|approve all|post all|select all/i.test(workspace.text) && !workspace.html.includes('type="checkbox"'), "");
+  const panel = await get(`/staff/reconciliation/${sampleImportId}?row=${rowId}`, staffCookie);
+  check(
+    "?row=<id> shows the review panel: the full narration, 'Why this needs you', the first candidate T21-1601 with its amount relation, and Post disabled",
+    panel.status === 200 && phrase(panel, "Review this payment") && phrase(panel, "Why this needs you") && phrase(panel, "UPI/710000000003/T21-1601 Aamir Shaikh/maintenance") && phrase(panel, "T21-1601") && phrase(panel, "Equals the unpaid bill, ₹38 of late fee would still be due") && /<button[^>]*disabled[^>]*>Post<\/button>/.test(panel.html),
+    `status ${panel.status}`,
+  );
+  check("the ₹5,660 row is below the demo threshold, so its panel has no second-approver notice", !phrase(panel, "second approver"), "");
+  const posted = await get(`/staff/reconciliation/${sampleImportId}?lane=posted`, staffCookie);
+  check("the Posted lane is read only: 'Automatic' rows, no button and no undo", posted.status === 200 && phrase(posted, "Automatic") && !/<button[^>]*>(Approve|Reject|Undo|Post)/.test(posted.html) && !/undo/i.test(posted.text), `status ${posted.status}`);
+
+  const resident = await get(`/staff/reconciliation/${sampleImportId}`, residentCookie);
+  const residentStart = await get("/staff/reconciliation", residentCookie);
+  check("a resident requesting the workspace, or the start page, ends at /forbidden (a redirect, no staff data in the body)", redirectTarget(resident)?.to === "/forbidden" && redirectTarget(residentStart)?.to === "/forbidden" && !resident.text.includes("sample-statement") && !residentStart.text.includes("sample-statement"), `${redirectTarget(resident)?.how} -> ${redirectTarget(resident)?.to} / ${redirectTarget(residentStart)?.how} -> ${redirectTarget(residentStart)?.to}`);
+  const reportsOnly = await login("5000000003");
+  const refused = reportsOnly === null ? null : await get(`/staff/reconciliation/${sampleImportId}`, reportsOnly);
+  const refusedStart = reportsOnly === null ? null : await get("/staff/reconciliation", reportsOnly);
+  check("staff without payments:match (Meera Kapoor, reports:view) are refused the workspace and the start page: /forbidden", refused !== null && redirectTarget(refused)?.to === "/forbidden" && redirectTarget(refusedStart)?.to === "/forbidden" && !refused.text.includes("sample-statement"), refused ? `${redirectTarget(refused)?.how} -> ${redirectTarget(refused)?.to}` : "could not log in");
+  if (reportsOnly !== null) await post("/api/auth/logout-all", undefined, reportsOnly);
+  const noCookie = await get(`/staff/reconciliation/${sampleImportId}`);
+  check("nobody signed in is sent to /login with a returnTo and sees no data", /^\/login\?returnTo=/.test(redirectTarget(noCookie)?.to ?? "") && !noCookie.text.includes("sample-statement"), `${redirectTarget(noCookie)?.how} -> ${redirectTarget(noCookie)?.to}`);
+  const staffLanding = await get("/staff", staffCookie);
+  check("the staff landing links to Bank reconciliation", /<a [^>]*href="\/staff\/reconciliation"/.test(staffLanding.html), "");
+}
+
 /**
  * Reconciliation over HTTP (T12b): staff list the imports and the NEEDS_YOU lane, review the first row, match the principal-only payment of T21-1601
  * by hand (the counts move by one and the resident's Home then says "Late fee due"), ask for approval of a credit above the threshold and approve it
@@ -342,6 +385,7 @@ async function reconcile(staffCookie, residentCookie) {
   const t21 = principalReview?.json?.candidates?.find((c) => c.flatCode === "T21-1601");
   check("the ₹5,660 row of T21-1601 is reviewed: the flat's open position is ₹5,660 principal plus ₹38, ₹5,698 due", principal !== null && t21?.openPositions?.[0]?.principalOutstandingPaise === "566000" && t21.openPositions[0].feePaise === "3800" && t21.openPositions[0].amountDuePaise === "569800" && t21.amountRelation === "EQUALS_PRINCIPAL", principal ? `relation ${t21?.amountRelation}` : "row not found");
   if (!principal || !t21) return;
+  await reconciliationScreens(staffCookie, residentCookie, principal.id);
 
   const noReason = await api("POST", `/api/bank-rows/${principal.id}/match`, staffCookie, { flatCode: "T21-1601", reason: "ok", rememberPayer: false, expectedVersion: 1 });
   check("a match with a one-word reason is 422 REASON_REQUIRED and changes nothing", noReason.status === 422 && noReason.json?.error === "REASON_REQUIRED", `status ${noReason.status}`);
@@ -369,6 +413,13 @@ async function reconcile(staffCookie, residentCookie) {
   check("a MANUAL MATCH of a queued credit of ₹10,000 or more is 200 AWAITING_APPROVAL, not posted (D116)", matchAsked?.status === 200 && matchAsked.json?.status === "AWAITING_APPROVAL" && matchAsked.json.thresholdPaise === "1000000", `status ${matchAsked?.status}`);
   const awaiting = await api("GET", `/api/statements/${sampleImportId}/rows?lane=AWAITING_APPROVAL`, staffCookie);
   check("the AWAITING_APPROVAL lane holds those two rows", awaiting.json?.items?.length === 2 && awaiting.json.items.some((r) => r.id === big?.id) && awaiting.json.items.some((r) => r.id === high?.id) && awaiting.json.laneCounts.AWAITING_APPROVAL === 2, `status ${awaiting.status}`);
+  const asRequester = await get(`/staff/reconciliation/${sampleImportId}?lane=awaiting-approval`, staffCookie);
+  const asApprover = await get(`/staff/reconciliation/${sampleImportId}?lane=awaiting-approval`, second);
+  check(
+    "the Awaiting approval lane: the requester sees who asked, what and why and 'Waiting for another approver' with no Approve or Reject; the other approver sees Approve and Reject",
+    phrase(asRequester, "Asked by Priya Nair") && phrase(asRequester, "Match to") && phrase(asRequester, "The code and the name agree with the flat") && phrase(asRequester, "Waiting for another approver") && !/<button[^>]*>(Approve|Reject)<\/button>/.test(asRequester.html) && /<button[^>]*>Approve<\/button>/.test(asApprover.html) && /<button[^>]*>Reject<\/button>/.test(asApprover.html) && !phrase(asApprover, "Waiting for another approver"),
+    `${asRequester.status} ${asApprover.status}`,
+  );
   const noPermission = big ? await api("POST", `/api/bank-rows/${big.id}/approve`, staffCookie, {}) : null;
   check("the person who asked (payments:match only) cannot approve: 403", noPermission?.status === 403, `status ${noPermission?.status}`);
   const approved = big ? await api("POST", `/api/bank-rows/${big.id}/approve`, second, { note: "Checked on the statement" }) : null;
