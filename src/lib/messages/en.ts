@@ -134,4 +134,7 @@ export const en = {
   "home.showing": "Showing {code}",
   "home.noFlat": "No flat is linked to your account yet. Ask the society office to link your flat.",
   "home.who": "{name}, {relation}",
+  "home.loading": "Loading your home",
+  "home.error.message": "We couldn't load your dues.",
+  "home.error.consequence": "You can't pay right now.",
 } as const satisfies Record<string, string>;
