@@ -17,6 +17,9 @@ export function businessNow(env: Readonly<Record<string, string | undefined>> = 
   return dayStartInstant(raw) + NOON_MS;
 }
 
+/** The real clock (D97): sessions, audit rows and the times of payment events. Never the business clock. */
+export const realNow = (): number => Date.now();
+
 /** Is a frozen demo date in force? The screens use it to say so. */
 export function isBusinessClockFrozen(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
   return (env.DEMO_AS_OF?.trim() ?? "") !== "";

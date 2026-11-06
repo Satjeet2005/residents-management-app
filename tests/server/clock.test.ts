@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { businessNow, isBusinessClockFrozen, isDemoMode } from "@/server/clock";
+import { describe, expect, it, vi } from "vitest";
+import { businessNow, isBusinessClockFrozen, isDemoMode, realNow } from "@/server/clock";
 import { istDateOf } from "@/domain/time/calendar";
 import { formatTimeIst } from "@/lib/format-date";
 
@@ -41,5 +41,16 @@ describe("D97 businessNow", () => {
 describe("D97 isDemoMode", () => {
   it.each([["true", true], ["false", false], ["TRUE", false], ["1", false], ["", false], [undefined, false], [" true", false]])("DEMO_MODE %j is %s", (value, expected) => {
     expect(isDemoMode({ DEMO_MODE: value })).toBe(expected);
+  });
+});
+
+describe("realNow", () => {
+  it("is the real clock: it moves with Date.now() and ignores DEMO_AS_OF", () => {
+    vi.stubEnv("DEMO_AS_OF", "2026-10-27");
+    const before = Date.now();
+    const value = realNow();
+    expect(value).toBeGreaterThanOrEqual(before);
+    expect(value).toBeLessThanOrEqual(Date.now());
+    vi.unstubAllEnvs();
   });
 });
