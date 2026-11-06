@@ -98,7 +98,7 @@ describe("D81 route inventory", () => {
 
   it("finds the route files", () => {
     expect(files.map(toRoute).sort()).toEqual(
-      ["/api/auth/logout", "/api/auth/logout-all", "/api/auth/otp/request", "/api/auth/otp/verify", "/api/health", "/api/me", "/api/payments", "/api/payments/webhook"].sort(),
+      ["/api/auth/logout", "/api/auth/logout-all", "/api/auth/otp/request", "/api/auth/otp/verify", "/api/health", "/api/me", "/api/payments", "/api/payments/webhook", "/api/statements", "/api/statements/[id]"].sort(),
     );
   });
 

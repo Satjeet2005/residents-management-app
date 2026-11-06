@@ -28,7 +28,7 @@ export class StatementLimitError extends RangeError {
 export class StatementAccountingError extends Error {}
 
 /** Test seams: a test injects a concurrent commit after the snapshot, or a failure before the commit. Production callers pass none. */
-export type ImportHooks = { afterSnapshot?: () => Promise<void>; beforeCommit?: () => Promise<void> };
+export type ImportHooks = { afterSnapshot?: () => Promise<void>; beforeCommit?: () => Promise<void>; /** Shortens the 5 s wait for a lock, so a test of IMPORT_IN_PROGRESS does not take 5 s. */ lockTimeoutMs?: number };
 
 export type ImportSummary = {
   rowsRead: number;
@@ -199,7 +199,7 @@ export async function importStatement(input: { db: Db; user: Pick<SessionUser, "
   try {
     return await input.db.$transaction(
       async (tx): Promise<ImportResult> => {
-        await tx.$executeRawUnsafe("SET LOCAL lock_timeout = '5s'");
+        await tx.$executeRawUnsafe(`SET LOCAL lock_timeout = ${input.hooks?.lockTimeoutMs === undefined ? "'5s'" : String(Math.trunc(input.hooks.lockTimeoutMs))}`);
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('statement-import'))`;
 
         const { flats, settings } = await loadMatchContext(tx, input.now);
