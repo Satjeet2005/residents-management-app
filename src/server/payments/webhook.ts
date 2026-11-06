@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
-import { lockAmount } from "@/domain/payments/amount-lock";
+import { positionsForFlat } from "@/domain/billing/dues";
 import { type ExceptionReason, type GatewayAttempt, decideGatewayEvent, describeException } from "@/domain/payments/attempt-state";
 import { istDateOf } from "@/domain/time/calendar";
 import type { Db } from "@/server/auth/db";
@@ -94,12 +94,12 @@ async function queueException(tx: Tx, attemptId: string, reason: ExceptionReason
 }
 
 /**
- * Applies one verified gateway event (D45, D50). Everything happens in ONE transaction, and the first statement locks the
+ * Applies one verified gateway event (D45, D50, D107). Everything happens in ONE transaction, and the first statement locks the
  * attempt's row (`SELECT ... FOR UPDATE`), so two events for the same attempt run one after the other: the second sees what the
  * first did and is a DUPLICATE, never a second posting. It then takes the bill's lock (`lockBill`, shared with the bank statement
  * import, D104), so a bank posting and a gateway success cannot both pay one bill: whichever is second sees the first one's payment
  * and becomes an exception. The decision is `decideGatewayEvent`; this function only loads the facts and writes the answer.
- * - POST: the ledger entries, the attempt SUCCEEDED with debit CONFIRMED and resolved_at.
+ * - POST: the entries planPosting plans (a LATE_FEE once when the principal is reached, and ONE PAYMENT; a PAYMENT alone for a fee-only bill), the attempt SUCCEEDED with debit CONFIRMED and resolved_at.
  * - MARK_FAILED: the attempt FAILED with debit NOT_DEBITED and resolved_at; nothing is posted.
  * - DUPLICATE: nothing changes.
  * - EXCEPTION: one OPEN queue item (skipped if one is open), the attempt left as it is, nothing posted.
@@ -121,20 +121,19 @@ export async function applyGatewayEvent(db: Db, event: WebhookEvent, now: number
 
     const [entries, settings] = await Promise.all([
       tx.ledgerEntry.findMany({
-        where: { flatId: row.flatId, entryType: { in: ["PAYMENT", "REVERSAL"] } },
+        where: { flatId: row.flatId, entryType: { in: ["PAYMENT", "REVERSAL", "LATE_FEE", "ADJUSTMENT"] } },
         select: { id: true, entryType: true, direction: true, amountPaise: true, effectiveDate: true, billId: true, reversesEntryId: true, createdAt: true },
       }),
       tx.societySetting.findMany({ where: { key: "late_fee_policy" }, select: { key: true, value: true } }),
     ]);
     const payments = entries.map(toDueEntry);
     const reversed = new Set(payments.filter((e) => e.entryType === "REVERSAL").map((e) => e.reversesEntryId));
-    const locking = lockAmount({ openBills: [toDueBill(row.bill)], asOf: startedOn, policy: parsePolicy(settings), payments });
+    const position = positionsForFlat({ bills: [toDueBill(row.bill)], entries: payments, policy: parsePolicy(settings), asOf: startedOn })[0]?.position ?? null;
     const decision = decideGatewayEvent({
       attempt,
       event: { type: event.type === "payment.succeeded" ? "SUCCEEDED" : "FAILED", amountPaise: event.amountPaise, reference: event.reference },
       bill: {
-        principalOutstandingAtStartPaise: locking?.principalPaise ?? 0n,
-        feeAtStartPaise: locking?.feePaise ?? 0n,
+        position,
         hasPaymentAfterStart: payments.some((e) => e.entryType === "PAYMENT" && e.billId === row.billId && e.effectiveDate > startedOn && !reversed.has(e.id)),
       },
     });

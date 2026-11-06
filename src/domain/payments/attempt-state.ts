@@ -1,3 +1,5 @@
+import type { BillPosition } from "../billing/position";
+import { planPosting } from "../billing/posting";
 import type { Paise } from "../money/money";
 import type { CalendarDate } from "../time/calendar";
 
@@ -27,11 +29,12 @@ export type GatewayAttempt = {
 
 export type GatewayEvent = { type: "SUCCEEDED" | "FAILED"; amountPaise: Paise; reference: string };
 
-/** The bill's position on the day the attempt started, worked out by the caller with computeDues' own functions. */
-export type BillPosition = {
-  principalOutstandingAtStartPaise: Paise;
-  feeAtStartPaise: Paise;
-  /** True when a payment on this bill is dated after the day the attempt started. */
+/**
+ * What the caller loads about the bill: its position AS OF the day the attempt started (billPosition, via positionsForFlat; null
+ * when the bill had not been issued that day), and whether a payment on it is dated after that day.
+ */
+export type AttemptBill = {
+  position: BillPosition | null;
   hasPaymentAfterStart: boolean;
 };
 
@@ -58,43 +61,39 @@ export type GatewayDecision =
 
 const exception = (reason: ExceptionReason): GatewayDecision => ({ kind: "EXCEPTION", reason });
 
-/** The entries of a confirmed payment: the late fee as a charge (only when above zero), then ONE payment for principal plus fee. */
-function entriesFor(attempt: GatewayAttempt, bill: BillPosition): LedgerPost[] {
-  const base = { effectiveDate: attempt.startedOn, billId: attempt.billId, flatId: attempt.flatId, paymentAttemptId: attempt.id };
-  const entries: LedgerPost[] = [];
-  if (bill.feeAtStartPaise > 0n) {
-    entries.push({ ...base, entryType: "LATE_FEE", direction: "CHARGE", amountPaise: bill.feeAtStartPaise, idempotencyKey: `payment:${attempt.id}:LATE_FEE`, reference: null });
-  }
-  entries.push({
-    ...base,
-    entryType: "PAYMENT",
-    direction: "PAYMENT",
-    amountPaise: bill.principalOutstandingAtStartPaise + bill.feeAtStartPaise,
-    idempotencyKey: `payment:${attempt.id}:PAYMENT`,
-    reference: attempt.reference,
-  });
-  return entries;
-}
-
-/** A success posts only when every guard holds; the first one that fails names the exception, and nothing is posted. */
-function decideSuccess(attempt: GatewayAttempt, event: GatewayEvent, bill: BillPosition): GatewayDecision {
+/**
+ * A success posts only when every guard holds; the first one that fails names the exception, and nothing is posted. The entries
+ * are exactly the ones planPosting plans (D107, D110): a LATE_FEE (once, when the principal is reached) and ONE PAYMENT for a
+ * principal still open, a PAYMENT alone for a fee still owed.
+ */
+function decideSuccess(attempt: GatewayAttempt, event: GatewayEvent, bill: AttemptBill): GatewayDecision {
   if (event.amountPaise !== attempt.amountPaise) return exception("AMOUNT_MISMATCH");
   if (bill.hasPaymentAfterStart) return exception("LATER_PAYMENT");
-  if (bill.principalOutstandingAtStartPaise <= 0n) return exception("BILL_ALREADY_PAID");
-  if (bill.principalOutstandingAtStartPaise + bill.feeAtStartPaise !== attempt.amountPaise) return exception("AMOUNT_MISMATCH");
-  return { kind: "POST", entries: entriesFor(attempt, bill) };
+  const { position } = bill;
+  if (position === null || position.kind === "SETTLED") return exception("BILL_ALREADY_PAID");
+  if (position.amountDuePaise !== attempt.amountPaise) return exception("AMOUNT_MISMATCH");
+  const plan = planPosting({ position, creditPaise: attempt.amountPaise, paymentDate: attempt.startedOn });
+  if ("refused" in plan) return exception(plan.refused === "NO_DUES" ? "BILL_ALREADY_PAID" : "AMOUNT_MISMATCH");
+  const base = { billId: attempt.billId, flatId: attempt.flatId, paymentAttemptId: attempt.id };
+  const entries: LedgerPost[] = plan.entries.map((entry) => ({
+    ...base,
+    ...entry,
+    idempotencyKey: `payment:${attempt.id}:${entry.entryType}`,
+    reference: entry.entryType === "PAYMENT" ? attempt.reference : null,
+  }));
+  return { kind: "POST", entries };
 }
 
 /**
  * The decision for one gateway event.
  * - An event whose reference is not the attempt's: EXCEPTION UNKNOWN_REFERENCE.
- * - On an INITIATED attempt: a SUCCEEDED event posts only if the amount equals the locked amount, equals outstanding
- *   principal plus fee on the start date, no payment is dated after the start date, and the bill still owes something
- *   (D45, D50, R1); a FAILED event marks the attempt failed (no money moved).
+ * - On an INITIATED attempt: a SUCCEEDED event posts only if the amount equals the locked amount, equals the bill's amount due
+ *   on the start date (principal plus fee, or the fee alone), no payment is dated after the start date, and the bill still owes
+ *   something (D45, D50, D107, R1); a FAILED event marks the attempt failed (no money moved).
  * - On a final attempt: the same event again is DUPLICATE (a success must also repeat the amount); the opposite event is
  *   EXCEPTION CONTRADICTS_FINAL_STATE and is never posted automatically.
  */
-export function decideGatewayEvent(input: { attempt: GatewayAttempt; event: GatewayEvent; bill: BillPosition }): GatewayDecision {
+export function decideGatewayEvent(input: { attempt: GatewayAttempt; event: GatewayEvent; bill: AttemptBill }): GatewayDecision {
   const { attempt, event, bill } = input;
   if (event.reference !== attempt.reference) return exception("UNKNOWN_REFERENCE");
   switch (attempt.status) {

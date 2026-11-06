@@ -250,7 +250,8 @@ describe("PY4 the guards: an event that does not fit is an exception for a perso
   it("a success when the bill was already paid on the start day is BILL_ALREADY_PAID: nothing is posted, one OPEN item", async () => {
     const resident = await fx.makeResident();
     const attempt = await startFor(resident.user);
-    await fx.owner.ledgerEntry.create({ data: { flatId: resident.flatId, billId: resident.billId, entryType: "PAYMENT", direction: "PAYMENT", amountPaise: 637_000n, effectiveDate: new Date("2026-10-27T00:00:00Z"), idempotencyKey: `same-day:${attempt.attemptId}` } });
+    await fx.owner.ledgerEntry.create({ data: { flatId: resident.flatId, billId: resident.billId, entryType: "LATE_FEE", direction: "CHARGE", amountPaise: 9_800n, effectiveDate: new Date("2026-10-27T00:00:00Z"), idempotencyKey: `same-day-fee:${attempt.attemptId}` } });
+    await fx.owner.ledgerEntry.create({ data: { flatId: resident.flatId, billId: resident.billId, entryType: "PAYMENT", direction: "PAYMENT", amountPaise: 646_800n, effectiveDate: new Date("2026-10-27T00:00:00Z"), idempotencyKey: `same-day:${attempt.attemptId}` } });
     expect(await succeed(attempt)).toEqual({ outcome: "EXCEPTION", reason: "BILL_ALREADY_PAID" });
     expect(await openItems(attempt.attemptId)).toHaveLength(1);
     expect((await entriesOf(resident.flatId)).length).toBe(0);

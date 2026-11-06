@@ -218,7 +218,7 @@ describe("PY7 who may start a payment, and when (the route, with the real guard)
   });
 
   it("nothing open is 409 NO_DUES", async () => {
-    const paid = await fx.makeResident({ payments: [{ date: "2026-09-20", amountPaise: 637_000n }] });
+    const paid = await fx.makeResident({ payments: [{ date: "2026-09-20", amountPaise: 639_100n }], lateFees: [{ date: "2026-09-20", amountPaise: 2_100n }] });
     const response = await post(await fx.signIn(paid.user.id, "RESIDENT", DEMO_NOW), { expectedAmountPaise: "1000" }, demo);
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({ error: "NO_DUES" });

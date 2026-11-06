@@ -4,7 +4,8 @@ import { describe, expect, it } from "vitest";
 import { type DueBill, type DueEntry, computeDues } from "@/domain/billing/dues";
 import { defaultLateFeePolicy } from "@/domain/billing/late-fee";
 import { lockAmount } from "@/domain/payments/amount-lock";
-import { type AttemptStatus, type BillPosition, type GatewayAttempt, type GatewayEvent, decideGatewayEvent } from "@/domain/payments/attempt-state";
+import type { PositionKind } from "@/domain/billing/position";
+import { type AttemptBill, type AttemptStatus, type GatewayAttempt, type GatewayEvent, decideGatewayEvent } from "@/domain/payments/attempt-state";
 import { addDays } from "@/domain/time/calendar";
 
 /** mulberry32: a tiny deterministic generator, so a failure can be reproduced from its seed. */
@@ -23,7 +24,13 @@ const pick = <T>(r: () => number, items: readonly T[]): T => items[int(r, items.
 
 const STATUSES: AttemptStatus[] = ["INITIATED", "INITIATED", "INITIATED", "SUCCEEDED", "FAILED", "PROCESSING", "RELEASED"];
 
-type Case = { attempt: GatewayAttempt; event: GatewayEvent; bill: BillPosition };
+type Case = { attempt: GatewayAttempt; event: GatewayEvent; bill: AttemptBill };
+
+/** A position of the bill on the start day made from a principal and a fee: PRINCIPAL_OPEN, FEE_ONLY (principal paid) or SETTLED. */
+function positionOf(principal: bigint, fee: bigint, asOf: string): NonNullable<AttemptBill["position"]> {
+  const kind: PositionKind = principal > 0n ? "PRINCIPAL_OPEN" : fee > 0n ? "FEE_ONLY" : "SETTLED";
+  return { kind, asOf, principalOutstandingPaise: principal, feeComputedPaise: fee, feeOutstandingPaise: fee, amountDuePaise: principal + fee, settledOn: null, anomalies: [] };
+}
 
 /** A random case where each guard is, in turn, usually satisfied and sometimes broken. */
 function randomCase(r: () => number): Case {
@@ -33,10 +40,11 @@ function randomCase(r: () => number): Case {
   const lockedOk = int(r, 5) !== 0;
   const amount = lockedOk && total > 0n ? total : BigInt(1 + int(r, 3_000_000));
   const reference = `MOCK-${int(r, 1000)}`;
+  const startedOn = addDays("2026-09-01", int(r, 90));
   return {
-    attempt: { id: `a-${int(r, 1000)}`, billId: "b", flatId: "f", status: pick(r, STATUSES), amountPaise: amount, reference, startedOn: addDays("2026-09-01", int(r, 90)) },
+    attempt: { id: `a-${int(r, 1000)}`, billId: "b", flatId: "f", status: pick(r, STATUSES), amountPaise: amount, reference, startedOn },
     event: { type: pick(r, ["SUCCEEDED", "SUCCEEDED", "FAILED"] as const), amountPaise: int(r, 5) === 0 ? BigInt(1 + int(r, 3_000_000)) : amount, reference: int(r, 8) === 0 ? "MOCK-other" : reference },
-    bill: { principalOutstandingAtStartPaise: principal, feeAtStartPaise: fee, hasPaymentAfterStart: int(r, 5) === 0 },
+    bill: { position: positionOf(principal, fee, startedOn), hasPaymentAfterStart: int(r, 5) === 0 },
   };
 }
 
@@ -47,8 +55,9 @@ function mayPost({ attempt, event, bill }: Case): boolean {
     event.type === "SUCCEEDED" &&
     event.reference === attempt.reference &&
     event.amountPaise === attempt.amountPaise &&
-    bill.principalOutstandingAtStartPaise > 0n &&
-    attempt.amountPaise === bill.principalOutstandingAtStartPaise + bill.feeAtStartPaise &&
+    bill.position !== null &&
+    bill.position.kind !== "SETTLED" &&
+    attempt.amountPaise === bill.position.amountDuePaise &&
     !bill.hasPaymentAfterStart
   );
 }
@@ -75,21 +84,24 @@ describe("PY1 properties over 2,000 seeded random cases", () => {
       const payments = decision.entries.filter((e) => e.entryType === "PAYMENT");
       expect(payments).toHaveLength(1);
       expect(payments[0].amountPaise).toBe(c.attempt.amountPaise);
-      expect(payments[0].amountPaise).toBe(c.bill.principalOutstandingAtStartPaise + c.bill.feeAtStartPaise);
+      const position = c.bill.position as NonNullable<AttemptBill["position"]>;
+      expect(payments[0].amountPaise).toBe(position.principalOutstandingPaise + position.feeOutstandingPaise);
       const fees = decision.entries.filter((e) => e.entryType === "LATE_FEE");
-      expect(fees).toHaveLength(c.bill.feeAtStartPaise > 0n ? 1 : 0);
+      // The fee is posted once, when the principal is reached (D110); a bill whose principal is already paid never gets a second one.
+      expect(fees).toHaveLength(position.kind === "PRINCIPAL_OPEN" && position.feeComputedPaise > 0n ? 1 : 0);
       expect(decision.entries.length).toBe(1 + fees.length);
     }
     expect(posts).toBeGreaterThan(100);
   });
 
-  it("the charges and the payments of a POST balance: the ledger moves by principal, never by more", () => {
+  it("the charges and the payments of a POST balance: the ledger moves by the principal, or by the fee alone when only the fee was owed", () => {
     for (const c of cases) {
       const decision = decideGatewayEvent(c);
       if (decision.kind !== "POST") continue;
       const charged = decision.entries.filter((e) => e.direction === "CHARGE").reduce((s, e) => s + e.amountPaise, 0n);
       const paid = decision.entries.filter((e) => e.direction === "PAYMENT").reduce((s, e) => s + e.amountPaise, 0n);
-      expect(paid - charged).toBe(c.bill.principalOutstandingAtStartPaise);
+      const position = c.bill.position as NonNullable<AttemptBill["position"]>;
+      expect(paid - charged).toBe(position.kind === "PRINCIPAL_OPEN" ? position.principalOutstandingPaise : position.feeOutstandingPaise);
     }
   });
 
@@ -138,7 +150,7 @@ describe("PY1 property: the lock and the Home agree over 500 seeded random flats
       const locked = lockAmount({ openBills: bills, asOf, policy: defaultLateFeePolicy, payments });
       const first = dues.openBills[0];
       if (first === undefined) expect(locked).toBeNull();
-      else expect(locked).toEqual({ billId: first.billId, principalPaise: first.outstandingPaise, feePaise: first.feePaise, totalPaise: first.outstandingPaise + first.feePaise });
+      else expect(locked).toEqual({ billId: first.billId, kind: first.kind, principalPaise: first.outstandingPaise, feePaise: first.feePaise, totalPaise: first.outstandingPaise + first.feePaise });
     }
   });
 });

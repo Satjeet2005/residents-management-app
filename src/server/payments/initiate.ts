@@ -26,8 +26,9 @@ type Attempt = { id: string; amountPaise: bigint; gatewayReference: string | nul
 const UNRESOLVED = ["INITIATED", "PROCESSING"] as const;
 
 /**
- * Starts a payment (D99, D101). The amount is locked here, when Pay is tapped: the OLDEST open bill's outstanding principal
- * plus its late fee on the business date, worked out by the same function as the Home. The flat is the person's own current
+ * Starts a payment (D99, D101, D107). The amount is locked here, when Pay is tapped: the OLDEST open bill's outstanding principal
+ * plus its late fee on the business date, or just the late fee when the principal is already paid, worked out by the same
+ * function as the Home. The flat is the person's own current
  * flat (the Home's rule); nothing from the request chooses a flat or a bill.
  *
  * - The amount the person saw is `expectedAmountPaise`. If today's amount differs (the date rolled over, or a payment
@@ -55,7 +56,7 @@ export async function initiatePayment(input: {
     openBills: bills.map(toDueBill),
     asOf: today,
     policy: parsePolicy(settings),
-    payments: entries.filter((e) => e.entryType === "PAYMENT" || e.entryType === "REVERSAL").map(toDueEntry),
+    payments: entries.map(toDueEntry),
   });
   if (locked === null) return { status: "NO_DUES" };
   if (locked.totalPaise !== input.expectedAmountPaise) return { status: "AMOUNT_CHANGED", amountPaise: locked.totalPaise };

@@ -37,6 +37,8 @@ export type ResidentOptions = {
   /** The bill's due date; the bill is issued 9 days before it. */
   dueOn?: string;
   payments?: { date: string; amountPaise: bigint }[];
+  /** LATE_FEE charges on the first bill, as the system posts them when the principal is paid (D110). */
+  lateFees?: { date: string; amountPaise: bigint }[];
   secondBill?: { amountPaise: bigint; dueOn: string };
 };
 export type Resident = { user: { id: string; phone: string }; name: string; flatId: string; flatCode: string; billId: string; secondBillId: string | null };
@@ -104,6 +106,11 @@ async function build(admin: Client, remember: (scratchName: string) => void): Pr
     for (const [index, payment] of (options.payments ?? []).entries()) {
       await owner.ledgerEntry.create({
         data: { flatId: flat.id, billId, entryType: "PAYMENT", direction: "PAYMENT", amountPaise: payment.amountPaise, effectiveDate: new Date(`${payment.date}T00:00:00Z`), idempotencyKey: `test-payment:${billId}:${index}` },
+      });
+    }
+    for (const [index, fee] of (options.lateFees ?? []).entries()) {
+      await owner.ledgerEntry.create({
+        data: { flatId: flat.id, billId, entryType: "LATE_FEE", direction: "CHARGE", amountPaise: fee.amountPaise, effectiveDate: new Date(`${fee.date}T00:00:00Z`), idempotencyKey: `test-late-fee:${billId}:${index}` },
       });
     }
     return { user, name, flatId: flat.id, flatCode: flat.code, billId, secondBillId };

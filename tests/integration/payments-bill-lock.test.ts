@@ -58,8 +58,8 @@ describe("D104 a gateway success waits for the bill's lock", () => {
     await other.query("SELECT pg_advisory_xact_lock(hashtext($1))", [resident.billId]);
     await other.query(
       `INSERT INTO ledger_entries (flat_id, entry_type, direction, amount_paise, effective_date, bill_id, idempotency_key)
-       VALUES ($1, 'PAYMENT', 'PAYMENT', 637000, '2026-10-27', $2, $3)`,
-      [resident.flatId, resident.billId, `bank-first:${started.attemptId}`],
+       VALUES ($1, 'LATE_FEE', 'CHARGE', 9800, '2026-10-27', $2, $3), ($1, 'PAYMENT', 'PAYMENT', 646800, '2026-10-27', $2, $4)`,
+      [resident.flatId, resident.billId, `bank-first-fee:${started.attemptId}`, `bank-first:${started.attemptId}`],
     );
     const applying = applyGatewayEvent(fx.app, { eventId: "evt-lock-3", type: "payment.succeeded", reference: `MOCK-${started.attemptId}`, amountPaise: 646_800n }, DEMO_NOW);
     expect(await pending(applying, 400)).toBe("PENDING");

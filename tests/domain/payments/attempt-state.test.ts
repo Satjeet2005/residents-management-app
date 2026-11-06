@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
+import type { PositionKind } from "@/domain/billing/position";
 import {
+  type AttemptBill,
   type AttemptStatus,
-  type BillPosition,
   type ExceptionReason,
   type GatewayAttempt,
   type GatewayDecision,
@@ -13,8 +14,19 @@ import {
 const REF = "MOCK-attempt-1";
 const attempt = (over: Partial<GatewayAttempt> = {}): GatewayAttempt => ({ id: "attempt-1", billId: "bill-1", flatId: "flat-1", status: "INITIATED", amountPaise: 646_800n, reference: REF, startedOn: "2026-10-27", ...over });
 const event = (over: Partial<GatewayEvent> = {}): GatewayEvent => ({ type: "SUCCEEDED", amountPaise: 646_800n, reference: REF, ...over });
-const bill = (over: Partial<BillPosition> = {}): BillPosition => ({ principalOutstandingAtStartPaise: 637_000n, feeAtStartPaise: 9_800n, hasPaymentAfterStart: false, ...over });
-const decide = (a = attempt(), e = event(), b = bill()) => decideGatewayEvent({ attempt: a, event: e, bill: b });
+type Facts = { principalOutstandingAtStartPaise: bigint; feeAtStartPaise: bigint; hasPaymentAfterStart: boolean };
+/** The bill as the caller would load it: principal and fee at the start day, from which the kind of position follows (D107). */
+const bill = (over: Partial<Facts> = {}): Facts => ({ principalOutstandingAtStartPaise: 637_000n, feeAtStartPaise: 9_800n, hasPaymentAfterStart: false, ...over });
+const asBill = (facts: Facts, asOf: string): AttemptBill => {
+  const principal = facts.principalOutstandingAtStartPaise;
+  const fee = facts.feeAtStartPaise;
+  const kind: PositionKind = principal > 0n ? "PRINCIPAL_OPEN" : fee > 0n ? "FEE_ONLY" : "SETTLED";
+  return {
+    hasPaymentAfterStart: facts.hasPaymentAfterStart,
+    position: { kind, asOf, principalOutstandingPaise: principal, feeComputedPaise: fee, feeOutstandingPaise: fee, amountDuePaise: principal + fee, settledOn: null, anomalies: [] },
+  };
+};
+const decide = (a = attempt(), e = event(), b = bill()) => decideGatewayEvent({ attempt: a, event: e, bill: asBill(b, a.startedOn) });
 const exceptionOf = (reason: ExceptionReason): GatewayDecision => ({ kind: "EXCEPTION", reason });
 
 describe("PY1 posting a confirmed success (D45, R1)", () => {
@@ -53,8 +65,26 @@ describe("PY1 posting a confirmed success (D45, R1)", () => {
   });
 });
 
+describe("FA2 a bill whose principal is paid and whose fee is owed (D107)", () => {
+  it("posts ONE PAYMENT of the fee and no second LATE_FEE", () => {
+    const result = decide(attempt({ amountPaise: 3_800n }), event({ amountPaise: 3_800n }), bill({ principalOutstandingAtStartPaise: 0n, feeAtStartPaise: 3_800n }));
+    expect(result).toEqual({
+      kind: "POST",
+      entries: [{ entryType: "PAYMENT", direction: "PAYMENT", amountPaise: 3_800n, effectiveDate: "2026-10-27", billId: "bill-1", flatId: "flat-1", paymentAttemptId: "attempt-1", idempotencyKey: "payment:attempt-1:PAYMENT", reference: REF }],
+    });
+  });
+
+  it("a fee-only success with a later payment on the bill is still a LATER_PAYMENT exception", () => {
+    expect(decide(attempt({ amountPaise: 3_800n }), event({ amountPaise: 3_800n }), bill({ principalOutstandingAtStartPaise: 0n, feeAtStartPaise: 3_800n, hasPaymentAfterStart: true }))).toEqual(exceptionOf("LATER_PAYMENT"));
+  });
+
+  it("a bill with no position (not issued on the start day) is BILL_ALREADY_PAID, nothing posted", () => {
+    expect(decideGatewayEvent({ attempt: attempt(), event: event(), bill: { position: null, hasPaymentAfterStart: false } })).toEqual(exceptionOf("BILL_ALREADY_PAID"));
+  });
+});
+
 describe("PY1 the guards on a success never post (D45, D50, D41)", () => {
-  it.each<[string, GatewayAttempt, GatewayEvent, BillPosition, ExceptionReason]>([
+  it.each<[string, GatewayAttempt, GatewayEvent, Facts, ExceptionReason]>([
     ["event amount lower than the locked amount", attempt(), event({ amountPaise: 646_700n }), bill(), "AMOUNT_MISMATCH"],
     ["event amount higher than the locked amount", attempt(), event({ amountPaise: 646_900n }), bill(), "AMOUNT_MISMATCH"],
     ["event amount of one rupee", attempt(), event({ amountPaise: 100n }), bill(), "AMOUNT_MISMATCH"],
@@ -63,7 +93,7 @@ describe("PY1 the guards on a success never post (D45, D50, D41)", () => {
     ["a payment is dated after the start day", attempt(), event(), bill({ hasPaymentAfterStart: true }), "LATER_PAYMENT"],
     ["a later payment wins over an amount that still matches", attempt(), event(), bill({ hasPaymentAfterStart: true }), "LATER_PAYMENT"],
     ["the bill was already paid on or before the start day", attempt(), event(), bill({ principalOutstandingAtStartPaise: 0n, feeAtStartPaise: 0n }), "BILL_ALREADY_PAID"],
-    ["already paid even if a fee is still reported", attempt({ amountPaise: 9_800n }), event({ amountPaise: 9_800n }), bill({ principalOutstandingAtStartPaise: 0n }), "BILL_ALREADY_PAID"],
+    ["a fee-only bill whose fee is not the locked amount", attempt({ amountPaise: 9_700n }), event({ amountPaise: 9_700n }), bill({ principalOutstandingAtStartPaise: 0n }), "AMOUNT_MISMATCH"],
     ["a reference that is not the attempt's", attempt(), event({ reference: "MOCK-other" }), bill(), "UNKNOWN_REFERENCE"],
     ["an empty reference", attempt(), event({ reference: "" }), bill(), "UNKNOWN_REFERENCE"],
     ["a reference differing only in case", attempt(), event({ reference: "mock-attempt-1" }), bill(), "UNKNOWN_REFERENCE"],

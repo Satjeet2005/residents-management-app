@@ -13,7 +13,7 @@ const paidLate = (billId: string): DueEntry[] => [lateFee("f1", billId, "2026-09
 describe("PY1 lockAmount: the OLDEST open bill, worked out by the same function as the Home (D99)", () => {
   it("T12-0408: ₹6,370 due 10 Sep, as of 27 Oct, is ₹6,370 principal plus ₹98 fee, ₹6,468", () => {
     const locked = lockAmount({ openBills: [bill("sep", "2026-09-01", "2026-09-10", 637_000n)], asOf: "2026-10-27", policy, payments: [] });
-    expect(locked).toEqual({ billId: "sep", principalPaise: 637_000n, feePaise: 9_800n, totalPaise: 646_800n });
+    expect(locked).toEqual({ billId: "sep", kind: "PRINCIPAL_OPEN", principalPaise: 637_000n, feePaise: 9_800n, totalPaise: 646_800n });
   });
 
   it("T21-1601: ₹5,000 paid on 12 Oct leaves ₹5,660 principal and ₹38 fee, ₹5,698", () => {
@@ -40,7 +40,7 @@ describe("PY1 lockAmount: the OLDEST open bill, worked out by the same function 
 
   it("a bill not yet due has a zero fee and the total is the principal", () => {
     const locked = lockAmount({ openBills: [bill("nov", "2026-10-27", "2026-11-10", 637_000n)], asOf: "2026-10-27", policy, payments: [] });
-    expect(locked).toEqual({ billId: "nov", principalPaise: 637_000n, feePaise: 0n, totalPaise: 637_000n });
+    expect(locked).toEqual({ billId: "nov", kind: "PRINCIPAL_OPEN", principalPaise: 637_000n, feePaise: 0n, totalPaise: 637_000n });
   });
 
   it("the amount changes with the date: the next day is a larger fee, which is why a stale amount is refused", () => {
@@ -66,6 +66,25 @@ describe("PY1 lockAmount: the OLDEST open bill, worked out by the same function 
     const dues = computeDues({ bills, entries: payments, policy, today: "2026-10-27" });
     const locked = lockAmount({ openBills: bills, asOf: "2026-10-27", policy, payments });
     expect(locked?.totalPaise).toBe(dues.openBills[0].outstandingPaise + dues.openBills[0].feePaise);
+  });
+});
+
+describe("FA2 lockAmount: a bill whose principal is paid and whose fee is owed locks the fee (D107)", () => {
+  const t21 = bill("oct", "2026-10-01", "2026-10-09", 1_066_000n);
+  const principalOnly: DueEntry[] = [payment("p1", "oct", "2026-10-12", 500_000n), payment("p2", "oct", "2026-10-27", 566_000n), lateFee("f1", "oct", "2026-10-27", 3_800n)];
+
+  it("T21-1601 paying ₹5,660 leaves ₹38: the lock is ₹38, no principal", () => {
+    expect(lockAmount({ openBills: [t21], asOf: "2026-10-27", policy, payments: principalOnly })).toEqual({ billId: "oct", kind: "FEE_ONLY", principalPaise: 0n, feePaise: 3_800n, totalPaise: 3_800n });
+  });
+
+  it("the oldest open position wins, whichever kind: a fee-only September before an unpaid October", () => {
+    const sep = bill("sep", "2026-09-01", "2026-09-10", 637_000n);
+    const locked = lockAmount({ openBills: [bill("oct", "2026-10-01", "2026-10-10", 700_000n), sep], asOf: "2026-10-27", policy, payments: [payment("a", "sep", "2026-09-25", 637_000n), lateFee("b", "sep", "2026-09-25", 3_100n)] });
+    expect(locked).toMatchObject({ billId: "sep", kind: "FEE_ONLY", totalPaise: 3_100n });
+  });
+
+  it("after the fee is paid, nothing is open", () => {
+    expect(lockAmount({ openBills: [t21], asOf: "2026-10-28", policy, payments: [...principalOnly, payment("p3", "oct", "2026-10-28", 3_800n)] })).toBeNull();
   });
 });
 
