@@ -64,13 +64,14 @@ describe("D95 buildAppRoleSql: what it grants", () => {
     expect(given[table].updateColumns.size).toBe(0);
   });
 
-  it("the only UPDATE grants are the columns of sessions, one-time codes, three of payment attempts and four of bank rows", () => {
+  it("the only UPDATE grants are the columns of sessions, one-time codes, three of payment attempts, four of bank rows and four of queue items", () => {
     const withUpdate = Object.entries(given).filter(([, g]) => g.updateColumns.size > 0).map(([t, g]) => [t, [...g.updateColumns].sort()]);
     expect(withUpdate).toEqual([
       ["sessions", ["last_seen_at", "revoked_at"]],
       ["otp_codes", ["attempts", "consumed_at"]],
       ["payment_attempts", ["debit_status", "resolved_at", "status"]],
       ["bank_rows", ["flat_id", "ledger_entry_id", "state", "version"]],
+      ["accounts_queue_items", ["note", "resolved_at", "resolved_by_id", "status"]],
     ]);
   });
 

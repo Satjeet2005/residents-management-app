@@ -82,6 +82,17 @@ describe("D95 what the app role may do", () => {
     expect((await owner.query("SELECT state, version FROM bank_rows WHERE id = $1", [rowId])).rows[0]).toEqual({ state: "AUTO_MATCHED", version: 2 });
   });
 
+  it("D95 queue items: the app may set status, resolved_at, resolved_by_id and note, and nothing else; known payers are INSERT only", async () => {
+    for (const column of ["status", "resolved_at", "resolved_by_id", "note"]) {
+      expect(await sqlState(app.query(`UPDATE accounts_queue_items SET ${column} = ${column} WHERE false`)), column).toBeNull();
+    }
+    for (const column of ["item_type", "bank_row_id", "payment_attempt_id", "opened_at"]) {
+      expect(await sqlState(app.query(`UPDATE accounts_queue_items SET ${column} = ${column} WHERE false`)), column).toBe(DENIED);
+    }
+    expect(await sqlState(app.query("DELETE FROM accounts_queue_items WHERE false"))).toBe(DENIED);
+    expect(await sqlState(app.query("UPDATE known_payers SET identifier_value = identifier_value WHERE false"))).toBe(DENIED);
+  });
+
   it("D95 bank rows: the narration, amounts, dates, dedupe key and import are read-only for the app, and payment matches cannot be changed or deleted", async () => {
     for (const column of ["narration_raw", "credit_paise", "debit_paise", "balance_paise", "txn_date", "value_date", "dedupe_key", "import_id", "row_number", "parsed"]) {
       expect(await sqlState(app.query(`UPDATE bank_rows SET ${column} = ${column} WHERE false`)), column).toBe(DENIED);
