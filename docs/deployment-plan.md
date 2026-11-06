@@ -150,6 +150,7 @@ Names only. No value belongs in a commit, a chat, or a screenshot. "Set by" says
 | `OTP_PEPPER` | Random value, at least 32 characters, not starting with `replace-with` (the app refuses it in production) | You: generate it on your machine and paste it only into the Vercel dashboard | Production only | Secret |
 | `DEMO_MODE` | `true` returns the login code in the response for demo phones (D77); see Decision 7. In your shell it also unlocks the seed | You, in Vercel (`true` or `false`) | Production only | Config (not secret) |
 | `SHOW_DESIGN_PAGE` | `false` hides `/design` | You, in Vercel | Production only | Config |
+| `DEMO_AS_OF` | **Optional, leave unset.** Freezes the business date to 12:00 India time on that date, to reproduce the brief's sample numbers locally (D97). On a live site the real date is the truth | **Nobody sets it in Vercel** | none | Config |
 | `CRON_SECRET` | Random string of 16 or more letters and digits; Vercel sends it as `Authorization: Bearer ...` to the cron route | You, in Vercel, **when the cron route is built** (not used by any code yet) | Production only | Secret |
 | `LLM_API_KEY` | Key for the complaint classifier (D73) | **Not set now.** Set it when the classifier is built | Production only | Secret |
 | `SESSION_SECRET` | Appears in `.env.example`, but **no code reads it**: sessions are database rows with hashed tokens (D16, D79) | **Do not set.** Remove it from `.env.example` in a later task | none | n/a |

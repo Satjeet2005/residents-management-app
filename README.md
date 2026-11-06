@@ -51,6 +51,26 @@ key, login, the cookie flags, `GET /api/me`, a cross-site `logout-all` refused, 
 prints PASS/FAIL lines (lengths only, never the code or cookie) and exits non-zero on failure. To try it safely, use a
 scratch database such as `township_seed_scratch` (see Demo data) and drop it afterwards.
 
+## The app
+
+```bash
+npm run dev                  # http://localhost:3000, development build, plain http
+npm run build && npm run start   # the production build, also over plain http on localhost
+```
+
+Over plain http the session cookie is `session` (a browser will not store a Secure or `__Host-` cookie from `http://localhost`); over
+https it is `__Host-session` (D94), so both work.
+
+- `/login`: log in with a demo phone (below). With `DEMO_MODE=true` the code is shown in a banner.
+- `/` is the resident Home (dues, complaint, visitors, recent activity). A staff member is sent to `/staff`.
+- `/profile` is the resident's profile; `/staff` is the staff landing page; a resident who opens `/staff` ends at `/forbidden`.
+- The Home works out "today" with the real India date. The demo data was created as of 27 October 2026, so overdue days and late fees are
+  higher than in the client brief's sample table, and some replies show as overdue. **To reproduce the brief's numbers locally** (T12-0408 owes
+  ₹6,468, 47 days overdue), set `DEMO_AS_OF=2026-10-27` in `.env` (it is in `.env.example`, commented out) and restart. Leave it unset on a live deployment.
+  When `DEMO_MODE=true` a note on the login page and on Profile says this too.
+- `npm run smoke:app -- http://localhost:3100 --as-of=2026-10-27 --demo=true` (or `--as-of=real`) checks the pages over HTTP against a running server.
+  Design notes: `docs/ui-architecture.md`.
+
 ## Demo logins
 
 Login is a one-time code. With `DEMO_MODE=true` and a demo phone (starts with 5), the API returns the code in

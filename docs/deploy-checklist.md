@@ -147,7 +147,7 @@ installed).
       | `DEMO_MODE` | `true` (Decision 7) or `false` | Config |
       | `SHOW_DESIGN_PAGE` | `false` | Config |
 
-      Do **not** add `DATABASE_URL_UNPOOLED`, the owner string, `SESSION_SECRET` (unused) or `LLM_API_KEY` (not yet).
+      Do **not** add `DATABASE_URL_UNPOOLED`, the owner string, `SESSION_SECRET` (unused), `LLM_API_KEY` (not yet) or `DEMO_AS_OF` (optional, for local use only: leave it unset so the live dues use the real date, D97).
       Add `CRON_SECRET` only when the cron route is built.
 - [ ] **D3. Expose system variables.** On the same Environment Variables page tick **"Enable access to System Environment
       Variables"** (https://vercel.com/docs/environment-variables/system-environment-variables). **Expected:** the box is ticked
