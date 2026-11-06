@@ -13,6 +13,28 @@ summarises long pages with a small model, so a quote can be trimmed. Before you 
 cost or data loss, open the source and read the sentence. Several Neon pages also contained text addressed to AI
 assistants (install an agent skill, post feedback to a URL). It was not followed.
 
+## Decisions for the human
+
+Nothing here needs a paid plan or a card unless it says so. Each decision has options, a recommendation, and what
+each option costs. None of them is in `docs/decisions.md` yet, so none is final until you answer.
+(`D85` and `smoke:auth` were named in the brief but do not exist: the decision log ends at D80 and `package.json`
+has no `smoke:auth` script. See "Post-deploy smoke test".)
+
+| # | Decision | Options | Recommendation | Cost of each option |
+|---|---|---|---|---|
+| 1 | **Is Hobby allowed for this project?** Vercel forbids commercial use on Hobby, defined as any deployment "used for the purpose of financial gain of anyone involved in any part of the production of the project, including a paid employee or consultant writing the code" (V1e). | A. Deploy on Hobby. B. Do not deploy (Pro needs a card and money). | **A, but only if you judge this take-home to be unpaid personal work.** I cannot decide this for you, and I am not giving a legal reading. If anyone is paid for this work, Hobby does not allow it. | A: free, with the risk that Vercel shuts the project down "without notice" (V7b) if it disagrees. B: no live URL. |
+| 2 | **Region** (Neon cannot move later, N13b). | A. Neon **Singapore** (`aws-ap-southeast-1`) with Vercel functions in **`sin1`** (the same AWS region). B. Neon Singapore with Vercel `bom1` (Mumbai). C. Neon Sydney. | **A.** Mumbai has no Neon region (N13a), and putting the function next to the database avoids a cross-region round trip on every one of the many queries in a request. I did not measure latency. | All free. B adds a hop between function and database; C is farther from India. Changing the Neon region later means a new project and a re-seed (minutes, since the data is generated). |
+| 3 | **Daily jobs: Vercel cron, or after-response jobs plus a button?** (D10 says both.) | A. Vercel cron once a day **plus** after-response work **plus** a staff "run daily jobs now" button. B. After-response work and the button only. C. An outside scheduler. | **A.** Cron on Hobby is once a day, runs any time in the hour, is best effort, can repeat or be skipped (V6). So every job must be safe to run twice, and the button covers a missed run. C needs another account, so no. | A and B: free. The cron route and the processor are not built yet. |
+| 4 | **Preview deployments** | A. On, but with **no database variables in Preview**, so a preview cannot reach any database. B. On, with a separate Neon branch for previews, set by hand. C. Use the Neon-Vercel integration's branch-per-preview. D. Avoid previews by pushing only the production branch. | **A**, with D as the habit. C injects the owner's credentials (N16) and copies data; B works but is more setup. | A, D: free. B, C: use Neon branches (10 allowed on Free, N9a) and storage. |
+| 5 | **App database role: what UPDATE does it get?** | A. **Column-level** UPDATE only on the columns the code writes (sessions and one-time codes now; others when their feature ships). B. Table-level UPDATE on the mutable tables. C. UPDATE on every table except the append-only ones. | **A.** Sessions and one-time codes are what an attacker would want to edit (`expires_at`, `user_id`). The five append-only tables get only SELECT and INSERT in every option. | Free. A needs one grant line per new feature, and a test that fails when the grants and the code disagree (a later task). |
+| 6 | **How long must it stay alive, and should Neon be kept awake?** | A. Plan for **60 days** and do **not** keep Neon awake; let the daily cron wake it. B. Keep it awake with frequent pings. | **A.** Free compute cannot be set to never sleep (N10). Staying awake at 0.25 CU is 0.25 × 24 = 6 CU-hours a day, so the 100 CU-hours a month would be used up in about 17 days and the compute would be suspended (N9d). | A: free; the first request after 5 idle minutes is slower ("a few hundred milliseconds" of wake-up plus a cold function). B: breaks the plan. Also log in or redeploy every 2 weeks, and keep a copy of the seed (V7c, N14b). |
+| 7 | **`DEMO_MODE=true` on the public production URL** | A. True: the API returns the login code in the response for demo phones, so a reviewer can log in without SMS (D77). B. False: nobody can log in, because the mock sender sends nothing. | **A**, with fictional data only, no real secrets in the app, and a kill switch: set `DEMO_MODE=false` and redeploy. Anyone who finds the URL can sign in as any seeded user, including staff with `payments:approve`. | A: free; the risk is that a stranger fills or damages the demo database, which is capped at 1 GB and can be re-seeded. B: no live demo. |
+| 8 | **Node version.** `package.json` says `engines.node: ">=24"`, and Vercel maps open-ended ranges such as `>=22.0.0` to the **latest 26.x** (V2). By the same rule `>=24` should also give Node **26** (my inference from that table, not a quoted example), not the 24.15.0 we test on. | A. Change `engines.node` to `24.x` (a one-line code change, a new task). B. Leave it and accept Node 26. C. Only set Node 24.x in the Vercel console (the `engines` value overrides it, so this fails). | **A.** Next.js 16 and Prisma 7 were tested here on Node 24.15.0 only. | A: free, one small commit. B: untested runtime. |
+| 9 | **Move `pg` from devDependencies to dependencies?** | A. Leave it. B. Move it. | **A.** The app imports only `@prisma/adapter-pg`, which depends on `pg@8.23.1`, so `pg` is already in production (`npm ls pg --omit=dev`, V5c). Move it only if the first deployed login fails with "Cannot find module 'pg'". | Free either way. |
+| 10 | **Do not use the Neon-Vercel integration.** | A. Set the variables by hand (recommended). B. Install the integration. | **A.** The integration fills `DATABASE_URL` with the owner role (N16), which could edit the append-only tables. | A: a few minutes in the Vercel dashboard. |
+| 11 | **Hobby content terms.** Vercel's terms (as returned by the fetch tool) say Hobby users agree "we may use Your Content to train our artificial intelligence" models (N15b). | A. Accept (the code and the fictional data only). B. Do not deploy on Vercel. | **Your call.** Read section 3 of https://vercel.com/legal/terms yourself first. | A: free. B: no live URL. |
+| 12 | **Production branch and commit author.** The repository has only `master`. A Hobby team deploys a commit only if its author is the Hobby team's owner, matched through the linked GitHub login (V9b). | A. Keep `master`, confirm it is the Production Branch, and make sure the commit e-mail is on your GitHub account. B. Rename to `main`. | **A.** Renaming is an ask-first git operation. | Free. |
+
 ## Facts table
 
 "Page date" is the "last updated" date printed on the page. "none" means the page prints no date.
@@ -87,6 +109,293 @@ These are all "not found" above, listed once so nobody mistakes silence for a ye
 7. How Vercel traces files into a function (so only a deployed login proves `pg` is present).
 8. The default Deployment Protection setting for a new Hobby project.
 9. Vercel's Acceptable Use Policy text, and Neon's acceptable-use terms.
+
+## Recommended architecture
+
+```
+Reviewer's browser
+      |  https (public production URL, *.vercel.app)
+      v
+Vercel (Hobby, one region: sin1)
+  - Next.js 16 on Node 24.x, one Vercel Function per route
+  - env (Production only): DATABASE_URL (app role, pooled), OTP_PEPPER, DEMO_MODE, ...
+  - daily cron (UTC, any time in the hour) -> GET /api/cron/... with Authorization: Bearer CRON_SECRET
+      |  TLS, role township_app (not the table owner), host ...-pooler...
+      v
+Neon pooler (PgBouncer, transaction mode)
+      |
+      v
+Neon Free project (aws-ap-southeast-1): Postgres, database neondb
+  - tables owned by neondb_owner (migrations only); township_app has SELECT/INSERT/(column) UPDATE
+  - append-only triggers and the partial unique index live here
+
+The human's laptop (never Vercel):
+  - owner DIRECT url, only in a shell, for `prisma migrate deploy`, the seed and the role grants
+```
+
+Why this shape: the free tiers have no always-on worker (D10), so work runs inside requests, after responses, and in
+one daily cron. The app role is not the table owner, so a bug or an attack in the web app cannot switch off the
+append-only triggers (see "Database role design"). The owner's connection string never leaves the human's
+laptop and is never stored in Vercel.
+
+## Environment variables
+
+Names only. No value belongs in a commit, a chat, or a screenshot. "Set by" says who types the value, and where.
+
+| Name | What it is | Set by | Environments | Secret? |
+|---|---|---|---|---|
+| `DATABASE_URL` | Neon **pooled** connection string (host contains `-pooler`) for the **app role** `township_app`, with `?sslmode=require` | You, in the Vercel dashboard (Settings > Environment Variables) | **Production only** (Preview and Development: not set) | Secret |
+| `DATABASE_URL_UNPOOLED` | Neon **direct** connection string for the **owner** role, for migrations, the seed and the grants | You, in your own shell only, for one command at a time | **Not in Vercel at all** | Secret |
+| `OTP_PEPPER` | Random value, at least 32 characters, not starting with `replace-with` (the app refuses it in production) | You: generate it on your machine and paste it only into the Vercel dashboard | Production only | Secret |
+| `DEMO_MODE` | `true` returns the login code in the response for demo phones (D77); see Decision 7. In your shell it also unlocks the seed | You, in Vercel (`true` or `false`) | Production only | Config (not secret) |
+| `SHOW_DESIGN_PAGE` | `false` hides `/design` | You, in Vercel | Production only | Config |
+| `CRON_SECRET` | Random string of 16 or more letters and digits; Vercel sends it as `Authorization: Bearer ...` to the cron route | You, in Vercel, **when the cron route is built** (not used by any code yet) | Production only | Secret |
+| `LLM_API_KEY` | Key for the complaint classifier (D73) | **Not set now.** Set it when the classifier is built | Production only | Secret |
+| `SESSION_SECRET` | Appears in `.env.example`, but **no code reads it**: sessions are database rows with hashed tokens (D16, D79) | **Do not set.** Remove it from `.env.example` in a later task | none | n/a |
+| `NODE_ENV` | `production` on Vercel; the app needs it to use the `__Host-session` cookie and to refuse a weak pepper | Vercel and Next.js set it. Do not set it by hand | automatic | no |
+| `VERCEL`, `VERCEL_ENV` | System variables. `clientIp` trusts proxy headers only when `VERCEL=1`, which exists only if **"Enable access to System Environment Variables"** is ticked (V4c) | You: tick the box once | automatic | no |
+| `BASE_URL` | The deployed address, for the smoke test only | You, in your own shell | n/a | no |
+
+Rules that go with this table:
+
+- A value is typed by you, straight into the Vercel dashboard or a local prompt. It is never pasted into the agent's chat.
+- Use the **Secret** type in Vercel for every secret above (write-only after saving, V4a). Because it cannot be read
+  back, keep the pepper in your own password manager.
+- Variable changes apply only to **new** deployments (V4a). After any change, redeploy.
+- `DATABASE_URL` is scoped to Production only. A preview then has no database and fails closed (Decision 4).
+
+## Database role design
+
+### Why a separate role
+
+On Neon, the default role `neondb_owner` creates the tables when migrations run, so it **owns** them. PostgreSQL says
+"You must own the table to use `ALTER TABLE`" and "the right to modify or destroy an object is inherent in being the
+object's owner, and cannot be granted or revoked in itself" (N12c, N12d). Our append-only rules (`ledger_entries`,
+`payment_matches`, `complaint_events`, `classifications`, `audit_log`) are ordinary triggers, and an owner may run
+`ALTER TABLE ledger_entries DISABLE TRIGGER ALL`; after that it can `UPDATE` or `DELETE` ledger rows freely.
+`neondb_owner` is also a member of `neon_superuser` with `pg_write_all_data` and `BYPASSRLS` (N12a). If the web app
+connected as the owner, any bug that let an attacker run SQL would let them rewrite the ledger and the audit log.
+
+A second role that does **not** own the tables cannot run `ALTER TABLE ... DISABLE TRIGGER`, `DROP TRIGGER` or
+`DROP TABLE`, and has only the privileges granted to it. It is also not a member of `neon_superuser`, because it is
+made with SQL (N12b), not in the Neon console, API or CLI (those make `neon_superuser` members).
+
+Two things the documents did not settle (both "not found" above): whether `neondb_owner` may set
+`session_replication_role = replica` (which makes triggers not fire), and the Postgres version Neon runs. So the plan
+**tests** instead of assuming: the checks below must show that the app role is refused each of these.
+
+### Roles
+
+| Role | Used for | Created how | Credentials live |
+|---|---|---|---|
+| `neondb_owner` (Neon default) | Owns every table and function. Runs `prisma migrate deploy`, the seed and the grants. | Neon creates it | Your laptop and password manager only. **Never in Vercel.** |
+| `township_app` | The web app at runtime. Not an owner, no `neon_superuser`, no `CREATE` on schema `public`. | **SQL**, run once as `neondb_owner` (below) | Vercel `DATABASE_URL` (Production, Secret) |
+
+### SQL: run once, as the owner, on the DIRECT connection
+
+Run it in the Neon SQL Editor, or in `psql` connected with the owner direct URL. Do **not** type the password into
+a file. In `psql`, create the role without a password, then set it with the prompt `\password township_app`, which
+sends it hashed and keeps it out of your history. In the Neon SQL Editor, you must type it into the statement; use a
+generated value of at least 60 bits of entropy (N12b).
+
+```sql
+-- 1. The app role. NOSUPERUSER etc. are the defaults; they are written out so a reader can see them.
+CREATE ROLE township_app WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+-- psql:  \password township_app
+
+-- 2. Reach the database and the schema, but not create anything in it.
+GRANT CONNECT ON DATABASE neondb TO township_app;
+GRANT USAGE ON SCHEMA public TO township_app;
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+REVOKE CREATE ON SCHEMA public FROM township_app;
+
+-- 3. Read-only reference tables.
+GRANT SELECT ON flats, flat_members, users, user_permissions, society_settings, complaint_categories TO township_app;
+
+-- 4. Append-only tables: SELECT and INSERT, nothing else.
+GRANT SELECT, INSERT ON ledger_entries, payment_matches, complaint_events, classifications, audit_log TO township_app;
+
+-- 5. Insert-only data (rows are written once and read).
+GRANT SELECT, INSERT ON bills, statement_imports, known_payers, complaint_links, complaint_affected TO township_app;
+
+-- 6. Tables whose rows change. Today only sessions and one-time codes are written by code, and only these columns.
+GRANT SELECT, INSERT ON sessions, otp_codes TO township_app;
+GRANT UPDATE (last_seen_at, revoked_at) ON sessions TO township_app;
+GRANT UPDATE (attempts, consumed_at) ON otp_codes TO township_app;
+
+-- 7. Tables whose feature is not built yet: SELECT and INSERT now; UPDATE is added, by column, when the feature ships.
+GRANT SELECT, INSERT ON payment_attempts, bank_rows, accounts_queue_items, complaints, outbox_jobs, notifications, visitor_passes TO township_app;
+```
+
+There is deliberately **no** `ALTER DEFAULT PRIVILEGES`: a table added by a later migration is invisible to the app
+until a grant line for it is written and reviewed. The app role gets **no** `DELETE`, `TRUNCATE`, `REFERENCES` or
+`TRIGGER` on any table, and nothing on `_prisma_migrations`. There are no sequences (ids use `gen_random_uuid()`).
+
+### Privilege matrix
+
+S = SELECT, I = INSERT. "U(...)" is column-level UPDATE. "later" means UPDATE is granted by column when the feature
+that writes those columns is built. No table gets DELETE.
+
+| Table | Privileges now | Why |
+|---|---|---|
+| `ledger_entries` | S, I | Append-only (trigger). A correction is a new entry. |
+| `payment_matches` | S, I | Append-only decision log (trigger). |
+| `complaint_events` | S, I | Append-only history (trigger). |
+| `classifications` | S, I | Append-only record of each classifier answer (trigger). |
+| `audit_log` | S, I | Append-only (trigger). Evidence must not be editable by the app. |
+| `sessions` | S, I, U(`last_seen_at`, `revoked_at`) | The code touches and revokes sessions only. It must not change `expires_at` or `user_id`. |
+| `otp_codes` | S, I, U(`attempts`, `consumed_at`) | The code counts attempts and uses a code up. It must not change `expires_at` or `code_hash`. |
+| `users` | S | Staff are seeded (D1). `U(language)` later (D44); `active` is changed by the owner. |
+| `user_permissions` | S | Seeded; no admin screen (D1). |
+| `flats`, `flat_members`, `society_settings`, `complaint_categories` | S | Reference data, seeded; no admin screen. |
+| `bills` | S, I | A bill is written once; payments are ledger entries, not edits. |
+| `statement_imports` | S, I | One row per file, never edited. |
+| `known_payers` | S, I | A learned payer is added; removal is a decision for later. |
+| `complaint_links`, `complaint_affected` | S, I | Links and affected flats are added, not edited. |
+| `payment_attempts` | S, I; U later (`status`, `debit_status`, `gateway_reference`, `hold_*`, `escalated_at`, `resolved_*`, `release_reason`) | An attempt moves through states. |
+| `bank_rows` | S, I; U later (`state`, `flat_id`, `ledger_entry_id`, `version`) | A row is matched after import. |
+| `accounts_queue_items` | S, I; U later (`status`, `resolved_at`, `resolved_by_id`, `note`) | Staff resolve items. |
+| `complaints` | S, I; U later (`status`, `assignee_id`, `urgency`, `first_response_at`, `closed_at`, `close_kind`, `rating`, `reopen_count`, `needs_review`, `version`, ...) | A complaint has a life cycle. |
+| `outbox_jobs` | S, I; U later (`status`, `attempts`, `run_after`, `last_error`, `finished_at`) | The processor records progress. |
+| `notifications` | S, I; U later (`status`, `sent_at`, `read_at`) | Delivery and read state. |
+| `visitor_passes` | S, I; U later (`status`) | A pass is used or expires. |
+| `_prisma_migrations` | none | Owner only. |
+
+### Checks that must pass after the grants (run as `township_app`, pooled URL)
+
+Each must fail with `permission denied` (SQLSTATE 42501) or an equivalent refusal. Run them in `psql`; they change nothing.
+
+```sql
+UPDATE ledger_entries SET note = 'x' WHERE false;          -- permission denied for table ledger_entries
+DELETE FROM audit_log WHERE false;                         -- permission denied for table audit_log
+ALTER TABLE ledger_entries DISABLE TRIGGER ALL;            -- must be owner of table ledger_entries
+SET session_replication_role = replica;                    -- permission denied to set parameter
+CREATE TABLE app_can_create (a int);                       -- permission denied for schema public
+TRUNCATE audit_log;                                        -- permission denied for table audit_log
+UPDATE sessions SET expires_at = now() WHERE false;        -- permission denied for table sessions (column not granted)
+```
+
+Run these as the owner to confirm the other side:
+
+```sql
+SELECT tablename, tableowner FROM pg_tables WHERE schemaname = 'public' ORDER BY 1;  -- every owner is neondb_owner, never township_app
+SELECT table_name, string_agg(privilege_type, ',' ORDER BY privilege_type)
+  FROM information_schema.role_table_grants
+ WHERE grantee = 'township_app' AND table_schema = 'public' GROUP BY 1 ORDER BY 1;  -- compare with the matrix
+SELECT rolname, rolsuper, rolcreaterole, rolbypassrls FROM pg_roles WHERE rolname = 'township_app'; -- all false
+SELECT pg_has_role('township_app', 'neon_superuser', 'member');                     -- false
+```
+
+If the `SET session_replication_role` check **succeeds** for the app role, stop: the role has more power than this
+plan assumes. Tell the agent the **result** (not any connection string).
+
+The current integration tests connect as the owner, so they cannot prove these grants. A later task should add a
+test that connects as a non-owner role in a scratch database and runs the checks above, and a test that fails when
+a migration adds a table with no grant line.
+
+## Migration and seed procedure
+
+All of this runs on **your laptop**, never in Vercel's build (a build that migrates would need the owner's string in
+Vercel, and a preview could migrate the production database, V4b). The commands exist today except where marked.
+
+Facts that the procedure relies on, checked here on 2026-11-06 with Node 24.15.0: a variable set in the shell is not
+overwritten by a value in `.env` when `process.loadEnvFile` runs (tested with a throwaway file), and both
+`prisma.config.ts` and the seed CLI call `loadEnvFile`. So a shell `DATABASE_URL` wins. The seed also prints
+`Target: host ..., database ...` before it does anything; read that line.
+
+1. **Create the Neon project** in Singapore (`aws-ap-southeast-1`), database `neondb`, and copy the **direct**
+   connection string of the owner role (Console > Connect, with "Connection pooling" off; the host has no `-pooler`).
+2. **Open a clean shell** and enter the string without echoing it:
+   ```bash
+   read -rs DATABASE_URL && export DATABASE_URL     # paste, press Enter; nothing is shown
+   node -e 'const u=new URL(process.env.DATABASE_URL); console.log(u.hostname, u.pathname)'
+   ```
+   Expect a host ending `.neon.tech` with **no** `-pooler`, and `/neondb`.
+3. **Migrate:** `npx prisma migrate deploy` then `npx prisma migrate status`. Expect all migrations applied and
+   "Database schema is up to date!". Use the direct string only (N11a: migrations need it).
+4. **Roles and grants:** run the SQL in "Database role design" as the owner, then the "Checks" block as `township_app`.
+5. **Seed** (still the owner, direct string; `DEMO_MODE=true` is for this shell only and is separate from Vercel):
+   ```bash
+   export DEMO_MODE=true
+   npm run db:seed -- --yes --allow-remote --confirm-database=neondb
+   ```
+   Check that the first printed line, `Target: host <your-endpoint>.neon.tech, database neondb`, is the Neon one. The
+   command refuses a non-empty database, a remote host without `--allow-remote`, and a database name that does not
+   match `--confirm-database` (`src/server/seed/guards.ts`). It prints row counts and `Database size`; compare the
+   size with the 1 GB cap (N9a). The expected size is **not recorded anywhere**, so this number is new information.
+6. **Never** run `npm run db:reset-demo` against Neon: it refuses any host except localhost. To start over, recreate
+   the database or the project in the Neon console, then repeat steps 3 to 5.
+7. **Unset the shell variables** (`unset DATABASE_URL DEMO_MODE`) or close the terminal.
+
+## Post-deploy smoke test
+
+`npm run smoke:auth` **does not exist yet**; no script in `package.json` has that name. It should be written as a
+small task before the first deploy. Specification (it takes `BASE_URL`, reads nothing secret, and changes only
+demo users' sessions and one-time codes):
+
+1. `POST /api/auth/otp/request` with `{ "phone": "5000000006" }` returns 200 and `message: "OTP_SENT_GENERIC"`, and, with
+   `DEMO_MODE=true`, a six-digit `demoCode`. With an unknown demo phone the answer has the same shape.
+2. A wrong code returns 400 `OTP_NOT_ACCEPTED`.
+3. A fresh request and the right code at `/api/auth/otp/verify` return 200 `{ role: "RESIDENT", redirectTo: "/" }`
+   and a `Set-Cookie` that starts `__Host-session=` and contains `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`, and no `Domain`.
+4. `5000000001` (staff) returns `redirectTo: "/staff"`.
+5. `/api/auth/logout` returns 204 and a cookie with `Max-Age=0`; `/api/auth/logout-all` with no cookie returns 401.
+6. `/api/health` returns 200. Every response carries `Cache-Control: no-store`.
+
+By hand, once, after the first deploy:
+
+- **The `pg` question (V5c):** step 3 working is the proof that `pg` is present in the deployed function.
+- **The client-IP question (V4c, V8):** make a code request from your laptop and one from a phone on mobile data, then, as the owner,
+  `SELECT count(DISTINCT requested_ip_hash) FROM otp_codes;`. Expect at least 2. If it is 1, `VERCEL` is not `1`
+  (the System Environment Variables box is not ticked) and everyone shares one limit of 30 requests an hour.
+- **The advisory-lock question (N11c):** the complaint-link trigger uses `pg_advisory_xact_lock`. Before the complaints
+  feature goes live, a test must run two concurrent link inserts through the **pooled** URL. Until then the lock is
+  unverified through the pooler. If it fails, point the app at the direct string (limit 104 connections at 0.25 CU, N9c)
+  and keep the Prisma pool small.
+- **Cold start:** wait 6 minutes without traffic, then open the site and time the first request. Neon says wake-up is "a few
+  hundred milliseconds" (N10); the function also starts cold. Note both numbers.
+
+## Rollback plan
+
+| Problem | Action | Limits |
+|---|---|---|
+| A bad code deployment | Vercel **Instant Rollback** to the previous production deployment; or Deployments > Create Deployment from an earlier commit SHA (V9b). | On Hobby, rollback reaches only "the immediately previous deployment" (V6 source, rollbacks section). |
+| A bad migration | Neon **instant restore** to a time before the migration (Console > Backup & Restore > Restore from history). It overwrites the branch, keeps a backup branch `{branch}_old_{timestamp}`, and keeps the connection details (N14a). | Free keeps only **6 hours** of history. Rows written after the restore point (new sessions, codes) are lost. Migrations are forward-only; do not edit an applied one. |
+| The database is lost or too damaged | Create a new Neon project (or branch), run steps 3 to 5 of the procedure, put the new pooled string in Vercel `DATABASE_URL`, redeploy. | The demo data is generated, so this takes minutes; anything entered by hand is lost. Region choice is fixed per project (N13b). |
+| A leaked app password | `ALTER ROLE township_app WITH PASSWORD '...'` as the owner, update `DATABASE_URL` in Vercel, redeploy (changes apply only to new deployments, V4a). | Old deployments keep working or failing with the old value until replaced. |
+| A leaked or weak `OTP_PEPPER` | Set a new value, redeploy. | Codes in flight (5 minutes) stop working. Sessions are unaffected: session tokens are hashed with plain SHA-256, no pepper (D79). |
+| Abuse of the public demo | Kill switch: set `DEMO_MODE=false`, redeploy. Nobody can then get a code, because the mock sender sends nothing. Then reseed if needed. | The site stays up but login is closed. |
+| A runaway or failing cron | Project Settings > Cron Jobs > **Disable Cron Jobs** (V6 source). | It stays disabled until you re-enable it. |
+| A Neon limit is hit | Compute and transfer: suspended until the next billing period or an upgrade (N9d). Storage: writes fail. Free space by recreating the database from the seed. | No data is deleted by the limits (N9d). |
+
+## What could break us
+
+Likelihood (L) and impact (I) are my judgement: low, medium or high. They are not measured.
+
+| # | Risk | L | I | Mitigation |
+|---|---|---|---|---|
+| 1 | **Node 26 instead of 24.** `engines.node ">=24"` maps to the latest 26.x on Vercel (V2). Untested runtime. | high | medium | Decision 8: change to `24.x` before the first deploy. |
+| 2 | **`VERCEL` is not exposed**, so `clientIp` returns `unknown` and all visitors share the 30-an-hour address limit; login becomes unusable. | medium | high | Tick "Enable access to System Environment Variables" (checklist); the distinct `ip_hash` check after deploy. |
+| 3 | **The app connects as the table owner** (for instance through the Neon-Vercel integration). A compromise could disable the append-only triggers. | medium | high | Separate `township_app` role; no owner string in Vercel; Decision 10; the negative checks. |
+| 4 | **`neondb_owner` can set `session_replication_role`** (not found). Irrelevant to the app role, relevant to anyone holding the owner string. | unknown | medium | Keep the owner string on your laptop only; run the checks as the app role. |
+| 5 | **Advisory lock through the pooler is unverified** (N11c). A race could create a duplicate-chain in `complaint_links`. | low | high | Concurrency test through the pooled URL before the complaints feature ships; fallback to the direct string. |
+| 6 | **Cold start and no connect timeout.** After 5 idle minutes the first query waits for Neon to wake (N10). `src/server/db.ts` sets no connection timeout, so a stuck connection could hold a request until the function times out (300 s). | medium | medium | A later task: set `connectionTimeoutMillis` and a small `max` on the pool, and retry once. Measure the first request. |
+| 7 | **Hobby terms:** commercial use, "without notice" shutdown, inactive-account termination, AI-training clause (V1e, V7b, N15b). | low | high | Decisions 1 and 11; no payment features; log in every 2 weeks; keep a seed copy. |
+| 8 | **Neon inactivity deletion:** the 90-day rule appears on the Azure deprecation page and on the regions page, but its scope is unclear (N14b). Our 40 to 60 days is under 90. | low | high | Daily cron keeps the project active; check the Neon console each fortnight; the seed re-creates the data. |
+| 9 | **A Neon Free limit is reached:** 1 GB storage, 100 CU-hours, 5 GB transfer (N9a). `audit_log` and `otp_codes` grow with every login and request; a stranger can add rows (30 requests an hour per address). | medium | medium | Read the size the seed prints; check the console weekly; a later task purges expired codes and sessions (needs DELETE, so a deliberate grant). |
+| 10 | **Cron runs late, twice or not at all** (V6). | high | low | Idempotent jobs; the manual "run daily jobs" button. |
+| 11 | **Demo login is open to strangers** when `DEMO_MODE=true`. | high | medium | Fictional data only; `DEMO_MODE=false` kill switch; rate limits; reseed. |
+| 12 | **Deploy blocked: the commit author is not the Hobby team owner** (V9b). | medium | medium | Link the commit e-mail to your GitHub account; or deploy with the Vercel CLI. |
+| 13 | **The Production Branch is not `master`**, so the first push makes only a preview, with no variables (V9b). | low | medium | Check Environments > Production > Branch Tracking. |
+| 14 | **A preview deployment reaches a real database.** | low | high | `DATABASE_URL` is Production-only (Decision 4). |
+| 15 | **A secret reaches the chat or a commit.** | medium | high | The checklist's "never paste" list; `npm run scan:secrets`; the Secret type in Vercel. |
+| 16 | **Seed run against the wrong database.** | low | high | The seed's guards (`--allow-remote`, `--confirm-database`), the printed `Target` line, and a fresh shell. |
+| 17 | **Logs vanish:** Hobby keeps runtime logs 1 hour (V1b). | high | low | Look at logs right after each deploy; the durable record is `audit_log`. |
+| 18 | **Body limit 4.5 MB** (V1b): a large bank-statement upload would be refused. | low | medium | The 5,000-row benchmark statements are far smaller; keep uploads small. |
+| 19 | **Docs change** after 2026-11-06 (the pages move fast; Cron Jobs are called legacy). | medium | low | Re-read the "not found" list and V1, V6, N9, N14 before deploying. |
+| 20 | **A vulnerable Next.js version is blocked at deploy** (a Vercel changelog item named in V4's page links). | low | medium | Keep Next.js patched; read the build log. |
+| 21 | **Connection pool size** under many function instances. | low | low | Use the pooler (10,000 clients, N11a); keep the app pool small. |
+| 22 | **Prisma and Postgres versions differ** from local (Postgres 16 here; Neon's version not found). | low | medium | The integration tests run on 16; run `prisma migrate status` and the smoke test on Neon; note the version in the console. |
 
 ## Sources fetched on 2026-11-06
 
