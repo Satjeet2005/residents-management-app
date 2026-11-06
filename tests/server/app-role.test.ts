@@ -69,6 +69,15 @@ describe("D95 buildAppRoleSql: what it grants", () => {
     expect(withUpdate).toEqual([["sessions", ["last_seen_at", "revoked_at"]], ["otp_codes", ["attempts", "consumed_at"]]]);
   });
 
+  it("every GRANT is one of three known forms: USAGE on the schema, SELECT/INSERT on tables, or UPDATE on named columns (a whole-table UPDATE is not a form)", () => {
+    const forms = [
+      /^GRANT USAGE ON SCHEMA public TO "township_app";$/,
+      /^GRANT (?:SELECT|INSERT)(?:, INSERT)? ON "[a-z_]+"(?:, "[a-z_]+")* TO "township_app";$/,
+      /^GRANT UPDATE \("[a-z_]+"(?:, "[a-z_]+")*\) ON "[a-z_]+" TO "township_app";$/,
+    ];
+    for (const grant of grants) expect(forms.some((form) => form.test(grant)), grant).toBe(true);
+  });
+
   it("no GRANT mentions DELETE, TRUNCATE, REFERENCES, TRIGGER, ALL, CREATE or OPTION", () => {
     for (const grant of grants) expect(grant, grant).not.toMatch(/\b(DELETE|TRUNCATE|REFERENCES|TRIGGER|ALL|CREATE|OPTION)\b/);
   });

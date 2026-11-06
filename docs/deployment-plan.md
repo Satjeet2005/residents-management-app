@@ -215,47 +215,53 @@ Two things the documents did not settle (both "not found" above): whether `neond
 | `neondb_owner` (Neon default) | Owns every table and function. Runs `prisma migrate deploy`, the seed and the grants. | Neon creates it | Your laptop and password manager only. **Never in Vercel.** |
 | `township_app` | The web app at runtime. Not an owner, no `neon_superuser`, no `CREATE` on schema `public`. | **SQL**, run once as `neondb_owner` (below) | Vercel `DATABASE_URL` (Production, Secret) |
 
-### SQL: run once, as the owner, on the DIRECT connection
+### Creating the role and applying the grants (step order)
 
-Run it in the Neon SQL Editor, or in `psql` connected with the owner direct URL. Do **not** type the password into
-a file. In `psql`, create the role without a password, then set it with the prompt `\password township_app`, which
-sends it hashed and keeps it out of your history. In the Neon SQL Editor, you must type it into the statement; use a
-generated value of at least 60 bits of entropy (N12b).
+The grants are no longer typed by hand. They are generated from one matrix in `src/server/db-roles/app-role.ts`
+(`buildAppRoleSql`) and proven by tests, so this document cannot drift from the code. **Where the brief for T9b said the human
+creates the role in the Neon console, this plan is followed instead:** a role made in the console, API or CLI becomes a
+member of `neon_superuser` (N12b), which would give the app the power this design removes. So the role is made with SQL, and
+the generated script refuses a role that has administrator attributes or is a member of `neon_superuser`.
 
-```sql
--- 1. The app role. NOSUPERUSER etc. are the defaults; they are written out so a reader can see them.
-CREATE ROLE township_app WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
--- psql:  \password township_app
+1. **You create the role, with SQL, as the owner, on the direct connection** (Neon SQL Editor, or `psql` with the owner string).
+   This statement sets no password; set it with the prompt so it never reaches a file or the chat:
+   ```sql
+   CREATE ROLE township_app WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+   -- psql:  \password township_app
+   -- Neon SQL Editor (no prompt): ALTER ROLE township_app WITH PASSWORD '<32 random characters, from your password manager>';
+   ```
+2. **Print the grants** (on your laptop; it connects to nothing and accepts no password):
+   ```bash
+   npm run db:print-app-role-sql -- --app=township_app --owner=neondb_owner > app-role.sql
+   ```
+   Do not commit `app-role.sql` (it is reproducible from the code). Read it once.
+3. **Run it as the owner**, on the direct connection: `psql "$DATABASE_URL" -f app-role.sql`, or paste it into the Neon SQL Editor.
+   It stops with a clear message if you run it as the wrong role, if `township_app` does not exist, has admin attributes, is a
+   `neon_superuser` member or owns a table, or if the schema has a table with no decision in the matrix. Running it again is safe
+   and takes back any privilege that was added by hand.
+4. **Verify** with the checks below (the same ones that the tests run against a local database).
+5. **Only then** build the app's connection string and put it, and only it, in Vercel as `DATABASE_URL` (Production, Secret).
 
--- 2. Reach the database and the schema, but not create anything in it.
-GRANT CONNECT ON DATABASE neondb TO township_app;
-GRANT USAGE ON SCHEMA public TO township_app;
-REVOKE CREATE ON SCHEMA public FROM PUBLIC;
-REVOKE CREATE ON SCHEMA public FROM township_app;
+What the grants do, in short: connect and use the schema; `REVOKE` everything first (so a re-run resets the role); `SELECT`/`INSERT`
+only on the five append-only tables; column-level `UPDATE` on `sessions` (`last_seen_at`, `revoked_at`) and `otp_codes`
+(`attempts`, `consumed_at`) only; nothing on `_prisma_migrations`; no `CREATE` on the schema; no default privileges, so a table
+added by a later migration stays invisible to the app until it is added to the matrix. A test fails when a table has no decision.
 
--- 3. Read-only reference tables.
-GRANT SELECT ON flats, flat_members, users, user_permissions, society_settings, complaint_categories TO township_app;
+**Tests that prove it** (`tests/integration/`, a fresh database and a uniquely named role with a random password, dropped afterwards):
 
--- 4. Append-only tables: SELECT and INSERT, nothing else.
-GRANT SELECT, INSERT ON ledger_entries, payment_matches, complaint_events, classifications, audit_log TO township_app;
+| File | What it proves |
+|---|---|
+| `app-role-matrix.test.ts` | Every table in the migrated schema has a decision (or is in the no-access list); no stale entry. |
+| `app-role.test.ts` | Allowed: inserts into the ledger, audit log and complaint events; the granted `UPDATE` columns; `SELECT` where the matrix says. Denied with 42501: `UPDATE`, `DELETE`, `TRUNCATE` on every append-only table (and `DELETE` and `TRUNCATE` on all tables); `ALTER TABLE ... DISABLE TRIGGER ALL`; `DROP TRIGGER`; `DROP TABLE`; `CREATE TABLE`, `CREATE ROLE`, `CREATE SCHEMA`; an ungranted column; `_prisma_migrations`; `SET session_replication_role = replica`. The triggers are still enabled afterwards. The privileges are read back from Postgres for every table. The script guards itself and can be run twice. |
+| `app-role-flows.test.ts` | The real auth services (request and verify a code, create, resolve and revoke sessions, all audit writes, the `/api/me` data, `logout-all`, a 403) run through a Prisma client that logs in **as the app role**. They passed with the matrix unchanged, so the grants are enough for what the app does today. |
 
--- 5. Insert-only data (rows are written once and read).
-GRANT SELECT, INSERT ON bills, statement_imports, known_payers, complaint_links, complaint_affected TO township_app;
-
--- 6. Tables whose rows change. Today only sessions and one-time codes are written by code, and only these columns.
-GRANT SELECT, INSERT ON sessions, otp_codes TO township_app;
-GRANT UPDATE (last_seen_at, revoked_at) ON sessions TO township_app;
-GRANT UPDATE (attempts, consumed_at) ON otp_codes TO township_app;
-
--- 7. Tables whose feature is not built yet: SELECT and INSERT now; UPDATE is added, by column, when the feature ships.
-GRANT SELECT, INSERT ON payment_attempts, bank_rows, accounts_queue_items, complaints, outbox_jobs, notifications, visitor_passes TO township_app;
-```
-
-There is deliberately **no** `ALTER DEFAULT PRIVILEGES`: a table added by a later migration is invisible to the app
-until a grant line for it is written and reviewed. The app role gets **no** `DELETE`, `TRUNCATE`, `REFERENCES` or
-`TRIGGER` on any table, and nothing on `_prisma_migrations`. There are no sequences (ids use `gen_random_uuid()`).
+Mutation shown in T9b: adding `GRANT UPDATE ON "ledger_entries"` to the generator fails one unit test (every GRANT must be a
+known form) and four integration tests (the exact-privileges read-back, the ledger UPDATE denial, the any-column UPDATE denial,
+and the Prisma update refusal).
 
 ### Privilege matrix
+
+The code (`PRIVILEGE_MATRIX`) is the source; this table is its summary.
 
 S = SELECT, I = INSERT. "U(...)" is column-level UPDATE. "later" means UPDATE is granted by column when the feature
 that writes those columns is built. No table gets DELETE.

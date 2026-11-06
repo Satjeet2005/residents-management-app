@@ -15,6 +15,7 @@ export const SQLSTATE = {
   foreignKeyViolation: "23503",
   uniqueViolation: "23505",
   checkViolation: "23514",
+  insufficientPrivilege: "42501",
 } as const;
 
 export async function rejectedWith(

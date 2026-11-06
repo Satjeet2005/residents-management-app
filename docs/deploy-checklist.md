@@ -39,9 +39,7 @@ node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"  
 - [ ] You have answered the **Decisions for the human** in `docs/deployment-plan.md`, above all 1 (is Hobby allowed for
       this work), 7 (demo mode on a public URL), 8 (Node version) and 11 (Hobby content terms). **Expected:** each has an
       answer written in the chat.
-- [ ] The agent has set `engines.node` to `24.x` (Decision 8; still to do as a code task). `npm run smoke:auth` already
-      exists (T8c). **Expected:** `npm run smoke:auth` is in `package.json`, and `engines.node` reads `24.x`. Do **not**
-      start Part D before this.
+- [ ] `engines.node` is `24.x` (Decision 8, done in T9b) and `npm run smoke:auth` exists (T8c). **Expected:** both are in `package.json`. The agent's tests prove the database grants, but you still run C4 and C8 on Neon.
 - [ ] You have a password manager open and a terminal in the project folder, with Node 24 (`node -v` prints `v24.`).
 - [ ] If any sign-up below asks for a **payment card**, stop. The plan assumes none is needed, and the vendor pages did
       not confirm that either way (plan, "Things this research could not establish", item 1). Tell the agent at which
@@ -100,15 +98,18 @@ installed).
       ```
       **Expected:** every migration applied, then "Database schema is up to date!". If it fails with a connection or
       lock error, you are probably on the pooled string: repeat C1 with the direct one.
-- [ ] **C3. Create the app role.** In the Neon Console open **SQL Editor** (or use `psql "$DATABASE_URL"`). Run the SQL from
-      `docs/deployment-plan.md`, "SQL: run once, as the owner". For the password: in `psql`, run the `CREATE ROLE` statement
-      without a password and then `\password township_app`; in the SQL Editor, add `PASSWORD '<value>'` to the `CREATE ROLE`
-      statement using the 32-character value you generated, and save that value in the password manager as
-      "township_app password". **Expected:** every statement returns without error. If `CREATE ROLE` says the role exists,
-      the SQL was already run; do not run it twice, tell the agent.
-- [ ] **C4. Read back the privileges.** Run the three owner-side queries from the plan ("Checks that must pass").
-      **Expected:** every table owner is `neondb_owner`; the grants match the privilege matrix; `township_app` has no
-      superuser, no create-role, no bypass-RLS, and is **not** a member of `neon_superuser`. You may paste these results.
+- [ ] **C3. Create the app role, with SQL (not in the Neon console).** A role made in the console, API or CLI becomes a member of
+      `neon_superuser` and the grants script will refuse it. In the Neon **SQL Editor** (or `psql "$DATABASE_URL"`), run the single
+      `CREATE ROLE township_app WITH LOGIN NOSUPERUSER ...` statement from `docs/deployment-plan.md`, "Creating the role and applying
+      the grants", step 1. Then set the password: in `psql`, `\password township_app` (a prompt); in the SQL Editor,
+      `ALTER ROLE township_app WITH PASSWORD '<value>'` with the 32-character value you generated, and save that value in the password
+      manager as "township_app password". **Expected:** `CREATE ROLE` and the password statement succeed. If the role already exists, tell the agent.
+- [ ] **C3b. Print and run the grants.** On your laptop:
+      `npm run db:print-app-role-sql -- --app=township_app --owner=neondb_owner > app-role.sql`. **Expected:** a file of about 60 lines
+      that starts with `-- Grants for the application role "township_app"`, with no password in it. Read it. Then, with the owner string
+      still in `DATABASE_URL`, run `psql "$DATABASE_URL" -f app-role.sql` (or paste it into the SQL Editor). **Expected:** it finishes
+      without an error. If it stops with a message ("Run this as the owner role", "does not exist", "administrator attributes",
+      "neon_superuser", "owns a table", "No privilege decision"), do not work around it: tell the agent the message. Delete `app-role.sql` afterwards.
 - [ ] **C5. Seed.**
       ```bash
       export DEMO_MODE=true
