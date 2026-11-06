@@ -5,10 +5,17 @@ import { addDays } from "../time/calendar";
 import { oldestDue, sortedByDue } from "./amounts";
 import { prepareBase } from "./benchmark/population";
 import { simulateStatement } from "./benchmark/simulate";
+import { APPROVAL_THRESHOLD_PAISE } from "../seed/settings";
 import { defaultMatchSettings } from "./context";
 import { parseStatementCsv } from "./csv";
 import { processStatement } from "./processor";
-import type { FlatContext } from "./types";
+import type { FlatContext, MatchSettings } from "./types";
+
+/**
+ * The settings the demo society runs with (D116): the matcher's defaults with the seeded approval threshold of ₹10,000, so the counts
+ * here are the counts the live import gives. The matcher's own default (₹25,000) is not changed.
+ */
+export const DEMO_MATCH_SETTINGS: MatchSettings = { ...defaultMatchSettings, approvalThresholdPaise: BigInt(APPROVAL_THRESHOLD_PAISE) };
 
 /** The flats the hand-written rows are about. The simulated rows never use them, so a hand-written row decides alone. */
 const HAND_FLATS = new Set(["T12-0408", "T21-1601", "T15-0902", "T07-1203", "T03-0702", "T18-1105", "T26-0301"]);
@@ -20,7 +27,9 @@ const SIMULATED_QUEUED = 32;
 const SIMULATED_IGNORED = 34;
 const SIMULATED_AUTO = 5;
 /** How many well-formed payments from residents with a registered UPI id are written (each one exactly its flat's amount due). */
-const WELL_FORMED = 20;
+const WELL_FORMED = 18;
+/** How many credits of at least the demo threshold are written, each for ONE flat and queued for a person (the approval path). */
+const HIGH_VALUE = 3;
 const FIRST_DAY = "2026-10-20";
 const LAST_DAY = "2026-10-27";
 const SIMULATED_SEED = 20261027;
@@ -45,7 +54,7 @@ const HAND_ROWS: readonly string[] = [
   "2026-10-24,CHQ DEP 482913 CLEARING,8000.00,",
   // An advance: a flat that has paid up pays three months at once.
   "2026-10-25,UPI/710000000006/T07-1203 Neeraj Kulkarni/advance 3 months maintenance,22425.00,",
-  // A payment above the approval threshold (₹25,000 or more is never posted by itself).
+  // A payment far above the approval threshold (never posted by itself), to the wrong amount for the flat: an ignore or a refusal, not a match.
   "2026-10-23,NEFT/N710000000007/T15-0902 Rohit Deshmukh/maintenance,30000.00,",
   // Money going out, interest and a bank charge: not maintenance.
   "2026-10-22,NEFT/ACME HOUSEKEEPING/INV 2210 SEPTEMBER,,48500.00",
@@ -59,17 +68,53 @@ const HAND_ROWS: readonly string[] = [
 
 const dateOf = (line: string): string => line.slice(0, 10);
 
+/** Spellings of one payer the reader resolves to one flat: code and full name, a lower-case code with a space and an initial, a code without its dash and the full name. */
+const HIGH_VALUE_FORMS: readonly ((flat: FlatContext, reference: string) => string)[] = [
+  (flat, ref) => `UPI/${ref}/${flat.code} ${flat.residents[0].name}/maintenance`,
+  (flat, ref) => `UPI|${ref}|${flat.code.toLowerCase().replace("-", " ")}|${flat.residents[0].name.charAt(0)} ${flat.residents[0].name.split(" ").slice(1).join(" ")}|mntc`,
+  (flat, ref) => `UPI/${ref}/${flat.code.replace("-", "")} ${flat.residents[0].name.toUpperCase()}/maintenance`,
+];
+
+/**
+ * Credits of the demo threshold or more: the PRINCIPAL of a large flat's only open bill (the late fee would remain), written by code
+ * and name, or by a loosely written code. Each is kept only if the matcher queues it with exactly ONE candidate flat, so
+ * a person can match it by hand and the second approver has something to approve (D116). Flats are taken in code order.
+ */
+function highValueRows(flats: readonly FlatContext[]): { lines: string[]; flatCodes: Set<string> } {
+  const lines: string[] = [];
+  const flatCodes = new Set<string>();
+  const candidates = flats.filter((f) => !HAND_FLATS.has(f.code) && f.openBills.length === 1 && f.residents.length > 0).sort((a, b) => (a.code < b.code ? -1 : 1));
+  for (const flat of candidates) {
+    if (lines.length >= HIGH_VALUE) break;
+    const date = addDays(FIRST_DAY, 5 + (lines.length % 3));
+    const due = oldestDue(sortedByDue(flat.openBills), date, defaultMatchSettings.lateFeePolicy);
+    if (due === null || due.feePaise === 0n || due.outstandingPaise < DEMO_MATCH_SETTINGS.approvalThresholdPaise) continue;
+    const amount = formatRupees(due.outstandingPaise).replace(/[₹,]/g, "");
+    for (let k = 0; k < HIGH_VALUE_FORMS.length; k++) {
+      const form = HIGH_VALUE_FORMS[(lines.length + k) % HIGH_VALUE_FORMS.length];
+      const line = `${date},${form(flat, `73000000${String(lines.length + 1).padStart(4, "0")}`)},${amount}.00,`;
+      const decided = processStatement({ rows: parseStatementCsv(`Txn Date,Narration,Credit,Debit\n${line}\n`).rows, csvErrors: [], flats: [...flats], settings: DEMO_MATCH_SETTINGS, alreadyImportedKeys: new Set() }).rows[0];
+      if (decided?.state !== "QUEUED" || decided.decision?.totalCandidates !== 1 || decided.decision.candidates[0]?.flatCode !== flat.code) continue;
+      lines.push(line);
+      flatCodes.add(flat.code);
+      break;
+    }
+  }
+  if (lines.length < HIGH_VALUE) throw new Error("The demo dataset has too few large flats for the high-value rows");
+  return { lines, flatCodes };
+}
+
 /**
  * Well-formed payments, the way a society that follows the payment-note instruction receives them: a UPI id the society already
  * knows (the seed's known payers, one flat only), the flat code in the note, a clean name and exactly the amount due on the
  * row's date. They are for flats that have an open bill and are not among the hand-written ones. Each is checked on its own and
  * kept only if the matcher posts it, so the demo never promises an automatic match that does not happen.
  */
-function wellFormedRows(flats: readonly FlatContext[]): { lines: string[]; flatCodes: Set<string> } {
+function wellFormedRows(flats: readonly FlatContext[], skip: ReadonlySet<string>): { lines: string[]; flatCodes: Set<string> } {
   const flatsByVpa = new Map<string, number>();
   for (const f of flats) for (const p of f.knownPayers) flatsByVpa.set(p.value, (flatsByVpa.get(p.value) ?? 0) + 1);
   const eligible = flats
-    .filter((f) => !HAND_FLATS.has(f.code) && f.openBills.length > 0 && f.residents.length > 0 && f.knownPayers.length === 1 && flatsByVpa.get(f.knownPayers[0].value) === 1)
+    .filter((f) => !HAND_FLATS.has(f.code) && !skip.has(f.code) && f.openBills.length > 0 && f.residents.length > 0 && f.knownPayers.length === 1 && flatsByVpa.get(f.knownPayers[0].value) === 1)
     .sort((a, b) => (a.code < b.code ? -1 : 1));
   const lines: string[] = [];
   const flatCodes = new Set<string>();
@@ -83,7 +128,7 @@ function wellFormedRows(flats: readonly FlatContext[]): { lines: string[]; flatC
     const reference = `72000000${String(lines.length + 1).padStart(4, "0")}`;
     const line = `${date},UPI/${reference}/${flat.residents[0].name.toUpperCase()}/${flat.knownPayers[0].value}/${flat.code}/maintenance,${amount}.00,`;
     const parsed = parseStatementCsv(`Txn Date,Narration,Credit,Debit\n${line}\n`).rows;
-    const processed = processStatement({ rows: parsed, csvErrors: [], flats: [...flats], settings: defaultMatchSettings, alreadyImportedKeys: new Set() });
+    const processed = processStatement({ rows: parsed, csvErrors: [], flats: [...flats], settings: DEMO_MATCH_SETTINGS, alreadyImportedKeys: new Set() });
     if (processed.rows[0]?.state !== "AUTO_MATCHED") continue;
     lines.push(line);
     flatCodes.add(flat.code);
@@ -92,11 +137,11 @@ function wellFormedRows(flats: readonly FlatContext[]): { lines: string[]; flatC
 }
 
 /**
- * The sample bank statement of the demo: about 105 rows dated 20 to 27 October 2026, as CSV text. Fourteen are written by hand (above),
- * twenty are well-formed payments from residents with a registered UPI id, and the rest come from the benchmark simulator on the demo
+ * The sample bank statement of the demo: about 106 rows dated 20 to 27 October 2026, as CSV text. Fourteen are written by hand (above),
+ * three are credits of the demo threshold or more for one flat each, eighteen are well-formed payments from residents with a registered UPI id, and the rest come from the benchmark simulator on the demo
  * flats (without the flats of the other rows), so the statement has the mess of a real one: UPI, NEFT, IMPS, cheques and cash, flat
  * codes written many ways, names cut short, debits and charges. The simulated rows are chosen by what the matcher makes of them to
- * give about 27 posted automatically, 40 queued and 38 ignored.
+ * give 25 posted automatically, 43 queued and 38 ignored with the demo's threshold of ₹10,000 (D116).
  *
  * THIS MIX IS ILLUSTRATIVE. It is made to show the screens and every kind of row, and it is NOT the benchmark: on the benchmark's
  * statements (docs/matching-benchmark.md) the matcher posts about 4 percent of the credits by itself, because most real residents do
@@ -105,12 +150,13 @@ function wellFormedRows(flats: readonly FlatContext[]): { lines: string[]; flatC
  */
 export function buildSampleStatement(dataset: DemoDataset = generateDemoDataset()): string {
   const base = prepareBase(dataset);
-  const formed = wellFormedRows(base.flats);
-  const simulated = simulateStatement({ seed: SIMULATED_SEED, rows: SIMULATED_DRAWN, base: { ...base, flats: base.flats.filter((f) => !HAND_FLATS.has(f.code) && !formed.flatCodes.has(f.code)) } });
+  const high = highValueRows(base.flats);
+  const formed = wellFormedRows(base.flats, high.flatCodes);
+  const simulated = simulateStatement({ seed: SIMULATED_SEED, rows: SIMULATED_DRAWN, base: { ...base, flats: base.flats.filter((f) => !HAND_FLATS.has(f.code) && !high.flatCodes.has(f.code) && !formed.flatCodes.has(f.code)) } });
   const [header, ...lines] = simulated.csvText.trimEnd().split("\n");
   const inWindow = lines.filter((line) => dateOf(line) >= FIRST_DAY && dateOf(line) <= LAST_DAY);
   const parsed = parseStatementCsv(`${header}\n${inWindow.join("\n")}\n`).rows;
-  const states = processStatement({ rows: parsed, csvErrors: [], flats: base.flats, settings: defaultMatchSettings, alreadyImportedKeys: new Set() }).rows;
+  const states = processStatement({ rows: parsed, csvErrors: [], flats: base.flats, settings: DEMO_MATCH_SETTINGS, alreadyImportedKeys: new Set() }).rows;
   const quota: Record<string, number> = { QUEUED: SIMULATED_QUEUED, IGNORED: SIMULATED_IGNORED, AUTO_MATCHED: SIMULATED_AUTO };
   const kept = inWindow.filter((_line, index) => {
     const state = states.find((r) => r.rowNumber === parsed[index]?.rowNumber)?.state ?? "";
@@ -118,7 +164,7 @@ export function buildSampleStatement(dataset: DemoDataset = generateDemoDataset(
     quota[state] -= 1;
     return true;
   });
-  const all = [...kept, ...formed.lines, ...HAND_ROWS].map((line, index) => ({ line, index }));
+  const all = [...kept, ...formed.lines, ...high.lines, ...HAND_ROWS].map((line, index) => ({ line, index }));
   // By date, the order within a day being the order they were made in (simulated rows first, then the others).
   all.sort((a, b) => (dateOf(a.line) === dateOf(b.line) ? a.index - b.index : dateOf(a.line) < dateOf(b.line) ? -1 : 1));
   return `${[header, ...all.map((x) => x.line)].join("\n")}\n`;

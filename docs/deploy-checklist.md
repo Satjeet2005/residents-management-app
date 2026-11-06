@@ -197,6 +197,28 @@ npm run smoke:auth -- "$BASE_URL" 5000000006     # a resident; then repeat with 
       loads without a Vercel login page. If a Vercel login page appears, go back to D7.
 - [ ] **E6. Logs.** Open the deployment's runtime logs and look for errors. **Expected:** none. (Hobby keeps logs for **1 hour**.)
 
+### E7. After deploying the reconciliation screens (D116): update the second-approver threshold
+
+The seed now sets the demo's threshold to ₹10,000, but a database that was seeded earlier still holds ₹25,000, and the app role
+cannot change a setting (`society_settings` is SELECT-only for it, on purpose). Run this ONCE, as the owner, in the **Neon SQL
+Editor** (Console > your project > SQL Editor, signed in as the owner role, database `neondb`). The value is a JSON number, the same shape the seed writes
+(`{ key: "approval_threshold_paise", value: 1000000 }` in `src/domain/seed/settings.ts`):
+
+```sql
+-- D116: second-approver threshold of the demo, ₹10,000 (1,000,000 paise)
+UPDATE society_settings SET value = '1000000'::jsonb WHERE key = 'approval_threshold_paise';
+```
+
+Then check it with:
+
+```sql
+SELECT key, value FROM society_settings WHERE key = 'approval_threshold_paise';
+```
+
+- [ ] **E7. Threshold.** **Expected:** the UPDATE says `UPDATE 1` and the SELECT shows `1000000`. If it says `UPDATE 0` the key is missing:
+      stop and tell the agent. Both statements are tested against a freshly seeded local database
+      (`tests/integration/demo-threshold.test.ts`, which reads them from this file).
+
 ## Part F. Keep it alive for the review window
 
 - [ ] Put a reminder every **14 days** to open the Vercel dashboard and the Neon Console, and to open the live site.

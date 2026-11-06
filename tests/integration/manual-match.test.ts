@@ -132,9 +132,9 @@ describe("MP1 a manual match posts exactly what planPosting plans", () => {
 
   it("a credit at or above the threshold is not posted: AWAITING_APPROVAL, a REQUEST_APPROVAL decision, the queue item stays OPEN", async () => {
     const resident = await fx.makeResident({ billAmountPaise: 3_000_000n, dueOn: "2026-10-30" });
-    const row = await queuedRow(fx, 2_500_000n);
+    const row = await queuedRow(fx, 1_000_000n);
     const result = await match(row, resident.flatCode, { rememberPayer: true });
-    expect(result).toEqual({ status: "AWAITING_APPROVAL", thresholdPaise: "2500000" });
+    expect(result).toEqual({ status: "AWAITING_APPROVAL", thresholdPaise: "1000000" });
     expect(await fx.owner.ledgerEntry.count({ where: { flatId: resident.flatId, entryType: "PAYMENT" } })).toBe(0);
     expect(await fx.owner.bankRow.findUniqueOrThrow({ where: { id: row.id } })).toMatchObject({ state: "AWAITING_APPROVAL", ledgerEntryId: null, version: 2 });
     const [request] = await fx.owner.paymentMatch.findMany({ where: { bankRowId: row.id } });
@@ -146,7 +146,7 @@ describe("MP1 a manual match posts exactly what planPosting plans", () => {
 
   it("just below the threshold is posted at once", async () => {
     const resident = await fx.makeResident({ billAmountPaise: 3_000_000n, dueOn: "2026-10-30" });
-    const row = await queuedRow(fx, 2_499_999n);
+    const row = await queuedRow(fx, 999_999n);
     expect((await match(row, resident.flatCode)).status).toBe("POSTED");
   });
 

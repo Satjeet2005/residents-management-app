@@ -204,5 +204,6 @@ Mutation 1 shows what a benchmark can and cannot do: it proves the matcher on th
 - The unique-amount signal of M4j depends on the rows before it (C26): the same row can queue or post depending on the file's order.
   In these sets it corroborated one post that nothing else did.
 - Every posted payment still passes the approval threshold (M8) and the ledger rules; the benchmark does not test them.
+- The benchmark runs with the matcher's built-in default threshold of ₹25,000 (`defaultMatchSettings`). The demo society's setting is ₹10,000 (D116), so on the demo the matcher queues credits of ₹10,000 or more; the benchmark's fixtures and snapshots are not changed and do not read the society setting.
 - To regenerate a set: `BENCHMARK_WRITE=dev npx vitest run tests/domain/matching/benchmark/write-fixtures.test.ts`. Review the diff of
   `expected.json`. A change of the holdout is a new holdout, not a re-run.

@@ -114,7 +114,7 @@ describe("MP2 approving a match", () => {
 
 describe("MP2 ignoring a row", () => {
   it("below the threshold: IGNORED at once with an IGNORE decision, the reason, and the queue item RESOLVED", async () => {
-    const row = await queuedRow(fx, 1_500_000n);
+    const row = await queuedRow(fx, 900_000n);
     expect(await ignoreRow({ db: fx.app, user: priya, rowId: row.id, reason: "Hall rent, not maintenance", expectedVersion: 1, now: DEMO_NOW })).toEqual({ status: "IGNORED" });
     expect(await rowOf(row.id)).toMatchObject({ state: "IGNORED", flatId: null, ledgerEntryId: null, version: 2 });
     expect(await fx.owner.paymentMatch.findFirstOrThrow({ where: { bankRowId: row.id } })).toMatchObject({ decision: "IGNORE", decidedById: priya.id, reason: "Hall rent, not maintenance" });
@@ -124,7 +124,7 @@ describe("MP2 ignoring a row", () => {
 
   it("at or above the threshold: AWAITING_APPROVAL with {action: IGNORE}, the queue item stays OPEN; a second person approves it and it becomes IGNORED", async () => {
     const row = await queuedRow(fx, BIG);
-    expect(await ignoreRow({ db: fx.app, user: priya, rowId: row.id, reason: "Deposit refund from a vendor", expectedVersion: 1, now: DEMO_NOW })).toEqual({ status: "AWAITING_APPROVAL", thresholdPaise: "2500000" });
+    expect(await ignoreRow({ db: fx.app, user: priya, rowId: row.id, reason: "Deposit refund from a vendor", expectedVersion: 1, now: DEMO_NOW })).toEqual({ status: "AWAITING_APPROVAL", thresholdPaise: "1000000" });
     expect(await rowOf(row.id)).toMatchObject({ state: "AWAITING_APPROVAL" });
     expect((await fx.owner.paymentMatch.findFirstOrThrow({ where: { bankRowId: row.id } })).reasons).toEqual({ action: "IGNORE" });
     expect(await queueOf(row.id)).toMatchObject({ status: "OPEN" });

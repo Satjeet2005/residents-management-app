@@ -33,7 +33,7 @@ describe("C8 settings and categories", () => {
 
   it("C8 has the listed values", () => {
     expect(setting("late_fee_policy")).toEqual({ annualRateBps: 1200, capBps: 2100, daysInYear: 365 });
-    expect(setting("approval_threshold_paise")).toBe(2500000);
+    expect(setting("approval_threshold_paise")).toBe(1000000);
     expect(setting("sla_minutes")).toEqual({ CRITICAL: 15, HIGH: 120, NORMAL: 1440, LOW: 4320 });
     expect(setting("escalation_hours")).toBe(24);
     expect(setting("safety_ack_timeout_minutes")).toBe(5);

@@ -21,7 +21,11 @@ export const SLA_MINUTES: Readonly<Record<ComplaintUrgency, number>> = { CRITICA
 export const DUTY_MANAGER_PHONE = "5900000001";
 export const ACCOUNTS_PHONE = "5900000002";
 
-export const APPROVAL_THRESHOLD_PAISE = 2_500_000;
+/**
+ * D116: the DEMO's second-approver threshold is ₹10,000 (a labelled assumption), so the approval path can be shown with a manual match
+ * on the demo's own amounts. The matcher's built-in default (`defaultMatchSettings`, ₹25,000) and the benchmark are unchanged.
+ */
+export const APPROVAL_THRESHOLD_PAISE = 1_000_000;
 
 const CATEGORIES: readonly { code: string; name: string }[] = [
   { code: "PLUMBING", name: "Plumbing" },

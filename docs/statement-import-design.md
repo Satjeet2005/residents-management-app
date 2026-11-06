@@ -89,13 +89,13 @@ for a person; what a person can do with a queued row is in `docs/manual-reconcil
 - **S6.** A file whose rows are all repeats still creates an import row and an audit row, and changes no bank row, entry, match or queue item.
 - **S7.** `created_by_id` of the ledger entries is empty: an automatic posting has no human, like its `payment_matches` row. The uploader is in the audit log.
 - **S8.** The commit that adds the per-bill lock to the gateway comes before the commit that adds the import, so no commit posts from the bank without it.
-- **S9.** The sample statement's expected counts (27 posted, 40 queued, 38 ignored, 105 rows) are for the seeded database; after T12-0408 pays through the gateway, 26 are posted and 41 queued.
+- **S9.** The sample statement's expected counts (25 posted, 43 queued, 38 ignored, 106 rows, with the demo threshold of ₹10,000, D116) are for the seeded database; after T12-0408 pays through the gateway, 24 are posted and 44 queued.
 - **S10.** The match context decides "open" with the matcher's own rule (payments below the bill) instead of running `billPosition` for
   every bill of the society: the two are the same set (PRINCIPAL_OPEN), a test compares them for every flat of a seeded database, and
   it keeps the context to six queries.
 - **S11.** A bank payment for the late fee of a FEE_ONLY bill is queued, not matched: a person posts it. Matching it needs a matcher
   change, which this task does not make.
-- **S12.** The sample statement is an ILLUSTRATION made to show every kind of row and a society that follows the payment-note instruction (20
-  well-formed payments from known UPI ids, 27 of 105 rows posted automatically). It is NOT the benchmark: on the benchmark's statements the
+- **S12.** The sample statement is an ILLUSTRATION made to show every kind of row and a society that follows the payment-note instruction (18
+  well-formed payments from known UPI ids, 25 of 106 rows posted automatically, three queued credits of ₹10,000 or more for one flat each, D116). It is NOT the benchmark: on the benchmark's statements the
   matcher posts about 4 percent of the credits by itself (`docs/matching-benchmark.md`). Its mix is set by the generator
   (`src/domain/matching/sample-statement.ts`), not by the matcher, which is unchanged.

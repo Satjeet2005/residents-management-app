@@ -46,7 +46,7 @@ it belongs to ANOTHER flat nothing is added and the answer says `VPA_ON_OTHER_FL
 
 ## Thresholds and the second approver (D14, D108)
 
-A credit at or above `society_settings.approval_threshold_paise` (₹25,000) is never posted by one person. Match and ignore then
+A credit at or above `society_settings.approval_threshold_paise` (the demo's setting is ₹10,000, D116; the matcher's default is ₹25,000) is never posted by one person. Match and ignore then
 only REQUEST approval: the row becomes AWAITING_APPROVAL, a `payment_matches` REQUEST_APPROVAL row records the requester, the reason and
 `reasons {action: 'MATCH', flatCode, rememberPayer, billId, amountDuePaise}` or `{action: 'IGNORE'}`, and the queue item stays OPEN (D109).
 

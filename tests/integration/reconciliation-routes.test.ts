@@ -196,7 +196,7 @@ describe("RR3 the writes: the status mapping and generic errors", () => {
 
     const big = await queuedRow(fx, 2_600_000n);
     const asked = await ignore(big.id, priyaCookie, { reason: "Vendor deposit refund", expectedVersion: 1 });
-    expect(await asked.json()).toEqual({ status: "AWAITING_APPROVAL", thresholdPaise: "2500000" });
+    expect(await asked.json()).toEqual({ status: "AWAITING_APPROVAL", thresholdPaise: "1000000" });
     expect((await reject(big.id, rahulCookie, { reason: "x" })).status).toBe(422);
     const approved = await approve(big.id, rahulCookie, { note: "Checked the deposit slip" });
     expect(approved.status).toBe(200);
@@ -208,7 +208,7 @@ describe("RR3 the writes: the status mapping and generic errors", () => {
     const resident = await fx.makeResident({ billAmountPaise: 3_000_000n, dueOn: "2026-10-30" });
     const row = await queuedRow(fx, 2_600_000n);
     const asked = await match(row.id, rahulCookie, goodBody(resident.flatCode));
-    expect(await asked.json()).toEqual({ status: "AWAITING_APPROVAL", thresholdPaise: "2500000" });
+    expect(await asked.json()).toEqual({ status: "AWAITING_APPROVAL", thresholdPaise: "1000000" });
     const own = await approve(row.id, rahulCookie);
     expect(own.status).toBe(409);
     expect(await own.json()).toEqual({ error: "SELF_APPROVAL" });

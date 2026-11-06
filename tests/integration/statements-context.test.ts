@@ -79,7 +79,7 @@ describe("SI9 loadMatchContext on the seeded database", () => {
 
   it("reads the policy and the approval threshold from the settings (₹25,000)", async () => {
     const { settings } = await loadMatchContext(fx.app, DEMO_NOW);
-    expect(settings.approvalThresholdPaise).toBe(2_500_000n);
+    expect(settings.approvalThresholdPaise).toBe(1_000_000n);
     expect(settings.lateFeePolicy).toEqual({ annualRateBps: 1200, capBps: 2100, daysInYear: 365 });
   });
 

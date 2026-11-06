@@ -360,6 +360,21 @@ overwritten by a value in `.env` when `process.loadEnvFile` runs (tested with a 
    the database or the project in the Neon console, then repeat steps 3 to 5.
 7. **Unset the shell variables** (`unset DATABASE_URL DEMO_MODE`) or close the terminal.
 
+### After deploying the reconciliation screens: update the threshold setting (D116)
+
+The demo's second-approver threshold is ₹10,000 (`APPROVAL_THRESHOLD_PAISE` in `src/domain/seed/settings.ts`), but the seed runs only on an
+empty database, so a hosted database seeded earlier keeps ₹25,000 until the setting is changed. `society_settings` is writable by the
+OWNER only (the app role has SELECT only, `src/server/db-roles/app-role.ts`), so the human runs this once in the Neon SQL Editor as the
+owner (the same text is step E7 of `docs/deploy-checklist.md`, and a test runs it against a freshly seeded local database):
+
+```sql
+UPDATE society_settings SET value = '1000000'::jsonb WHERE key = 'approval_threshold_paise';
+SELECT key, value FROM society_settings WHERE key = 'approval_threshold_paise';
+```
+
+Expected: `UPDATE 1`, then `1000000`. Until it is run, the live import and the review panel use ₹25,000 and the sample statement's three
+queued credits of about ₹10,660 are posted by one person instead of waiting for a second approver.
+
 ## Post-deploy smoke test
 
 `npm run smoke:auth -- <BASE_URL> <demo phone>` exists (T8c, `scripts/smoke-auth.mjs`; it also reads `BASE_URL` and
