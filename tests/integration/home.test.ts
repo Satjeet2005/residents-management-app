@@ -199,7 +199,7 @@ describe("HM6 the business clock moves the numbers (a later real date)", () => {
   });
 });
 
-describe("HM6 every seeded flat: no money is owed outside an open bill", () => {
+describe("HM6 every seeded flat: no money is owed outside an open bill, and the ledger agrees with the bill positions (FA4)", () => {
   it("HM6 for all flats, a flat with no open bill has a ledger balance of zero or less (so 'No dues' is true)", async () => {
     const [bills, entries] = await Promise.all([
       ownerPrisma.bill.findMany({ select: { id: true, flatId: true, period: true, issuedOn: true, dueOn: true, amountPaise: true } }),
@@ -221,6 +221,12 @@ describe("HM6 every seeded flat: no money is owed outside an open bill", () => {
       });
       if (dues.openBills.length > 0) open++;
       else if (dues.balancePaise > 0n) problems.push(`${id}: no open bill but balance ${dues.balancePaise}`);
+      // The ledger holds the bills and the fees that were posted; the fee still accruing on an open bill is computed, never stored (D26).
+      // So the ledger balance equals the amounts due less that computed fee, and no seeded flat owes a fee on a paid bill or has an anomaly.
+      const positions = dues.openBills;
+      const expected = positions.reduce((sum, b) => sum + b.outstandingPaise + (b.kind === "FEE_ONLY" ? b.feePaise : 0n), 0n);
+      if (dues.balancePaise !== expected) problems.push(`${id}: balance ${dues.balancePaise} but positions ${expected}`);
+      if (positions.some((b) => b.kind === "FEE_ONLY" || b.anomalies.length > 0)) problems.push(`${id}: a seeded flat is FEE_ONLY or has an anomaly`);
     }
     expect(flats.length).toBeGreaterThanOrEqual(2400);
     expect(open).toBeGreaterThan(0);

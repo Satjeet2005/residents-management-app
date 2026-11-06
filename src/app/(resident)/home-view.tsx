@@ -43,7 +43,7 @@ function stepLabel(key: (typeof COMPLAINT_STEP_KEYS)[number]): string {
 function DuesCard({ data }: { data: Ok }) {
   const { dues, asOf } = data;
   const tag = dueTag(dues);
-  const open = dues.status === "OVERDUE" || dues.status === "NOT_YET_DUE" || dues.status === "PARTLY_PAID";
+  const open = dues.openBills.length > 0;
   if (open) {
     return (
       <section aria-label={t("dues.title")} className="flex flex-col gap-3">

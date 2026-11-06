@@ -5,7 +5,10 @@ import { lockAmount, sameAmount } from "@/domain/payments/amount-lock";
 
 const bill = (id: string, period: string, dueOn: string, amountPaise: bigint): DueBill => ({ id, period, issuedOn: period, dueOn, amountPaise });
 const payment = (id: string, billId: string, effectiveDate: string, amountPaise: bigint): DueEntry => ({ id, entryType: "PAYMENT", direction: "PAYMENT", amountPaise, effectiveDate, billId, reversesEntryId: null });
+const lateFee = (id: string, billId: string, effectiveDate: string, amountPaise: bigint): DueEntry => ({ id, entryType: "LATE_FEE", direction: "CHARGE", amountPaise, effectiveDate, billId, reversesEntryId: null });
 const policy = defaultLateFeePolicy;
+/** A bill paid late the way the system posts it: LATE_FEE ₹21 (10 days on ₹6,370) and one PAYMENT of the bill plus the fee, both on 20 Sep. */
+const paidLate = (billId: string): DueEntry[] => [lateFee("f1", billId, "2026-09-20", 2_100n), payment("p1", billId, "2026-09-20", 639_100n)];
 
 describe("PY1 lockAmount: the OLDEST open bill, worked out by the same function as the Home (D99)", () => {
   it("T12-0408: ₹6,370 due 10 Sep, as of 27 Oct, is ₹6,370 principal plus ₹98 fee, ₹6,468", () => {
@@ -25,7 +28,7 @@ describe("PY1 lockAmount: the OLDEST open bill, worked out by the same function 
   });
 
   it("skips a bill that is already paid and locks the next one", () => {
-    const locked = lockAmount({ openBills: [bill("sep", "2026-09-01", "2026-09-10", 637_000n), bill("oct", "2026-10-01", "2026-10-10", 700_000n)], asOf: "2026-10-27", policy, payments: [payment("p1", "sep", "2026-09-20", 637_000n)] });
+    const locked = lockAmount({ openBills: [bill("sep", "2026-09-01", "2026-09-10", 637_000n), bill("oct", "2026-10-01", "2026-10-10", 700_000n)], asOf: "2026-10-27", policy, payments: paidLate("sep") });
     expect(locked?.billId).toBe("oct");
   });
 
@@ -50,7 +53,7 @@ describe("PY1 lockAmount: the OLDEST open bill, worked out by the same function 
 
   it("is null when nothing is open", () => {
     expect(lockAmount({ openBills: [], asOf: "2026-10-27", policy, payments: [] })).toBeNull();
-    expect(lockAmount({ openBills: [bill("sep", "2026-09-01", "2026-09-10", 637_000n)], asOf: "2026-10-27", policy, payments: [payment("p1", "sep", "2026-09-20", 637_000n)] })).toBeNull();
+    expect(lockAmount({ openBills: [bill("sep", "2026-09-01", "2026-09-10", 637_000n)], asOf: "2026-10-27", policy, payments: paidLate("sep") })).toBeNull();
   });
 
   it("a bill issued after the day is not open yet", () => {

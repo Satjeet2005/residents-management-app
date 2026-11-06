@@ -146,6 +146,21 @@ describe("HM1 dues variants built by hand", () => {
   });
 });
 
+describe("FA1 Home data for a flat whose principal is paid and whose late fee is not (D107)", () => {
+  it("T21-1601 after a principal-only payment is LATE_FEE_DUE, ₹38, FEE_ONLY, with the fee as of the day the principal was paid", () => {
+    const input = inputFor("T21-1601");
+    const oct = input.bills.find((b) => b.period.toISOString().startsWith("2026-10"));
+    if (oct === undefined) throw new Error("no October bill");
+    const day = new Date("2026-10-27T00:00:00.000Z");
+    const entry = (id: string, entryType: "PAYMENT" | "LATE_FEE", direction: "PAYMENT" | "CHARGE", amountPaise: bigint, n: number) => ({ id, entryType, direction, amountPaise, effectiveDate: day, billId: oct.id, reversesEntryId: null, createdAt: new Date(1_800_000_000_000 + n) });
+    const data = assembleHome({ ...input, entries: [...input.entries, entry("fa-p", "PAYMENT", "PAYMENT", 566_000n, 1), entry("fa-f", "LATE_FEE", "CHARGE", 3_800n, 2)] });
+    if (data.kind !== "OK") throw new Error("expected OK");
+    expect(data.dues).toMatchObject({ status: "LATE_FEE_DUE", amountDuePaise: 3_800n, partlyPaid: null });
+    expect(data.dues.openBills).toHaveLength(1);
+    expect(data.dues.openBills[0]).toMatchObject({ kind: "FEE_ONLY", feePaise: 3_800n, outstandingPaise: 0n, settledOn: "2026-10-27" });
+  });
+});
+
 describe("HM1 the other parts of the Home data", () => {
   it("no current membership is NO_FLAT", () => {
     expect(assembleHome({ ...inputFor("T12-0408"), memberships: [] })).toEqual({ kind: "NO_FLAT", userName: expect.any(String), asOf: "2026-10-27" });

@@ -1,6 +1,7 @@
 import type { Paise } from "../money/money";
 import { type CalendarDate, diffDays } from "../time/calendar";
 import { type LateFeePolicy, computeLateFee } from "./late-fee";
+import { type BillPosition, type PositionAnomaly, billPosition } from "./position";
 import { type FeeWorking, buildFeeWorking } from "./working";
 
 export type DueBill = { id: string; period: CalendarDate; issuedOn: CalendarDate; dueOn: CalendarDate; amountPaise: Paise };
@@ -18,20 +19,29 @@ export type DueEntry = {
 
 export type OpenBill = {
   billId: string;
+  /** PRINCIPAL_OPEN: principal still unpaid, fee computed. FEE_ONLY: the principal is paid and the posted late fee is not (D107). */
+  kind: "PRINCIPAL_OPEN" | "FEE_ONLY";
   period: CalendarDate;
   dueOn: CalendarDate;
   billAmountPaise: Paise;
   /** Payments on this bill up to today that were not reversed. */
   payments: readonly { date: CalendarDate; amountPaise: Paise }[];
-  /** Principal still unpaid. Always above zero for an open bill. */
+  /** Principal still unpaid: above zero for PRINCIPAL_OPEN, zero for FEE_ONLY. */
   outstandingPaise: Paise;
+  /** The late fee still owed (computed while the principal is open, what remains of the posted fee when FEE_ONLY). */
   feePaise: Paise;
-  /** Days past the due date, 0 when not yet due. */
+  /** FEE_ONLY: the whole fee that accrued, and the part of it already paid (payments above the bill). Zero otherwise. */
+  feeAccruedPaise: Paise;
+  feePaidPaise: Paise;
+  /** FEE_ONLY: the date the principal was paid, the day the fee stopped growing. Null while the principal is open. */
+  settledOn: CalendarDate | null;
+  /** Days past the due date: to today, or to the settling date when FEE_ONLY. 0 when not yet due. */
   overdueDays: number;
+  anomalies: readonly PositionAnomaly[];
   working: FeeWorking | null;
 };
 
-export type DuesStatus = "OVERDUE" | "NOT_YET_DUE" | "PARTLY_PAID" | "ALL_PAID" | "CREDIT";
+export type DuesStatus = "OVERDUE" | "NOT_YET_DUE" | "PARTLY_PAID" | "LATE_FEE_DUE" | "ALL_PAID" | "CREDIT";
 
 export type Dues = {
   status: DuesStatus;
@@ -51,10 +61,79 @@ export type Dues = {
   balancePaise: Paise;
 };
 
+export type FlatBillPosition = { bill: DueBill; position: BillPosition; payments: readonly { date: CalendarDate; amountPaise: Paise }[] };
+
 /**
- * What a flat owes today (D6, D13, D26, D35). A bill is open while payments on it (by bill id, not reversed, dated up to
- * today) fall short of its amount. The late fee is computed on the daily balance by computeLateFee and is never stored.
- * A bill issued after today is not yet part of the dues. Every figure is a bigint.
+ * The position of every bill of a flat as of `asOf` (D107), oldest due date first. A bill issued after `asOf` is left out. Entries
+ * dated after `asOf` and entries that a REVERSAL cancels do not count. Payments, LATE_FEE charges and ADJUSTMENTs are matched to
+ * a bill by its id. The Home, the payment lock and the statement import all read bills through this one function, so they cannot
+ * disagree (the committee report will too).
+ */
+export function positionsForFlat(input: { bills: readonly DueBill[]; entries: readonly DueEntry[]; policy: LateFeePolicy; asOf: CalendarDate }): FlatBillPosition[] {
+  const { policy, asOf } = input;
+  const entries = input.entries.filter((e) => e.effectiveDate <= asOf);
+  const reversed = new Set(entries.filter((e) => e.entryType === "REVERSAL" && e.reversesEntryId !== null).map((e) => e.reversesEntryId));
+  const live = entries.filter((e) => !reversed.has(e.id));
+  return [...input.bills]
+    .filter((b) => b.issuedOn <= asOf)
+    .sort((a, b) => (a.dueOn < b.dueOn ? -1 : a.dueOn > b.dueOn ? 1 : a.period < b.period ? -1 : 1))
+    .map((bill) => {
+      const mine = live.filter((e) => e.billId === bill.id);
+      const payments = mine.filter((e) => e.entryType === "PAYMENT" && e.direction === "PAYMENT").map((e) => ({ date: e.effectiveDate, amountPaise: e.amountPaise }));
+      const position = billPosition({
+        billAmountPaise: bill.amountPaise,
+        dueOn: bill.dueOn,
+        asOf,
+        payments,
+        postedFees: mine.filter((e) => e.entryType === "LATE_FEE" && e.direction === "CHARGE").map((e) => ({ date: e.effectiveDate, amountPaise: e.amountPaise })),
+        adjustments: mine.filter((e) => e.entryType === "ADJUSTMENT").map((e) => ({ date: e.effectiveDate, direction: e.direction, amountPaise: e.amountPaise })),
+        holds: [],
+        policy,
+      });
+      return { bill, position, payments };
+    });
+}
+
+function openBillOf({ bill, position, payments }: FlatBillPosition, today: CalendarDate, policy: LateFeePolicy): OpenBill {
+  const common = { billId: bill.id, period: bill.period, dueOn: bill.dueOn, billAmountPaise: bill.amountPaise, payments, anomalies: position.anomalies };
+  if (position.kind === "PRINCIPAL_OPEN") {
+    const result = computeLateFee({ billAmountPaise: bill.amountPaise, dueOn: bill.dueOn, asOf: today, payments, holds: [], policy });
+    return {
+      ...common,
+      kind: "PRINCIPAL_OPEN",
+      outstandingPaise: position.principalOutstandingPaise,
+      feePaise: position.feeOutstandingPaise,
+      feeAccruedPaise: 0n,
+      feePaidPaise: 0n,
+      settledOn: null,
+      overdueDays: result.overdueDays,
+      working: buildFeeWorking(result, policy),
+    };
+  }
+  // FEE_ONLY: the fee stopped growing the day the principal was paid, so the working is shown as of that day.
+  const settledOn = position.settledOn as CalendarDate;
+  const result = computeLateFee({ billAmountPaise: bill.amountPaise, dueOn: bill.dueOn, asOf: settledOn, payments, holds: [], policy });
+  const paidBeyondBill = payments.reduce((sum, p) => sum + p.amountPaise, 0n) - bill.amountPaise;
+  const feePaidPaise = paidBeyondBill > 0n ? paidBeyondBill : 0n;
+  const feeAccruedPaise = position.feeOutstandingPaise + feePaidPaise;
+  return {
+    ...common,
+    kind: "FEE_ONLY",
+    outstandingPaise: 0n,
+    feePaise: position.feeOutstandingPaise,
+    feeAccruedPaise,
+    feePaidPaise,
+    settledOn,
+    overdueDays: result.overdueDays,
+    working: result.feePaise === feeAccruedPaise ? buildFeeWorking(result, policy) : null,
+  };
+}
+
+/**
+ * What a flat owes today (D6, D13, D26, D35, D107). A bill is open while its position (positionsForFlat) is PRINCIPAL_OPEN or
+ * FEE_ONLY. While the principal is open the late fee is computed on the daily balance by computeLateFee; once the principal is
+ * paid the fee is the one that was posted, less what was paid for it. A bill issued after today is not yet part of the dues.
+ * Every figure is a bigint.
  */
 export function computeDues(input: { bills: readonly DueBill[]; entries: readonly DueEntry[]; policy: LateFeePolicy; today: CalendarDate }): Dues {
   const { policy, today } = input;
@@ -62,23 +141,9 @@ export function computeDues(input: { bills: readonly DueBill[]; entries: readonl
   const reversed = new Set(entries.filter((e) => e.entryType === "REVERSAL" && e.reversesEntryId !== null).map((e) => e.reversesEntryId));
   const livePayments = entries.filter((e) => e.entryType === "PAYMENT" && e.direction === "PAYMENT" && !reversed.has(e.id));
 
-  const openBills: OpenBill[] = [];
-  for (const bill of [...input.bills].filter((b) => b.issuedOn <= today).sort((a, b) => (a.dueOn < b.dueOn ? -1 : a.dueOn > b.dueOn ? 1 : a.period < b.period ? -1 : 1))) {
-    const payments = livePayments.filter((e) => e.billId === bill.id).map((e) => ({ date: e.effectiveDate, amountPaise: e.amountPaise }));
-    const result = computeLateFee({ billAmountPaise: bill.amountPaise, dueOn: bill.dueOn, asOf: today, payments, holds: [], policy });
-    if (result.outstandingPaise <= 0n) continue;
-    openBills.push({
-      billId: bill.id,
-      period: bill.period,
-      dueOn: bill.dueOn,
-      billAmountPaise: bill.amountPaise,
-      payments,
-      outstandingPaise: result.outstandingPaise,
-      feePaise: result.feePaise,
-      overdueDays: result.overdueDays,
-      working: buildFeeWorking(result, policy),
-    });
-  }
+  const openBills = positionsForFlat({ bills: input.bills, entries: input.entries, policy, asOf: today })
+    .filter((p) => p.position.kind !== "SETTLED")
+    .map((p) => openBillOf(p, today, policy));
 
   const balancePaise = entries.reduce((sum, e) => (e.direction === "CHARGE" ? sum + e.amountPaise : sum - e.amountPaise), 0n);
   const newestPayment = [...livePayments].sort((a, b) => (a.effectiveDate < b.effectiveDate ? 1 : a.effectiveDate > b.effectiveDate ? -1 : 0))[0];
@@ -99,18 +164,20 @@ export function computeDues(input: { bills: readonly DueBill[]; entries: readonl
 
   const amountDuePaise = openBills.reduce((sum, b) => sum + b.outstandingPaise + b.feePaise, 0n);
   const first = openBills[0];
-  const paid = openBills.flatMap((b) => b.payments);
+  const principalOpen = openBills.filter((b) => b.kind === "PRINCIPAL_OPEN");
+  const paid = principalOpen.flatMap((b) => b.payments);
   const partlyPaid =
     paid.length === 0
       ? null
       : {
           paidPaise: paid.reduce((sum, p) => sum + p.amountPaise, 0n),
           lastPaidOn: paid.map((p) => p.date).sort().reverse()[0],
-          stillDuePaise: openBills.reduce((sum, b) => sum + b.outstandingPaise, 0n),
-          feePaise: openBills.reduce((sum, b) => sum + b.feePaise, 0n),
+          stillDuePaise: principalOpen.reduce((sum, b) => sum + b.outstandingPaise, 0n),
+          feePaise: principalOpen.reduce((sum, b) => sum + b.feePaise, 0n),
         };
+  const status: DuesStatus = principalOpen.length === 0 ? "LATE_FEE_DUE" : partlyPaid !== null ? "PARTLY_PAID" : principalOpen[0].overdueDays > 0 ? "OVERDUE" : "NOT_YET_DUE";
   return {
-    status: partlyPaid !== null ? "PARTLY_PAID" : first.overdueDays > 0 ? "OVERDUE" : "NOT_YET_DUE",
+    status,
     amountDuePaise,
     creditPaise: 0n,
     openBills,
