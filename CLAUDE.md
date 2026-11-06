@@ -111,3 +111,18 @@ Deviations from the prompt and why:
 Risks or open questions:
 Commits made: (hash, message, check result, scan result)
 git status after:
+
+## Standard task protocol
+
+Every task prompt means: follow this section exactly.
+- Work in sequence: finish, check and commit one logical unit before the next. Use `set -e` in command chains. Stage named files only. Git follows "Project Safety Rules" (never `git reset`, `git rm`, `git stash`).
+- Before every commit run `npm run check` and `npm run scan:secrets` as separate commands, and re-run them after ANY edit. Each commit must pass on its own. No commit may contain behaviour that is known to be wrong for money or security.
+- Review the FULL staged diff of every source file (not generated files or fixtures). For test files you wrote in this session, review the diff stat and the list of test names, and say exactly what you did and did not read in the report.
+- Tests must stay under 3 s each on 2 CPUs. Build indexes once; never nest large loops.
+- Mutation evidence: where a prompt asks for mutations, apply each, paste the failing test names, restore from a file copy, and confirm a clean diff.
+- Database: only `township_test_*` and `township_seed_scratch` may be created, reset or dropped, with `SELECT current_database()` printed first. Create and drop test roles named `app_t_*` only. Clean up after failures.
+- Smoke tests run against the built app with a scratch database, print PASS/FAIL, and never print codes, cookies, tokens or secrets.
+- No new dependency, no CI change, no push, no `.env` reading. Do not touch untracked files you did not create.
+- Update the app role privilege matrix only for what the task needs, and stop and ask if more is required.
+- Stop and ask the human for any product, scope, risk or cost decision not in `docs/decisions.md`.
+- End with the report template, including "In plain English", "Commits made" with a check result per commit, "What I could not verify", and the exact commands for the human to look at the result.
