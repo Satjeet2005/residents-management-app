@@ -177,11 +177,38 @@ async function run() {
     const staffPay = await post("/api/payments", { expectedAmountPaise: "100" }, staffCookie);
     check("a staff member calling POST /api/payments gets 403", staffPay.status === 403, `status ${staffPay.status}`);
   }
+  if (expectDemoNote) await staffImportsSample(staffCookie);
   await post("/api/auth/logout-all", undefined, staffCookie);
   if (expectDemoNote && paidCheckoutPath !== null) await partPaidResidentFails(paidCheckoutPath);
 }
 
 let paidCheckoutPath = null;
+
+/**
+ * Staff upload the sample statement (src/server/statements/sample-statement.ts, read with Node's type stripping). The T12-0408 resident paid
+ * through the gateway earlier in this script, so that flat's bank row is queued, not posted: the gateway and the bank never both pay one bill.
+ * Every other number is the sample's own (docs/statement-import-design.md).
+ */
+async function staffImportsSample(staffCookie) {
+  const { getSampleStatement } = await import("../src/server/statements/sample-statement.ts");
+  const csv = getSampleStatement();
+  const first = await post("/api/statements", { filename: "sample-statement.csv", csv }, staffCookie);
+  const s = first.json?.summary ?? {};
+  check(
+    "POST /api/statements with the sample: 200, 114 rows, 6 posted, 71 queued, 37 ignored, none repeated, accounted true",
+    first.status === 200 && s.rowsRead === 114 && s.validRows === 114 && s.invalidRows === 0 && s.autoMatched === 6 && s.queued === 71 && s.ignored === 37 && s.alreadyImported === 0 && s.downgraded === 0 && first.json?.accounted === true,
+    `status ${first.status}, ${JSON.stringify({ a: s.autoMatched, q: s.queued, i: s.ignored })}`,
+  );
+  check("the sample's posted total is ₹49,081 (₹55,549 less T12-0408, which the gateway had already paid) and the credits ₹13,47,773", s.autoMatchedTotalPaise === "4908100" && s.creditTotalPaise === "134777300", `${s.autoMatchedTotalPaise} of ${s.creditTotalPaise}`);
+  if (first.status !== 200) return;
+  const stored = await fetch(`${baseUrl}/api/statements/${first.json.importId}`, { headers: { cookie: staffCookie } });
+  const storedJson = await stored.json();
+  check("GET /api/statements/<id> reads the same counts back from the database", stored.status === 200 && storedJson.accounted === true && storedJson.summary?.autoMatched === 6 && storedJson.summary?.queued === 71 && storedJson.summary?.ignored === 37, `status ${stored.status}`);
+  const again = await post("/api/statements", { filename: "sample-statement.csv", csv }, staffCookie);
+  check("POSTing the sample again: every one of the 114 rows is ALREADY_IMPORTED, nothing new is posted or queued", again.status === 200 && again.json?.summary?.alreadyImported === 114 && again.json?.summary?.autoMatched === 0 && again.json?.summary?.queued === 0 && again.json?.accounted === true, `status ${again.status}`);
+  const bad = await post("/api/statements", { filename: "bad.csv", csv: "Date,Credit\n2026-10-26,5.00\n" }, staffCookie);
+  check("a statement with no narration column is 422 INVALID_CSV", bad.status === 422 && bad.json?.error === "INVALID_CSV", `status ${bad.status}`);
+}
 
 /** The T12-0408 resident pays: lock the amount, a bad signature changes nothing, a signed success shows No dues. */
 async function residentPays(cookie, homeBefore) {
@@ -239,6 +266,8 @@ async function partPaidResidentFails(otherCheckoutPath) {
   const cookie = await login(RESIDENT_PART_PAID);
   check("login as the T21-1601 resident", cookie !== null, cookie ? `cookie length ${cookie.length}` : "could not log in");
   if (cookie === null) return;
+  const residentImport = await post("/api/statements", { filename: "s.csv", csv: "Txn Date,Narration,Credit,Debit\n2026-10-26,CASH,1.00,\n" }, cookie);
+  check("a resident posting a statement gets 403", residentImport.status === 403, `status ${residentImport.status}`);
   const other = await get(otherCheckoutPath, cookie);
   check("a resident opening another flat's demo checkout gets a real HTTP 404", other.status === 404 && !other.text.includes("Pay successfully"), `status ${other.status}`);
   const home = await get("/", cookie);
