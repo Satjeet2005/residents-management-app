@@ -14,6 +14,7 @@
 // (a session cannot be made over HTTP without demo mode).
 
 import { createHmac } from "node:crypto";
+import { readinessFirst } from "./smoke-readiness.mjs";
 
 const args = process.argv.slice(2);
 const baseUrl = (args.find((a) => /^https?:\/\//.test(a)) ?? process.env.BASE_URL ?? "").replace(/\/+$/, "");
@@ -23,6 +24,9 @@ if (!baseUrl || !(asOfArg === "real" || /^\d{4}-\d{2}-\d{2}$/.test(asOfArg))) {
   console.error("Usage: node scripts/smoke-app.mjs <BASE_URL> --as-of=<YYYY-MM-DD|real> --demo=<true|false>");
   process.exit(2);
 }
+
+// Readiness first (D112): a misconfigured deployment is named here, before a login is tried.
+if (!(await readinessFirst(baseUrl, "smoke:app"))) process.exit(1);
 
 const RESIDENT = "5000000007";
 const RESIDENT_PART_PAID = "5000000009";

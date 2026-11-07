@@ -8,6 +8,8 @@
 // The server must be in demo mode (DEMO_MODE=true), because the check signs in with the code the API returns for a
 // demo phone. The script never prints the code, the session token or the cookie value, only their lengths.
 
+import { readinessFirst } from "./smoke-readiness.mjs";
+
 const baseUrl = (process.argv[2] ?? process.env.BASE_URL ?? "").replace(/\/+$/, "");
 const phone = process.argv[3] ?? process.env.SMOKE_PHONE ?? "";
 
@@ -15,6 +17,9 @@ if (!/^https?:\/\//.test(baseUrl) || !/^[0-9]{10}$/.test(phone)) {
   console.error("Usage: node scripts/smoke-auth.mjs <BASE_URL> <10-digit demo phone>");
   process.exit(2);
 }
+
+// Readiness first (D112): a misconfigured deployment is named here, before a login is tried.
+if (!(await readinessFirst(baseUrl, "smoke:auth"))) process.exit(1);
 
 const results = [];
 const check = (name, ok, detail = "") => {
