@@ -1,3 +1,4 @@
+import { slaOutcome } from "./sla";
 import type { ComplaintStatus } from "./step";
 import type { Urgency } from "./taxonomy";
 
@@ -137,16 +138,22 @@ export const defaultSlaMinutes: SlaMinutes = { CRITICAL: 15, HIGH: 120, NORMAL: 
 /** When the first response is due: the creation time plus the minutes of the urgency. */
 export const responseDueAt = (createdAt: number, urgency: Urgency, sla: SlaMinutes = defaultSlaMinutes): number => createdAt + sla[urgency] * 60_000;
 
-export type SlaState = "MET" | "ON_TIME" | "OVERDUE" | "NONE";
+export type SlaState = "MET" | "LATE" | "ON_TIME" | "OVERDUE" | "NONE";
 
 /**
- * Where a complaint stands against its due time. OVERDUE: nobody has responded and the due time has passed, or it was marked resolved after the due time
- * and is not closed. MET: a response came by the due time (or, with none yet, the due time is still ahead: ON_TIME). NONE: no due time or the complaint is closed.
+ * The reply clock of a complaint, from `slaOutcome` (D150). MET: replied by the due time. LATE: replied after it (never MET). OVERDUE: no reply and the due
+ * time has passed. ON_TIME: no reply and the due time is ahead. NONE: no due time or the complaint is closed.
  */
-export function slaState(input: { status: ComplaintStatus; responseDueAt: number | null; firstResponseAt: number | null; pendingConfirmationAt: number | null; now: number }): SlaState {
-  const { status, responseDueAt: due, firstResponseAt, pendingConfirmationAt, now } = input;
-  if (status === "CLOSED" || due === null) return "NONE";
-  if (firstResponseAt === null) return now > due ? "OVERDUE" : "ON_TIME";
-  if (pendingConfirmationAt !== null && pendingConfirmationAt > due) return "OVERDUE";
-  return "MET";
+export function slaState(input: { status: ComplaintStatus; responseDueAt: number | null; firstResponseAt: number | null; now: number }): SlaState {
+  if (input.status === "CLOSED" || input.responseDueAt === null) return "NONE";
+  switch (slaOutcome(input)) {
+    case "MET":
+      return "MET";
+    case "MISSED_LATE":
+      return "LATE";
+    case "MISSED_OPEN":
+      return "OVERDUE";
+    case "NOT_DUE":
+      return "ON_TIME";
+  }
 }

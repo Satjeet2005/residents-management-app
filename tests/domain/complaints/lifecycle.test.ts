@@ -228,12 +228,12 @@ describe("CL7 the SLA", () => {
     expect(responseDueAt(T0, "HIGH", { CRITICAL: 1, HIGH: 7, NORMAL: 1, LOW: 1 })).toBe(T0 + 7 * 60_000);
   });
 
-  it("CL7 the SLA state: on time, met, overdue (no response, or resolved after the due time), none once closed", () => {
-    const base = { status: "ASSIGNED" as ComplaintStatus, responseDueAt: T0 + 1000, firstResponseAt: null, pendingConfirmationAt: null };
+  it("CL7 the SLA state: on time, met, late (replied after the due time), overdue (no reply, past the due time), none once closed", () => {
+    const base = { status: "ASSIGNED" as ComplaintStatus, responseDueAt: T0 + 1000, firstResponseAt: null };
     expect(slaState({ ...base, now: T0 })).toBe("ON_TIME");
     expect(slaState({ ...base, now: T0 + 1001 })).toBe("OVERDUE");
     expect(slaState({ ...base, firstResponseAt: T0 + 10, now: T0 + 5000 })).toBe("MET");
-    expect(slaState({ ...base, status: "PENDING_CONFIRMATION", firstResponseAt: T0 + 10, pendingConfirmationAt: T0 + 2000, now: T0 + 5000 })).toBe("OVERDUE");
+    expect(slaState({ ...base, firstResponseAt: T0 + 1001, now: T0 + 5000 })).toBe("LATE");
     expect(slaState({ ...base, status: "CLOSED", now: T0 + 5000 })).toBe("NONE");
     expect(slaState({ ...base, responseDueAt: null, now: T0 })).toBe("NONE");
   });

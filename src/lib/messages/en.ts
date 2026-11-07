@@ -461,6 +461,7 @@ export const en = {
   "staffComplaints.sla.dueIn": "Reply due in {span}",
   "staffComplaints.sla.overdueBy": "Reply overdue by {span}",
   "staffComplaints.sla.met": "Replied in time",
+  "staffComplaints.sla.late": "Replied late",
   "staffComplaints.sla.none": "No reply clock",
   "staffComplaints.status.new": "New",
   "staffComplaints.status.assigned": "Assigned",

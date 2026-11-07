@@ -94,7 +94,7 @@ export async function loadComplaintPage(input: { db: Db; user: Actor; id: string
   return {
     now: input.now,
     complaint,
-    sla: slaState({ status: complaint.status, responseDueAt: complaint.responseDueAt, firstResponseAt: complaint.firstResponseAt, pendingConfirmationAt: complaint.pendingConfirmationAt, now: input.now }),
+    sla: slaState({ status: complaint.status, responseDueAt: complaint.responseDueAt, firstResponseAt: complaint.firstResponseAt, now: input.now }),
     acknowledgedAt: ack?.at ?? null,
     classifications,
     timeline: staffTimeline(events, new Map(users.map((u) => [u.id, u.name]))),

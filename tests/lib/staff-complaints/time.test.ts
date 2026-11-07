@@ -41,6 +41,7 @@ describe("SC5 the reply clock in words", () => {
 
   it("answered in time, closed, and no due time", () => {
     expect(slaWords({ sla: "MET", responseDueAt: now - minute, now })).toBe("Replied in time");
+    expect(slaWords({ sla: "LATE", responseDueAt: now - minute, now })).toBe("Replied late");
     expect(slaWords({ sla: "NONE", responseDueAt: now - minute, now })).toBe("No reply clock");
     expect(slaWords({ sla: "ON_TIME", responseDueAt: null, now })).toBe("No reply clock");
   });

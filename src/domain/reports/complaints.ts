@@ -1,3 +1,4 @@
+import { isDecided, slaOutcome } from "../complaints/sla";
 import { medianOf } from "./stats";
 
 /** What the report needs of one complaint raised in the month. Times are milliseconds since the epoch; the two event times come from the complaint's events. */
@@ -21,9 +22,9 @@ export type ComplaintMetrics = {
     /** Complaints somebody replied to, and the median minutes from raising to the first reply. */
     replied: number;
     medianMinutes: number | null;
-    /** Complaints whose reply is settled one way or the other: replied, or not replied and past the due time. Not yet due and unreplied are left out. */
+    /** MET + MISSED_LATE + MISSED_OPEN (`slaOutcome`, D150): replied on time, replied late, or unreplied past the due time. NOT_DUE is left out. */
     decided: number;
-    /** Of those, the ones replied to by the due time. */
+    /** Of those, the ones replied to by the due time (MET): a late first reply is not within the SLA. */
     withinSla: number;
   };
   resolved: {
@@ -48,7 +49,8 @@ const minutesBetween = (from: number, to: number): number => Math.max(0, Math.fl
  */
 export function complaintMetrics(complaints: readonly ReportComplaint[], now: number): ComplaintMetrics {
   const replied = complaints.filter((c) => c.firstResponseAt !== null);
-  const decided = complaints.filter((c) => c.firstResponseAt !== null || (c.responseDueAt !== null && c.responseDueAt < now));
+  const outcomes = complaints.map((c) => slaOutcome({ responseDueAt: c.responseDueAt, firstResponseAt: c.firstResponseAt, now }));
+  const decided = outcomes.filter(isDecided);
   const resolved = complaints.filter((c) => c.resolvedAt !== null);
   const safety = complaints.filter((c) => c.safetyFlag);
   const acknowledged = safety.filter((c) => c.acknowledgedAt !== null);
@@ -58,7 +60,7 @@ export function complaintMetrics(complaints: readonly ReportComplaint[], now: nu
       replied: replied.length,
       medianMinutes: medianOf(replied.map((c) => minutesBetween(c.createdAt, c.firstResponseAt as number))),
       decided: decided.length,
-      withinSla: decided.filter((c) => c.firstResponseAt !== null && c.responseDueAt !== null && c.firstResponseAt <= c.responseDueAt).length,
+      withinSla: outcomes.filter((o) => o === "MET").length,
     },
     resolved: {
       count: resolved.length,

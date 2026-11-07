@@ -110,7 +110,7 @@ export async function listBoard(input: { db: Db; user: Actor; lane: Lane; cursor
   const details = await input.db.complaint.findMany({
     where: { id: { in: shown.map((p) => p.id) } },
     select: {
-      id: true, body: true, urgency: true, status: true, safetyFlag: true, needsReview: true, createdAt: true, responseDueAt: true, firstResponseAt: true, pendingConfirmationAt: true, version: true,
+      id: true, body: true, urgency: true, status: true, safetyFlag: true, needsReview: true, createdAt: true, responseDueAt: true, firstResponseAt: true, version: true,
       flat: { select: { code: true } },
       category: { select: { code: true } },
       assignee: { select: { id: true, name: true } },
@@ -134,7 +134,7 @@ export async function listBoard(input: { db: Db; user: Actor; lane: Lane; cursor
         assignee: d.assignee,
         ageMinutes: Math.max(0, Math.floor((input.now - d.createdAt.getTime()) / 60_000)),
         responseDueAt: d.responseDueAt?.getTime() ?? null,
-        sla: slaState({ status: d.status, responseDueAt: d.responseDueAt?.getTime() ?? null, firstResponseAt: d.firstResponseAt?.getTime() ?? null, pendingConfirmationAt: d.pendingConfirmationAt?.getTime() ?? null, now: input.now }),
+        sla: slaState({ status: d.status, responseDueAt: d.responseDueAt?.getTime() ?? null, firstResponseAt: d.firstResponseAt?.getTime() ?? null, now: input.now }),
         source: d.classifications[0]?.source ?? null,
         version: d.version,
       },

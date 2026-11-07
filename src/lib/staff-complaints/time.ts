@@ -28,7 +28,7 @@ export function durationWords(minutes: number): string {
 export const ageWords = (ageMinutes: number): string => durationWords(ageMinutes);
 
 /**
- * The reply clock in words. ON_TIME: "Reply due in 40 min". OVERDUE: "Reply overdue by 2 h". MET: "Replied in time". NONE: "No reply clock" (a closed
+ * The reply clock in words. ON_TIME: "Reply due in 40 min". OVERDUE: "Reply overdue by 2 h". MET: "Replied in time". LATE: "Replied late". NONE: "No reply clock" (a closed
  * complaint). Both clocks are in milliseconds since the epoch.
  */
 export function slaWords(input: { sla: SlaState; responseDueAt: number | null; now: number }): string {
@@ -41,6 +41,8 @@ export function slaWords(input: { sla: SlaState; responseDueAt: number | null; n
       return t("staffComplaints.sla.overdueBy", { span: durationWords((now - responseDueAt) / 60_000) });
     case "MET":
       return t("staffComplaints.sla.met");
+    case "LATE":
+      return t("staffComplaints.sla.late");
     case "NONE":
       return t("staffComplaints.sla.none");
   }
