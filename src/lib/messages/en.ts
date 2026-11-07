@@ -742,4 +742,7 @@ export const en = {
   "committee.goals.atMost": "At most {n}%",
   "committee.goals.met": "Met",
   "committee.goals.notMet": "Not met",
+  "committee.loading": "Loading the committee report",
+  "committee.errorPage.message": "We could not load the report.",
+  "committee.errorPage.consequence": "Nothing was changed: the report only reads. You can try again.",
 } as const satisfies Record<string, string>;
