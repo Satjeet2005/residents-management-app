@@ -378,6 +378,20 @@ SELECT key, value FROM society_settings WHERE key = 'approval_threshold_paise';
 Expected: `UPDATE 1`, then `1000000`. Until it is run, the live import and the review panel use ₹25,000 and the sample statement's three
 queued credits of about ₹10,660 are posted by one person instead of waiting for a second approver.
 
+### After deploying the committee report: insert the goals setting (R67)
+
+The committee report reads three targets from the setting `committee_goals` (assumptions: 90 percent paid on time, 90 percent of first replies within the SLA, at
+most 8 percent of resolved complaints reopened). A hosted database seeded earlier does not have the row; until it is inserted the report shows the built-in
+defaults, which are the same numbers, and says so. The app role cannot write a setting, so the human runs this once in the Neon SQL Editor as the owner (the same
+text is step E8 of `docs/deploy-checklist.md`, and a test runs it against a freshly seeded local database). It does nothing if the row exists:
+
+```sql
+INSERT INTO society_settings (key, value) VALUES ('committee_goals', '{"onTimeCollectionPercent": 90, "firstReplyWithinSlaPercent": 90, "reopenedPercentMax": 8}'::jsonb) ON CONFLICT (key) DO NOTHING;
+SELECT key, value FROM society_settings WHERE key = 'committee_goals';
+```
+
+Expected: `INSERT 0 1` (or `INSERT 0 0`), then one row with the three numbers.
+
 ## Post-deploy smoke test
 
 `npm run smoke:auth -- <BASE_URL> <demo phone>` exists (T8c, `scripts/smoke-auth.mjs`; it also reads `BASE_URL` and

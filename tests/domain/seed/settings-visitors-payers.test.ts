@@ -19,6 +19,7 @@ describe("C8 settings and categories", () => {
         "accounts_phone",
         "approval_threshold_paise",
         "auto_close_days",
+        "committee_goals",
         "demo_as_of",
         "duty_manager_phone",
         "emergency_services_phone",
@@ -38,6 +39,7 @@ describe("C8 settings and categories", () => {
     expect(setting("escalation_hours")).toBe(24);
     expect(setting("safety_ack_timeout_minutes")).toBe(5);
     expect(setting("auto_close_days")).toBe(7);
+    expect(setting("committee_goals")).toEqual({ onTimeCollectionPercent: 90, firstReplyWithinSlaPercent: 90, reopenedPercentMax: 8 });
     expect(setting("emergency_services_phone")).toBeNull();
     expect(setting("society_bank_account")).toEqual({ name: "Sample Society Maintenance Account", number: "000000000000", ifsc: "SAMP0000000" });
     expect(setting("demo_as_of")).toBe("2026-10-27");

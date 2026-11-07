@@ -223,6 +223,28 @@ SELECT key, value FROM society_settings WHERE key = 'approval_threshold_paise';
       stop and tell the agent. Both statements are tested against a freshly seeded local database
       (`tests/integration/demo-threshold.test.ts`, which reads them from this file).
 
+### E8. After deploying the committee report (T14, R67): insert the committee's goals
+
+The committee report (`/staff/reports`) compares the month with three targets read from the setting `committee_goals`. The seed writes it, but a database that
+was seeded earlier does not have it. Until it is inserted the report still opens and shows the built-in defaults (90, 90 and 8), and says so. The app role
+cannot write a setting, so run this ONCE, as the owner, in the **Neon SQL Editor**. The statement does nothing if the row already exists, so running it twice is safe.
+The three numbers are ASSUMPTIONS that the committee should confirm:
+
+```sql
+-- T14: the committee's goals (assumptions): 90 percent paid on time, 90 percent first replies within the SLA, at most 8 percent reopened
+INSERT INTO society_settings (key, value) VALUES ('committee_goals', '{"onTimeCollectionPercent": 90, "firstReplyWithinSlaPercent": 90, "reopenedPercentMax": 8}'::jsonb) ON CONFLICT (key) DO NOTHING;
+```
+
+Then check it with:
+
+```sql
+SELECT key, value FROM society_settings WHERE key = 'committee_goals';
+```
+
+- [ ] **E8. Goals.** **Expected:** the INSERT says `INSERT 0 1` (or `INSERT 0 0` if the row was already there) and the SELECT shows one row with
+      `{"onTimeCollectionPercent": 90, "firstReplyWithinSlaPercent": 90, "reopenedPercentMax": 8}`. Both statements are tested against a freshly seeded local
+      database (`tests/integration/committee-goals-sql.test.ts`, which reads them from this file).
+
 ## Part F. Keep it alive for the review window
 
 - [ ] Put a reminder every **14 days** to open the Vercel dashboard and the Neon Console, and to open the live site.

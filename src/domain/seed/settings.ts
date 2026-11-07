@@ -51,6 +51,9 @@ export function assigneeFor(category: DemoComplaintCategory, safety: boolean, du
   return safety ? dutyManagerUserKey : category.defaultAssigneeUserKey;
 }
 
+/** The committee report's targets (R67, ASSUMPTIONS): 90 percent of bills paid on time, 90 percent of complaints replied to within the SLA, at most 8 percent of resolved complaints reopened. */
+export const COMMITTEE_GOALS = { onTimeCollectionPercent: 90, firstReplyWithinSlaPercent: 90, reopenedPercentMax: 8 } as const;
+
 export function buildSettings(): DemoSetting[] {
   return [
     { key: "late_fee_policy", value: { ...defaultLateFeePolicy } },
@@ -64,5 +67,6 @@ export function buildSettings(): DemoSetting[] {
     { key: "emergency_services_phone", value: null },
     { key: "society_bank_account", value: { name: "Sample Society Maintenance Account", number: "000000000000", ifsc: "SAMP0000000" } },
     { key: "demo_as_of", value: DEMO_AS_OF },
+    { key: "committee_goals", value: { ...COMMITTEE_GOALS } },
   ];
 }

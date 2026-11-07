@@ -1,7 +1,9 @@
 import { type Ageing, ageingTable } from "@/domain/reports/age";
 import { type ComplaintMetrics, complaintMetrics } from "@/domain/reports/complaints";
+import { type GoalRow, evaluateGoals, goalsFromSetting } from "@/domain/reports/goals";
 import { type CollectionQuality, type MoneyLine, collectionQuality, moneyLine } from "@/domain/reports/money-line";
 import type { ReportPosition } from "@/domain/reports/positions";
+import type { ReconciliationLine } from "@/domain/reports/reconciliation";
 import { type CalendarDate, istDateOf } from "@/domain/time/calendar";
 import { choosePeriod, periodOptions } from "@/lib/reports/period";
 import type { Db } from "@/server/auth/db";
@@ -9,6 +11,7 @@ import type { SessionUser } from "@/server/auth/session-service";
 import { requirePermission } from "@/server/statements/ui-data";
 import { loadMonthComplaints } from "./complaints";
 import { loadReportPositions } from "./positions";
+import { loadReconciliationLine } from "./reconciliation";
 
 type Viewer = Pick<SessionUser, "id" | "role" | "active" | "permissions">;
 
@@ -27,6 +30,10 @@ export type CommitteeReport = {
   quality: CollectionQuality | null;
   /** The complaints raised in the month, as counts and medians (the screen takes the shares with `percent`). */
   complaints: ComplaintMetrics;
+  /** The last 30 days to the business date: bank rows by what became of them, the accounted check and the manual interventions. */
+  reconciliation: ReconciliationLine;
+  /** The committee's targets against the month's actuals. `source` says whether the targets are the `committee_goals` setting or the built-in defaults. */
+  goals: { rows: GoalRow[]; source: "SETTING" | "DEFAULT" };
 };
 
 /** The positions of the bills of one period. */
@@ -43,14 +50,30 @@ export async function loadCommitteeReport(input: { db: Db; user: Viewer; request
   const periods = periodOptions(positions.map((p) => p.bill.period), asOf);
   const period = choosePeriod({ requested: input.requestedPeriod, options: periods, asOf });
   const monthPositions = inPeriod(positions, period);
-  const complaints = await loadMonthComplaints(input.db, period);
+  const [complaints, reconciliation, goalSetting] = await Promise.all([
+    loadMonthComplaints(input.db, period),
+    loadReconciliationLine(input.db, asOf),
+    input.db.societySetting.findUnique({ where: { key: "committee_goals" }, select: { value: true } }),
+  ]);
+  const quality = monthPositions.length === 0 ? null : collectionQuality(monthPositions, asOf);
+  const metrics = complaintMetrics(complaints, input.now);
+  const { goals, source } = goalsFromSetting(goalSetting?.value);
   return {
     asOf,
     period,
     periods,
     money: monthPositions.length === 0 ? null : moneyLine(monthPositions),
     ageing: ageingTable(positions, asOf),
-    quality: monthPositions.length === 0 ? null : collectionQuality(monthPositions, asOf),
-    complaints: complaintMetrics(complaints, input.now),
+    quality,
+    complaints: metrics,
+    reconciliation,
+    goals: {
+      source,
+      rows: evaluateGoals(goals, {
+        onTime: { n: quality?.paidOnTime ?? 0, d: quality?.dueOrPaid ?? 0 },
+        firstReply: { n: metrics.firstReply.withinSla, d: metrics.firstReply.decided },
+        reopened: { n: metrics.resolved.reopened, d: metrics.resolved.count },
+      }),
+    },
   };
 }

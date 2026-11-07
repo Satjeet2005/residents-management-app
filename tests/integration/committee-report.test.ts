@@ -1,6 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { computeDues } from "@/domain/billing/dues";
 import { AGE_BUCKETS, ageingRows } from "@/domain/reports/age";
+import { importStatement } from "@/server/statements/import";
+import { postManualMatch } from "@/server/statements/manual";
+import { getSampleStatement } from "@/server/statements/sample-statement";
+import { anonymousCredit, seedStaff } from "./reconciliation-helpers";
+import { csv } from "./statements-helpers";
 import { DEMO_NOW } from "@/domain/seed/types";
 import { toDueBill, toDueEntry } from "@/server/home/mapper";
 import { type PaymentsFixture, createPaymentsFixture } from "./payments-fixture";
@@ -313,3 +318,92 @@ describe("RP2 speed", () => {
   });
 });
 
+
+describe("RP2 the goals", () => {
+  it("come from the committee_goals setting, each row has a target, the actual in whole percent and Met or Not met worked out on the counts", () => {
+    expect(october.goals.source).toBe("SETTING");
+    expect(october.goals.rows.map((r) => [r.key, r.targetPercent])).toEqual([["onTimeCollection", 90], ["firstReplyWithinSla", 90], ["reopenedMax", 8]]);
+    const q = october.quality;
+    const c = october.complaints;
+    const [onTime, firstReply, reopened] = october.goals.rows;
+    expect(onTime.actualPercent).toBe(Math.round((100 * (q?.paidOnTime ?? 0)) / (q?.dueOrPaid ?? 1)));
+    expect(onTime.status).toBe((q?.paidOnTime ?? 0) * 100 >= 90 * (q?.dueOrPaid ?? 1) ? "MET" : "NOT_MET");
+    expect(firstReply.status).toBe(c.firstReply.withinSla * 100 >= 90 * c.firstReply.decided ? "MET" : "NOT_MET");
+    expect(reopened.status).toBe(c.resolved.reopened * 100 <= 8 * c.resolved.count ? "MET" : "NOT_MET");
+    console.log(`RP2 goals ${october.goals.rows.map((r) => `${r.key} target=${r.targetPercent} actual=${r.actualPercent} ${r.status}`).join("; ")}`);
+  });
+
+  it("with no committee_goals row the page still opens, on the built-in defaults, and says so", async () => {
+    await fx.owner.$executeRaw`DELETE FROM society_settings WHERE key = 'committee_goals'`;
+    const without = await loadCommitteeReport({ db: fx.app, user: meera, requestedPeriod: OCTOBER, now: DEMO_NOW });
+    expect(without.goals.source).toBe("DEFAULT");
+    expect(without.goals.rows.map((r) => r.targetPercent)).toEqual([90, 90, 8]);
+    await fx.owner.$executeRaw`INSERT INTO society_settings (key, value) VALUES ('committee_goals', '{"onTimeCollectionPercent": 90, "firstReplyWithinSlaPercent": 90, "reopenedPercentMax": 8}'::jsonb)`;
+  });
+});
+
+describe("RP5 the reconciliation line, after importing the demo statement and posting one manual match", () => {
+  let line: Awaited<ReturnType<typeof loadCommitteeReport>>["reconciliation"];
+  let sql: { rows: string; auto: string; manual: string; queued: string; awaiting: string; ignored: string; manual_decisions: string; median_minutes: string | null };
+  let importId = "";
+
+  beforeAll(async () => {
+    const priya = await seedStaff(fx, "5000000001");
+    const imported = await importStatement({ db: fx.app, user: { id: priya.id }, filename: "sample-statement.csv", csvText: getSampleStatement(), now: DEMO_NOW });
+    if (imported.status !== "IMPORTED") throw new Error(imported.status);
+    importId = imported.importId;
+    const row = await fx.owner.bankRow.findFirstOrThrow({ where: { importId, narrationRaw: { contains: "710000000003" } } });
+    const posted = await postManualMatch({ db: fx.app, user: priya, rowId: row.id, flatCode: "T21-1601", reason: "Owner paid at the branch", rememberPayer: false, expectedVersion: 1, now: DEMO_NOW });
+    if (posted.status !== "POSTED") throw new Error(posted.status);
+    // An older import (40 days before the business date) is outside the window and must not count.
+    const old = await importStatement({ db: fx.app, user: { id: priya.id }, filename: "old.csv", csvText: csv(anonymousCredit(777_000n, { date: "2026-09-10" })), now: DEMO_NOW });
+    if (old.status !== "IMPORTED") throw new Error(old.status);
+    await fx.owner.$executeRaw`UPDATE statement_imports SET uploaded_at = ${new Date(DEMO_NOW - 40 * 86_400_000)} WHERE id = ${old.importId}::uuid`;
+    line = (await loadCommitteeReport({ db: fx.app, user: meera, requestedPeriod: OCTOBER, now: DEMO_NOW })).reconciliation;
+    const rows = await fx.owner.$queryRawUnsafe<(typeof sql)[]>(
+      `SELECT count(*)::text AS rows,
+              (count(*) FILTER (WHERE r.state = 'AUTO_MATCHED'))::text AS auto,
+              (count(*) FILTER (WHERE r.state = 'MANUALLY_MATCHED'))::text AS manual,
+              (count(*) FILTER (WHERE r.state = 'QUEUED'))::text AS queued,
+              (count(*) FILTER (WHERE r.state = 'AWAITING_APPROVAL'))::text AS awaiting,
+              (count(*) FILTER (WHERE r.state = 'IGNORED'))::text AS ignored,
+              (SELECT count(*) FROM payment_matches m JOIN bank_rows br ON br.id = m.bank_row_id JOIN statement_imports si ON si.id = br.import_id WHERE m.decision = 'MANUAL' AND si.uploaded_at >= $1::timestamptz)::text AS manual_decisions,
+              (SELECT percentile_disc(0.5) WITHIN GROUP (ORDER BY GREATEST(0, floor(extract(epoch FROM (m.decided_at - br.created_at)) / 60))) FROM payment_matches m JOIN bank_rows br ON br.id = m.bank_row_id JOIN statement_imports si ON si.id = br.import_id WHERE m.decision = 'MANUAL' AND si.uploaded_at >= $1::timestamptz)::text AS median_minutes
+       FROM bank_rows r JOIN statement_imports i ON i.id = r.import_id WHERE i.uploaded_at >= $1::timestamptz`,
+      "2026-09-28T18:30:00Z",
+    );
+    sql = rows[0];
+  }, 120_000);
+
+  it("the rows of the last 30 days by what became of them equal a separate SQL query, and the older import is not in them", () => {
+    console.log(`RP5 SQL    rows=${sql.rows} auto=${sql.auto} manual=${sql.manual} queued=${sql.queued} awaiting=${sql.awaiting} ignored=${sql.ignored} manual_decisions=${sql.manual_decisions} median_minutes=${sql.median_minutes}`);
+    console.log(`RP5 loader rows=${line.rowsImported} auto=${line.postedAutomatically} manual=${line.postedByHand} queued=${line.waitingForPerson} awaiting=${line.waitingForApproval} ignored=${line.notMaintenance} imports=${line.imports} all_accounted=${line.allAccounted}`);
+    expect(String(line.rowsImported)).toBe(sql.rows);
+    expect(String(line.postedAutomatically)).toBe(sql.auto);
+    expect(String(line.postedByHand)).toBe(sql.manual);
+    expect(String(line.waitingForPerson)).toBe(sql.queued);
+    expect(String(line.waitingForApproval)).toBe(sql.awaiting);
+    expect(String(line.notMaintenance)).toBe(sql.ignored);
+    expect(line.rowsImported).toBe(106);
+    expect(line.imports).toBe(1);
+  });
+
+  it("the demo statement's own counts: 25 posted automatically, 1 by hand, 42 waiting for a person, 38 not maintenance, and the share automatic is 24 percent", () => {
+    expect(line).toMatchObject({ postedAutomatically: 25, postedByHand: 1, waitingForPerson: 42, waitingForApproval: 0, notMaintenance: 38 });
+    expect(Math.round((100 * line.postedAutomatically) / line.rowsImported)).toBe(24);
+  });
+
+  it("every import's rows add up, read back from the database", () => {
+    expect(line.allAccounted).toBe(true);
+    expect(line.notAccounted).toBe(0);
+  });
+
+  it("the manual interventions: one manual match, the median minutes from import to decision as SQL has them, and nothing else", () => {
+    const manual = line.interventions.find((i) => i.type === "MANUAL");
+    expect(manual?.count).toBe(Number(sql.manual_decisions));
+    expect(manual?.count).toBe(1);
+    expect(String(manual?.medianMinutes)).toBe(String(sql.median_minutes));
+    expect(line.interventions.filter((i) => i.type !== "MANUAL").every((i) => i.count === 0 && i.medianMinutes === null)).toBe(true);
+    expect(line.interventions.map((i) => i.type)).toEqual(["MANUAL", "APPROVED", "REJECTED", "IGNORE"]);
+  });
+});
