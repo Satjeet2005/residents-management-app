@@ -7,11 +7,11 @@ import { t } from "@/lib/messages";
  * Shown when a resident page cannot load its data. It says what happened and what the person cannot do because of it, and
  * offers Try again. It never shows the error itself: a message from the server or the database stays out of the page.
  */
-export default function ResidentError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function ResidentError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4">
       <h1 className="text-heading font-semibold">{t("nav.home")}</h1>
-      <BlockError message={t("home.error.message")} consequence={t("home.error.consequence")} onRetry={reset} />
+      <BlockError message={t("home.error.message")} consequence={t("home.error.consequence")} reference={error.digest} onRetry={reset} />
     </main>
   );
 }

@@ -2,12 +2,13 @@ import { businessNow } from "@/server/clock";
 import { type Classifier, NullClassifier } from "../classifier";
 import { CircuitBreaker } from "./breaker";
 import { DailyCap } from "./cap";
-import { JevClassifier, type ProviderLog } from "./classifier-jev";
+import { JevClassifier, type ProviderLog, type ProviderWarning } from "./classifier-jev";
 import { JevClient } from "./client";
 import { readJevConfig } from "./config";
+import { warnProviderAuthFailed, warnProviderBreakerOpened } from "@/server/warnings";
 
 type Env = Readonly<Record<string, string | undefined>>;
-export type FactoryDeps = { now?: () => number; businessClock?: () => number; log?: ProviderLog; warn?: (message: string) => void };
+export type FactoryDeps = { now?: () => number; businessClock?: () => number; log?: ProviderLog; warn?: (message: string) => void; warnEvent?: (warning: ProviderWarning) => void };
 
 /**
  * The classifier for an environment (D140): a `JevClassifier` over the providers that are usable, or `NullClassifier` when none is. It NEVER throws
@@ -28,7 +29,13 @@ export function createClassifierFromEnv(env: Env = process.env, deps: FactoryDep
     breaker: new CircuitBreaker({ failures: config.breakerFailures, cooldownMs, now }),
     cap: new DailyCap(config.dailyCap, businessClock),
   }));
-  return new JevClassifier(slots, { timeoutMs: config.timeoutMs, cooldownMs, now, log: deps.log });
+  return new JevClassifier(slots, { timeoutMs: config.timeoutMs, cooldownMs, now, log: deps.log, warn: deps.warnEvent });
+}
+
+/** The production sink for provider warnings: stored in error_events, once per cooldown (D135). Tests build a classifier without it. */
+function storeProviderWarning(warning: ProviderWarning): void {
+  if (warning.kind === "BREAKER_OPENED") warnProviderBreakerOpened(warning.provider, warning.cooldownMs);
+  else warnProviderAuthFailed(warning.provider, warning.status, warning.cooldownMs);
 }
 
 let production: Classifier | undefined;
@@ -38,6 +45,6 @@ let production: Classifier | undefined;
  * as long as the server instance does. A cold start, or another serverless instance, has its own (D141).
  */
 export function productionClassifier(): Classifier {
-  production ??= createClassifierFromEnv(process.env);
+  production ??= createClassifierFromEnv(process.env, { warnEvent: storeProviderWarning });
   return production;
 }

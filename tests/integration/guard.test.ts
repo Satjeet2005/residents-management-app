@@ -117,7 +117,7 @@ describe("D81 withPermission", () => {
     });
     const response = await route(request("GET", { cookie }));
     expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ error: "SERVER_ERROR" });
+    expect(await response.json()).toEqual({ error: "SERVER_ERROR", ref: expect.stringMatching(/^E-[0-9A-Z]{6}$/) });
     expect(response.headers.get("cache-control")).toBe("no-store");
   });
 

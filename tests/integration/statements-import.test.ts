@@ -4,7 +4,7 @@ import { DEMO_NOW } from "@/domain/seed/types";
 import { initiatePayment } from "@/server/payments/initiate";
 import { applyGatewayEvent } from "@/server/payments/webhook";
 import { bankIdempotencyKey } from "@/server/statements/reference";
-import { IMPORT_LIMITS, StatementLimitError, getStatementSummary, importStatement, isAccounted, type ImportHooks, type ImportResult } from "@/server/statements/import";
+import { IMPORT_LIMITS, StatementAccountingError, StatementLimitError, getStatementSummary, importStatement, isAccounted, type ImportHooks, type ImportResult } from "@/server/statements/import";
 import { type PaymentsFixture, createPaymentsFixture } from "./payments-fixture";
 import { DUE_ON_27_OCT, HEADER, balanceOf, counts, csv, nextReference, upiRow } from "./statements-helpers";
 
@@ -274,6 +274,19 @@ describe("SI7 atomicity: all or nothing", () => {
     const text = csv(upiRow(auto, DUE_ON_27_OCT));
     await expect(run(text, { beforeCommit: async () => { throw new Error("boom"); } })).rejects.toThrow("boom");
     expect((await imported(text)).summary.autoMatched).toBe(1);
+  });
+});
+
+describe("D135 an import whose books do not add up", () => {
+  it("is thrown as it is and also stored as a WARN event (the app role may insert it)", async () => {
+    const resident = await fx.makeResident();
+    const text = csv(upiRow(resident, DUE_ON_27_OCT));
+    const failing = run(text, { afterSnapshot: async () => { throw new StatementAccountingError("the books do not add up (test)"); } });
+    await expect(failing).rejects.toBeInstanceOf(StatementAccountingError);
+    const events = await fx.owner.errorEvent.findMany({ where: { errorName: "StatementAccountingError" } });
+    expect(events.map(({ level, source, route, message }) => ({ level, source, route, message }))).toEqual([
+      { level: "WARN", source: "JOB", route: "statement import", message: "the books do not add up (test)" },
+    ]);
   });
 });
 

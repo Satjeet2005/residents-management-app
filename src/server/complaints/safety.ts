@@ -1,6 +1,6 @@
 import { applyTransition } from "@/domain/complaints/lifecycle";
 import type { Db } from "@/server/auth/db";
-import { TRANSACTION_RETRIES, withDeadlockRetry } from "@/server/db-retry";
+import { TRANSACTION_RETRY, withDeadlockRetry } from "@/server/db-retry";
 import { type Actor, isDutyManager, isUuid, loadComplaintSettings } from "./context";
 import { type ComplaintFailure, failure } from "./errors";
 import { appendEvents } from "./events";
@@ -40,7 +40,7 @@ export async function acknowledgeSafety(input: { db: Db; user: Actor; id: string
         },
         { timeout: 30_000, maxWait: 10_000 },
       ),
-    { retries: TRANSACTION_RETRIES },
+    TRANSACTION_RETRY,
   );
 }
 
@@ -71,6 +71,6 @@ export async function closeSafety(input: { db: Db; user: Actor; id: string; note
         },
         { timeout: 30_000, maxWait: 10_000 },
       ),
-    { retries: TRANSACTION_RETRIES },
+    TRANSACTION_RETRY,
   );
 }

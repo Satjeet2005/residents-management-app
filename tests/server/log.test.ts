@@ -20,6 +20,7 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation((line: unknown) => {
     lines.push(String(line));
   });
+  vi.spyOn(console, "warn").mockImplementation(() => undefined); // "error event not stored": these routes have no database
 });
 afterEach(() => vi.restoreAllMocks());
 
@@ -179,7 +180,7 @@ describe("D111 logRouteError", () => {
 });
 
 describe("D111 the guards log a failure and answer generically", () => {
-  it("a handler that throws a database error: 500 SERVER_ERROR with no detail, one log line with the code, and nothing from the request", async () => {
+  it("a handler that throws a database error: 500 SERVER_ERROR with a reference and no detail, one log line with the code, and nothing from the request", async () => {
     const PROCESS_URL = `postgresql://app:${PASSWORD}@host.example/db`; // the guard reads the real process.env, so this one is caught by the URL rule
     const guards = createGuards(() => ({ db: {} as never, sender: {} as never, now: () => 0 }));
     const route = guards.publicRoute(() => {
@@ -192,10 +193,10 @@ describe("D111 the guards log a failure and answer generically", () => {
     });
     const response = await route(request);
     expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ error: "SERVER_ERROR" });
+    expect(await response.json()).toEqual({ error: "SERVER_ERROR", ref: expect.stringMatching(/^E-[0-9A-Z]{6}$/) });
     expect(lines).toHaveLength(1);
     const line = JSON.parse(lines[0]);
-    expect(line).toMatchObject({ msg: "route failed", route: "/api/auth/otp/request", errorName: "Error", code: "28P01" });
+    expect(line).toMatchObject({ level: "error", source: "ROUTE", route: "/api/auth/otp/request", method: "POST", status: 500, errorName: "Error", code: "28P01" });
     expect(lines[0]).not.toMatch(/9876543210|123456|session=|abc/);
     expect(lines[0]).not.toContain(PASSWORD);
   });

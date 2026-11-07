@@ -76,6 +76,14 @@ export function redact(text: string, env: Env = process.env): string {
 /** Redacts, then cuts: a secret that straddles the cut is removed before it, so no piece of it is kept. */
 export const clean = (text: string, max: number, env: Env = process.env): string => redact(text, env).slice(0, max);
 
+/**
+ * A digest is the number Next shows on its error page (a decimal number of up to 10 digits). It is the key a person quotes, so a plain one is kept
+ * as it is, although redact() would remove a run of 10 digits. Anything that is not plainly a digest is redacted like any other text.
+ */
+export function digestText(value: string, env: Env = process.env): string {
+  return /^[A-Za-z0-9]{1,40}$/.test(value) && !secretValues(env).includes(value) ? value : clean(value, MAX_FIELD_CHARS, env);
+}
+
 /** A Postgres SQLSTATE (23505) or a Prisma code (P1001): exactly five characters, digits and capitals. */
 const CODE_PATTERN = /^[0-9A-Z]{5}$/;
 
@@ -185,7 +193,7 @@ export function logEvent(input: LogEventInput, env: Env = process.env): void {
     const line: Record<string, unknown> = { level: input.level, source: input.source, msg: clean(input.msg, MAX_FIELD_CHARS, env) };
     for (const field of TEXT_FIELDS) {
       const value = input[field];
-      if (typeof value === "string" && value !== "") line[field] = clean(value, MAX_FIELD_CHARS, env);
+      if (typeof value === "string" && value !== "") line[field] = field === "digest" ? digestText(value, env) : clean(value, MAX_FIELD_CHARS, env);
     }
     if (typeof input.status === "number" && Number.isInteger(input.status)) line.status = input.status;
     if (typeof input.message === "string") line.message = clean(input.message, MAX_EVENT_MESSAGE_CHARS, env);

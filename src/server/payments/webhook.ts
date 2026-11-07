@@ -4,7 +4,7 @@ import { positionsForFlat } from "@/domain/billing/dues";
 import { type ExceptionReason, type GatewayAttempt, decideGatewayEvent, describeException } from "@/domain/payments/attempt-state";
 import { istDateOf } from "@/domain/time/calendar";
 import type { Db } from "@/server/auth/db";
-import { TRANSACTION_RETRIES, withDeadlockRetry } from "@/server/db-retry";
+import { TRANSACTION_RETRY, withDeadlockRetry } from "@/server/db-retry";
 import { parsePolicy, toDueBill, toDueEntry } from "@/server/home/mapper";
 import { MIN_SECRET_LENGTH, isProductionGradeSecret } from "../secret-rules";
 import { lockBill } from "./bill-lock";
@@ -171,5 +171,5 @@ export async function applyGatewayEvent(db: Db, event: WebhookEvent, now: number
         await audit(tx, "PAYMENT_EXCEPTION", row.id, { ...detail, reason: decision.reason }, now);
         return { outcome: "EXCEPTION", reason: decision.reason } as const;
     }
-  }), { retries: TRANSACTION_RETRIES });
+  }), TRANSACTION_RETRY);
 }

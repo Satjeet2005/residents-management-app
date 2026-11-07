@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { can } from "@/domain/auth/permissions";
 import type { Db } from "@/server/auth/db";
-import { TRANSACTION_RETRIES, withDeadlockRetry } from "@/server/db-retry";
+import { TRANSACTION_RETRY, withDeadlockRetry } from "@/server/db-retry";
 import {
   type ActingUser,
   type ManualFailure,
@@ -96,5 +96,5 @@ export async function postManualMatch(input: {
       return { status: "POSTED", flatCode: flat.code, entries: posted.entries, payerNotice: posted.payerNotice, remaining: posted.remaining };
     },
     { timeout: 30_000, maxWait: 10_000 },
-  ), { retries: TRANSACTION_RETRIES });
+  ), TRANSACTION_RETRY);
 }

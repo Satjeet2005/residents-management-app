@@ -4,7 +4,7 @@ import { responseDueAt } from "@/domain/complaints/lifecycle";
 import type { ComplaintStatus } from "@/domain/complaints/step";
 import type { Urgency } from "@/domain/complaints/taxonomy";
 import type { Db } from "@/server/auth/db";
-import { TRANSACTION_RETRIES, withDeadlockRetry } from "@/server/db-retry";
+import { TRANSACTION_RETRY, withDeadlockRetry } from "@/server/db-retry";
 import type { Classifier } from "./classifier";
 import { classifyComplaint } from "./classify";
 import { type Actor, type Tx, currentFlat, isResident, loadComplaintSettings } from "./context";
@@ -151,6 +151,6 @@ export async function createComplaint(input: { db: Db; user: Actor; body: unknow
         },
         { timeout: 30_000, maxWait: 10_000 },
       ),
-    { retries: TRANSACTION_RETRIES },
+    TRANSACTION_RETRY,
   );
 }

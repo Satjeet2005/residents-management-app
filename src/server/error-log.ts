@@ -9,7 +9,7 @@
 import { createHash } from "node:crypto";
 import { after } from "next/server";
 import type { PrismaClient } from "../../generated/prisma/client";
-import { codeOf, deploymentOf, describeError, clean, logError, logEvent, newRef, type ErrorContext, type LogSource } from "./log";
+import { codeOf, deploymentOf, describeError, clean, digestText, logError, logEvent, newRef, type ErrorContext, type LogSource } from "./log";
 
 type Env = Readonly<Record<string, string | undefined>>;
 
@@ -88,7 +88,7 @@ export function buildEvent(input: EventInput, env: Env = process.env): StoredEve
     route,
     method: optional(input.method, env),
     status: typeof input.status === "number" && Number.isInteger(input.status) ? input.status : null,
-    digest: optional(input.digest, env),
+    digest: input.digest === undefined || input.digest === "" ? null : digestText(input.digest, env),
     requestId: optional(input.requestId, env),
     userId: input.userId !== undefined && /^[0-9a-f-]{36}$/i.test(input.userId) ? input.userId : null,
     role: optional(input.role, env),
@@ -232,4 +232,28 @@ export async function reportWarning(input: { source: LogSource; route: string; e
     // Stdout has it.
   }
   return ref;
+}
+
+const warnedAt = new Map<string, number>();
+
+/**
+ * A warning of the fixed set that is stored at most once per cooldown per server instance (a breaker that keeps failing, an address hash that is
+ * always missing). `Infinity` means once per instance. Returns whether the warning was sent. It never throws.
+ */
+export function warnOnce(key: string, cooldownMs: number, input: Parameters<typeof reportWarning>[0], db: ErrorLogDb, options: ReportOptions & { now?: () => number } = {}): boolean {
+  try {
+    const at = (options.now ?? Date.now)();
+    const last = warnedAt.get(key);
+    if (last !== undefined && at - last < cooldownMs) return false;
+    warnedAt.set(key, at);
+    void reportWarning(input, db, options);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Test support: forgets which warnings were sent. */
+export function resetWarnOnce(): void {
+  warnedAt.clear();
 }

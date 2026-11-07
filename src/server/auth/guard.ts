@@ -2,7 +2,7 @@ import { can, type Permission } from "@/domain/auth/permissions";
 import { writeAccessDeniedAudit } from "./audit";
 import { clientIp } from "./client-ip";
 import { clearSessionCookies, hasSessionCookie, isHttps, readSessionToken } from "./cookie";
-import { logRouteError } from "../log";
+import { reportError, warnOnce, type ErrorLogDb } from "../error-log";
 import { ipHash } from "./crypto";
 import { csrfBlocked } from "./csrf";
 import { defaultDeps } from "./default-deps";
@@ -60,6 +60,15 @@ function finish(response: Response, extra: [string, string][] = []): Response {
 const error = (status: number, code: string, extra: [string, string][] = []): Response =>
   finish(Response.json({ error: code }, { status }), extra);
 
+/** A 500 says only that it failed and gives the reference to quote (D135): never a message, a code or a detail. */
+const serverError = (ref: string): Response => finish(Response.json({ error: "SERVER_ERROR", ref }, { status: 500 }));
+
+/** The host's request id (Vercel or a proxy) if there is one: it ties a stored error to the host's own log line. */
+const requestIdOf = (request: Request): string | undefined => request.headers.get("x-vercel-id") ?? request.headers.get("x-request-id") ?? undefined;
+
+/** Who the failed request was for, once it is known. Only the id and the role are kept, never a name or a phone. */
+type Who = { userId?: string; role?: string };
+
 /** The path only: the query string can hold a search text or a phone number, so it is never logged. */
 function routeOf(request: Request): string {
   try {
@@ -71,13 +80,26 @@ function routeOf(request: Request): string {
 
 /** The two wrappers every route handler must use (D81). `createGuards` takes the dependencies so tests control the clock and database. */
 export function createGuards(getDeps: () => AuthRouteDeps) {
-  /** Anything unexpected becomes a plain 500 with no detail; the failure is logged with its redacted code and message (D111), never the request. */
-  async function run(request: Request, work: () => Promise<Response>): Promise<Response> {
+  /** The handle that stores errors: the request's own database, or none when it cannot even be opened (the line on stdout still has the error). */
+  function errorLogDb(): ErrorLogDb {
     try {
-      return finish(await work());
+      return getDeps().db;
+    } catch {
+      return {} as ErrorLogDb;
+    }
+  }
+
+  /**
+   * Anything unexpected becomes a 500 with no detail and a reference (D135). The error is logged to stdout and stored in error_events with its
+   * redacted code, message and stack, never the request; the store runs after the response and cannot change it.
+   */
+  async function run(request: Request, work: (who: Who) => Promise<Response>): Promise<Response> {
+    const who: Who = {};
+    try {
+      return finish(await work(who));
     } catch (failure) {
-      logRouteError(routeOf(request), failure);
-      return error(500, "SERVER_ERROR");
+      const ref = await reportError(failure, { source: "ROUTE", route: routeOf(request), method: request.method, status: 500, requestId: requestIdOf(request), ...who }, errorLogDb());
+      return serverError(ref);
     }
   }
 
@@ -101,7 +123,7 @@ export function createGuards(getDeps: () => AuthRouteDeps) {
    */
   function withPermission(need: Need, handler: (context: GuardContext) => Promise<Response> | Response): RouteHandler {
     return (request) =>
-      run(request, async () => {
+      run(request, async (who) => {
         if (csrfBlocked(request)) return error(403, "CSRF_BLOCKED");
         const deps = getDeps();
         const now = deps.now();
@@ -113,6 +135,8 @@ export function createGuards(getDeps: () => AuthRouteDeps) {
           await auditDenied(deps, request, result.user, need, now);
           return error(403, "FORBIDDEN");
         }
+        who.userId = result.user.id;
+        who.role = result.user.role;
         return handler({ user: result.user, sessionId: result.sessionId, now, request, deps });
       });
   }
@@ -131,6 +155,7 @@ export async function auditDenied(deps: AuthRouteDeps, request: Request, user: S
     hash = ipHash((deps.ip ?? clientIp)(request.headers));
   } catch {
     console.error("access denied audit: address hash unavailable");
+    warnOnce("audit-address-hash", Number.POSITIVE_INFINITY, { source: "AUDIT", route: "access denied audit", errorName: "AddressHashUnavailable", message: "the address hash could not be made, so the refusal was audited without it" }, deps.db);
   }
   try {
     await writeAccessDeniedAudit(deps.db, {

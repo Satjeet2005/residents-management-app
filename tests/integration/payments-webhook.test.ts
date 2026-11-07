@@ -352,7 +352,7 @@ describe("PY5 the webhook route: only a genuine signature changes anything", () 
     const route = guards(DEMO_NOW).publicRoute((context) => handleWebhook(context, { env: { NODE_ENV: "production" } }));
     const response = await route(new Request("http://localhost/api/payments/webhook", { method: "POST", headers: { host: "localhost", ...signed(raw) }, body: raw }));
     expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ error: "SERVER_ERROR" });
+    expect(await response.json()).toEqual({ error: "SERVER_ERROR", ref: expect.stringMatching(/^E-[0-9A-Z]{6}$/) });
     expect((await counts(attempt.attemptId, resident.flatId)).status).toBe("INITIATED");
   });
 

@@ -1,3 +1,5 @@
+import { warnDeadlockExhausted } from "./warnings";
+
 /** Postgres says "deadlock detected" (40P01) or "could not serialize" (40001); Prisma and its driver adapter carry the text in different places. */
 export function isRetryableConflict(error: unknown): boolean {
   if (typeof error !== "object" || error === null) return false;
@@ -11,6 +13,8 @@ export type DeadlockRetryOptions = {
   retries: number;
   /** Waits for the given milliseconds. A test passes a function that records the delay and returns at once. */
   sleep?: (ms: number) => Promise<void>;
+  /** Called once when the retries ran out and the conflict is thrown (D135). */
+  onExhausted?: () => void;
 };
 
 const realSleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
@@ -26,11 +30,15 @@ export async function withDeadlockRetry<T>(fn: () => Promise<T>, options: Deadlo
     try {
       return await fn();
     } catch (error) {
-      if (attempt >= options.retries || !isRetryableConflict(error)) throw error;
+      if (!isRetryableConflict(error)) throw error;
+      if (attempt >= options.retries) {
+        options.onExhausted?.();
+        throw error;
+      }
       await sleep(10 + Math.floor(Math.random() * 40) * (attempt + 1));
     }
   }
 }
 
-/** The retry count used by the services that run one transaction. */
-export const TRANSACTION_RETRIES = 2;
+/** The retry options used by the services that run one transaction: two retries, and a stored warning when they run out. */
+export const TRANSACTION_RETRY: DeadlockRetryOptions = { retries: 2, onExhausted: warnDeadlockExhausted };

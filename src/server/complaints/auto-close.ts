@@ -1,6 +1,6 @@
 import { applyTransition } from "@/domain/complaints/lifecycle";
 import type { Db } from "@/server/auth/db";
-import { TRANSACTION_RETRIES, withDeadlockRetry } from "@/server/db-retry";
+import { TRANSACTION_RETRY, withDeadlockRetry } from "@/server/db-retry";
 import { loadComplaintSettings } from "./context";
 import { appendEvents } from "./events";
 import { lockComplaint, writeLifecycle } from "./row";
@@ -43,7 +43,7 @@ export async function autoCloseDue(input: { db: Db; now: number }): Promise<numb
             },
             { timeout: 30_000, maxWait: 10_000 },
           ),
-        { retries: TRANSACTION_RETRIES },
+        TRANSACTION_RETRY,
       );
       if (done) closed += 1;
     }

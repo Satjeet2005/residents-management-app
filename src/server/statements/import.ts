@@ -10,7 +10,8 @@ import type { Prisma } from "../../../generated/prisma/client";
 import type { Db } from "@/server/auth/db";
 import type { SessionUser } from "@/server/auth/session-service";
 import { toDueBill, toDueEntry } from "@/server/home/mapper";
-import { TRANSACTION_RETRIES, withDeadlockRetry } from "@/server/db-retry";
+import { TRANSACTION_RETRY, withDeadlockRetry } from "@/server/db-retry";
+import { reportWarning } from "@/server/error-log";
 import { lockBills } from "@/server/payments/bill-lock";
 import { bankIdempotencyKey, bankReferences } from "./reference";
 import { loadMatchContext } from "./context";
@@ -320,9 +321,13 @@ export async function importStatement(input: { db: Db; user: Pick<SessionUser, "
         return { status: "IMPORTED", importId: statementImport.id, summary: summaryOf(final, stale.size), accounted: true, csvErrors: final.csvErrors.slice(0, MAX_ERRORS_SHOWN) };
       },
       { timeout: 120_000, maxWait: 10_000 },
-    ), { retries: TRANSACTION_RETRIES });
+    ), TRANSACTION_RETRY);
   } catch (error) {
     if (isLockTimeout(error)) return { status: "IMPORT_IN_PROGRESS" };
+    if (error instanceof StatementAccountingError) {
+      // The books did not add up and nothing was saved (D135): a bug, so it is stored as a warning besides the 500 the caller turns it into.
+      await reportWarning({ source: "JOB", route: "statement import", errorName: "StatementAccountingError", message: error.message }, input.db);
+    }
     throw error;
   }
 }

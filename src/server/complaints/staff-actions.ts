@@ -2,7 +2,7 @@ import { applyTransition, type LifecycleAction } from "@/domain/complaints/lifec
 import { isCategoryCode } from "@/domain/complaints/taxonomy";
 import type { ComplaintStatus } from "@/domain/complaints/step";
 import type { Db } from "@/server/auth/db";
-import { TRANSACTION_RETRIES, withDeadlockRetry } from "@/server/db-retry";
+import { TRANSACTION_RETRY, withDeadlockRetry } from "@/server/db-retry";
 import { type Actor, type Tx, canManage, isUuid, loadComplaintSettings } from "./context";
 import { type ComplaintFailure, failure } from "./errors";
 import { type NewEvent, appendEvents } from "./events";
@@ -57,7 +57,7 @@ async function staffAction(
         },
         { timeout: 30_000, maxWait: 10_000 },
       ),
-    { retries: TRANSACTION_RETRIES },
+    TRANSACTION_RETRY,
   );
 }
 
@@ -116,7 +116,7 @@ export async function addComment(input: { db: Db; user: Actor; id: string; text:
         },
         { timeout: 30_000, maxWait: 10_000 },
       ),
-    { retries: TRANSACTION_RETRIES },
+    TRANSACTION_RETRY,
   );
 }
 

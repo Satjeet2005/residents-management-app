@@ -1,7 +1,7 @@
 import { applyTransition } from "@/domain/complaints/lifecycle";
 import type { ComplaintStatus } from "@/domain/complaints/step";
 import type { Db } from "@/server/auth/db";
-import { TRANSACTION_RETRIES, withDeadlockRetry } from "@/server/db-retry";
+import { TRANSACTION_RETRY, withDeadlockRetry } from "@/server/db-retry";
 import { type Actor, currentFlat, isResident, isUuid, loadComplaintSettings } from "./context";
 import { type ComplaintFailure, failure } from "./errors";
 import { appendEvents } from "./events";
@@ -39,7 +39,7 @@ async function residentAction(
         },
         { timeout: 30_000, maxWait: 10_000 },
       ),
-    { retries: TRANSACTION_RETRIES },
+    TRANSACTION_RETRY,
   );
 }
 

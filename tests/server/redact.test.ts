@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { describeError, logError, logEvent, newRef, redact } from "@/server/log";
+import { describeError, digestText, logError, logEvent, newRef, redact } from "@/server/log";
 
 /** D135: redaction v2, the structured event line and the reference. Adversarial inputs, then a seeded property test. */
 
@@ -144,6 +144,22 @@ describe("D135 limits", () => {
       },
     });
     expect(describeError(hostile, ENV).message).toBe("the error could not be described");
+  });
+});
+
+describe("D135 digest", () => {
+  it("a plain digest of 10 digits is kept (it is the key a person quotes), in the line and by digestText", () => {
+    expect(digestText("3175611538", ENV)).toBe("3175611538");
+    expect(digestText("abc123XYZ", ENV)).toBe("abc123XYZ");
+    logEvent({ level: "error", source: "PAGE", msg: "x", digest: "3175611538" }, ENV);
+    expect(JSON.parse(lines[0]).digest).toBe("3175611538");
+  });
+
+  it("anything that is not plainly a digest is redacted, and so is a digest equal to a secret", () => {
+    expect(digestText("a@b.com", ENV)).toBe("[secret]");
+    expect(digestText("9876543210 and more", ENV)).toBe("[secret] and more");
+    expect(digestText("x".repeat(80), ENV)).toBe("[secret]");
+    expect(digestText(ENV.LLM_API_KEY.replace(/[^A-Za-z0-9]/g, ""), { LLM_API_KEY: ENV.LLM_API_KEY.replace(/[^A-Za-z0-9]/g, "") })).toBe("[secret]");
   });
 });
 

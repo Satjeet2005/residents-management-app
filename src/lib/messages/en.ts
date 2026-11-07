@@ -38,6 +38,8 @@ export const en = {
   "login.error.network": "We could not reach the server. Check your connection and try again.",
   "login.error.server": "Something went wrong on our side. Try again in a moment.",
   "nav.label": "Main navigation",
+  "error.title": "Something went wrong.",
+  "error.reference": "Reference: {ref}",
   "nav.home": "Home",
   "nav.bills": "Bills",
   "nav.complaints": "Complaints",

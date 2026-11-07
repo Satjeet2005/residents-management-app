@@ -13,7 +13,9 @@ export const logToConsole: ProviderLog = ({ provider, failure, status, latencyMs
 };
 
 export type ProviderSlot = { client: JevClient; breaker: CircuitBreaker; cap: DailyCap };
-export type JevClassifierOptions = { timeoutMs: number; cooldownMs: number; now?: () => number; log?: ProviderLog };
+/** What the production setup stores as a warning (D135): a breaker that opened, or a key the provider refused (401 or 403). Each is once per cooldown. */
+export type ProviderWarning = { kind: "BREAKER_OPENED"; provider: string; cooldownMs: number } | { kind: "AUTH_FAILED"; provider: string; status?: number; cooldownMs: number };
+export type JevClassifierOptions = { timeoutMs: number; cooldownMs: number; now?: () => number; log?: ProviderLog; warn?: (warning: ProviderWarning) => void };
 
 /** Less than this is not worth a request: the time left is spent. */
 const MIN_ATTEMPT_MS = 50;
@@ -56,16 +58,21 @@ export class JevClassifier implements Classifier {
   private recordFailure(slot: ProviderSlot, outcome: { failure: FailureKind; status?: number; latencyMs: number; retryAfterSeconds?: number }): void {
     const log = this.options.log ?? logToConsole;
     const fields = { provider: slot.client.name, failure: outcome.failure, status: outcome.status, latencyMs: outcome.latencyMs };
+    const { warn } = this.options;
+    const cooldownMs = this.options.cooldownMs;
     if (outcome.failure === "CONFIG") {
-      if (slot.breaker.trip()) log(fields);
+      if (slot.breaker.trip()) {
+        log(fields);
+        warn?.({ kind: "AUTH_FAILED", provider: fields.provider, status: fields.status, cooldownMs });
+      }
       return;
     }
     log(fields);
     if (outcome.failure === "RATE_LIMITED") {
-      const asked = outcome.retryAfterSeconds === undefined ? this.options.cooldownMs : Math.max(1, outcome.retryAfterSeconds) * 1000;
-      slot.breaker.trip(Math.min(asked, this.options.cooldownMs));
+      const asked = outcome.retryAfterSeconds === undefined ? cooldownMs : Math.max(1, outcome.retryAfterSeconds) * 1000;
+      if (slot.breaker.trip(Math.min(asked, cooldownMs))) warn?.({ kind: "BREAKER_OPENED", provider: fields.provider, cooldownMs });
       return;
     }
-    slot.breaker.failure();
+    if (slot.breaker.failure()) warn?.({ kind: "BREAKER_OPENED", provider: fields.provider, cooldownMs });
   }
 }
