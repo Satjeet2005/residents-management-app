@@ -11,7 +11,7 @@ test.describe("complaints board", () => {
   test.use({ storageState: authFile("kavita") });
 
   test("assign a complaint, then mark it in progress", async ({ page }) => {
-    await page.goto("/staff/complaints?lane=open");
+    await page.goto("/staff/complaints?view=open&q=T07-1203");
     await page.getByRole("link", { name: /bench in the garden has a loose plank/ }).first().click();
     await expect(page.getByRole("heading", { level: 1 })).toContainText("bench in the garden");
     await page.getByLabel("Assign to").selectOption({ index: 1 });

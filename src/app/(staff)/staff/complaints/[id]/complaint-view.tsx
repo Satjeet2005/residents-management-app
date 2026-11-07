@@ -71,7 +71,7 @@ function Classification({ page }: { page: ComplaintPage }) {
       </p>
       {page.classifications.length > 0 && (
         <details>
-          <summary className="inline-flex min-h-12 cursor-pointer items-center text-body font-semibold text-accent underline underline-offset-4">{t("staffComplaints.classification.why")}</summary>
+          <summary className="inline-flex min-h-12 min-w-12 cursor-pointer items-center text-body font-semibold text-accent underline underline-offset-4">{t("staffComplaints.classification.why")}</summary>
           <ul className="border-t border-hairline">
             {page.classifications.map((entry, index) => (
               <li key={`${entry.at}-${index}`} className="flex flex-col gap-1 border-b border-hairline py-2 text-body">
@@ -135,7 +135,7 @@ function TimelinePanel({ page }: { page: ComplaintPage }) {
       <TimelineList lines={recent} />
       {earlier.length > 0 && (
         <details>
-          <summary className="inline-flex min-h-12 cursor-pointer items-center text-body font-semibold text-accent underline underline-offset-4">{t("staffComplaints.timeline.showAll", { n: page.timeline.length })}</summary>
+          <summary className="inline-flex min-h-12 min-w-12 cursor-pointer items-center text-body font-semibold text-accent underline underline-offset-4">{t("staffComplaints.timeline.showAll", { n: page.timeline.length })}</summary>
           <TimelineList lines={earlier} />
         </details>
       )}

@@ -38,14 +38,14 @@ test.describe("staff screens: Priya Nair, payments:match", () => {
 test.describe("staff screens: Kavita Rao, a plain complaints manager", () => {
   test.use({ storageState: authFile("kavita") });
 
-  test("the complaints board, every lane, and a safety complaint without the duty manager's controls", async ({ page }) => {
+  test("the complaints board, every view, and a safety complaint without the duty manager's controls", async ({ page }) => {
     const watch = watchPage(page);
-    for (const lane of ["needs-triage", "safety", "open", "overdue", "waiting", "closed"]) {
-      await page.goto(`/staff/complaints?lane=${lane}`);
+    for (const view of ["needs_action", "mine", "safety", "triage", "open", "overdue", "waiting", "closed"]) {
+      await page.goto(`/staff/complaints?view=${view}`);
       await expect(page.getByRole("heading", { level: 1, name: "Complaints" })).toBeVisible();
-      await checkScreen(page, watch, "board", lane);
+      await checkScreen(page, watch, "board", view);
     }
-    await page.goto("/staff/complaints?lane=safety");
+    await page.goto("/staff/complaints?view=safety");
     await page.getByRole("link", { name: /Bench near the tower 2 gate/ }).first().click();
     await expect(page.getByRole("heading", { level: 1 })).toContainText("Bench near the tower 2 gate");
     await expect(page.getByRole("button", { name: "I have seen this" })).toHaveCount(0);
@@ -56,10 +56,11 @@ test.describe("staff screens: Kavita Rao, a plain complaints manager", () => {
 test.describe("staff screens: Sanjay Pawar, the duty manager", () => {
   test.use({ storageState: authFile("sanjay") });
 
-  test("the board opens on Safety and the safety complaint offers 'I have seen this'", async ({ page }) => {
+  test("the board opens on Needs action with the safety alert, and the safety complaint offers 'I have seen this'", async ({ page }) => {
     const watch = watchPage(page);
     await page.goto("/staff/complaints");
-    await expect(page.getByRole("tab", { name: /^Safety/ })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("link", { name: /safety complaints? waiting for the duty manager/ })).toBeVisible();
+    await page.goto("/staff/complaints?view=safety");
     await page.getByRole("link", { name: /Bench near the tower 2 gate/ }).first().click();
     await expect(page.getByRole("button", { name: "I have seen this" })).toBeVisible();
     await checkScreen(page, watch, "complaint-staff", "duty-manager");
