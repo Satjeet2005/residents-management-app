@@ -13,6 +13,7 @@ import { complaintStepLine, dueTag, entryLabel, otherComplaintsText, partlyPaidT
 import { t } from "@/lib/messages";
 import type { FlatRelation, HomeComplaint, HomeData, RecentEntry } from "@/server/home/types";
 import { DuesActions } from "./dues-sheet";
+import { OfflineBanner } from "./offline-banner";
 import { SafetyAlert } from "./safety-alert";
 
 type Ok = Extract<HomeData, { kind: "OK" }>;
@@ -120,6 +121,7 @@ export function HomeView({ data }: { data: HomeData }) {
         <EmergencyButton numbers={data.emergency} />
       </header>
 
+      <OfflineBanner />
       {data.safetyAlert !== null && <SafetyAlert alert={data.safetyAlert} />}
 
       {data.paymentNotice === "LAST_FAILED" && <Notice>{t("pay.failedStrip")}</Notice>}

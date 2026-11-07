@@ -222,6 +222,7 @@ export const en = {
   "visitors.and": "{rest} and {last}",
   "recent.title": "Recent activity",
   "recent.none": "No activity yet",
+  "offline.banner": "You're offline. You can't pay right now.",
   "pay.button": "Pay {amount}",
   "pay.buttonOldest": "Pay oldest bill {amount}",
   "pay.loading": "Starting payment",

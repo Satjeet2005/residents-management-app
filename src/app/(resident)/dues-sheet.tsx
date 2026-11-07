@@ -8,6 +8,7 @@ import type { Dues } from "@/domain/billing/dues";
 import type { CalendarDate } from "@/domain/time/calendar";
 import { type PayState, interpretPayResponse } from "@/lib/pay";
 import { t } from "@/lib/messages";
+import { useOnline } from "@/lib/use-online";
 import type { BankAccount } from "@/server/home/types";
 import { BankTransferPanel } from "./bank-transfer-panel";
 import { DuesBreakdown } from "./dues-breakdown";
@@ -22,6 +23,7 @@ import { PayChangedNotice, PayControl, PayFooter } from "./pay-control";
  */
 export function DuesActions({ dues, asOf, flatCode, bankAccount, payOutlined = false }: { dues: Dues; asOf: CalendarDate; flatCode: string; bankAccount: BankAccount | null; payOutlined?: boolean }) {
   const router = useRouter();
+  const offline = !useOnline();
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<PayState>({ phase: "idle" });
   const busy = useRef(false);
@@ -55,7 +57,7 @@ export function DuesActions({ dues, asOf, flatCode, bankAccount, payOutlined = f
   return (
     <>
       <PayChangedNotice state={state} />
-      <PayControl amountPaise={shown} openBills={openBills} state={state} onPay={pay} outlined={payOutlined} />
+      <PayControl amountPaise={shown} openBills={openBills} state={state} onPay={pay} outlined={payOutlined} offline={offline} />
       <Button variant="link" onClick={() => setOpen(true)}>
         {t("dues.seeBreakdown")}
       </Button>
@@ -63,7 +65,7 @@ export function DuesActions({ dues, asOf, flatCode, bankAccount, payOutlined = f
         open={open}
         onClose={() => setOpen(false)}
         title={t("dues.title")}
-        footer={<PayFooter amountPaise={shown} openBills={openBills} state={state} onPay={pay} outlined={payOutlined} />}
+        footer={<PayFooter amountPaise={shown} openBills={openBills} state={state} onPay={pay} outlined={payOutlined} offline={offline} />}
       >
         <div className="flex flex-col gap-6">
           <DuesBreakdown dues={dues} asOf={asOf} />
