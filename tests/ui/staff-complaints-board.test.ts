@@ -112,6 +112,12 @@ describe("SB2 the list", () => {
     expect(sources.map((text) => ["Rules", "Model", "Keywords", "Manual"].filter((w) => text.includes(` ${w} `)).length)).toEqual([1, 1, 1, 1]);
   });
 
+  it("the title of each complaint is a 48px link to its page", () => {
+    expect(out).toMatch(/<a [^>]*min-h-12[^>]*>Water leak under the kitchen sink<\/a>/);
+    expect(out).toContain('href="/staff/complaints/b0000000-0000-4000-8000-000000000001"');
+    expect(count(out, /<a /g)).toBe(4);
+  });
+
   it("no cell is filled and nothing is written in capitals", () => {
     expect(out).not.toContain("bg-accent");
     expect(out).not.toMatch(/uppercase|tracking-/);

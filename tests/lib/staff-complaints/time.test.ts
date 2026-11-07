@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ageWords, durationWords, slaWords } from "@/lib/staff-complaints/time";
+import { ageWords, durationWords, slaWords, whenWords } from "@/lib/staff-complaints/time";
 
 describe("SC4 minutes to words", () => {
   it.each([
@@ -43,5 +43,12 @@ describe("SC5 the reply clock in words", () => {
     expect(slaWords({ sla: "MET", responseDueAt: now - minute, now })).toBe("Replied in time");
     expect(slaWords({ sla: "NONE", responseDueAt: now - minute, now })).toBe("No reply clock");
     expect(slaWords({ sla: "ON_TIME", responseDueAt: null, now })).toBe("No reply clock");
+  });
+});
+
+describe("SC5b an instant in India time", () => {
+  it("is the date and the clock time with minutes, in India time", () => {
+    expect(whenWords(Date.UTC(2026, 10, 6, 6, 30))).toBe("6 Nov, 12:00 pm");
+    expect(whenWords(Date.UTC(2026, 10, 6, 18, 31))).toBe("7 Nov, 12:01 am");
   });
 });

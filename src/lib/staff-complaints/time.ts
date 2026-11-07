@@ -1,4 +1,6 @@
 import type { SlaState } from "@/domain/complaints/lifecycle";
+import { istDateOf } from "@/domain/time/calendar";
+import { formatClockIst, formatDay } from "@/lib/format-date";
 import { t } from "@/lib/messages";
 
 const HOUR = 60;
@@ -43,3 +45,6 @@ export function slaWords(input: { sla: SlaState; responseDueAt: number | null; n
       return t("staffComplaints.sla.none");
   }
 }
+
+/** An instant as "6 Nov, 12:00 pm" in India time, for the clocks and the timeline. */
+export const whenWords = (instant: number): string => t("staffComplaints.when", { date: formatDay(istDateOf(instant)), time: formatClockIst(instant) });

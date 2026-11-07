@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { StatusTag } from "@/components/ui/status-tag";
 import { t } from "@/lib/messages";
 import { categoryLabel, sourceTag, staffStatusLabel, urgencyLabel, urgencyTone } from "@/lib/staff-complaints/labels";
@@ -10,6 +11,12 @@ function SourceTag({ row }: { row: BoardRow }) {
   const tag = sourceTag({ source: row.source, needsReview: row.needsReview });
   return tag === null ? null : <StatusTag tone={tag.tone}>{tag.text}</StatusTag>;
 }
+
+const openLink = (row: BoardRow) => (
+  <Link href={`/staff/complaints/${row.id}`} className="inline-flex min-h-12 items-center break-words font-semibold text-accent underline underline-offset-4">
+    {row.title}
+  </Link>
+);
 
 const flatChip = (row: BoardRow) => <span className="tnum inline-flex min-h-7 items-center rounded-control border border-control bg-paper-2 px-2 text-caption">{row.flatCode}</span>;
 const assigneeText = (row: BoardRow): string => row.assignee?.name ?? t("staffComplaints.unassigned");
@@ -40,7 +47,7 @@ export function BoardRows({ rows, caption, now }: { rows: readonly BoardRow[]; c
                 <td className="py-3 pr-4">
                   <span className="flex flex-col items-start gap-1">
                     {flatChip(row)}
-                    <span className="break-words">{row.title}</span>
+                    {openLink(row)}
                   </span>
                 </td>
                 <td className="py-3 pr-4">{categoryLabel(row.category)}</td>
@@ -65,7 +72,7 @@ export function BoardRows({ rows, caption, now }: { rows: readonly BoardRow[]; c
               {urgencyTag(row)}
               <SourceTag row={row} />
             </span>
-            <span className="break-words text-body font-semibold">{row.title}</span>
+            {openLink(row)}
             <span className="text-body">{t("staffComplaints.card.line", { category: categoryLabel(row.category), status: staffStatusLabel(row.status), assignee: assigneeText(row) })}</span>
             <span className="tnum text-body">{t("staffComplaints.age", { age: ageWords(row.ageMinutes) })}</span>
             <span className="text-body">{reply(row, now)}</span>

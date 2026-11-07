@@ -1,9 +1,12 @@
+import { type SlaState, slaState } from "@/domain/complaints/lifecycle";
 import type { Db } from "@/server/auth/db";
+import { type TimelineLine, staffTimeline, userIdsIn } from "@/lib/staff-complaints/timeline";
 import { type BoardLane, chooseLane } from "@/lib/staff-complaints/lanes";
 import { requirePermission } from "@/server/statements/ui-data";
 import { autoCloseQuietly } from "./auto-close";
 import { type Board, type BoardRow, listBoard } from "./board";
-import { type Actor, isDutyManager } from "./context";
+import { type Actor, isDutyManager, isUuid } from "./context";
+import { type ClassificationLine, type StaffComplaint, getStaffComplaint } from "./staff-read";
 
 /** The data the staff landing page needs beyond the person's permissions: how many safety complaints are open (zero for a person without complaints:manage). */
 export async function loadStaffLanding(input: { db: Db; user: Actor }): Promise<{ openSafety: number }> {
@@ -51,4 +54,43 @@ export async function loadBoardMore(input: { db: Db; user: Actor; lane: BoardLan
   requirePermission(input.user, "complaints:manage");
   const board = await readBoard(input);
   return { rows: board.rows, nextCursor: board.nextCursor };
+}
+
+export type ComplaintPage = {
+  /** The business clock at the time of the read: the reply clock is worked out from it. */
+  now: number;
+  complaint: Omit<StaffComplaint, "events" | "classifications">;
+  sla: SlaState;
+  /** When a duty manager acknowledged it, or null (an acknowledgement is a COMMENT event with the kind "ack"). */
+  acknowledgedAt: number | null;
+  classifications: ClassificationLine[];
+  /** Every event, internal ones included, each marked visible to the resident or internal. */
+  timeline: TimelineLine[];
+};
+
+/**
+ * The data of /staff/complaints/[id] (D130): the complaint with its FULL timeline. The permission is checked again here, at the data. A missing complaint and an
+ * id that is not a UUID are both null (the page shows its not-found state). Auto-close runs first, lazily and quietly (D120). The names that events hold only as ids
+ * (who a complaint was assigned to) are looked up once.
+ */
+export async function loadComplaintPage(input: { db: Db; user: Actor; id: string; now: number }): Promise<ComplaintPage | null> {
+  requirePermission(input.user, "complaints:manage");
+  if (!isUuid(input.id)) return null;
+  await autoCloseQuietly({ db: input.db, now: input.now });
+  const result = await getStaffComplaint(input);
+  if (result.status === "ERROR") {
+    if (result.error === "NOT_FOUND") return null;
+    throw new Error(`complaint detail: ${result.error}`);
+  }
+  const { events, classifications, ...complaint } = result.complaint;
+  const users = await input.db.user.findMany({ where: { id: { in: userIdsIn(events) } }, select: { id: true, name: true } });
+  const ack = events.find((e) => e.eventType === "COMMENT" && typeof e.payload === "object" && e.payload !== null && (e.payload as { kind?: unknown }).kind === "ack");
+  return {
+    now: input.now,
+    complaint,
+    sla: slaState({ status: complaint.status, responseDueAt: complaint.responseDueAt, firstResponseAt: complaint.firstResponseAt, pendingConfirmationAt: complaint.pendingConfirmationAt, now: input.now }),
+    acknowledgedAt: ack?.at ?? null,
+    classifications,
+    timeline: staffTimeline(events, new Map(users.map((u) => [u.id, u.name]))),
+  };
 }

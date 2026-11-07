@@ -68,7 +68,7 @@ describe("D81 page inventory", () => {
 
   it("T13c the staff complaints pages ask for complaints:manage and call requireUser themselves (the loaders check it again)", () => {
     const staffComplaints = pages.filter((p) => p.address.startsWith("/staff/complaints"));
-    expect(staffComplaints.map((p) => p.address)).toContain("/staff/complaints");
+    expect(staffComplaints.map((p) => p.address).sort()).toEqual(["/staff/complaints", "/staff/complaints/[id]"]);
     for (const page of staffComplaints) {
       expect(page.calls.has("requireUser"), page.address).toBe(true);
       expect(/need:\s*"complaints:manage"/.test(readFileSync(page.file, "utf8")), page.address).toBe(true);

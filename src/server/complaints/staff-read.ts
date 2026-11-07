@@ -1,10 +1,11 @@
 import type { ComplaintStatus } from "@/domain/complaints/step";
+import type { TimelineEventType } from "@/domain/complaints/timeline";
 import type { Urgency } from "@/domain/complaints/taxonomy";
 import type { Db } from "@/server/auth/db";
 import { type Actor, canManage, isUuid } from "./context";
 import { type ComplaintFailure, failure } from "./errors";
 
-export type StaffEvent = { id: string; eventType: string; at: number; actor: { id: string; name: string } | null; payload: unknown };
+export type StaffEvent = { id: string; eventType: TimelineEventType; at: number; actor: { id: string; name: string } | null; payload: unknown };
 export type ClassificationLine = { source: "RULE" | "LLM" | "FALLBACK" | "MANUAL"; category: string | null; urgency: Urgency; confidence: number | null; latencyMs: number | null; outputHash: string | null; at: number };
 export type StaffComplaint = {
   id: string;
