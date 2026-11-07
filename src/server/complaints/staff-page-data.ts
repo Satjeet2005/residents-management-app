@@ -6,7 +6,8 @@ import { requirePermission } from "@/server/statements/ui-data";
 import { autoCloseQuietly } from "./auto-close";
 import { type Board, type BoardRow, listBoard } from "./board";
 import { type Actor, isDutyManager, isUuid } from "./context";
-import { type ClassificationLine, type StaffComplaint, getStaffComplaint } from "./staff-read";
+import { type ClassificationLine, type StaffComplaint, getStaffComplaint, listStaffUsers } from "./staff-read";
+import type { ControlViewer } from "@/lib/staff-complaints/controls";
 
 /** The data the staff landing page needs beyond the person's permissions: how many safety complaints are open (zero for a person without complaints:manage). */
 export async function loadStaffLanding(input: { db: Db; user: Actor }): Promise<{ openSafety: number }> {
@@ -66,6 +67,10 @@ export type ComplaintPage = {
   classifications: ClassificationLine[];
   /** Every event, internal ones included, each marked visible to the resident or internal. */
   timeline: TimelineLine[];
+  /** Who may be assigned (active staff with complaints:manage), by name. */
+  staffUsers: { id: string; name: string }[];
+  /** Who is looking, for the controls of the action panel. */
+  viewer: ControlViewer;
 };
 
 /**
@@ -83,7 +88,8 @@ export async function loadComplaintPage(input: { db: Db; user: Actor; id: string
     throw new Error(`complaint detail: ${result.error}`);
   }
   const { events, classifications, ...complaint } = result.complaint;
-  const users = await input.db.user.findMany({ where: { id: { in: userIdsIn(events) } }, select: { id: true, name: true } });
+  const [users, assignable] = await Promise.all([input.db.user.findMany({ where: { id: { in: userIdsIn(events) } }, select: { id: true, name: true } }), listStaffUsers(input)]);
+  if (assignable.status === "ERROR") throw new Error(`complaint detail: ${assignable.error}`);
   const ack = events.find((e) => e.eventType === "COMMENT" && typeof e.payload === "object" && e.payload !== null && (e.payload as { kind?: unknown }).kind === "ack");
   return {
     now: input.now,
@@ -92,5 +98,7 @@ export async function loadComplaintPage(input: { db: Db; user: Actor; id: string
     acknowledgedAt: ack?.at ?? null,
     classifications,
     timeline: staffTimeline(events, new Map(users.map((u) => [u.id, u.name]))),
+    staffUsers: assignable.users,
+    viewer: { canManage: true, isDutyManager: isDutyManager(input.user) },
   };
 }

@@ -53,7 +53,8 @@ export type PanelEvent =
   | { type: "NOTE_CLOSED" }
   | { type: "SUBMIT"; action: PanelAction }
   | { type: "SUCCEEDED"; subject: string | null }
-  | { type: "FAILED"; error: PanelError };
+  | { type: "FAILED"; error: PanelError }
+  | { type: "DISMISSED" };
 
 export const countChars = (text: string): number => Array.from(text).length;
 const clamp = (text: string, max: number): string => (countChars(text) <= max ? text : Array.from(text).slice(0, max).join(""));
@@ -116,6 +117,8 @@ export function panelReducer(state: PanelState, event: PanelEvent): PanelState {
     }
     case "FAILED":
       return state.pending === null ? state : { ...state, pending: null, error: { action: state.pending, error: event.error } };
+    case "DISMISSED":
+      return { ...state, error: null, done: null, invalid: null };
   }
 }
 

@@ -51,6 +51,8 @@ const page = (over: Partial<ComplaintPage> = {}, complaint: Partial<ComplaintPag
   acknowledgedAt: null,
   classifications: [{ source: "LLM", category: "PLUMBING", urgency: "NORMAL", confidence: 0.91, latencyMs: 420, outputHash: "x", at: T0 }],
   timeline: staffTimeline(events, new Map([["u1", "Kavita Rao"]])),
+  staffUsers: [{ id: "u1", name: "Kavita Rao" }, { id: "u2", name: "Sanjay Pawar" }],
+  viewer: { canManage: true, isDutyManager: false },
   ...over,
 });
 
@@ -100,13 +102,13 @@ describe("SD1 the complaint page", () => {
     expect(text).toContain("Comment, internal");
     expect(text).toContain("Plumber is booked for Monday");
     expect(text).toContain("Comment, visible to the resident");
-    expect(count(out, />Visible to the resident</g)).toBe(3);
-    expect(count(out, />Internal</g)).toBe(2);
+    const timeline = out.slice(out.indexOf('id="timeline-heading"'), out.indexOf("<aside"));
+    expect(count(timeline, />Visible to the resident</g)).toBe(3);
+    expect(count(timeline, />Internal</g)).toBe(2);
   });
 
-  it("an ordinary complaint has no safety line, and the page has no button and no filled control", () => {
+  it("an ordinary complaint has no safety line, and no control on the page is filled", () => {
     expect(text).not.toContain("Safety complaint");
-    expect(out).not.toContain("<button");
     expect(out).not.toContain("bg-accent");
   });
 

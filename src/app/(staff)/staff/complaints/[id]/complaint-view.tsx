@@ -5,6 +5,8 @@ import { categoryLabel, confidenceWords, sourceName, sourceTag, staffStatusLabel
 import { slaWords, whenWords } from "@/lib/staff-complaints/time";
 import { complaintTitle } from "@/server/home/mapper";
 import type { ComplaintPage } from "@/server/complaints/staff-page-data";
+import { controlsFor } from "@/lib/staff-complaints/controls";
+import { ActionPanel } from "./action-panel";
 import { TimelineList } from "./timeline-list";
 
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
@@ -98,10 +100,11 @@ function Clocks({ page }: { page: ComplaintPage }) {
 
 /**
  * One complaint for staff: the full text, the flat, who raised it, how it was classified, the reply clocks and the FULL timeline, internal events and
- * comments included and marked. One h1 (the title). No control on this page is filled.
+ * comments included and marked, and the action panel (on the right from 1024px, below the timeline on a narrow screen). One h1 (the title).
  */
 export function ComplaintView({ page }: { page: ComplaintPage }) {
   const { complaint } = page;
+  const controls = controlsFor({ status: complaint.status, safety: complaint.safety, acknowledged: page.acknowledgedAt !== null, viewer: page.viewer });
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4">
       <div className="flex flex-col gap-1">
@@ -110,27 +113,44 @@ export function ComplaintView({ page }: { page: ComplaintPage }) {
         </Link>
         <h1 className="break-words text-heading font-semibold">{complaintTitle(complaint.body)}</h1>
       </div>
-      <SafetyLine page={page} />
-      <section aria-labelledby="text-heading" className="flex flex-col gap-2">
-        <h2 id="text-heading" className="text-title font-semibold">
-          {t("staffComplaints.detail.text")}
-        </h2>
-        <p className="whitespace-pre-line break-words text-body">{complaint.body}</p>
-      </section>
-      <section aria-labelledby="facts-heading" className="flex flex-col gap-2">
-        <h2 id="facts-heading" className="text-title font-semibold">
-          {t("staffComplaints.detail.facts")}
-        </h2>
-        <Facts page={page} />
-      </section>
-      <Clocks page={page} />
-      <Classifications page={page} />
-      <section aria-labelledby="timeline-heading" className="flex flex-col gap-2">
-        <h2 id="timeline-heading" className="text-title font-semibold">
-          {t("staffComplaints.timeline.heading")}
-        </h2>
-        <TimelineList lines={page.timeline} />
-      </section>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
+        <div className="flex min-w-0 flex-col gap-6">
+          <SafetyLine page={page} />
+          <section aria-labelledby="text-heading" className="flex flex-col gap-2">
+            <h2 id="text-heading" className="text-title font-semibold">
+              {t("staffComplaints.detail.text")}
+            </h2>
+            <p className="whitespace-pre-line break-words text-body">{complaint.body}</p>
+          </section>
+          <section aria-labelledby="facts-heading" className="flex flex-col gap-2">
+            <h2 id="facts-heading" className="text-title font-semibold">
+              {t("staffComplaints.detail.facts")}
+            </h2>
+            <Facts page={page} />
+          </section>
+          <Clocks page={page} />
+          <Classifications page={page} />
+          <section aria-labelledby="timeline-heading" className="flex flex-col gap-2">
+            <h2 id="timeline-heading" className="text-title font-semibold">
+              {t("staffComplaints.timeline.heading")}
+            </h2>
+            <TimelineList lines={page.timeline} />
+          </section>
+        </div>
+        <aside aria-labelledby="panel-heading" className="flex flex-col gap-3 lg:sticky lg:top-4">
+          <h2 id="panel-heading" className="text-title font-semibold">
+            {t("staffComplaints.panel.heading")}
+          </h2>
+          <ActionPanel
+            id={complaint.id}
+            version={complaint.version}
+            controls={controls}
+            staffUsers={page.staffUsers}
+            currentCategory={complaint.category}
+            needsReview={complaint.needsReview}
+          />
+        </aside>
+      </div>
     </main>
   );
 }

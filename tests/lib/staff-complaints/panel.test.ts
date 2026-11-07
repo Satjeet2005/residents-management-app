@@ -53,6 +53,11 @@ describe("SC12 the action panel reducer", () => {
     expect(panelReducer(failed, { type: "SUBMIT", action: "COMMENT" }).pending).toBe("COMMENT");
   });
 
+  it("dismissing clears the error, the confirmation and the inline error, and keeps what was written", () => {
+    const failed = run([fill("commentText", "Keep me"), { type: "SUBMIT", action: "COMMENT" }, { type: "FAILED", error: "STALE" }]);
+    expect(panelReducer(failed, { type: "DISMISSED" })).toMatchObject({ error: null, done: null, invalid: null, commentText: "Keep me" });
+  });
+
   it("an answer with nothing in flight changes nothing", () => {
     expect(panelReducer(initialPanelState, { type: "SUCCEEDED", subject: null })).toBe(initialPanelState);
     expect(panelReducer(initialPanelState, { type: "FAILED", error: "SERVER" })).toBe(initialPanelState);
