@@ -140,6 +140,19 @@ curl -s -b /tmp/duty.jar -X POST -H 'content-type: application/json' -d '{}' htt
 5. To see "Is it fixed?", mark a normal complaint resolved as **Kavita Rao** (`5000000004`) with `POST /api/staff/complaints/<id>/status`
    (`{"status":"PENDING_CONFIRMATION","expectedVersion":<version from GET /api/staff/complaints/<id>>}`), then reload the complaint page.
 
+## Checking the classifier providers (you, with your own keys)
+
+The complaint classifier can use two System One providers (`docs/classifier-providers.md`). Without keys the keyword fallback answers every complaint. To
+check your keys, put the six `JEV_PRIMARY_*` and `JEV_SECONDARY_*` lines from `.env.example` in your own `.env` (never in a chat, an issue or a commit) and run:
+
+```bash
+npm run llm:check
+```
+
+It sends three fictional complaints to each configured provider and prints one line per provider and sample (provider name, HTTP status, latency, top
+category and urgency with probabilities). It never prints a key or a URL, and exits 1 if no provider answered. It uses three calls per provider from the
+free quota.
+
 ## Demo logins
 
 Login is a one-time code. With `DEMO_MODE=true` and a demo phone (starts with 5), the API returns the code in

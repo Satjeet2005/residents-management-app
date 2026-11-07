@@ -60,7 +60,7 @@ name, no flat). The duty manager acknowledges (`first_response_at`, an event of 
 ## The port
 
 `Classifier` (`src/server/complaints/classifier.ts`) is the domain's `ClassifierPort` plus an optional `AbortSignal`. `NullClassifier` always answers nothing and
-is what production uses until a provider lands (D118). The tests use a configurable fake (`tests/integration/complaints-helpers.ts`). A classifier that throws,
+is what production uses when no provider is configured; with one, `JevClassifier` asks the System One providers (D140, `docs/classifier-providers.md`). The tests use a configurable fake (`tests/integration/complaints-helpers.ts`). A classifier that throws,
 times out or answers nothing is "no arm": the keyword fallback answers. A present answer goes where `decideClassification` sends it: an invalid answer (including
 one that says CRITICAL) takes the keyword fallback; a valid answer that disagrees or is low in confidence goes to a person (`needs_review`, no assignee, NEW).
 
@@ -81,7 +81,7 @@ thirteen columns of `complaints` and nothing else (D95).
 
 ## What is absent
 
-Provider adapters (a later task), translation, duplicate linking, reminders and escalation timers, a notifications list, the staff screens. The resident screens are
+Translation, duplicate linking, reminders and escalation timers, a notifications list, the staff screens. The resident screens are
 built (`docs/complaints-ui.md`). Auto-close has no cron: the two list routes, the resident's list and detail pages and the Home call `autoCloseDue` as they load
 (D120); the staff screens will call it when they are built.
 

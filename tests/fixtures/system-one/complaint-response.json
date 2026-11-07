@@ -1,0 +1,19 @@
+{
+  "_source": "Shape taken from https://docs.typesafe.ai/primitives/choice.md (response structure), read 2026-11-07; the question names and labels are this app's (category, urgency). Fictional values.",
+  "model": "jev-1.14.0",
+  "answers": {
+    "category": {
+      "type": "choice",
+      "choice": "PLUMBING",
+      "confidence": 0.8,
+      "probabilities": { "PLUMBING": 0.86, "ELECTRICAL": 0.02, "HOUSEKEEPING": 0.06, "LIFT": 0.01, "OTHER": 0.05 }
+    },
+    "urgency": {
+      "type": "choice",
+      "choice": "NORMAL",
+      "confidence": 0.6,
+      "probabilities": { "HIGH": 0.2, "NORMAL": 0.7, "LOW": 0.1 }
+    }
+  },
+  "usage": { "input_tokens": 410, "output_tokens": 40 }
+}
