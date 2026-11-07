@@ -168,7 +168,8 @@ async function insert(db: ErrorLogDb, event: StoredEvent, suppressed: number): P
  */
 export async function persistError(event: StoredEvent, db: ErrorLogDb, options: PersistOptions = {}): Promise<void> {
   try {
-    const suppressed = (options.gate ?? instanceGate).admit(event.fingerprint);
+    // A test event is asked for by the developer and is limited by its own route (5 an hour), so the flood gate must not hide it.
+    const suppressed = event.source === "TEST" ? 0 : (options.gate ?? instanceGate).admit(event.fingerprint);
     if (suppressed === null) return;
     try {
       await insert(db, event, suppressed);
