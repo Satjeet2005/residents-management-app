@@ -62,10 +62,10 @@ Shown above the dues while the flat has an open safety complaint (the newest one
 | State | When | Words | Call button |
 |---|---|---|---|
 | 1a SENT | raised, not acknowledged, less than `safety_ack_timeout_minutes` (default 5) ago | "Your fire report has gone to the duty manager". "If anyone is in danger, call now." | "Call duty manager" (`duty_manager_phone`) |
-| 1b SEEN | `first_response_at` is set | "The duty manager has seen your report". "Seen at 5:42 pm. If anyone is in danger, call now." | the same |
+| 1b SEEN | the duty manager's acknowledge action has recorded an acknowledgement (an `ack` event) | "The duty manager has seen your report". "Seen at 5:42 pm. If anyone is in danger, call now." | the same |
 | 1c NO_ANSWER | not acknowledged and the timeout has passed | "No answer yet". "Call 112 now." | "Call 112": `emergency_services_phone` when configured, else the duty manager's |
 
-Acknowledgement is the duty manager's acknowledge action, which sets `first_response_at` (D54); it wins over the timeout, so a late acknowledgement turns
+Acknowledgement is the duty manager's acknowledge action and nothing else (D54 as amended by D149): a first reply, an assignment or a status change by any other staff member sets `first_response_at` but leaves the alert at 1a, then 1c. The Home reads the acknowledgement from the `ack` event, never from `first_response_at`. It wins over the timeout, so a late acknowledgement turns
 1c into 1b. With no number configured the alert says so in words and draws no link. The Call link is the one filled control of the Home; **both Pay
 buttons (the Home and the dues sheet) are outlined while the alert is shown** (D58), and filled again when it goes (the complaint is closed).
 
@@ -86,8 +86,9 @@ with no data and the page still loads. It never touches a safety complaint.
 - **A1** The danger question is on the form only. The Emergency sheet's links open the same form; no answer is carried over from the sheet.
 - **A2** The alert's category comes from the safety words found in the stored text; a declared danger with no word has none ("Your report").
 - **A3** The newest open safety complaint decides the alert; one alert is shown even when several are open.
-- **A4** "Seen" means `first_response_at` is set. Any staff action sets it on a non-safety complaint, but a safety complaint reaches the duty manager only,
-  and its first action is the acknowledgement.
+- **A4** "Seen" means the duty manager has acknowledged the complaint (an `ack` event, D149). It does NOT mean `first_response_at` is set: a plain manager who
+  has `complaints:manage` but not `complaints:duty_manager` can comment on, assign or move a safety complaint, which is a first reply for the SLA but not a
+  sighting by the duty manager, so the resident is never told "The duty manager has seen your report" because of it.
 - **A5** `safety_ack_timeout_minutes` outside 1 to 1,440, or not a whole number, is 5.
 - **A6** The empty state of the list is a line of words; the one "Raise a complaint" control above it is the way in (the design image repeats it as a link).
 - **A7** The closed section is a `details` element: it needs no script and is collapsed by default.

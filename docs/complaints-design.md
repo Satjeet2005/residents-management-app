@@ -47,14 +47,22 @@ The result always satisfies the database checks: K1 (a safety complaint is CRITI
 ## SLA
 
 `response_due_at = created_at + sla_minutes[urgency]`, from the society setting (default CRITICAL 15, HIGH 120, NORMAL 1,440, LOW 4,320 minutes). The SLA state of a
-row is ON_TIME (not answered, not yet due), MET, OVERDUE (not answered and past the due time, or marked resolved after the due time) or NONE (closed).
+row comes from one pure function, `slaOutcome({ responseDueAt, firstResponseAt, now })` in `src/domain/complaints/sla.ts` (D150): MET (first reply at or before the
+due time; a reply exactly at it is MET), MISSED_LATE (first reply after it, for ever), MISSED_OPEN (no reply and `now` is after the due time) or NOT_DUE (no reply
+and the due time has not passed, or there is no due time). The board and detail state is ON_TIME (NOT_DUE), MET, LATE (MISSED_LATE: "Replied late"), OVERDUE
+(MISSED_OPEN) or NONE (closed, or no due time). The OVERDUE lane is the open complaints that are MISSED_OPEN.
+
+Acknowledgement is a separate fact (D149). `first_response_at` is set by the first staff action of any kind and is the SLA clock only; the ACKNOWLEDGED fact is the
+`ack` event, recorded only by the duty manager's `acknowledgeSafety`. The resident's safety alert, the committee's "not yet acknowledged" and "time to
+acknowledgement" read the event, so a plain manager's reply is a first reply but never an acknowledgement. The board has no "unacknowledged" count of its own: its
+SAFETY lane counts every open safety complaint and the detail page shows "The duty manager has not seen this yet" from the same event.
 
 ## The safety path
 
 A safety hit: `safety_flag`, urgency CRITICAL, category from the keyword fallback or none, no model call, assigned at once to the duty manager (the active staff
 user with `complaints:duty_manager`; with several, the smallest name; with none the complaint stays NEW and the ESCALATED event says `NO_DUTY_MANAGER`),
 events CREATED, CLASSIFIED (source RULE), ESCALATED, ASSIGNED, and a `SAFETY_ALERT` notification whose body is the complaint id and a fixed sentence (no text, no
-name, no flat). The duty manager acknowledges (`first_response_at`, an event of type COMMENT with payload `kind: "ack"`) and closes with a note
+name, no flat). The duty manager acknowledges (an event of type COMMENT with payload `kind: "ack"`, written only by `acknowledgeSafety`, which needs `complaints:duty_manager`; it also sets `first_response_at` if still empty) and closes with a note
 (`close_kind` DUTY_MANAGER). Neither needs `complaints:manage`; both need `complaints:duty_manager`.
 
 ## The port
@@ -90,7 +98,7 @@ built (`docs/complaints-ui.md`). Auto-close has no cron: the two list routes, th
 - **A1** Re-assigning an ASSIGNED or IN_PROGRESS complaint keeps its status; only NEW and REOPENED become ASSIGNED.
 - **A2** The reopen window is 7 days, a constant (`defaultLifecycleSettings.reopenWindowDays`), not a society setting. The boundary is inclusive.
 - **A3** The complaints clock is the business clock (D97), as on the Home. Under a frozen demo clock the same text by the same person is a repeat for as long as the clock stays frozen.
-- **A4** OVERDUE "resolved past SLA" means `pending_confirmation_at` later than `response_due_at`. OPEN includes REOPENED. Newest first (by creation time) in every lane.
+- **A4** (amended by D150) OVERDUE no longer includes "resolved past SLA": a complaint replied to in time but marked resolved late has no reply clock to miss. OPEN includes REOPENED. Newest first (by creation time) in every lane.
 - **A5** When nothing could classify a complaint (source NONE) the `classifications` row says FALLBACK with no category: the fallback was the last thing tried.
 - **A6** `needs_review` is true whenever the category is unknown, a safety complaint included.
 - **A7** A staff comment is shown to the resident only when marked `visibleToResident: true`. A comment with no mark (the seeded ones) is hidden.
