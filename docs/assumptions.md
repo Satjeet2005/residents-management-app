@@ -87,6 +87,7 @@ These are numbered inside their own files. Read them there.
 | `docs/statement-import-design.md` | S1 to S12 | The statement import: fatal header, the business clock, batched bill locks, the ledger reference, repeats, the empty `created_by_id`; fee-only bills are not shown to the matcher (S10, S11); the sample statement is an illustration, not the benchmark (S12). |
 | `docs/manual-reconciliation-design.md` | M1 to M11 | Manual matching of queued rows: the expected amount, requests checked early, who is `decided_by`, rejecting one's own request, references, the clock. |
 | `docs/complaints-design.md` | A1 to A13 | Complaints: the lifecycle edges, the reopen window, the clock, lanes and overdue, comments and the version, the timeline, the classifier port. |
+| `docs/staff-complaints-ui.md` | SU1 to SU12 | Staff complaint screens: lanes that overlap, the required resolve note, what "acknowledged" means, the confidence words, one clock per page, the permission the pages need. |
 | `docs/complaint-classification.md` | CC1 to CC7 | Complaint classification: when the fallback answers, urgent words, the arm names, OTHER, the de-identification decision. |
 | `docs/classifier-providers.md` | (R50 to R65 above) | The System One protocol as documented, the two providers, failover, breaker, cap, privacy, key rotation. |
 | `docs/design-system.md` | A1 to A10 | Colours, radii, tracker markers, fonts, spacing, motion, placeholder translations. |

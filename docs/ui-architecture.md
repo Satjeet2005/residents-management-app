@@ -1,4 +1,4 @@
-# UI architecture (T11a, T11b, T13b)
+# UI architecture (T11a, T11b, T13b, T13c)
 
 The login screen, the app shell, Profile and the resident Home with its Pay flow (T11b). This page says how the screens are built, where
 the data comes from, which clock they use, and what is deliberately **not** here yet and which task adds it. The look is
@@ -21,6 +21,8 @@ the Emergency sheet (the call link there is the large accent link the task descr
 | `/staff` | `src/app/(staff)/staff/` | staff | Name, the tools the person may open, permissions in words, sign out. |
 | `/staff/reconciliation` | `src/app/(staff)/staff/reconciliation/` | staff with `payments:match` | Upload a bank statement, recent imports (T12c, `docs/staff-ui.md`). |
 | `/staff/reconciliation/[importId]` | `.../[importId]/` | staff with `payments:match` | The workspace: summary bar, lanes, rows, review panel. |
+| `/staff/complaints` | `src/app/(staff)/staff/complaints/` | staff with `complaints:manage` | The board: six lanes, rows, Load more (T13c, `docs/staff-complaints-ui.md`). |
+| `/staff/complaints/[id]` | `.../complaints/[id]/` | staff with `complaints:manage` | One complaint: full timeline and the action panel. |
 | `/forbidden` | `src/app/forbidden/` | anyone | Plain message and a link home. Where `requireUser` sends a wrong role. |
 | `/design` | `src/app/design/` | hidden unless `SHOW_DESIGN_PAGE=true` | The component reference. |
 
@@ -121,7 +123,7 @@ numbers (`DEMO_AS_OF=2026-10-27`). It is never shown otherwise (tests: `tests/ui
 | Notifications bell (D22, D55) | Not built | The notifications task |
 | Offline banner, service worker | A later task | The installable-app task |
 | Hindi and Marathi UI, the language choice (D44) | English only for now (D2) | The translation task, if time allows |
-| Staff features other than bank reconciliation (reports, the complaints board, acknowledging a safety complaint) | Not built | The staff tasks. Bank reconciliation is built: `docs/staff-ui.md` |
+| Staff reports | Not built | The report task. Bank reconciliation (`docs/staff-ui.md`) and the complaints board with acknowledging a safety complaint (`docs/staff-complaints-ui.md`) are built |
 | A Proxy (true 307 for resident pages) | See above | Not planned |
 | Waiving a late fee | A waiver is a separate approved workflow; today a fee stays owing until paid (D107) | A later task, if the committee wants it |
 
@@ -140,6 +142,14 @@ Bank reconciliation is built over the T12b services; `docs/staff-ui.md` has the 
 labels, who sees Approve), the loaders in `src/server/statements/ui-data.ts`, and the screens in `src/app/(staff)/staff/reconciliation/`. The staff
 frame (`src/app/(staff)/layout.tsx`) is a banner with one link home and checks nobody. A client component receives only plain data (money as
 decimal strings) and talks to the existing API routes; the one server action ("Load more") is built with `withPermissionAction("payments:match")`.
+
+## Staff complaint screens (T13c)
+
+The board, one complaint with its full timeline and the action panel are in `docs/staff-complaints-ui.md`. Same shape as the reconciliation screens: the page
+calls `requireUser({ need: "complaints:manage" })`, a loader in `src/server/complaints/staff-page-data.ts` checks the permission again and reads through the
+app role, a pure view draws the data, and two client components hold the state: the lane tabs (arrow keys, the lane in the address) and the action panel (a
+reducer from `src/lib/staff-complaints/panel.ts` that calls the existing staff routes). The one server action ("Load more") is built with
+`withPermissionAction("complaints:manage")`. The loaders run auto-close lazily and quietly (D120).
 
 ## Complaint screens (T13b)
 

@@ -78,7 +78,7 @@ with no data and the page still loads. It never touches a safety complaint.
 
 - **The bell and a notifications list** (D55): not built. The SAFETY_ALERT notification is a row for the duty manager; no screen reads it.
 - **Duplicate linking and "affects me too"**: not built; `DUPLICATE_LINKED` and `AFFECTED_TOO` events are never shown to a resident.
-- **Staff screens** (the board, assign, comment, acknowledge, close): not built. The duty manager acknowledges through the API route only (README).
+- **Staff screens** (the board, assign, comment, acknowledge, close): built in T13c, `docs/staff-complaints-ui.md`. The duty manager acknowledges there ("I have seen this") and the Home alert turns to 1b.
 - Attachments, translation of complaint text, provider adapters, reminders, Hindi and Marathi UI.
 
 ## Assumptions

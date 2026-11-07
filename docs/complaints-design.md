@@ -1,6 +1,6 @@
 # Complaints: service, lifecycle and routes (T13a)
 
-Server side only: no provider adapter, no network. The resident screens (T13b) are in `docs/complaints-ui.md`; staff screens are not built. The classification rules are in `docs/complaint-classification.md` (T10a); this document is what
+Server side only: no provider adapter, no network. The resident screens (T13b) are in `docs/complaints-ui.md` and the staff screens (T13c) in `docs/staff-complaints-ui.md`. The classification rules are in `docs/complaint-classification.md` (T10a); this document is what
 happens around them. Decisions: D9, D15, D39, D73, D118, D119, D120, D121 (`docs/decisions.md`). Code: `src/domain/complaints/lifecycle.ts`, `body.ts`,
 `timeline.ts`; `src/server/complaints/*`; routes under `src/app/api/complaints` and `src/app/api/staff`.
 
@@ -81,9 +81,9 @@ thirteen columns of `complaints` and nothing else (D95).
 
 ## What is absent
 
-Translation, duplicate linking, reminders and escalation timers, a notifications list, the staff screens. The resident screens are
+Translation, duplicate linking, reminders and escalation timers, a notifications list. The resident and staff screens are
 built (`docs/complaints-ui.md`). Auto-close has no cron: the two list routes, the resident's list and detail pages and the Home call `autoCloseDue` as they load
-(D120); the staff screens will call it when they are built.
+(D120); the staff board and the staff complaint page call it too.
 
 ## Assumptions
 
