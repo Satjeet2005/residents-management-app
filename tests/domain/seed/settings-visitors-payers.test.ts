@@ -146,10 +146,11 @@ describe("C8 time range, purity and speed", () => {
     }
   });
 
-  it("C8 the whole dataset is built in under 3 seconds", () => {
+  // Budget 6 s: slowest observed under 5x load was 1.02 s.
+  it("C8 the whole dataset is built in under 6 seconds", () => {
     const start = performance.now();
     generateDemoDataset({ seed: 99 });
-    expect(performance.now() - start).toBeLessThan(3000);
+    expect(performance.now() - start).toBeLessThan(6000);
   });
 
   it("C8 the seed files use no Math.random, Date.now, Intl or Node built-ins", () => {

@@ -139,7 +139,8 @@ describe("PP4 planPosting: properties over 2,000 seeded random cases", () => {
 });
 
 describe("PP5 planPosting: the domain rules", () => {
-  it("is fast: 2,000 plans in well under a second", () => {
+  // Budget 3 s: slowest observed under 5x load was 0.67 s.
+  it("is fast: 2,000 plans in under 3 s", () => {
     const r = seededRandom(4);
     const positions = Array.from({ length: 2000 }, () => {
       const input = randomInput(r);
@@ -147,7 +148,7 @@ describe("PP5 planPosting: the domain rules", () => {
     }).filter((p) => p.position.kind !== "SETTLED");
     const start = performance.now();
     for (const p of positions) planPosting({ position: p.position, creditPaise: p.position.amountDuePaise, paymentDate: p.asOf });
-    expect(performance.now() - start).toBeLessThan(1000);
+    expect(performance.now() - start).toBeLessThan(3000);
   });
 
   it("posting.ts imports only inside src/domain and uses no Intl, node: modules, Math.random or Date.now", () => {

@@ -163,13 +163,13 @@ describe("X11 speed", () => {
     expect(elapsed).toBeLessThan(1500);
   });
 
-  // Measured 474 to 681 ms on 2 CPUs; the budget is about 6 times that, so load does not fail it.
-  it("matching 1,000 rows against it takes under 4 s", () => {
+  // Measured 474 to 681 ms on 2 CPUs and 3.0 s under 5x load; the 12 s budget is 4 times the slowest.
+  it("matching 1,000 rows against it takes under 12 s", () => {
     const rows = sampleRows(1000);
     const fresh = buildMatchContext(flats);
     const start = performance.now();
     for (const row of rows) matchRow(fresh, { txnDate: row.date, narrationRaw: row.narration, creditPaise: row.credit, debitPaise: row.debit }, parseNarration(row.narration));
     const elapsed = performance.now() - start;
-    expect(elapsed).toBeLessThan(4000);
+    expect(elapsed).toBeLessThan(12_000);
   });
 });

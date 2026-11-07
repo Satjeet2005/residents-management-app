@@ -23,7 +23,7 @@ function forcedFacts(dataset: DemoDataset) {
 }
 
 /** Only the deliberately heavy determinism tests get this; the global timeout is unchanged. */
-const HEAVY_TIMEOUT_MS = 20_000;
+const HEAVY_TIMEOUT_MS = 30_000; // slowest observed 9.1 s under 5x load; 3 times that
 
 describe("S1 determinism", () => {
   // Builds the 2,400-flat dataset several times by design, about 0.6 s each, so it needs more than the 5 s default on a loaded 2-CPU machine.

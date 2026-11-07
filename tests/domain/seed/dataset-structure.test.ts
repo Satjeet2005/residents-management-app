@@ -190,10 +190,11 @@ describe("S7 people", () => {
 });
 
 describe("S8 purity and speed", () => {
-  it("S8 generates the whole dataset in under 2 seconds", () => {
+  // Budget 4 s: slowest observed under 5x load was 1.05 s.
+  it("S8 generates the whole dataset in under 4 seconds", () => {
     const started = performance.now();
     generateDemoDataset({ seed: 99 });
-    expect(performance.now() - started).toBeLessThan(2000);
+    expect(performance.now() - started).toBeLessThan(4000);
   });
 
   it("S8 the generator files use no Math.random, Date.now, Intl or Node built-ins", () => {
