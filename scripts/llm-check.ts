@@ -1,7 +1,7 @@
 // A HUMAN-run check of the classifier providers' keys (D140):  npm run llm:check
 // Sends three fixed, fictional, harmless complaints to every CONFIGURED provider, one request each, and prints one line per provider and sample:
 // the provider name, the HTTP status, the latency, the top category and the top urgency with their probabilities.
-// It never prints a key, a URL or a response body. It exits 1 when no configured provider answered (or none is configured), and 2 for an invalid setting.
+// It never prints a key, a URL or a response body. It exits 1 when no configured provider answered (or none is configured). An invalid setting is reported by its variable name and never stops the check (D145).
 import { pathToFileURL } from "node:url";
 import { JevClient } from "../src/server/complaints/providers/client";
 import { describeProviders, readJevConfig } from "../src/server/complaints/providers/config";
@@ -22,23 +22,19 @@ const top = <L extends string>(entries: { label: L; probability: number }[]): st
 
 /** Runs the check; `print` receives each line. Returns the exit code. */
 export async function runCheck(env: Env, print: (line: string) => void): Promise<number> {
-  let config;
-  try {
-    config = readJevConfig(env);
-  } catch (error) {
-    print(`A setting is not valid: ${error instanceof RangeError ? error.message : "unknown error"}.`);
-    return 2;
-  }
+  const config = readJevConfig(env);
   for (const { name, status, invalid } of describeProviders(env)) {
     if (status === "configured") continue;
-    if (invalid !== undefined) {
+    if (invalid?.reason === "MISSING_URL" || invalid?.reason === "MISSING_KEY") {
+      print(`${name}: not checked, ${invalid.variable} is not set.`);
+    } else if (invalid !== undefined) {
       print(`${name}: not checked, ${invalid.variable} is not valid (${invalid.reason}).`);
-      continue;
+    } else {
+      const prefix = PREFIXES[name];
+      print(`${name}: not checked, ${prefix}_URL, ${prefix}_KEY are not set.`);
     }
-    const prefix = PREFIXES[name];
-    const missing = ["URL", "KEY"].filter((part) => (env[`${prefix}_${part}`]?.trim() ?? "") === "").map((part) => `${prefix}_${part}`);
-    print(`${name}: not checked, ${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} not set.`);
   }
+  for (const variable of config.invalidVariables.filter((v) => !/^JEV_(PRIMARY|SECONDARY)_/.test(v))) print(`${variable} is not valid, so its default is used.`);
   if (config.providers.length === 0) {
     print("No provider is configured, so nothing was checked. Set the JEV_ variables in your own .env (see .env.example).");
     return 1;

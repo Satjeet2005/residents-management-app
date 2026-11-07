@@ -18,9 +18,9 @@ describe("createClassifierFromEnv", () => {
     expect(createClassifierFromEnv(ONE)).toBeInstanceOf(JevClassifier);
   });
 
-  it("an invalid setting throws when the classifier is built, not later", () => {
-    expect(() => createClassifierFromEnv({ ...ONE, JEV_TIMEOUT_MS: "9000" })).toThrow(RangeError);
-    expect(() => createClassifierFromEnv({ ...ONE, JEV_SECONDARY_URL: "http://example.invalid/x" })).toThrow(RangeError);
+  it("an invalid setting never throws: a bad number falls back to its default, a bad provider is skipped", () => {
+    expect(createClassifierFromEnv({ ...ONE, JEV_TIMEOUT_MS: "9000" }, { warn: () => undefined })).toBeInstanceOf(JevClassifier);
+    expect(createClassifierFromEnv({ ...ONE, JEV_SECONDARY_URL: "http://example.invalid/x" }, { warn: () => undefined })).toBe(NullClassifier);
   });
 
   it("each call builds its own breakers", () => {

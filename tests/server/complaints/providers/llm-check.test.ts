@@ -68,10 +68,17 @@ describe("llm:check", () => {
     expect(fake.requests).toHaveLength(0);
   });
 
-  it("an invalid setting exits 2 with a message that holds no value", async () => {
+  it("an invalid number is named, never its value, and the check still runs with the default", async () => {
     const { code, output } = await run({ ...primaryEnv(), JEV_TIMEOUT_MS: "99999" });
-    expect(code).toBe(2);
-    expect(output).toContain("JEV_TIMEOUT_MS must be a whole number");
+    expect(code).toBe(0);
+    expect(output).toContain("JEV_TIMEOUT_MS is not valid, so its default is used.");
     expect(output).not.toContain("99999");
+  });
+
+  it("an invalid URL is named by variable and reason, never its value, and exits 1", async () => {
+    const { code, output } = await run({ JEV_PRIMARY_URL: "http://secret-host.example/x", JEV_PRIMARY_KEY: KEY });
+    expect(code).toBe(1);
+    expect(output).toContain("opencode: not checked, JEV_PRIMARY_URL is not valid (URL_NOT_HTTPS).");
+    expect(output).not.toContain("secret-host");
   });
 });

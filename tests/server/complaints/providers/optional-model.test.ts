@@ -112,7 +112,7 @@ describe("PV10 the model name is optional (D144)", () => {
       expect(await classifier.classify(INPUT)).toMatchObject({ provider: "jevmodel" });
       expect(primary.requests).toHaveLength(0);
       const warnings = output.filter((line) => line.includes("JEV_PRIMARY_MODEL"));
-      expect(warnings).toEqual(["classifier provider setting is invalid: variable=JEV_PRIMARY_MODEL reason=BAD_MODEL"]);
+      expect(warnings).toEqual(["classifier setting invalid: JEV_PRIMARY_MODEL"]);
       await classifier.classify(INPUT);
       expect(output.filter((line) => line.includes("JEV_PRIMARY_MODEL"))).toHaveLength(1);
     });

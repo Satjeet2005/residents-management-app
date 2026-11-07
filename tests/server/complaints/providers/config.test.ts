@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readJevConfig } from "@/server/complaints/providers/config";
+import { describeProviders, readJevConfig } from "@/server/complaints/providers/config";
 
 const FULL = {
   JEV_PRIMARY_URL: "https://primary.example/v1/systemone",
@@ -12,7 +12,7 @@ const FULL = {
 
 describe("PV1 provider configuration", () => {
   it("nothing set: no provider, the documented defaults", () => {
-    expect(readJevConfig({})).toEqual({ providers: [], timeoutMs: 3000, dailyCap: 300, breakerFailures: 3, breakerCooldownSeconds: 120 });
+    expect(readJevConfig({})).toEqual({ providers: [], timeoutMs: 3000, dailyCap: 300, breakerFailures: 3, breakerCooldownSeconds: 120, invalidVariables: [] });
   });
 
   it("both providers complete: primary first, named opencode and jevmodel", () => {
@@ -37,23 +37,22 @@ describe("PV1 provider configuration", () => {
   });
 
   describe("the https rule", () => {
-    it.each(["http://primary.example/x", "ftp://primary.example/x", "not a url", "//primary.example", "https://user:pw@primary.example/x"])("%s throws a RangeError", (url) => {
-      expect(() => readJevConfig({ ...FULL, JEV_PRIMARY_URL: url })).toThrow(RangeError);
+    it.each(["http://primary.example/x", "ftp://primary.example/x", "not a url", "//primary.example", "https://user:pw@primary.example/x"])("%s leaves out that provider, it does not throw", (url) => {
+      const config = readJevConfig({ ...FULL, JEV_PRIMARY_URL: url });
+      expect(config.providers.map((p) => p.name)).toEqual(["jevmodel"]);
+      expect(config.invalidVariables).toEqual(["JEV_PRIMARY_URL"]);
     });
 
     it.each(["http://127.0.0.1:8080/v1/systemone", "http://localhost:3000/x"])("%s is allowed for tests", (url) => {
       expect(readJevConfig({ ...FULL, JEV_PRIMARY_URL: url }).providers[0]?.url).toBe(url);
     });
 
-    it("an invalid URL throws even when the provider is otherwise partial, and the message holds neither the URL nor a key", () => {
+    it("an invalid URL is reported by variable name only: the result holds neither the URL nor a key", () => {
       const env = { JEV_SECONDARY_URL: "http://secret-host.example/path", JEV_SECONDARY_KEY: "key-secondary-000" };
-      expect(() => readJevConfig(env)).toThrow(RangeError);
-      try {
-        readJevConfig(env);
-      } catch (error) {
-        expect(String((error as Error).message)).not.toContain("secret-host");
-        expect(String((error as Error).message)).not.toContain("key-secondary");
-      }
+      const config = readJevConfig(env);
+      expect(config.providers).toEqual([]);
+      expect(config.invalidVariables).toEqual(["JEV_SECONDARY_URL"]);
+      expect(JSON.stringify([config.invalidVariables, describeProviders(env)])).not.toMatch(/secret-host|key-secondary/);
     });
   });
 
@@ -63,9 +62,13 @@ describe("PV1 provider configuration", () => {
       ["JEV_DAILY_CAP", ["0", "100001", "x"], ["1", "100000"]],
       ["JEV_BREAKER_FAILURES", ["0", "21"], ["1", "20"]],
       ["JEV_BREAKER_COOLDOWN_SECONDS", ["0", "3601"], ["1", "3600"]],
-    ] as const)("%s", (name, bad, good) => {
-      for (const value of bad) expect(() => readJevConfig({ [name]: value }), `${name}=${value}`).toThrow(RangeError);
-      for (const value of good) expect(() => readJevConfig({ [name]: value })).not.toThrow();
+    ] as const)("%s: a bad value falls back to the default and is named, a good one is kept", (name, bad, good) => {
+      const defaults = readJevConfig({});
+      for (const value of bad) {
+        const config = readJevConfig({ [name]: value });
+        expect(config, `${name}=${value}`).toEqual({ ...defaults, invalidVariables: [name] });
+      }
+      for (const value of good) expect(readJevConfig({ [name]: value }).invalidVariables).toEqual([]);
     });
 
     it("values are read", () => {

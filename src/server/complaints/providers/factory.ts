@@ -4,22 +4,21 @@ import { CircuitBreaker } from "./breaker";
 import { DailyCap } from "./cap";
 import { JevClassifier, type ProviderLog } from "./classifier-jev";
 import { JevClient } from "./client";
-import { describeProviders, readJevConfig } from "./config";
+import { readJevConfig } from "./config";
 
 type Env = Readonly<Record<string, string | undefined>>;
 export type FactoryDeps = { now?: () => number; businessClock?: () => number; log?: ProviderLog; warn?: (message: string) => void };
 
 /**
- * The classifier for an environment (D140): a `JevClassifier` over the providers that are configured, or `NullClassifier` when none is. An invalid
- * setting throws a RangeError here, when the classifier is built, never later in a request. Each call builds NEW breakers and caps; the production
- * default below builds them once per server instance. A provider whose model name is invalid is left out and the variable NAME is warned once, never the value (D144).
+ * The classifier for an environment (D140): a `JevClassifier` over the providers that are usable, or `NullClassifier` when none is. It NEVER throws
+ * (D145): a provider with a bad setting is skipped, a bad shared number falls back to its default, and each bad variable is warned ONCE with its NAME
+ * only, never a value. Each call builds NEW breakers and caps; the production default below is built once per server instance, so a problem is
+ * reported once per instance.
  */
 export function createClassifierFromEnv(env: Env = process.env, deps: FactoryDeps = {}): Classifier {
   const config = readJevConfig(env);
   const warn = deps.warn ?? console.warn;
-  for (const { invalid } of describeProviders(env)) {
-    if (invalid !== undefined) warn(`classifier provider setting is invalid: variable=${invalid.variable} reason=${invalid.reason}`);
-  }
+  for (const variable of config.invalidVariables) warn(`classifier setting invalid: ${variable}`);
   if (config.providers.length === 0) return NullClassifier;
   const now = deps.now ?? Date.now;
   const businessClock = deps.businessClock ?? (() => businessNow(env));
