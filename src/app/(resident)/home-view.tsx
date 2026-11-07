@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { EmergencyButton } from "@/components/emergency-sheet";
 import { ComplaintStatusMark, ComplaintTracker, complaintSteps } from "@/components/complaint-progress";
 import { Money } from "@/components/ui/money";
@@ -12,6 +13,7 @@ import { complaintStepLine, dueTag, entryLabel, otherComplaintsText, partlyPaidT
 import { t } from "@/lib/messages";
 import type { FlatRelation, HomeComplaint, HomeData, RecentEntry } from "@/server/home/types";
 import { DuesActions } from "./dues-sheet";
+import { SafetyAlert } from "./safety-alert";
 
 type Ok = Extract<HomeData, { kind: "OK" }>;
 
@@ -40,7 +42,7 @@ function DuesCard({ data }: { data: Ok }) {
         </div>
         <DoubleRule />
         {dues.partlyPaid !== null && <p className="tnum text-body">{partlyPaidText(dues.partlyPaid)}</p>}
-        <DuesActions dues={dues} asOf={asOf} flatCode={data.flat.code} bankAccount={data.bankAccount} />
+        <DuesActions dues={dues} asOf={asOf} flatCode={data.flat.code} bankAccount={data.bankAccount} payOutlined={data.safetyAlert !== null} />
       </section>
     );
   }
@@ -66,12 +68,14 @@ function ComplaintCard({ complaint, others }: { complaint: HomeComplaint; others
   const steps = complaintSteps(complaint.current);
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-3">
-        <p className="min-w-0 break-words text-body font-semibold">{complaint.title}</p>
-        <ComplaintStatusMark current={complaint.current} label={steps[complaint.current].label} />
-      </div>
-      <ComplaintTracker current={complaint.current} />
-      <p className="tnum text-body">{complaintStepLine(stepNumber(steps), steps.length, complaint.reply)}</p>
+      <Link href={`/complaints/${complaint.id}`} className="flex min-h-12 flex-col gap-3">
+        <div className="flex items-start justify-between gap-3">
+          <p className="min-w-0 break-words text-body font-semibold">{complaint.title}</p>
+          <ComplaintStatusMark current={complaint.current} label={steps[complaint.current].label} />
+        </div>
+        <ComplaintTracker current={complaint.current} />
+        <p className="tnum text-body">{complaintStepLine(stepNumber(steps), steps.length, complaint.reply)}</p>
+      </Link>
       {others > 0 && <p className="text-body text-ink-2">{otherComplaintsText(others)}</p>}
     </div>
   );
@@ -92,7 +96,8 @@ function ActivityRow({ entry }: { entry: RecentEntry }) {
  * The resident Home for one set of data (D23): the flat and who is signed in, the dues card with the breakdown sheet, the
  * newest open complaint with its tracker, a summary of today's visitors (times only, no names), and the last two ledger
  * lines. It draws data and decides nothing about money: the Pay button's amount comes from the dues, and tapping it asks
- * the server to lock the amount. No View ledger, no Receipt, no complaint buttons: those arrive with their features.
+ * the server to lock the amount. While the flat has an open safety complaint, the safety alert sits above the dues and Pay is outlined (D126).
+ * The complaint card opens the complaint; "Raise a complaint" opens the form. No View ledger, no Receipt: those arrive with their features.
  */
 export function HomeView({ data }: { data: HomeData }) {
   if (data.kind === "NO_FLAT") {
@@ -115,12 +120,14 @@ export function HomeView({ data }: { data: HomeData }) {
         <EmergencyButton numbers={data.emergency} />
       </header>
 
+      {data.safetyAlert !== null && <SafetyAlert alert={data.safetyAlert} />}
+
       {data.paymentNotice === "LAST_FAILED" && <Notice>{t("pay.failedStrip")}</Notice>}
 
       <DuesCard data={data} />
 
       <section className="flex flex-col gap-3">
-        <SectionHeader title={t("complaints.title")} />
+        <SectionHeader title={t("complaints.title")} action={{ label: t("complaints.raise"), href: "/complaints/new" }} />
         <Hairline />
         {data.complaint === null ? <p className="text-body text-ink-2">{t("complaint.none")}</p> : <ComplaintCard complaint={data.complaint} others={data.otherOpenComplaints} />}
       </section>

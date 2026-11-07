@@ -12,25 +12,26 @@ export function PayChangedNotice({ state }: { state: PayState }) {
 
 /**
  * The Pay button in every state: the label (D99), a word in its place while loading (the button ignores taps then), and
- * on an error the message with a Try again button in its place. The amount changing is shown by `PayChangedNotice`.
+ * on an error the message with a Try again button in its place. The amount changing is shown by `PayChangedNotice`. `outlined` is for
+ * while a safety alert is shown: its Call button is then the one filled control (D58, D126).
  */
-export function PayControl({ amountPaise, openBills, state, onPay }: { amountPaise: Paise; openBills: number; state: PayState; onPay: () => void }) {
+export function PayControl({ amountPaise, openBills, state, onPay, outlined = false }: { amountPaise: Paise; openBills: number; state: PayState; onPay: () => void; outlined?: boolean }) {
   if (state.phase === "error") return <BlockError message={payErrorText(state.kind)} onRetry={onPay} />;
   return (
-    <Button size="large" fullWidth loading={state.phase === "loading"} loadingLabel={t("pay.loading")} onClick={onPay}>
+    <Button size="large" variant={outlined ? "outlined" : "primary"} fullWidth loading={state.phase === "loading"} loadingLabel={t("pay.loading")} onClick={onPay}>
       {payLabel(amountPaise, openBills)}
     </Button>
   );
 }
 
 /** The sticky footer of the review sheet: the amount is fixed once Pay is tapped, the oldest-bill note when several bills are open (D99), then the Pay control. */
-export function PayFooter({ amountPaise, openBills, state, onPay }: { amountPaise: Paise; openBills: number; state: PayState; onPay: () => void }) {
+export function PayFooter({ amountPaise, openBills, state, onPay, outlined = false }: { amountPaise: Paise; openBills: number; state: PayState; onPay: () => void; outlined?: boolean }) {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-body text-ink-2">{t("pay.fixed")}</p>
       {openBills > 1 && <p className="text-body text-ink-2">{t("pay.oldestNote")}</p>}
       <PayChangedNotice state={state} />
-      <PayControl amountPaise={amountPaise} openBills={openBills} state={state} onPay={onPay} />
+      <PayControl amountPaise={amountPaise} openBills={openBills} state={state} onPay={onPay} outlined={outlined} />
     </div>
   );
 }

@@ -18,9 +18,9 @@ import { PayChangedNotice, PayControl, PayFooter } from "./pay-control";
  * its sticky Pay footer. One payment state is shared by both Pay buttons. Tapping Pay posts the amount the person is
  * looking at to /api/payments (money as a decimal string): 200 goes to the checkout page, 409 AMOUNT_CHANGED shows the
  * new amount and refreshes the page behind, and any other answer is a message with Try again. Taps while loading do nothing.
- * The amount is the OLDEST open bill's (D99), not the total of every bill.
+ * The amount is the OLDEST open bill's (D99), not the total of every bill. `payOutlined` draws both Pay buttons outlined while a safety alert is shown (D58).
  */
-export function DuesActions({ dues, asOf, flatCode, bankAccount }: { dues: Dues; asOf: CalendarDate; flatCode: string; bankAccount: BankAccount | null }) {
+export function DuesActions({ dues, asOf, flatCode, bankAccount, payOutlined = false }: { dues: Dues; asOf: CalendarDate; flatCode: string; bankAccount: BankAccount | null; payOutlined?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<PayState>({ phase: "idle" });
@@ -55,7 +55,7 @@ export function DuesActions({ dues, asOf, flatCode, bankAccount }: { dues: Dues;
   return (
     <>
       <PayChangedNotice state={state} />
-      <PayControl amountPaise={shown} openBills={openBills} state={state} onPay={pay} />
+      <PayControl amountPaise={shown} openBills={openBills} state={state} onPay={pay} outlined={payOutlined} />
       <Button variant="link" onClick={() => setOpen(true)}>
         {t("dues.seeBreakdown")}
       </Button>
@@ -63,7 +63,7 @@ export function DuesActions({ dues, asOf, flatCode, bankAccount }: { dues: Dues;
         open={open}
         onClose={() => setOpen(false)}
         title={t("dues.title")}
-        footer={<PayFooter amountPaise={shown} openBills={openBills} state={state} onPay={pay} />}
+        footer={<PayFooter amountPaise={shown} openBills={openBills} state={state} onPay={pay} outlined={payOutlined} />}
       >
         <div className="flex flex-col gap-6">
           <DuesBreakdown dues={dues} asOf={asOf} />

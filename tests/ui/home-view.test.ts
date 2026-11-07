@@ -78,7 +78,7 @@ describe("HM5 Home: T12-0408, overdue (₹6,468, 47 days)", () => {
   });
 
   it("the complaints section has a hairline under its header", () => {
-    expect(html).toMatch(/Your complaints<\/h2><\/div><hr class="m-0 border-0 border-t border-hairline"\/>/);
+    expect(html).toMatch(/Your complaints<\/h2><a [^>]*>Raise a complaint<\/a><\/div><hr class="m-0 border-0 border-t border-hairline"\/>/);
   });
 
   it("visitors: one bold summary line and one line with the times only, between hairlines, and no name", () => {
@@ -105,7 +105,7 @@ describe("HM5 Home: T12-0408, overdue (₹6,468, 47 days)", () => {
     expect(html).not.toMatch(/<button[^>]*>Raise a complaint/);
     expect(html).not.toMatch(/<a [^>]*href="\/(bills|ledger)/);
     const complaintLinks = html.match(/<a [^>]*href="\/complaints[^"]*"/g) ?? [];
-    for (const link of complaintLinks) expect(link).toContain('href="/complaints/new"');
+    for (const link of complaintLinks) expect(link).toMatch(/href="\/complaints\/(new|[^"]+)"/);
   });
 
   it("one filled control on the page itself: the Pay button (the other filled controls are inside the closed sheets)", () => {
