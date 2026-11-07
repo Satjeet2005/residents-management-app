@@ -23,7 +23,7 @@ async function seed(row: Seed): Promise<void> {
 beforeAll(async () => {
   owner = await connect();
   role = await createLogsRole(owner);
-  await seed({ ref: "E-CLI001", route: "/pay", digest: "3175611538", requestId: "req-aaa" });
+  await seed({ ref: "E-CLI001", route: "/pay", digest: "5550001111", requestId: "req-aaa" });
   await seed({ ref: "E-CLI002", level: "WARN", source: "PROVIDER", route: "/classifier", message: "provider breaker opened" });
   await seed({ ref: "E-CLI003", route: "/old", ageMs: 3 * 86_400_000 });
   await seed({ ref: "E-CLI004", route: "/dirty", message: "phone 9876543210 mail a@b.com token=abc123", stack: `at x (${"k".repeat(40)}:1:1)` });
@@ -75,7 +75,7 @@ describe("D135 logs:errors", () => {
   it("filters by --ref, --digest, --request-id, --level, --source and --route", async () => {
     expect((await run(["--ref=E-CLI001"])).out).toMatch(/^.*E-CLI001.*$/m);
     expect((await run(["--ref=E-CLI001"])).out).not.toContain("E-CLI002");
-    expect((await run(["--digest=3175611538"])).out).toContain("E-CLI001");
+    expect((await run(["--digest=5550001111"])).out).toContain("E-CLI001");
     expect((await run(["--request-id=req-aaa"])).out).toContain("E-CLI001");
     const warn = await run([`--route=${TAG}`, "--level=warn"]);
     expect(warn.out).toContain("E-CLI002");
@@ -91,7 +91,7 @@ describe("D135 logs:errors", () => {
 
   it("--paste prints one plain-text block per event with the fields to paste", async () => {
     const result = await run(["--ref=E-CLI001", "--paste"]);
-    for (const field of ["ref: E-CLI001", "level: ERROR", "source: ROUTE", `route: ${TAG}/pay`, "method: POST", "status: 500", "error name: Error", "error code: 42P01", "message: relation does not exist", "stack:", "deployment: abcdef0", "digest: 3175611538"]) {
+    for (const field of ["ref: E-CLI001", "level: ERROR", "source: ROUTE", `route: ${TAG}/pay`, "method: POST", "status: 500", "error name: Error", "error code: 42P01", "message: relation does not exist", "stack:", "deployment: abcdef0", "digest: 5550001111"]) {
       expect(result.out).toContain(field);
     }
   });
