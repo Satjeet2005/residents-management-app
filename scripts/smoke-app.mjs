@@ -393,11 +393,13 @@ async function complaintScreens(residentCookie, staffCookie, neighbour, kavita, 
     `pay ${payButtonStyle(alert1a.html)}`,
   );
   check("before the acknowledgement the Home does NOT say the duty manager has seen the report", !alert1a.text.includes("has seen your report"), "");
+  await staffSafetyBeforeAck(dangerId, kavita, sanjay, staffCookie, residentCookie);
 
   const ack = await api("POST", `/api/staff/complaints/${dangerId}/acknowledge`, sanjay, {});
   check("the duty manager acknowledges through the existing route: 200", ack.status === 200, `status ${ack.status}`);
   const alert1b = await get("/", residentCookie);
   check("GET / then shows alert 1b: 'The duty manager has seen your report' with 'Seen at <time>', and Pay is still outlined", alert1b.text.includes("The duty manager has seen your report") && /Seen at \d{1,2}(:\d{2})? (am|pm)\./.test(alert1b.text) && payButtonStyle(alert1b.html) === "outlined", "");
+  await staffSafetyAfterAck(dangerId, kavita, sanjay);
 
   const safetyDetail = await get(`/complaints/${dangerId}`, residentCookie);
   check(
@@ -412,10 +414,12 @@ async function complaintScreens(residentCookie, staffCookie, neighbour, kavita, 
   if (typeof normalId !== "string") return;
   const open = await get(`/complaints/${normalId}`, residentCookie);
   check("its page before staff resolve it has the tracker and no confirm buttons", open.status === 200 && open.text.includes("Stairwell light on floor 4 is flickering") && open.html.includes('aria-label="Complaint progress"') && !open.text.includes("Yes, it's fixed"), `status ${open.status}`);
+  await staffCommentsAndOpenLane(normalId, residentCookie, kavita);
 
   const staffView = await api("GET", `/api/staff/complaints/${normalId}`, kavita);
   const resolved = await api("POST", `/api/staff/complaints/${normalId}/status`, kavita, { status: "PENDING_CONFIRMATION", note: "Bulb replaced", expectedVersion: staffView.json?.complaint?.version });
   check("staff mark it resolved: 200", resolved.status === 200, `status ${resolved.status}`);
+  await staffWaitingLane(normalId, kavita);
   const asking = await get(`/complaints/${normalId}`, residentCookie);
   check(
     "its page then asks 'Is it fixed?' with 'Yes, it's fixed' and 'No, still a problem' and the auto-close line of 7 days",
@@ -444,6 +448,95 @@ async function complaintScreens(residentCookie, staffCookie, neighbour, kavita, 
   check("staff requesting /complaints or /complaints/new are redirected to /forbidden", staffList?.to === "/forbidden" && staffNew?.to === "/forbidden", `${staffList?.how} -> ${staffList?.to}`);
   const anonymous = redirectTarget(await get("/complaints"));
   check("nobody signed in is sent to /login with a returnTo", /^\/login\?returnTo=/.test(anonymous?.to ?? ""), `${anonymous?.how} -> ${anonymous?.to}`);
+}
+
+/** The HTML of the first row of a lane table, or "" when the lane is empty. */
+function firstRow(html) {
+  const body = /<tbody>([\s\S]*?)<\/tbody>/.exec(html)?.[1] ?? "";
+  return body.split("<tr ")[1] ?? "";
+}
+const tabCount = (html, label) => {
+  const match = new RegExp(`>${label}<span[^>]*>(\\d+)</span>`).exec(html);
+  return match ? Number(match[1]) : null;
+};
+const selectedTab = (html) => /<a [^>]*id="complaints-tab-([A-Z_]+)"[^>]*aria-selected="true"/.exec(html)?.[1] ?? null;
+const hasWord = (html, word) => html.replace(/<[^>]*>/g, " ").replace(/&#x27;/g, "'").replace(/\s+/g, " ").includes(word);
+
+/**
+ * The staff complaint SCREENS over HTTP (T13c), before the duty manager acknowledges the declared-danger complaint: the board for the duty manager, a plain
+ * manager, staff without complaints:manage and a resident; the landing tool; the Safety lane; and the page of the complaint with the two safety controls.
+ */
+async function staffSafetyBeforeAck(dangerId, kavita, sanjay, accountsStaff, residentCookie) {
+  const landing = await get("/staff", kavita);
+  check("GET /staff as Kavita Rao lists the Complaints tool with the number of open safety complaints", landing.status === 200 && /<a [^>]*href="\/staff\/complaints"[^>]*>Complaints<\/a>/.test(landing.html) && /\d+ open safety complaints?/.test(landing.text), `status ${landing.status}`);
+  const accountsLanding = await get("/staff", accountsStaff);
+  check("GET /staff as an accounts-only staff member has no Complaints tool", accountsLanding.status === 200 && !accountsLanding.html.includes('href="/staff/complaints"'), "");
+
+  const plain = await get("/staff/complaints", kavita);
+  check(
+    "GET /staff/complaints as Kavita Rao (complaints:manage): 200, one h1, six lane tabs with counts, Needs triage selected",
+    plain.status === 200 && (plain.html.match(/<h1/g) ?? []).length === 1 && (plain.html.match(/role="tab"/g) ?? []).length === 6 && ["Needs triage", "Safety", "Open", "Overdue", "Waiting for resident", "Closed"].every((l) => tabCount(plain.html, l) !== null) && selectedTab(plain.html) === "NEEDS_TRIAGE",
+    `status ${plain.status}, selected ${selectedTab(plain.html)}`,
+  );
+  const duty = await get("/staff/complaints", sanjay);
+  check("GET /staff/complaints as the duty manager opens on the Safety lane, which has items", duty.status === 200 && selectedTab(duty.html) === "SAFETY" && (tabCount(duty.html, "Safety") ?? 0) >= 1, `selected ${selectedTab(duty.html)}`);
+  const safety = await get("/staff/complaints?lane=safety", sanjay);
+  const row = firstRow(safety.html);
+  check("the Safety lane shows the declared-danger complaint FIRST, as Critical with the source Rules and Sanjay Pawar as assignee", row.includes("Bench near the tower 2 gate needs paint") && hasWord(row, "Critical") && hasWord(row, "Rules") && hasWord(row, "Sanjay Pawar"), "");
+
+  const forbidden = await get("/staff/complaints", residentCookie);
+  const forbiddenPage = redirectTarget(forbidden);
+  check("a resident requesting /staff/complaints ends at /forbidden", forbiddenPage?.to === "/forbidden", forbiddenPage ? `${forbiddenPage.how} -> ${forbiddenPage.to}` : `status ${forbidden.status}, no redirect`);
+  const forbiddenDetail = redirectTarget(await get(`/staff/complaints/${dangerId}`, residentCookie));
+  check("a resident requesting a complaint page of the staff screens ends at /forbidden", forbiddenDetail?.to === "/forbidden", forbiddenDetail ? `-> ${forbiddenDetail.to}` : "no redirect");
+  const accountsBoard = redirectTarget(await get("/staff/complaints", accountsStaff));
+  check("staff without complaints:manage requesting /staff/complaints end at /forbidden", accountsBoard?.to === "/forbidden", accountsBoard ? `-> ${accountsBoard.to}` : "no redirect");
+  const anonymousBoard = redirectTarget(await get("/staff/complaints"));
+  check("nobody signed in is sent to /login with a returnTo", /^\/login\?returnTo=/.test(anonymousBoard?.to ?? ""), anonymousBoard ? `-> ${anonymousBoard.to}` : "no redirect");
+
+  const dutyPage = await get(`/staff/complaints/${dangerId}`, sanjay);
+  check(
+    "the complaint page for the duty manager: 200, one h1, the full text, 'I have seen this' (filled) and 'Close this safety complaint', no 'Mark resolved'",
+    dutyPage.status === 200 && (dutyPage.html.match(/<h1/g) ?? []).length === 1 && dutyPage.text.includes("Bench near the tower 2 gate needs paint") && /<button[^>]*bg-accent[^>]*>I have seen this<\/button>/.test(dutyPage.html) && dutyPage.text.includes("Close this safety complaint") && !dutyPage.text.includes("Mark resolved") && (dutyPage.html.match(/bg-accent/g) ?? []).length === 1,
+    `status ${dutyPage.status}`,
+  );
+  check("it shows the full timeline with the internal classification marked Internal and the escalation marked visible", dutyPage.text.includes("Classified by Rules") && dutyPage.text.includes("Sent to the duty manager") && dutyPage.text.includes("Internal") && dutyPage.text.includes("Visible to the resident"), "");
+  const managerPage = await get(`/staff/complaints/${dangerId}`, kavita);
+  check("the same page for a plain manager (Kavita Rao): neither 'I have seen this' nor 'Close this safety complaint', and no 'Mark resolved'", managerPage.status === 200 && !managerPage.text.includes("I have seen this") && !managerPage.text.includes("Close this safety complaint") && !managerPage.text.includes("Mark resolved"), `status ${managerPage.status}`);
+}
+
+/** After the acknowledgement: the first control is gone and the page says when it was seen. */
+async function staffSafetyAfterAck(dangerId, kavita, sanjay) {
+  const after = await get(`/staff/complaints/${dangerId}`, sanjay);
+  check("after the acknowledgement the duty manager's page has no 'I have seen this', nothing filled, and says when it was seen", !after.text.includes("I have seen this") && !after.html.includes("bg-accent") && after.text.includes("The duty manager saw this at") && after.text.includes("Close this safety complaint"), "");
+  const still = await get(`/staff/complaints/${dangerId}`, kavita);
+  check("a plain manager still sees neither control after it", !still.text.includes("I have seen this") && !still.text.includes("Close this safety complaint"), "");
+}
+
+/** An internal comment is on the staff page and NOT on the resident's page; a visible one is on both. The complaint is in the Open lane. */
+async function staffCommentsAndOpenLane(normalId, residentCookie, kavita) {
+  const open = await get("/staff/complaints?lane=open", kavita);
+  check("the Open lane of the board lists the new ordinary complaint", open.status === 200 && open.text.includes("Stairwell light on floor 4 is flickering"), `status ${open.status}`);
+  const internal = await api("POST", `/api/staff/complaints/${normalId}/comment`, kavita, { text: "Internal note: electrician booked for Friday", visibleToResident: false });
+  const visible = await api("POST", `/api/staff/complaints/${normalId}/comment`, kavita, { text: "An electrician will visit on Friday", visibleToResident: true });
+  check("staff post an internal comment and a visible one: 200 and 200", internal.status === 200 && visible.status === 200, `${internal.status} ${visible.status}`);
+  const staffPage = await get(`/staff/complaints/${normalId}`, kavita);
+  check(
+    "the staff page shows both comments, the internal one marked Internal and the visible one 'Comment, visible to the resident'",
+    staffPage.text.includes("Internal note: electrician booked for Friday") && staffPage.text.includes("An electrician will visit on Friday") && staffPage.text.includes("Comment, internal") && staffPage.text.includes("Comment, visible to the resident"),
+    "",
+  );
+  const residentPage = await get(`/complaints/${normalId}`, residentCookie);
+  check("the resident's page does NOT show the internal comment and DOES show the visible one", !residentPage.text.includes("Internal note") && !residentPage.text.includes("electrician booked") && residentPage.text.includes("An electrician will visit on Friday"), "");
+  check("the staff page offers 'Mark in progress' and 'Mark resolved', the comment box with the visible box unchecked, and the category control", staffPage.text.includes("Mark in progress") && staffPage.text.includes("Mark resolved") && /<input[^>]*id="comment-visible"[^>]*type="checkbox"/.test(staffPage.html) && !/<input[^>]*id="comment-visible"[^>]*checked/.test(staffPage.html) && staffPage.text.includes("Correct the category"), "");
+}
+
+/** A complaint that staff marked resolved is in "Waiting for resident" and no longer in Open. */
+async function staffWaitingLane(normalId, kavita) {
+  const waiting = await get("/staff/complaints?lane=waiting", kavita);
+  check("marking the ordinary complaint resolved puts it in the 'Waiting for resident' lane, which is selected", waiting.status === 200 && selectedTab(waiting.html) === "WAITING_RESIDENT" && waiting.text.includes("Stairwell light on floor 4 is flickering") && hasWord(firstRow(waiting.html) + (waiting.html.split("<li ")[1] ?? ""), "Waiting for resident"), `status ${waiting.status}`);
+  const open = await get("/staff/complaints?lane=open", kavita);
+  check("and it has left the Open lane", !open.text.includes("Stairwell light on floor 4 is flickering"), "");
 }
 
 async function api(method, path, cookie, body) {
