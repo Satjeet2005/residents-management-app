@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Township">
+  <rect width="512" height="512" fill="#fbf8f1"/>
+  <!-- The Passbook double rule (a thick rule over a thin one), above and below one square: a flat. Everything sits inside the central 60% so that the maskable icon survives any mask. -->
+  <g fill="#1c1a17">
+    <rect x="128" y="132" width="256" height="24"/>
+    <rect x="128" y="168" width="256" height="8"/>
+    <rect x="212" y="212" width="88" height="88"/>
+    <rect x="128" y="336" width="256" height="8"/>
+    <rect x="128" y="356" width="256" height="24"/>
+  </g>
+</svg>
