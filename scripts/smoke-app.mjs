@@ -129,6 +129,12 @@ async function run() {
   const staffRedirect = redirectTarget(anonymousStaff);
   check("GET /staff without a cookie goes to /login with a returnTo", staffRedirect?.to === "/login?returnTo=%2Fstaff" && !anonymousStaff.text.includes("Priya"), staffRedirect ? `${staffRedirect.how} -> ${staffRedirect.to}` : "no redirect");
 
+  const anonymousReport = redirectTarget(await get("/staff/reports"));
+  check("GET /staff/reports without a cookie goes to /login with a returnTo", anonymousReport?.to === "/login?returnTo=%2Fstaff%2Freports", anonymousReport ? `${anonymousReport.how} -> ${anonymousReport.to}` : "no redirect");
+
+  // The committee report, read first: nothing has changed the pristine seed yet, so the October figures are the ones raw SQL gives (tests/integration/committee-report.test.ts).
+  await committeeReportBeforeChanges();
+
   // 2. The T12-0408 resident.
   const cookie = await login(RESIDENT);
   check("login as the T12-0408 resident (code is the demo code; lengths only)", cookie !== null, cookie ? `cookie length ${cookie.length}` : "could not log in: is the server in demo mode?");
@@ -156,6 +162,10 @@ async function run() {
   const forbiddenRedirect = redirectTarget(forbidden);
   const forbiddenPage = forbiddenRedirect ? await get(forbiddenRedirect.to) : null;
   check("a resident requesting /staff ends at /forbidden", forbiddenRedirect?.to === "/forbidden" && forbiddenPage?.status === 200 && forbiddenPage.text.includes("You cannot open this page"), forbiddenRedirect ? `${forbiddenRedirect.how} -> ${forbiddenRedirect.to}` : `status ${forbidden.status}, no redirect`);
+  const reportForbidden = redirectTarget(await get("/staff/reports", cookie));
+  check("a resident requesting /staff/reports ends at /forbidden", reportForbidden?.to === "/forbidden", reportForbidden ? `${reportForbidden.how} -> ${reportForbidden.to}` : "no redirect");
+  const drillForbidden = redirectTarget(await get("/staff/reports?period=2026-10&bucket=31-60", cookie));
+  check("a resident requesting a drill-down of the report ends at /forbidden too", drillForbidden?.to === "/forbidden", drillForbidden ? `-> ${drillForbidden.to}` : "no redirect");
   if (expectDemoNote) await residentPays(cookie, home);
   const logout = await post("/api/auth/logout", undefined, cookie);
   check("logout answers 204", logout.status === 204, `status ${logout.status}`);
@@ -169,6 +179,9 @@ async function run() {
   if (staffCookie === null) return;
   const staff = await get("/staff", staffCookie);
   check("GET /staff as staff: 200, one h1, the name, the permission in words, and the Bank reconciliation tool", staff.status === 200 && (staff.html.match(/<h1/g) ?? []).length === 1 && staff.text.includes("Signed in as Priya Nair") && staff.text.includes("Match bank payments") && /<a [^>]*href="\/staff\/reconciliation"[^>]*>Bank reconciliation<\/a>/.test(staff.html), `status ${staff.status}`);
+  const accountsReport = redirectTarget(await get("/staff/reports", staffCookie));
+  check("staff without reports:view (Priya Nair) requesting /staff/reports end at /forbidden", accountsReport?.to === "/forbidden", accountsReport ? `${accountsReport.how} -> ${accountsReport.to}` : "no redirect");
+  check("the staff landing page of Priya Nair has no Committee report tool", !staff.html.includes('href="/staff/reports"'), "");
   const staffHome = redirectTarget(await get("/", staffCookie));
   check("GET / as staff goes to /staff", staffHome?.to === "/staff", staffHome ? `${staffHome.how} -> ${staffHome.to}` : "no redirect");
   if (expectDemoNote && paidCheckoutPath !== null) {
@@ -178,11 +191,14 @@ async function run() {
     check("a staff member calling POST /api/payments gets 403", staffPay.status === 403, `status ${staffPay.status}`);
   }
   if (expectDemoNote) await staffImportsSample(staffCookie);
+  if (expectDemoNote) await committeeReportAfterImport();
   if (expectDemoNote && paidCheckoutPath !== null) await partPaidResidentFails(paidCheckoutPath, staffCookie, cookie);
   await post("/api/auth/logout-all", undefined, staffCookie);
+  if (meeraCookie !== null) await post("/api/auth/logout-all", undefined, meeraCookie);
 }
 
 let paidCheckoutPath = null;
+let meeraCookie = null;
 let sampleImportId = null;
 
 /**
@@ -539,6 +555,110 @@ async function staffWaitingLane(normalId, kavita) {
   check("and it has left the Open lane", !open.text.includes("Stairwell light on floor 4 is flickering"), "");
 }
 
+/** An amount as the page prints it ("₹1,80,52,190" or "₹6,468.50"), in paise. */
+function paiseOf(text) {
+  const [rupeesPart, paisePart = ""] = text.replace(/[₹,]/g, "").split(".");
+  return BigInt(rupeesPart) * 100n + BigInt(paisePart.padEnd(2, "0").slice(0, 2));
+}
+
+const BUCKET_LABELS = ["Not yet due", "1 to 30 days", "31 to 60 days", "61 to 90 days", "Over 90 days"];
+/** The five age groups of the ageing block: label, flats, bills and the amount due in paise, read from the page's text. */
+function ageingBuckets(text) {
+  const from = text.indexOf("What is owed");
+  return BUCKET_LABELS.map((label) => {
+    const match = new RegExp(`${label} (\\d+) flats, (\\d+) bills (₹[\\d,.]+)`).exec(text.slice(from));
+    return match ? { label, flats: Number(match[1]), bills: Number(match[2]), amountPaise: paiseOf(match[3]) } : null;
+  });
+}
+
+/**
+ * The committee report (T14) over HTTP as Meera Kapoor (reports:view; the third staff phone of the seed, docs/seed-data.md A6), read BEFORE any other check changes the
+ * data, so it is the pristine seed. The October figures are the ones raw SQL gives for the seeded database as of 27 Oct 2026 (RP2 in
+ * tests/integration/committee-report.test.ts pins them); they are checked exactly when the server's clock is frozen to that date, and otherwise only the shape
+ * and the sums are. The ageing buckets must add up to the total on the page, whatever the date.
+ */
+async function committeeReportBeforeChanges() {
+  meeraCookie = await login("5000000003");
+  check("login as Meera Kapoor (reports:view)", meeraCookie !== null, meeraCookie ? `cookie length ${meeraCookie.length}` : "could not log in");
+  if (meeraCookie === null) return;
+  const landing = await get("/staff", meeraCookie);
+  check("GET /staff as Meera Kapoor lists the Committee report tool", landing.status === 200 && /<a [^>]*href="\/staff\/reports"[^>]*>Committee report<\/a>/.test(landing.html), `status ${landing.status}`);
+  const page = await get("/staff/reports?period=2026-10", meeraCookie);
+  check("GET /staff/reports as Meera Kapoor: 200, one h1 'Committee report', the month selector, and a 'Figures as of' line in words", page.status === 200 && (page.html.match(/<h1/g) ?? []).length === 1 && /<h1[^>]*>Committee report<\/h1>/.test(page.html) && page.html.includes('id="report-period"') && /Figures as of \d{1,2} [A-Z][a-z]+ \d{4}\./.test(page.text), `status ${page.status}`);
+  check("it names the month and has no money line of zeros: 'Money, October 2026'", page.text.includes("Money, October 2026"), "");
+  const October = { billed: 1_805_219_000n, collected: 1_484_271_400n, outstanding: 320_947_600n };
+  const money = {
+    billed: new RegExp(`Billed (₹[\\d,.]+)`).exec(page.text)?.[1],
+    collected: /Collected Principal paid, as of the date above\. A late fee is not in it\. (₹[\d,.]+)/.exec(page.text)?.[1],
+    outstanding: /Outstanding Principal still owed\. (₹[\d,.]+)/.exec(page.text)?.[1],
+  };
+  const parsed = { billed: money.billed ? paiseOf(money.billed) : null, collected: money.collected ? paiseOf(money.collected) : null, outstanding: money.outstanding ? paiseOf(money.outstanding) : null };
+  check("the money line is Billed = Collected + Outstanding, exactly, in paise, as printed on the page", parsed.billed !== null && parsed.collected !== null && parsed.outstanding !== null && parsed.billed === parsed.collected + parsed.outstanding, `${money.billed} = ${money.collected} + ${money.outstanding}`);
+  if (frozenToTheBrief) {
+    check(
+      `the October money line equals the independently computed figures: Billed ${rupees(October.billed)}, Collected ${rupees(October.collected)}, Outstanding ${rupees(October.outstanding)}`,
+      parsed.billed === October.billed && parsed.collected === October.collected && parsed.outstanding === October.outstanding,
+      `${money.billed} ${money.collected} ${money.outstanding}`,
+    );
+    check("and the flat counts: 2399 billed, 1915 paid in full, 484 with principal outstanding (they add up)", page.text.includes("Flats billed 2399") && page.text.includes("Flats paid in full 1915") && page.text.includes("Flats with principal outstanding 484"), "");
+  } else {
+    check("the flat counts add up: paid in full + with principal outstanding = billed", (() => {
+      const n = (label) => Number(new RegExp(`${label} (\\d+)`).exec(page.text)?.[1] ?? NaN);
+      return n("Flats paid in full") + n("Flats with principal outstanding") === n("Flats billed") && n("Flats billed") > 0;
+    })(), "");
+  }
+  check("the late-fee block names its three figures", page.text.includes("Posted and paid") && page.text.includes("Posted and owing") && page.text.includes("Accruing on open bills"), "");
+
+  const buckets = ageingBuckets(page.text);
+  check("the ageing block says it is all open dues of all months and shows the five age groups in order", page.text.includes("All open dues, all months") && buckets.every((b) => b !== null), JSON.stringify(buckets.map((b) => b?.label)));
+  const total = /Total due (\d+) flats, (\d+) bills (₹[\d,.]+)/.exec(page.text.slice(page.text.indexOf("What is owed")));
+  const bucketSum = buckets.reduce((sum, b) => sum + (b?.amountPaise ?? 0n), 0n);
+  check("the five age groups add up to the total due and the total number of bills, exactly", total !== null && paiseOf(total[3]) === bucketSum && buckets.reduce((sum, b) => sum + (b?.bills ?? 0), 0) === Number(total[2]), total ? `${total[3]} = ${rupees(bucketSum)}` : "no total");
+  if (frozenToTheBrief) check("the total equals the independently computed total: 943 open bills, ₹61,89,686 (the sum of every flat's amount due on its Home)", total !== null && Number(total[2]) === 943 && paiseOf(total[3]) === 618_968_600n, total ? `${total[2]} bills ${total[3]}` : "no total");
+
+  check(
+    "the complaints block, the collection quality block and the goals table are there",
+    page.text.includes("Complaints, October 2026") && page.text.includes("Collection quality, October 2026") && page.text.includes("Replied within the SLA") && page.text.includes("Goals") && /At least 90%/.test(page.text) && /At most 8%/.test(page.text),
+    "",
+  );
+  check("each goal says Met or Not met in words", (page.text.match(/\b(Met|Not met|No data)\b/g) ?? []).length >= 3, "");
+  if (frozenToTheBrief) {
+    check("the complaint figures equal the independently computed ones: 1603 raised, 16 safety, 290 open now", page.text.includes("Raised 1603") && page.text.includes("Open now 290") && /Safety complaints Raised 16/.test(page.text), "");
+    check("a seeded safety complaint is not acknowledged, and the block says it is waiting for the duty manager", page.text.includes("1 safety complaint is waiting for the duty manager."), "");
+  }
+  check("the reconciliation line is there: before any import it says no statement was imported in the last 30 days", page.text.includes("Bank reconciliation, last 30 days") && page.text.includes("No bank statement was imported in the last 30 days."), "");
+
+  const drill = await get("/staff/reports?period=2026-10&bucket=31-60", meeraCookie);
+  const drillSection = drill.html.slice(drill.html.indexOf('id="ageing-detail"'));
+  const rows = (drillSection.match(/<th scope="row"/g) ?? []).length;
+  const first = /<tbody>[\s\S]*?<th scope="row"[^>]*>(T\d\d-\d{4})<\/th>\s*<td[^>]*>([A-Za-z]+ \d{4})<\/td>\s*<td[^>]*>(\d+)<\/td>/.exec(drill.html);
+  check("GET /staff/reports?bucket=31-60 lists flats: 200, the heading, a table of 25 rows with flat code, bill month and days overdue, and Load more", drill.status === 200 && drill.text.includes("Open dues: 31 to 60 days") && rows === 25 && first !== null && Number(first[3]) >= 31 && Number(first[3]) <= 60 && drill.html.includes(">Load more</button>"), `status ${drill.status}, ${rows} rows, first ${first ? `${first[1]} ${first[2]} ${first[3]}` : "none"}`);
+  const bucketBills = buckets[2]?.bills ?? 0;
+  check("the number of bills of that age group on the page is more than one page of 25 (so Load more has something to load)", bucketBills > 25, `${bucketBills} bills`);
+  const days = [...drillSection.matchAll(/<th scope="row"[^>]*>T\d\d-\d{4}<\/th>\s*<td[^>]*>[A-Za-z]+ \d{4}<\/td>\s*<td[^>]*>(\d+)<\/td>/g)].map((m) => Number(m[1]));
+  check("the drill-down is oldest first", days.length === 25 && days.every((d, i) => i === 0 || days[i - 1] >= d), days.slice(0, 6).join(" "));
+  const others = await Promise.all(["not-yet-due", "1-30", "61-90", "over-90"].map((b) => get(`/staff/reports?period=2026-10&bucket=${b}`, meeraCookie)));
+  check("the other four age groups open too", others.every((r) => r.status === 200 && r.text.includes("Open dues:")), others.map((r) => r.status).join(" "));
+  const everything = [page, drill, ...others].map((r) => r.text).join(" ");
+  check("no resident name and no phone number is on the report or its drill-downs (the T12-0408 and T21-1601 residents, their phones, the staff)", !/Swati Joshi|Aamir Shaikh|Priya Nair|Rahul Menon|Kavita Rao|Sanjay Pawar|Meera Kapoor/.test(everything) && !/\b50000000\d\d\b|\b59000000\d\d\b/.test(everything), "");
+  const badBucket = await get("/staff/reports?period=2026-10&bucket=nonsense", meeraCookie);
+  check("an unknown bucket in the address shows the report and no drill-down", badBucket.status === 200 && !badBucket.html.includes('id="ageing-detail"') && badBucket.text.includes("Money, October 2026"), `status ${badBucket.status}`);
+  const future = await get("/staff/reports?period=2099-01", meeraCookie);
+  const futureText = future.html.replace(/<script[\s\S]*?<\/script>/g, "").replace(/<[^>]*>/g, " ");
+  check("a future month in the address is ignored: the report opens on a real month", future.status === 200 && !futureText.includes("2099") && futureText.includes("Money,"), `status ${future.status}`);
+  const empty = await get("/staff/reports?period=2026-01", meeraCookie);
+  check("a past month with no bills says 'No bills for this month' and still shows what is owed", empty.status === 200 && empty.text.includes("No bills for this month") && empty.text.includes("What is owed"), `status ${empty.status}`);
+}
+
+/** After the sample statement was imported (staffImportsSample): the reconciliation line has its rows, the share posted automatically and the accounted check. */
+async function committeeReportAfterImport() {
+  if (meeraCookie === null) return;
+  const page = await get("/staff/reports?period=2026-10", meeraCookie);
+  check("the reconciliation line then counts the sample statement: 106 bank rows, 24 posted automatically, 44 waiting for a person, 38 not maintenance", page.text.includes("Bank rows imported 106") && page.text.includes("Posted automatically 24") && page.text.includes("Waiting for a person 44") && page.text.includes("Not maintenance 38"), "");
+  check("it gives the share posted automatically (24 of 106 bank rows, 23%) and says the import's rows all add up", page.text.includes("Share posted automatically 24 of 106 bank rows 23%") && /The rows of (the 1 import all|all \d+ imports) add up\./.test(page.text), "");
+  check("the manual interventions table is there with its four decision types", ["Manual match", "Approved", "Rejected", "Ignored"].every((l) => page.text.includes(l)) && page.html.includes("Manual interventions in the last 30 days, by decision type"), "");
+}
+
 async function api(method, path, cookie, body) {
   const headers = cookie ? { cookie } : {};
   if (body !== undefined) headers["content-type"] = "application/json";
@@ -597,11 +717,10 @@ async function reconciliationScreens(staffCookie, residentCookie, rowId) {
   const resident = await get(`/staff/reconciliation/${sampleImportId}`, residentCookie);
   const residentStart = await get("/staff/reconciliation", residentCookie);
   check("a resident requesting the workspace, or the start page, ends at /forbidden (a redirect, no staff data in the body)", redirectTarget(resident)?.to === "/forbidden" && redirectTarget(residentStart)?.to === "/forbidden" && !resident.text.includes("sample-statement") && !residentStart.text.includes("sample-statement"), `${redirectTarget(resident)?.how} -> ${redirectTarget(resident)?.to} / ${redirectTarget(residentStart)?.how} -> ${redirectTarget(residentStart)?.to}`);
-  const reportsOnly = await login("5000000003");
+  const reportsOnly = meeraCookie;
   const refused = reportsOnly === null ? null : await get(`/staff/reconciliation/${sampleImportId}`, reportsOnly);
   const refusedStart = reportsOnly === null ? null : await get("/staff/reconciliation", reportsOnly);
   check("staff without payments:match (Meera Kapoor, reports:view) are refused the workspace and the start page: /forbidden", refused !== null && redirectTarget(refused)?.to === "/forbidden" && redirectTarget(refusedStart)?.to === "/forbidden" && !refused.text.includes("sample-statement"), refused ? `${redirectTarget(refused)?.how} -> ${redirectTarget(refused)?.to}` : "could not log in");
-  if (reportsOnly !== null) await post("/api/auth/logout-all", undefined, reportsOnly);
   const noCookie = await get(`/staff/reconciliation/${sampleImportId}`);
   check("nobody signed in is sent to /login with a returnTo and sees no data", /^\/login\?returnTo=/.test(redirectTarget(noCookie)?.to ?? "") && !noCookie.text.includes("sample-statement"), `${redirectTarget(noCookie)?.how} -> ${redirectTarget(noCookie)?.to}`);
   const staffLanding = await get("/staff", staffCookie);

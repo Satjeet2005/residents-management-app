@@ -99,6 +99,12 @@ describe("RP2 the money line, checked against raw SQL", () => {
     expect(BigInt(data.money?.flatsOutstanding ?? -1)).toBe(expected.owing);
   });
 
+  it("the pristine seed gives these October figures, which scripts/smoke-app.mjs also expects (as of 27 Oct 2026): a drift in the seed shows here first", () => {
+    expect(october.money).toMatchObject({ billedPaise: 1_805_219_000n, collectedPaise: 1_484_271_400n, outstandingPaise: 320_947_600n, flatsBilled: 2399, flatsPaidInFull: 1915, flatsOutstanding: 484 });
+    expect(october.ageing.total).toMatchObject({ bills: 943, amountDuePaise: 618_968_600n });
+    expect(october.complaints).toMatchObject({ raised: 1603, firstReply: { replied: 1570, medianMinutes: 94, decided: 1573, withinSla: 1369 }, resolved: { count: 1470, medianMinutes: 2186, reopened: 152 }, closed: { byResident: 1001, automatically: 297 }, openNow: 290, safety: { count: 16, acknowledged: 0, unacknowledgedNow: 1 } });
+  });
+
   it("the headline invariants hold: Billed = Collected + Outstanding in paise, paid in full + outstanding = billed, Collected never exceeds Billed", async () => {
     for (const period of ["2026-06-01", "2026-07-01", "2026-08-01", "2026-09-01", OCTOBER]) {
       const month = inPeriod(seeded, period);
