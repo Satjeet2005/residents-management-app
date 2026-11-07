@@ -73,7 +73,7 @@ export const PRIVILEGE_MATRIX: Readonly<Record<string, TableGrant>> = {
 };
 
 /** Tables the app must not touch at all. */
-export const NO_ACCESS_TABLES = ["_prisma_migrations"] as const;
+export const NO_ACCESS_TABLES = ["_prisma_migrations", "error_events"] as const;
 
 const IDENTIFIER = /^[a-z][a-z0-9_]{2,40}$/;
 

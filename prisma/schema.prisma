@@ -659,3 +659,33 @@ model VisitorPass {
 
   @@map("visitor_passes")
 }
+
+/// D135: the durable error log, read only by the developer. The CHECKs and the descending time index live in the hand-edited migration.
+model ErrorEvent {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  occurredAt      DateTime @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  level           String
+  source          String
+  ref             String   @unique
+  digest          String?
+  requestId       String?  @map("request_id")
+  route           String
+  method          String?
+  status          Int?
+  errorName       String   @map("error_name")
+  errorCode       String?  @map("error_code")
+  message         String
+  stack           String?
+  userId          String?  @map("user_id") @db.Uuid
+  role            String?
+  deployment      String?
+  environment     String
+  fingerprint     String
+  suppressedCount Int      @default(0) @map("suppressed_count")
+
+  @@index([occurredAt(sort: Desc)])
+  @@index([digest])
+  @@index([requestId])
+  @@index([fingerprint, occurredAt])
+  @@map("error_events")
+}
