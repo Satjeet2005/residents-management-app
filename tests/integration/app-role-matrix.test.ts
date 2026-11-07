@@ -22,9 +22,9 @@ describe("D95 every table is covered by the privilege matrix", () => {
     expect(staleMatrixTables(tables), "remove or rename these in src/server/db-roles/app-role.ts").toEqual([]);
   });
 
-  it("D95 the schema has the 25 tables of the matrix plus _prisma_migrations, nothing else", () => {
+  it("D95 the schema has the 26 tables of the matrix plus _prisma_migrations, nothing else", () => {
     expect(tables).toHaveLength(Object.keys(PRIVILEGE_MATRIX).length + NO_ACCESS_TABLES.length);
-    expect(Object.keys(PRIVILEGE_MATRIX)).toHaveLength(25);
+    expect(Object.keys(PRIVILEGE_MATRIX)).toHaveLength(26);
     expect(tables).toContain("_prisma_migrations");
   });
 

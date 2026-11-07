@@ -19,6 +19,7 @@ export type TableGrant = {
 
 const S: TableGrant = { select: true };
 const SI: TableGrant = { select: true, insert: true };
+const I: TableGrant = { insert: true };
 
 /** The tables that are append-only (a trigger forbids UPDATE, DELETE and TRUNCATE for everyone). The app gets SELECT and INSERT only. */
 export const APPEND_ONLY_TABLES = ["ledger_entries", "payment_matches", "complaint_events", "classifications", "audit_log"] as const;
@@ -43,6 +44,9 @@ export const PRIVILEGE_MATRIX: Readonly<Record<string, TableGrant>> = {
   complaint_events: SI,
   classifications: SI,
   audit_log: SI,
+  // The error log (D135, D136): the app may only INSERT, so a stolen app credential cannot read the errors (which can name routes, users and
+  // database codes) or change them. An INSERT ... RETURNING needs SELECT, so the app writes with a plain INSERT and no RETURNING.
+  error_events: I,
   // Written once, then read.
   bills: SI,
   statement_imports: SI,
@@ -73,7 +77,7 @@ export const PRIVILEGE_MATRIX: Readonly<Record<string, TableGrant>> = {
 };
 
 /** Tables the app must not touch at all. */
-export const NO_ACCESS_TABLES = ["_prisma_migrations", "error_events"] as const;
+export const NO_ACCESS_TABLES = ["_prisma_migrations"] as const;
 
 const IDENTIFIER = /^[a-z][a-z0-9_]{2,40}$/;
 

@@ -256,3 +256,41 @@ describe("D95 the grants script protects itself and can be run again", () => {
     expect(await sqlState(app.query("UPDATE sessions SET last_seen_at = now() WHERE false"))).toBeNull();
   });
 });
+
+describe("D136 the app role may only INSERT into error_events", () => {
+  const row = (ref: string) => [ref, "ROUTE", "/api/x", "Error", "boom", "test", "f".repeat(64)];
+  const INSERT = "INSERT INTO error_events (ref, level, source, route, error_name, message, environment, fingerprint) VALUES ($1, 'ERROR', $2, $3, $4, $5, $6, $7)";
+
+  it("D136 a plain INSERT without RETURNING works", async () => {
+    await app.query(INSERT, row(`E-A${uuid().slice(0, 5).toUpperCase()}`));
+    const { rows } = await owner.query("SELECT count(*)::int AS n FROM error_events WHERE route = '/api/x'");
+    expect(rows[0].n).toBeGreaterThan(0);
+  });
+
+  it("D136 the trap: INSERT ... RETURNING needs SELECT and is refused, and the row is not written", async () => {
+    const ref = `E-R${uuid().slice(0, 5).toUpperCase()}`;
+    expect(await sqlState(app.query(`${INSERT} RETURNING id`, row(ref)))).toBe(DENIED);
+    expect((await owner.query("SELECT count(*)::int AS n FROM error_events WHERE ref = $1", [ref])).rows[0].n).toBe(0);
+  });
+
+  it("D136 SELECT is refused, whole table and by column, and so is a count", async () => {
+    expect(await sqlState(app.query("SELECT * FROM error_events"))).toBe(DENIED);
+    expect(await sqlState(app.query("SELECT message FROM error_events"))).toBe(DENIED);
+    expect(await sqlState(app.query("SELECT count(*) FROM error_events"))).toBe(DENIED);
+  });
+
+  it("D136 UPDATE (whole table and one column), DELETE and TRUNCATE are refused", async () => {
+    expect(await sqlState(app.query("UPDATE error_events SET message = 'x' WHERE false"))).toBe(DENIED);
+    expect(await sqlState(app.query("UPDATE error_events SET suppressed_count = 0 WHERE false"))).toBe(DENIED);
+    expect(await sqlState(app.query("DELETE FROM error_events WHERE false"))).toBe(DENIED);
+    expect(await sqlState(app.query("TRUNCATE error_events"))).toBe(DENIED);
+  });
+
+  it("D136 the privileges, read back from Postgres, are INSERT and nothing else", async () => {
+    for (const privilege of ["SELECT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"]) {
+      expect((await owner.query("SELECT has_table_privilege($1, 'error_events', $2) AS ok", [role.name, privilege])).rows[0].ok, privilege).toBe(false);
+    }
+    expect((await owner.query("SELECT has_table_privilege($1, 'error_events', 'INSERT') AS ok", [role.name])).rows[0].ok).toBe(true);
+    expect((await owner.query("SELECT has_any_column_privilege($1, 'error_events', 'SELECT') AS ok", [role.name])).rows[0].ok).toBe(false);
+  });
+});

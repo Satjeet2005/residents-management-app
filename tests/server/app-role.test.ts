@@ -64,6 +64,12 @@ describe("D95 buildAppRoleSql: what it grants", () => {
     expect(given[table].updateColumns.size).toBe(0);
   });
 
+  it("D136 error_events gets INSERT only: no SELECT, no UPDATE (not even a column), no DELETE, no TRUNCATE", () => {
+    expect([...given.error_events.privileges]).toEqual(["INSERT"]);
+    expect(given.error_events.updateColumns.size).toBe(0);
+    expect(PRIVILEGE_MATRIX.error_events).toEqual({ insert: true });
+  });
+
   it("the only UPDATE grants are the columns of sessions, one-time codes, three of payment attempts, four of bank rows, four of queue items and thirteen of complaints", () => {
     const withUpdate = Object.entries(given).filter(([, g]) => g.updateColumns.size > 0).map(([t, g]) => [t, [...g.updateColumns].sort()]);
     expect(withUpdate).toEqual([
