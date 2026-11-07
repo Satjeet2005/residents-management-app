@@ -20,6 +20,8 @@
     "db:seed": "tsx src/server/seed/cli.ts",
     "db:reset-demo": "tsx src/server/seed/cli.ts --reset",
     "db:print-app-role-sql": "tsx src/server/db-roles/print-cli.ts",
+    "db:print-logs-role-sql": "tsx src/server/db-roles/print-logs-cli.ts",
+    "logs:errors": "tsx scripts/logs.ts",
     "sample:statement": "tsx scripts/make-sample-statement.ts",
     "llm:check": "tsx scripts/llm-check.ts",
     "postinstall": "prisma generate",
