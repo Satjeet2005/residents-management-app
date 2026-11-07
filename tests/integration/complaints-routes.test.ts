@@ -161,13 +161,18 @@ describe("CL3 the status mapping and the bodies", () => {
   it("CL3 the staff routes: board lanes and pagination, detail, assign (409 STALE, 422 ASSIGNEE_INVALID), status, comment, category", async () => {
     const created = await json(await create(otherResidentCookie, { body: "Water leak under the bathroom sink" }));
     const id = (created.complaint as { id: string }).id;
-    const boardJson = await json(await board("?lane=OPEN&limit=1", kavitaCookie));
-    expect(boardJson).toMatchObject({ status: "OK", lane: "OPEN" });
+    const boardJson = await json(await board("?view=open&limit=1", kavitaCookie));
+    expect(boardJson).toMatchObject({ status: "OK", view: "open" });
     expect((boardJson.rows as unknown[]).length).toBe(1);
-    expect((await board("?lane=NOPE", kavitaCookie)).status).toBe(422);
-    expect((await board("?lane=OPEN&limit=0", kavitaCookie)).status).toBe(422);
-    expect((await board("?lane=OPEN&cursor=junk", kavitaCookie)).status).toBe(422);
+    expect((await board("?view=nope", kavitaCookie)).status).toBe(422);
+    expect((await board("?view=open&limit=0", kavitaCookie)).status).toBe(422);
+    expect((await board("?view=open&cursor=junk", kavitaCookie)).status).toBe(422);
     expect((await board("", kavitaCookie)).status).toBe(200);
+    expect(await json(await board("?lane=OPEN&limit=1", kavitaCookie))).toMatchObject({ status: "OK", view: "open" });
+    expect((await board("?lane=NOPE", kavitaCookie)).status).toBe(422);
+    for (const bad of ["?view=open&category=GARDEN", "?view=open&assignee=ME", "?view=open&urgency=high", "?view=open&q=%25", "?view=open&q=T12-0408X"]) expect((await board(bad, kavitaCookie)).status, bad).toBe(422);
+    const filtered = await json(await board("?view=open&category=PLUMBING&assignee=me&urgency=NORMAL&q=t12", kavitaCookie));
+    expect(filtered).toMatchObject({ status: "OK", view: "open" });
     const detail = await json(await staffGet(id, kavitaCookie));
     expect(detail).toMatchObject({ status: "OK", complaint: { id, version: 1 } });
     expect((await staffGet(ZERO, kavitaCookie)).status).toBe(404);
@@ -194,7 +199,7 @@ describe("CL3 the status mapping and the bodies", () => {
     const safety = await json(await create(residentCookie, { body: "There is a fire in the basement" }));
     const id = (safety.complaint as { id: string }).id;
     expect(safety).toMatchObject({ complaint: { urgency: "CRITICAL", status: "ASSIGNED", safetyFlag: true } });
-    const board1 = await json(await board("?lane=SAFETY", sanjayCookie));
+    const board1 = await json(await board("?view=safety", sanjayCookie));
     expect((board1.rows as { id: string; assignee: { name: string } }[]).find((r) => r.id === id)?.assignee.name).toBe("Sanjay Pawar");
     expect((await acknowledge(id, sanjayCookie)).status).toBe(200);
     expect((await acknowledge(id, sanjayCookie, { x: 1 })).status).toBe(422);
@@ -206,7 +211,7 @@ describe("CL3 the status mapping and the bodies", () => {
   });
 
   it("CL3 every refusal is only a fixed code: no stack, no id, no row data", async () => {
-    const responses = [await staffGet(ZERO, kavitaCookie), await board("?lane=NOPE", kavitaCookie), await create(residentCookie, { body: "" }), await getOwn(ZERO, residentCookie)];
+    const responses = [await staffGet(ZERO, kavitaCookie), await board("?view=nope", kavitaCookie), await create(residentCookie, { body: "" }), await getOwn(ZERO, residentCookie)];
     for (const response of responses) {
       const body = await response.json();
       expect(Object.keys(body)).toEqual(["error"]);

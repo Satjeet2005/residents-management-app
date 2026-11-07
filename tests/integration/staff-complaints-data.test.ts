@@ -201,7 +201,7 @@ describe("SDATA7 the duty manager's controls, from the real data", () => {
     expect(out).not.toContain("I have seen this");
     expect(out).not.toContain("bg-accent");
     expect(out).toContain(">Close this safety complaint</button>");
-    expect(out).toContain("The duty manager saw this at");
+    expect(out).toContain("Seen by the duty manager at");
     const loaded = await page(ids.safety, world.staff.sanjay);
     expect(loaded?.acknowledgedAt).toBe(NOW + 5 * 60_000);
     expect(loaded?.timeline.some((l) => l.label === "Seen by the duty manager" && l.visibility === "internal")).toBe(true);

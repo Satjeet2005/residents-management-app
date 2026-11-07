@@ -1,10 +1,12 @@
 import { z } from "zod";
-import { CATEGORY_CODES } from "@/domain/complaints/taxonomy";
 import type { GuardContext } from "@/server/auth/guard";
 import { businessNow } from "@/server/clock";
 import { autoCloseQuietly } from "./auto-close";
-import { parseBoardQuery } from "@/lib/staff-complaints/board-query";
+import { type BoardView, DEFAULT_BOARD_VIEW, isBoardView } from "@/domain/complaints/board-views";
+import { CATEGORY_CODES, URGENCIES } from "@/domain/complaints/taxonomy";
+import { ASSIGNEE_FILTERS, flatCodePrefix } from "@/lib/staff-complaints/board-query";
 import { listBoardView } from "./board-views";
+import { VIEW_PAGE_SIZE } from "./page-size";
 import type { Classifier } from "./classifier";
 import { isUuid } from "./context";
 import { createComplaint } from "./create";
@@ -116,16 +118,32 @@ export async function handleReopen(context: Context, options: Options = {}): Pro
   return result.status === "ERROR" ? refused(result.error) : json(200, result);
 }
 
-/** GET /api/staff/complaints?view=&category=&assignee=&urgency=&q=&cursor=&limit=: one view of the board, a page at a time (`lane=` is the old name of `view=`). */
+/** The old lane codes of `?lane=`, and the view each one became (D151). */
+const LANE_CODES: Readonly<Record<string, BoardView>> = { NEEDS_TRIAGE: "triage", OPEN: "open", OVERDUE: "overdue", WAITING_RESIDENT: "waiting", SAFETY: "safety", CLOSED: "closed" };
+
+const boardFilters = z.object({
+  category: z.enum(CATEGORY_CODES).optional(),
+  assignee: z.enum(ASSIGNEE_FILTERS).default("anyone"),
+  urgency: z.enum(URGENCIES).optional(),
+  q: z.string().max(8).optional(),
+});
+
+/**
+ * GET /api/staff/complaints?view=&category=&assignee=&urgency=&q=&cursor=&limit=: one view of the board, a page of 15 at a time, with the count of every view.
+ * Unlike the page, the API is strict: an unknown view, filter value or flat code is 422. `lane=` (the old codes, such as OPEN) is accepted as the name of a view.
+ */
 export async function handleBoard(context: Context, options: Options = {}): Promise<Response> {
   const url = new URL(context.request.url);
-  const query = parseBoardQuery(Object.fromEntries(url.searchParams));
-  const limit = z.coerce.number().int().min(1).max(50).safeParse(url.searchParams.get("limit") ?? "15");
+  const lane = url.searchParams.get("lane");
+  const view = url.searchParams.get("view") ?? (lane === null ? DEFAULT_BOARD_VIEW : Object.hasOwn(LANE_CODES, lane) ? LANE_CODES[lane] : null);
+  const limit = z.coerce.number().int().min(1).max(50).safeParse(url.searchParams.get("limit") ?? String(VIEW_PAGE_SIZE));
+  const filters = boardFilters.safeParse(Object.fromEntries([...url.searchParams].filter(([key]) => ["category", "assignee", "urgency", "q"].includes(key))));
+  const q = filters.success && filters.data.q !== undefined ? flatCodePrefix(filters.data.q) : null;
   const cursor = url.searchParams.get("cursor") ?? undefined;
-  if (!limit.success || (cursor !== undefined && cursor.length > 500)) return invalid();
+  if (!isBoardView(view) || !limit.success || !filters.success || (filters.data.q !== undefined && q === null) || (cursor !== undefined && cursor.length > 500)) return invalid();
   const now = clock(options);
   await lazyAutoClose(context, now);
-  const result = await listBoardView({ db: context.deps.db, user: context.user, view: query.view, filters: query.filters, cursor, limit: limit.data, now });
+  const result = await listBoardView({ db: context.deps.db, user: context.user, view, filters: { category: filters.data.category ?? null, assignee: filters.data.assignee, urgency: filters.data.urgency ?? null, q }, cursor, limit: limit.data, now });
   return result.status === "ERROR" ? refused(result.error) : json(200, result);
 }
 
