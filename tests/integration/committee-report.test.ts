@@ -1,5 +1,12 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createElement as h } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { ReportView } from "@/app/(staff)/staff/reports/report-view";
 import { computeDues } from "@/domain/billing/dues";
+import { decideAccess } from "@/server/auth/access";
+import { type SessionUser } from "@/server/auth/session-service";
+import { StaffAccessError } from "@/server/statements/ui-data";
+import { ageingPageOf } from "@/server/reports/ageing-page";
 import { AGE_BUCKETS, ageingRows } from "@/domain/reports/age";
 import { importStatement } from "@/server/statements/import";
 import { postManualMatch } from "@/server/statements/manual";
@@ -13,6 +20,9 @@ import { loadAgeingPage } from "@/server/reports/ageing-page";
 import { loadReportPositions } from "@/server/reports/positions";
 import { inPeriod, loadCommitteeReport } from "@/server/reports/report-data";
 import { moneyLine } from "@/domain/reports/money-line";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: () => {}, refresh: () => {}, push: () => {} }), usePathname: () => "/", redirect: () => {} }));
+vi.mock("@/app/(staff)/staff/reports/actions", () => ({ loadMoreAgeing: async () => ({ ok: true, data: null }) }));
 
 /** T14: the committee report's loaders, through the APP role, against the seeded database as of 27 Oct 2026. Every figure is checked against raw SQL. */
 let fx: PaymentsFixture;
@@ -316,11 +326,11 @@ describe("RP3 positions: a FEE_ONLY bill, a bill settled late and a part payment
 });
 
 describe("RP2 speed", () => {
-  it("the report data builds on the seeded 2,400-flat database well inside the budget (6 seconds on 2 CPUs; the target is under 2)", async () => {
+  it("the WHOLE page data (money line, ageing, quality, complaints, reconciliation, goals and a drill-down page) builds on the seeded 2,400-flat database well inside the budget (6 seconds on 2 CPUs; the target is under 2)", async () => {
     const started = performance.now();
-    await report();
+    await loadCommitteeReport({ db: fx.app, user: meera, requestedPeriod: OCTOBER, bucket: "DAYS_31_60", now: DEMO_NOW });
     const seconds = (performance.now() - started) / 1000;
-    console.log(`RP2 the money line and the ageing built in ${seconds.toFixed(2)} s`);
+    console.log(`RP2 the whole page data built in ${seconds.toFixed(2)} s`);
     expect(seconds).toBeLessThan(6);
   });
 });
@@ -412,5 +422,59 @@ describe("RP5 the reconciliation line, after importing the demo statement and po
     expect(String(manual?.medianMinutes)).toBe(String(sql.median_minutes));
     expect(line.interventions.filter((i) => i.type !== "MANUAL").every((i) => i.count === 0 && i.medianMinutes === null)).toBe(true);
     expect(line.interventions.map((i) => i.type)).toEqual(["MANUAL", "APPROVED", "REJECTED", "IGNORE"]);
+  });
+});
+
+describe("RP6 access: who may read the report, and what the page never shows", () => {
+  const asUser = async (name: string, role: "STAFF" | "RESIDENT"): Promise<Pick<SessionUser, "id" | "role" | "active" | "permissions">> => {
+    const user = await fx.owner.user.findFirstOrThrow({ where: { name, role }, select: { id: true, role: true, active: true, permissions: { select: { permission: true } } } });
+    return { id: user.id, role: user.role, active: user.active, permissions: user.permissions.map((p) => p.permission) };
+  };
+  const refused = async (run: () => Promise<unknown>) => expect(await run().then(() => null, (e: unknown) => e)).toBeInstanceOf(StaffAccessError);
+
+  it("a resident, and staff without reports:view, are refused by the loaders at the data", async () => {
+    const resident = await fx.owner.user.findFirstOrThrow({ where: { role: "RESIDENT" }, select: { id: true } });
+    const residentUser = { id: resident.id, role: "RESIDENT" as const, active: true, permissions: [] as string[] };
+    const priya = await asUser("Priya Nair", "STAFF");
+    const kavita = await asUser("Kavita Rao", "STAFF");
+    for (const user of [residentUser, priya, kavita]) {
+      await refused(() => loadCommitteeReport({ db: fx.app, user, requestedPeriod: OCTOBER, now: DEMO_NOW }));
+      await refused(() => loadAgeingPage({ db: fx.app, user, bucket: "OVER_90", now: DEMO_NOW }));
+    }
+  });
+
+  it("the page rule sends a resident and staff without reports:view to /forbidden, and lets the committee user in", async () => {
+    const resident = { id: "r", role: "RESIDENT", active: true, permissions: [] } as unknown as SessionUser;
+    const priya = (await asUser("Priya Nair", "STAFF")) as unknown as SessionUser;
+    expect(decideAccess(resident, "reports:view")).toEqual({ kind: "forbidden" });
+    expect(decideAccess(priya, "reports:view")).toEqual({ kind: "forbidden" });
+    expect(decideAccess(null, "reports:view")).toEqual({ kind: "login" });
+    expect(decideAccess(meera as unknown as SessionUser, "reports:view").kind).toBe("ok");
+  });
+
+  it("the committee user sees the whole page, from the real data, with every block", async () => {
+    const out = renderToStaticMarkup(h(ReportView, { report: { ...october, drilldown: firstPage } }));
+    for (const part of ["Committee report", "Figures as of 27 October 2026", "Money, October 2026", "What is owed", "Collection quality, October 2026", "Complaints, October 2026", "Bank reconciliation, last 30 days", "Goals", "Open dues: 31 to 60 days"]) expect(out).toContain(part);
+    expect(out).toContain("₹1,80,52,190");
+    expect(out).not.toMatch(/NaN|undefined/);
+  });
+
+  it("no resident name or phone number appears anywhere in the page, in any month or any drill-down (every seeded name and phone is searched for)", async () => {
+    const people = await fx.owner.user.findMany({ select: { name: true, phone: true } });
+    expect(people.length).toBeGreaterThan(2400);
+    const pages = AGE_BUCKETS.map((bucket) => ageingPageOf(seeded, AS_OF, bucket, null));
+    const outputs = pages.map((drilldown) => renderToStaticMarkup(h(ReportView, { report: { ...october, drilldown } })));
+    outputs.push(renderToStaticMarkup(h(ReportView, { report: october })));
+    const hits = new Set<string>();
+    for (const out of outputs) {
+      const text = out.replace(/<[^>]*>/g, " ");
+      for (const person of people) {
+        if (out.includes(person.name) || text.includes(person.name)) hits.add(person.name);
+        if (out.includes(person.phone)) hits.add(person.phone);
+      }
+    }
+    expect([...hits]).toEqual([]);
+    const data = JSON.stringify([october.ageing, october.money, october.quality, october.complaints, october.reconciliation, firstPage], (_key, value: unknown) => (typeof value === "bigint" ? `paise:${value}` : value));
+    expect(people.filter((person) => data.includes(person.phone) || data.includes(person.name)).map((person) => person.name)).toEqual([]);
   });
 });
