@@ -609,4 +609,9 @@ export const en = {
   "staffComplaints.error.validation": "Check what you wrote and try again.",
   "staffComplaints.error.network": "We could not reach the server. Nothing was changed. Try again.",
   "staffComplaints.error.server": "Something went wrong. Nothing was changed. Try again.",
+  "staffComplaints.safetyPanel.heading": "Safety follow-up",
+  "staffComplaints.safetyPanel.acknowledge": "I have seen this",
+  "staffComplaints.safetyPanel.acknowledgeHint": "The resident is told that the duty manager has seen the report.",
+  "staffComplaints.safetyPanel.close": "Close this safety complaint",
+  "staffComplaints.safetyPanel.closeHint": "Only the duty manager can close a safety complaint. The resident can still say it is a problem.",
 } as const satisfies Record<string, string>;

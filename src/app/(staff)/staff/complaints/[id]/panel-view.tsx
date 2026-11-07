@@ -88,10 +88,10 @@ function Invalid({ id, show, text }: { id: string; show: boolean; text: string }
   ) : null;
 }
 
-/** The outlined button of an action: it says "Working" while its own action is in flight and is off while any action is. */
-function ActionButton({ action, state, label, onSubmit, disabled = false }: { action: PanelAction; state: PanelState; label: string; onSubmit: (action: PanelAction) => void; disabled?: boolean }) {
+/** The button of an action, outlined unless it is the one filled control of the page: it says "Working" while its own action is in flight and is off while any action is. */
+function ActionButton({ action, state, label, onSubmit, disabled = false, variant = "outlined" }: { action: PanelAction; state: PanelState; label: string; onSubmit: (action: PanelAction) => void; disabled?: boolean; variant?: "outlined" | "primary" }) {
   return (
-    <Button variant="outlined" loading={state.pending === action} loadingLabel={t("staffComplaints.working")} disabled={disabled || (state.pending !== null && state.pending !== action)} onClick={() => onSubmit(action)}>
+    <Button variant={variant} loading={state.pending === action} loadingLabel={t("staffComplaints.working")} disabled={disabled || (state.pending !== null && state.pending !== action)} onClick={() => onSubmit(action)}>
       {label}
     </Button>
   );
@@ -99,8 +99,9 @@ function ActionButton({ action, state, label, onSubmit, disabled = false }: { ac
 
 /**
  * The action panel (D130): assign, status, comment, correct the category. Pure markup over the reducer's state. Focus: the first field of the form whose submit
- * was refused, the note box when it opens, and the result line after every answer. The result line is a live region. Every button is outlined: the one filled
- * control of the page, when there is one, is the duty manager's "I have seen this".
+ * was refused, the note box when it opens, and the result line after every answer. The result line is a live region. Every button is outlined except the duty
+ * manager's "I have seen this", which is the one filled control of the page while a safety complaint is unacknowledged. "I have seen this" and "Close this
+ * safety complaint" appear only when `controls` offers them, which is only to the duty manager on a safety complaint.
  */
 export function PanelView({ state, controls, staffUsers, currentCategory, needsReview, handlers }: PanelViewProps) {
   const resultRef = useRef<HTMLDivElement>(null);
@@ -108,16 +109,18 @@ export function PanelView({ state, controls, staffUsers, currentCategory, needsR
   const commentRef = useRef<HTMLTextAreaElement>(null);
   const categoryRef = useRef<HTMLSelectElement>(null);
   const resolveNoteRef = useRef<HTMLTextAreaElement>(null);
+  const closeNoteRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (state.done !== null || state.error !== null) resultRef.current?.focus();
   }, [state.done, state.error]);
   useEffect(() => {
-    const target = state.invalid === "ASSIGN" ? assignRef : state.invalid === "COMMENT" ? commentRef : state.invalid === "CATEGORY" ? categoryRef : state.invalid === "RESOLVE" ? resolveNoteRef : null;
+    const target = state.invalid === "ASSIGN" ? assignRef : state.invalid === "COMMENT" ? commentRef : state.invalid === "CATEGORY" ? categoryRef : state.invalid === "RESOLVE" ? resolveNoteRef : state.invalid === "CLOSE" ? closeNoteRef : null;
     target?.current?.focus();
   }, [state.invalid]);
   useEffect(() => {
     if (state.noteOpen === "RESOLVE") resolveNoteRef.current?.focus();
+    if (state.noteOpen === "CLOSE") closeNoteRef.current?.focus();
   }, [state.noteOpen]);
 
   const busy = state.pending !== null;
@@ -133,6 +136,55 @@ export function PanelView({ state, controls, staffUsers, currentCategory, needsR
           </Button>
         )}
       </div>
+
+      {(controls.acknowledge || controls.close) && (
+        <Section id="panel-safety" title={t("staffComplaints.safetyPanel.heading")}>
+          {controls.acknowledge && (
+            <>
+              <p className="text-body">{t("staffComplaints.safetyPanel.acknowledgeHint")}</p>
+              <div>
+                <ActionButton action="ACKNOWLEDGE" state={state} label={t("staffComplaints.safetyPanel.acknowledge")} onSubmit={handlers.onSubmit} variant="primary" />
+              </div>
+            </>
+          )}
+          {controls.close && state.noteOpen !== "CLOSE" && (
+            <div>
+              <Button variant="outlined" disabled={busy} onClick={() => handlers.onOpenNote("CLOSE")}>
+                {t("staffComplaints.safetyPanel.close")}
+              </Button>
+            </div>
+          )}
+          {controls.close && state.noteOpen === "CLOSE" && (
+            <div className="flex flex-col gap-2">
+              <label htmlFor="close-note" className="text-body font-semibold">
+                {t("staffComplaints.note.label")}
+              </label>
+              <p id="close-note-hint" className="text-caption text-ink-2">
+                {t("staffComplaints.safetyPanel.closeHint")}
+              </p>
+              <textarea
+                ref={closeNoteRef}
+                id="close-note"
+                rows={3}
+                value={state.closeNote}
+                onChange={(event) => handlers.onField("closeNote", event.target.value)}
+                disabled={busy}
+                aria-invalid={state.invalid === "CLOSE" || undefined}
+                aria-describedby={state.invalid === "CLOSE" ? "close-note-hint close-note-error" : "close-note-hint"}
+                className={FIELD}
+              />
+              <p className="tnum text-caption text-ink-2">{t("staffComplaints.count", { n: countChars(state.closeNote), max: NOTE_MAX })}</p>
+              <Invalid id="close-note-error" show={state.invalid === "CLOSE"} text={t("staffComplaints.note.invalid")} />
+              <div className="flex flex-wrap gap-2">
+                <ActionButton action="CLOSE" state={state} label={t("staffComplaints.safetyPanel.close")} onSubmit={handlers.onSubmit} />
+                <Button variant="outlined" disabled={busy} onClick={handlers.onCloseNote}>
+                  {t("staffComplaints.cancel")}
+                </Button>
+              </div>
+            </div>
+          )}
+        </Section>
+      )}
 
       {controls.assign && (
         <Section id="panel-assign" title={t("staffComplaints.assign.heading")}>
