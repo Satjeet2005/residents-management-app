@@ -136,7 +136,9 @@ export function spacingFailures(targets: Measured[], phase: "top" | "end"): Fail
 
 export function failuresOf(m: Awaited<ReturnType<typeof measure>>, width: number): Failure[] {
   const out: Failure[] = [];
-  if (m.overflow.scrollWidth > m.overflow.innerWidth) out.push({ check: "overflow", selector: "html", detail: `scrollWidth ${m.overflow.scrollWidth} > innerWidth ${m.overflow.innerWidth}` });
+  // Against the profile's width, not the page's own: a phone widens its layout viewport to fit wide content, which would make the page agree with itself.
+  const widest = Math.max(m.overflow.scrollWidth, m.overflow.innerWidth);
+  if (widest > width) out.push({ check: "overflow", selector: "html", detail: `the page is ${widest}px wide in a ${width}px viewport (scrollWidth ${m.overflow.scrollWidth}, innerWidth ${m.overflow.innerWidth})` });
   for (const t of m.targets) {
     if (t.w < 47.99 || t.h < 47.99) out.push({ check: "target size", selector: t.selector, detail: `${Math.round(t.w * 10) / 10} x ${Math.round(t.h * 10) / 10} px at ${Math.round(t.x)},${Math.round(t.y)}` });
   }
