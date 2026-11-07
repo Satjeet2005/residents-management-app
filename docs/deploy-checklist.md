@@ -124,8 +124,13 @@ installed).
       ```
       **Expected:** `echo "${DATABASE_URL:-unset}"` prints `unset`.
 - [ ] **C7. Build the app's connection string**, in the password manager, from "neon-owner-pooled": keep everything but
-      replace the user with `township_app` and the password with the "township_app password". Keep `?sslmode=require`
-      at the end. Save it as "neon-app-pooled". **Expected:** the host still has `-pooler`; the user is `township_app`.
+      replace the user with `township_app` and the password with the "township_app password". Change the end from
+      `?sslmode=require` to **`?sslmode=verify-full`**. Save it as "neon-app-pooled". **Expected:** the host still has `-pooler`; the user is
+      `township_app`; the string ends `sslmode=verify-full`. Why: the installed driver (`pg-connection-string` 2.14.1, under `pg` 8.23.1)
+      already treats `require`, `prefer` and `verify-ca` as `verify-full` (its README and `index.js` say so), so `verify-full` is the
+      behaviour you have now. Written explicitly it removes the driver's "SECURITY WARNING: The SSL modes 'prefer', 'require', and
+      'verify-ca' are treated as aliases for 'verify-full'" log line, and it keeps the check on the server's name when the next major
+      version of the driver gives `require` the weaker libpq meaning.
 - [ ] **C8. Prove the app role is limited.** In a new terminal, connect with "neon-app-pooled" (`read -rs APP_URL`, then
       `psql "$APP_URL"`) and run the seven statements from the plan's "Checks". **Expected:** every one is refused (permission
       denied, or "must be owner"). If **any** succeeds, stop and tell the agent which one, not the string. Then `unset APP_URL`.
@@ -142,7 +147,7 @@ installed).
 
       | Key | Value | Type |
       |---|---|---|
-      | `DATABASE_URL` | "neon-app-pooled" | Secret |
+      | `DATABASE_URL` | "neon-app-pooled" (ends `?sslmode=verify-full`, step C7) | Secret |
       | `OTP_PEPPER` | the 64-character value you generated | Secret |
       | `PAYMENT_WEBHOOK_SECRET` | another 64-character value you generated (not the pepper, **not the Neon string**). It is set only here, in the dashboard | Secret |
       | `DEMO_MODE` | `true` (Decision 7) or `false` | Config |
@@ -176,6 +181,42 @@ installed).
 - [ ] **D9b. If the build is blocked** with a message about the commit author or the team, see Part A2; if it says
       "`prisma: command not found`", tell the agent (the plan's fix is to move `prisma` to dependencies, a code change).
 
+- [ ] **D10. Readiness.** Open `$BASE_URL/api/health/ready` in a browser (or `curl -s "$BASE_URL/api/health/ready"`).
+      **Expected:** HTTP 200 and `"status":"ok"`, with `"database":"ok"`, `"schema":{"missingTables":[]}`, `"appRole":{"isSuperuser":false,
+      "canInsertOtp":true,"canUpdateLedger":false,"canDeleteAuditLog":false}`, `"data":{"seeded":true}`, and `config.otpPepper` and
+      `config.webhookSecret` both `true`. On Vercel `config.vercelSystemVars` should be `true` and `config.nodeMajor` `24`; `config.demoMode`
+      is `true` only if you chose demo mode (D2). The report holds only booleans, fixed words and table names, so it is safe to paste into
+      the chat. HTTP 503 means a check failed: use the table below. Do not go on to Part E until every check is ok (the smoke scripts
+      run this check first and stop at the first failing one).
+
+### If the readiness check fails
+
+Find the failing check in the JSON (or in the table the smoke script prints), do the fix, redeploy where it says so, and open
+`/api/health/ready` again. `$BASE_URL` is your production address. "Owner string" means "neon-owner-direct" from Part C, typed at
+a `read -rs` prompt; run `unset DATABASE_URL` afterwards.
+
+| Failing check | What it means | Fix and the exact command |
+|---|---|---|
+| `config.otpPepper: false` | `OTP_PEPPER` is not set for Production, is under 32 characters, or starts with `replace-with`. Login fails with a 500 on `POST /api/auth/otp/request`. | Generate one: `openssl rand -hex 32` (64 characters). Vercel > Settings > Environment Variables > `OTP_PEPPER` > Production, type Secret. Then Deployments > the latest > Redeploy. |
+| `config.webhookSecret: false` | `PAYMENT_WEBHOOK_SECRET` is missing, under 32 characters, or the placeholder. | Same as above with `PAYMENT_WEBHOOK_SECRET`, a **different** value from the pepper: `openssl rand -hex 32`. Redeploy. |
+| `config.vercelSystemVars: false` (on Vercel) | "Enable access to System Environment Variables" is off, so the visitor's address cannot be read (D3). Not a failure of the status, but the address limit breaks. | Vercel > Settings > Environment Variables > tick "Enable access to System Environment Variables" > Save > Redeploy. |
+| `config.nodeMajor` is not 24 | The project builds with another Node version (D4). | Vercel > Settings > Build and Deployment > Node.js Version: 24.x. Redeploy. |
+| `database: "unreachable"` | `DATABASE_URL` is not set, is wrong, or the password or host is refused. | Check the variable exists for Production (D2). Test the string from your terminal: `read -rs APP_URL; psql "$APP_URL" -c "SELECT current_user"; unset APP_URL` (paste "neon-app-pooled"). A password error here means the string is wrong: rebuild it as in C7. If `psql` works, redeploy. The readiness report does not log the reason. To see it, make one request that needs the database: `curl -s -X POST "$BASE_URL/api/auth/otp/request" -H 'content-type: application/json' -d '{"phone":"5000000006"}'` (a fictional demo phone), then search the Vercel logs (below) and read `code`: `28P01` wrong password, `3D000` no such database, `P1000` authentication failed, `P1001` host not reachable. |
+| `database: "timeout"` | Nothing answered in 3 seconds: Neon waking from sleep, a wrong region, or a host that does not answer. | Wait 10 seconds and open the address again (Neon wakes in a few hundred milliseconds). If it stays: in the Neon Console, check the project still exists and is not suspended; the host in "neon-app-pooled" ends `.neon.tech` and contains `-pooler`. |
+| `schema.missingTables` names tables or `otp_codes.requested_ip_hash` | Migrations were not applied to this database (Part C2). | Enter the owner string (C1), then `npx prisma migrate deploy` and `npx prisma migrate status` (expect "Database schema is up to date!"). Then re-run the grants (next row): a new table has no grant. |
+| `appRole.canInsertOtp: false` | The app role has no INSERT on `otp_codes`: the grants were not run, or ran before the last migration. | Enter the owner string, then `npm run db:print-app-role-sql -- --app=township_app --owner=neondb_owner > app-role.sql` and `psql "$DATABASE_URL" -f app-role.sql`; delete `app-role.sql` (C3b). |
+| `appRole.isSuperuser: true`, `canUpdateLedger: true` or `canDeleteAuditLog: true` | The app connects as the owner or as a member of `neon_superuser`. The append-only protection is then not in force. | Vercel `DATABASE_URL` must be "neon-app-pooled" (user `township_app`), **not** the owner string. If the role was made in the Neon console, drop it and create it with SQL (C3), then run the grants (previous row). Redeploy. |
+| `data.seeded: false` | The database is migrated but has no users, flats or bills. | Enter the owner string, then `export DEMO_MODE=true` and `npm run db:seed -- --yes --allow-remote --confirm-database=neondb` (C5); then `unset DATABASE_URL DEMO_MODE`. |
+| No report: 404, a Vercel login page, or no answer | The deployment is an old build, or Deployment Protection covers production (D7). | Check D9 finished and the production branch is `master` (D6); check D7. |
+
+**Reading the Vercel logs.** Vercel > the project > Logs (runtime logs; Hobby keeps 1 hour). Search for **`route failed`**. Each
+failure is one JSON line: `route` (the path, never the query), `errorName` (the error class, for example
+`PrismaClientKnownRequestError`), `code` (a five-character Postgres SQLSTATE such as `42P01` "table missing" or `42501`
+"permission denied", or a Prisma code such as `P1001`, or `null`), and `message` (redacted, cut to 300 characters; Prisma messages
+start with a code frame, so read `code` first). A connection string, a password, a key or a long token is shown as `[secret]`.
+Request bodies, headers, cookies, phone numbers and codes are never logged. If you paste a line into the chat, it is safe to
+do so, but read it first.
+
 ## Part E. Check the live site
 
 Put the address in your shell, then run the agent's smoke script:
@@ -185,7 +226,8 @@ export BASE_URL=https://<your-project>.vercel.app
 npm run smoke:auth -- "$BASE_URL" 5000000006     # a resident; then repeat with 5000000001 (staff)
 ```
 
-- [ ] **E1. Smoke test.** **Expected:** every step prints OK (request returns the generic answer; a wrong code is refused;
+- [ ] **E1. Smoke test.** It first prints the readiness table (D10) and stops, naming the failing check, if the deployment is not ready.
+      **Expected:** every step prints OK (request returns the generic answer; a wrong code is refused;
       the right code logs in a resident and a staff user; the cookie is `__Host-session` with `Secure`, `HttpOnly`,
       `SameSite=Lax`; logout returns 204). Paste the printed summary. If the function says "Cannot find module 'pg'", tell the
       agent (plan, Decision 9).

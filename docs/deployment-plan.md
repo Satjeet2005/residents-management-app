@@ -145,7 +145,7 @@ Names only. No value belongs in a commit, a chat, or a screenshot. "Set by" says
 
 | Name | What it is | Set by | Environments | Secret? |
 |---|---|---|---|---|
-| `DATABASE_URL` | Neon **pooled** connection string (host contains `-pooler`) for the **app role** `township_app`, with `?sslmode=require` | You, in the Vercel dashboard (Settings > Environment Variables) | **Production only** (Preview and Development: not set) | Secret |
+| `DATABASE_URL` | Neon **pooled** connection string (host contains `-pooler`) for the **app role** `township_app`, ending `?sslmode=verify-full` (the driver already treats `require` as `verify-full`; written out, it removes the driver's warning) | You, in the Vercel dashboard (Settings > Environment Variables) | **Production only** (Preview and Development: not set) | Secret |
 | `DATABASE_URL_UNPOOLED` | Neon **direct** connection string for the **owner** role, for migrations, the seed and the grants | You, in your own shell only, for one command at a time | **Not in Vercel at all** | Secret |
 | `OTP_PEPPER` | Random value, at least 32 characters, not starting with `replace-with` (the app refuses it in production) | You: generate it on your machine and paste it only into the Vercel dashboard | Production only | Secret |
 | `PAYMENT_WEBHOOK_SECRET` | Random value, at least 32 characters, not starting with `replace-with` (the webhook refuses to verify with a weaker one in production). It signs the payment events, so it is **not** the Neon string and not the pepper | You: generate it on your machine and paste it **only into the Vercel dashboard** | Production only | Secret |
