@@ -1,6 +1,5 @@
 import { DemoNote } from "@/components/demo-note";
 import { SignOutButtons } from "@/components/sign-out-buttons";
-import { Hairline } from "@/components/ui/rules";
 import { SectionHeader } from "@/components/ui/section-header";
 import { t } from "@/lib/messages";
 import type { ProfileData } from "@/server/profile/profile-data";
@@ -21,7 +20,7 @@ const roleText = (role: ProfileData["role"]): string => (role === "STAFF" ? t("r
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-baseline justify-between gap-4 py-3">
+    <div className="flex items-baseline justify-between gap-4 border-b border-hairline py-3">
       <dt className="text-body text-ink-2">{label}</dt>
       <dd className="tnum text-right text-body">{children}</dd>
     </div>
@@ -35,9 +34,7 @@ export function ProfileView({ data, showDemoNote }: { data: ProfileData; showDem
       <h1 className="text-heading font-semibold">{t("profile.title")}</h1>
       <dl>
         <Row label={t("profile.name")}>{data.name}</Row>
-        <Hairline />
         <Row label={t("profile.phone")}>{data.phoneMasked}</Row>
-        <Hairline />
         <Row label={t("profile.role")}>{roleText(data.role)}</Row>
       </dl>
       <section className="flex flex-col gap-2">
