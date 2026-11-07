@@ -66,6 +66,16 @@ describe("D81 page inventory", () => {
     for (const page of reconciliation) expect(need(page.address), page.address).toBe("payments:match");
   });
 
+  it("T13b the complaint pages ask for a resident (a staff member is sent to /forbidden) and call requireUser themselves", () => {
+    const complaintPages = ["/complaints", "/complaints/new", "/complaints/[id]"];
+    expect(pages.map((p) => p.address)).toEqual(expect.arrayContaining(complaintPages));
+    for (const address of complaintPages) {
+      const page = pages.find((p) => p.address === address);
+      expect(page?.calls.has("requireUser"), address).toBe(true);
+      expect(/need:\s*"RESIDENT"/.test(readFileSync(page?.file ?? "", "utf8")), address).toBe(true);
+    }
+  });
+
   it("every public page on the allowlist exists (no stale entry)", () => {
     const present = new Set(pages.map((p) => p.address));
     expect(Object.keys(PUBLIC_PAGES).filter((a) => !present.has(a))).toEqual([]);
