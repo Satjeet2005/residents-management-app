@@ -614,4 +614,10 @@ export const en = {
   "staffComplaints.safetyPanel.acknowledgeHint": "The resident is told that the duty manager has seen the report.",
   "staffComplaints.safetyPanel.close": "Close this safety complaint",
   "staffComplaints.safetyPanel.closeHint": "Only the duty manager can close a safety complaint. The resident can still say it is a problem.",
+  "staffComplaints.loading": "Loading complaints",
+  "staffComplaints.loadingOne": "Loading this complaint",
+  "staffComplaints.errorPage.message": "We could not load the complaints.",
+  "staffComplaints.errorPage.consequence": "Nothing was changed. You can try again.",
+  "staffComplaints.notFound.title": "Complaint not found",
+  "staffComplaints.notFound.body": "No complaint has this address. Go back to the board.",
 } as const satisfies Record<string, string>;
