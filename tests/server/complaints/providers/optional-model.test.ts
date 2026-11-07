@@ -100,7 +100,8 @@ describe("PV10 the model name is optional (D144)", () => {
   });
 
   it("the response parser does not need a model field in the answer", () => {
-    const { model: _model, ...withoutModel } = answerBody() as Record<string, unknown>;
+    const withoutModel = { ...(answerBody() as Record<string, unknown>) };
+    delete withoutModel.model;
     expect("model" in withoutModel).toBe(false);
     expect(parseResponse(withoutModel)).not.toBeNull();
   });
