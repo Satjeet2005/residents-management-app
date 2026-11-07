@@ -374,6 +374,7 @@ export const en = {
   "recon.row.review": "Review",
   "recon.row.reviewing": "Reviewing",
   "recon.row.reviewLabel": "Review the payment of {amount} on {date}",
+  "recon.row.reviewingLabel": "Reviewing the payment of {amount} on {date}",
   "recon.panel.title": "Review this payment",
   "recon.panel.close": "Close",
   "recon.panel.facts": "Bank facts",

@@ -25,15 +25,19 @@ function Candidate({ row }: { row: RowCard }) {
 
 /** The link that opens a row in the review panel (the row is in the URL as ?row=). Only rows that wait for a person have one. */
 function ReviewLink({ row, importId, lane, selectedId }: { row: RowCard; importId: string; lane: Lane; selectedId: string | null }) {
+  const selected = row.id === selectedId;
+  const labelValues = { amount: formatRupees(BigInt(row.amountPaise)), date: formatDay(row.txnDate) };
+  // The accessible name starts with the visible word ("Review" or "Reviewing"), as WCAG 2.5.3 asks.
+  const label = selected ? t("recon.row.reviewingLabel", labelValues) : t("recon.row.reviewLabel", labelValues);
   return (
     <Link
       id={rowLinkId(row.id)}
       href={workspaceHref({ importId, lane, row: row.id })}
-      aria-current={row.id === selectedId ? "true" : undefined}
-      aria-label={t("recon.row.reviewLabel", { amount: formatRupees(BigInt(row.amountPaise)), date: formatDay(row.txnDate) })}
+      aria-current={selected ? "true" : undefined}
+      aria-label={label}
       className="inline-flex min-h-12 items-center text-body font-semibold text-accent underline underline-offset-4 aria-[current=true]:text-ink"
     >
-      {row.id === selectedId ? t("recon.row.reviewing") : t("recon.row.review")}
+      {selected ? t("recon.row.reviewing") : t("recon.row.review")}
     </Link>
   );
 }
