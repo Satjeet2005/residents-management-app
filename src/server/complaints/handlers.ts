@@ -2,7 +2,7 @@ import { z } from "zod";
 import { CATEGORY_CODES } from "@/domain/complaints/taxonomy";
 import type { GuardContext } from "@/server/auth/guard";
 import { businessNow } from "@/server/clock";
-import { autoCloseDue } from "./auto-close";
+import { autoCloseQuietly } from "./auto-close";
 import { LANES, listBoard } from "./board";
 import { type Classifier, NullClassifier } from "./classifier";
 import { isUuid } from "./context";
@@ -67,14 +67,8 @@ const categoryBody = z.strictObject({ category: z.enum(CATEGORY_CODES), expected
 const closeBody = z.strictObject({ note: z.string().max(5000) });
 const emptyBody = z.strictObject({});
 
-/** Lazy auto-close (D120): the lists call it as they load. A failure must not break the page, so it is logged without data and ignored. */
-async function lazyAutoClose(context: Context, now: number): Promise<void> {
-  try {
-    await autoCloseDue({ db: context.deps.db, now });
-  } catch {
-    console.error("auto-close failed");
-  }
-}
+/** Lazy auto-close (D120): the lists call it as they load. */
+const lazyAutoClose = (context: Context, now: number): Promise<void> => autoCloseQuietly({ db: context.deps.db, now });
 
 /** POST /api/complaints: 201 with the new complaint, or 200 with `duplicate: true` for a repeat within 60 seconds. */
 export async function handleCreate(context: Context, options: Options = {}): Promise<Response> {

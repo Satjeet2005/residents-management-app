@@ -1,12 +1,11 @@
 import { EmergencyButton } from "@/components/emergency-sheet";
-import { CheckIcon } from "@/components/icons";
+import { ComplaintStatusMark, ComplaintTracker, complaintSteps } from "@/components/complaint-progress";
 import { Money } from "@/components/ui/money";
 import { Notice } from "@/components/ui/notice";
 import { SectionHeader } from "@/components/ui/section-header";
 import { StatusTag } from "@/components/ui/status-tag";
-import { Tracker, stepNumber, type TrackerStep } from "@/components/ui/tracker";
+import { stepNumber } from "@/components/ui/tracker";
 import { DoubleRule, Hairline } from "@/components/ui/rules";
-import { COMPLAINT_STEP_KEYS } from "@/domain/complaints/step";
 import { formatRupees } from "@/domain/money/money";
 import { formatDay } from "@/lib/format-date";
 import { complaintStepLine, dueTag, entryLabel, otherComplaintsText, partlyPaidText, visitorTimesText, visitorsText } from "@/lib/home-text";
@@ -24,19 +23,6 @@ function relationText(relation: FlatRelation): string {
       return t("relation.tenant");
     case "FAMILY":
       return t("relation.family");
-  }
-}
-
-function stepLabel(key: (typeof COMPLAINT_STEP_KEYS)[number]): string {
-  switch (key) {
-    case "complaint.step.raised":
-      return t("complaint.step.raised");
-    case "complaint.step.assigned":
-      return t("complaint.step.assigned");
-    case "complaint.step.inProgress":
-      return t("complaint.step.inProgress");
-    case "complaint.step.resolved":
-      return t("complaint.step.resolved");
   }
 }
 
@@ -76,25 +62,15 @@ function DuesCard({ data }: { data: Ok }) {
   );
 }
 
-/** The status of a complaint at the right of its title: a small mark and the word of the current step. */
-function ComplaintStatus({ current, label }: { current: number; label: string }) {
-  return (
-    <span className="inline-flex shrink-0 items-center gap-2 text-body font-semibold">
-      {current === COMPLAINT_STEP_KEYS.length - 1 ? <CheckIcon size={20} /> : <span aria-hidden="true" className="h-4 w-4 rounded-full border-[5px] border-accent" />}
-      {label}
-    </span>
-  );
-}
-
 function ComplaintCard({ complaint, others }: { complaint: HomeComplaint; others: number }) {
-  const steps: TrackerStep[] = COMPLAINT_STEP_KEYS.map((key, index) => ({ label: stepLabel(key), state: index < complaint.current ? "done" : index === complaint.current ? "current" : "upcoming" }));
+  const steps = complaintSteps(complaint.current);
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-3">
         <p className="min-w-0 break-words text-body font-semibold">{complaint.title}</p>
-        <ComplaintStatus current={complaint.current} label={steps[complaint.current].label} />
+        <ComplaintStatusMark current={complaint.current} label={steps[complaint.current].label} />
       </div>
-      <Tracker steps={steps} label={t("complaint.progress")} showStepText={false} />
+      <ComplaintTracker current={complaint.current} />
       <p className="tnum text-body">{complaintStepLine(stepNumber(steps), steps.length, complaint.reply)}</p>
       {others > 0 && <p className="text-body text-ink-2">{otherComplaintsText(others)}</p>}
     </div>

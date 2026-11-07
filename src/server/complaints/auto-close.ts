@@ -49,3 +49,12 @@ export async function autoCloseDue(input: { db: Db; now: number }): Promise<numb
     }
   }
 }
+
+/** The lazy call of a screen or route that loads complaints (D120): a failure must not break the page, so it is logged without data and ignored. */
+export async function autoCloseQuietly(input: { db: Db; now: number }): Promise<void> {
+  try {
+    await autoCloseDue(input);
+  } catch {
+    console.error("auto-close failed");
+  }
+}
