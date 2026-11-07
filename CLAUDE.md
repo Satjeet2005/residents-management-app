@@ -126,3 +126,4 @@ Every task prompt means: follow this section exactly.
 - Update the app role privilege matrix only for what the task needs, and stop and ask if more is required.
 - Stop and ask the human for any product, scope, risk or cost decision not in `docs/decisions.md`.
 - End with the report template, including "In plain English", "Commits made" with a check result per commit, "What I could not verify", and the exact commands for the human to look at the result.
+- Before reporting, run `npm run test:ci-parity` (unit and integration tests with no .env and only DATABASE_URL) and paste its result. A test that passes only with a developer's .env is a bug.
