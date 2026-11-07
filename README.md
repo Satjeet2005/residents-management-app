@@ -138,6 +138,27 @@ To look at it at 1280px and at 360px, open the page in Chrome or Firefox, press 
 cards and the panel is below the timeline. Tab through the page: every control shows a ring, the tabs move with the arrow keys, and after an action the focus
 is on the line that says what happened.
 
+## Reading the committee report (staff)
+
+The report is described in `docs/committee-report.md` (decisions D131 to D133). With a seeded database and the app running in demo mode (see Run and Demo data above; `DEMO_AS_OF=2026-10-27` reproduces the
+numbers below):
+
+```bash
+npm run db:seed -- --yes && npm run build && npm run start     # http://localhost:3000
+```
+
+1. Log in as **Meera Kapoor** (`5000000003`, `reports:view`; the code is in the banner). `/staff` lists **Committee report**; open it. A resident, or staff without `reports:view`, ends at `/forbidden`.
+2. The top says "Figures as of 27 October 2026". Under **Money, October 2026** read Billed (₹1,80,52,190) = Collected (₹1,48,42,714) + Outstanding (₹32,09,476); the double rule closes the ledger. Under it the late fees
+   (posted and paid, posted and owing, accruing and not yet posted) and the flats (2399 billed, 1915 paid in full, 484 with principal outstanding).
+3. **What is owed** says "All open dues, all months" and splits the total due (₹61,89,686 over 943 bills) into five age groups; the bar and the numbers beside it say the same, and they add up. Press **See the flats** on
+   "31 to 60 days": the list of flat codes, bill month, days overdue and amount due, oldest first, 25 at a time with **Load more**. There is no name and no phone number anywhere.
+4. Read **Collection quality**, **Complaints** (an unacknowledged safety complaint has a warning with an icon and words), the **Bank reconciliation** line (it says no statement was imported until you import the sample
+   statement as Priya Nair) and **Goals**: each row has the target, the actual and Met or Not met in words with an icon. Change the month with the selector (a plain form; it works without a script).
+5. The targets are assumptions in the setting `committee_goals`. On a hosted database that was seeded before this task, the owner inserts the row once (`docs/deploy-checklist.md`, E8).
+
+To look at it at 1280px and at 360px, open the page in Chrome or Firefox, press F12 and then Ctrl+Shift+M (device toolbar), choose Responsive and type 1280 x 800, then 360 x 800. At 1280px the blocks are two
+columns and the lists are tables; at 360px they are one column and the drill-down rows are cards. Tab through the page: every control shows a ring.
+
 ## Raising a complaint (resident)
 
 Complaint screens: `docs/complaints-ui.md`. With a seeded database and the app running in demo mode (see Run and Demo data above), open the page in a

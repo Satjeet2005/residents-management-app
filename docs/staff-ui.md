@@ -61,7 +61,7 @@ the amount comes from `society_settings.approval_threshold_paise` through `loadR
 | **Accept all** and any **bulk action** | Every manual decision needs a person and a reason of its own (D114). A test fails if the words appear anywhere in the staff source or the catalog. |
 | **Advance credit** and a payment for several bills | A credit above the oldest position's amount due is `NEEDS_ADVANCE_HANDLING`; the panel says so and the row stays in Needs you. |
 | **Waivers** of a late fee | The fee stays owing (D107); a waiver would be a separate, approved workflow. |
-| Hindi and Marathi, the committee report, complaints | Out of this task. |
+| Hindi and Marathi | Out of this task. (The committee report is `docs/committee-report.md`; complaints are `docs/staff-complaints-ui.md`.) |
 
 ## How the data is read
 

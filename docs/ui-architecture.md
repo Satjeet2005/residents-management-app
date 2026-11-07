@@ -1,4 +1,4 @@
-# UI architecture (T11a, T11b, T13b, T13c)
+# UI architecture (T11a, T11b, T13b, T13c, T14)
 
 The login screen, the app shell, Profile and the resident Home with its Pay flow (T11b). This page says how the screens are built, where
 the data comes from, which clock they use, and what is deliberately **not** here yet and which task adds it. The look is
@@ -21,6 +21,7 @@ the Emergency sheet (the call link there is the large accent link the task descr
 | `/staff` | `src/app/(staff)/staff/` | staff | Name, the tools the person may open, permissions in words, sign out. |
 | `/staff/reconciliation` | `src/app/(staff)/staff/reconciliation/` | staff with `payments:match` | Upload a bank statement, recent imports (T12c, `docs/staff-ui.md`). |
 | `/staff/reconciliation/[importId]` | `.../[importId]/` | staff with `payments:match` | The workspace: summary bar, lanes, rows, review panel. |
+| `/staff/reports` | `src/app/(staff)/staff/reports/` | staff with `reports:view` | The committee report: money line, what is owed (with a drill-down), collection quality, complaints, the reconciliation line, the goals (T14, `docs/committee-report.md`). |
 | `/staff/complaints` | `src/app/(staff)/staff/complaints/` | staff with `complaints:manage` | The board: six lanes, rows, Load more (T13c, `docs/staff-complaints-ui.md`). |
 | `/staff/complaints/[id]` | `.../complaints/[id]/` | staff with `complaints:manage` | One complaint: full timeline and the action panel. |
 | `/forbidden` | `src/app/forbidden/` | anyone | Plain message and a link home. Where `requireUser` sends a wrong role. |
@@ -123,7 +124,7 @@ numbers (`DEMO_AS_OF=2026-10-27`). It is never shown otherwise (tests: `tests/ui
 | Notifications bell (D22, D55) | Not built | The notifications task |
 | Offline banner, service worker | A later task | The installable-app task |
 | Hindi and Marathi UI, the language choice (D44) | English only for now (D2) | The translation task, if time allows |
-| Staff reports | Not built | The report task. Bank reconciliation (`docs/staff-ui.md`) and the complaints board with acknowledging a safety complaint (`docs/staff-complaints-ui.md`) are built |
+| Charts, export and print views of the committee report | Not built (the ageing is a segmented bar of plain elements) | Not planned (`docs/committee-report.md`). Bank reconciliation (`docs/staff-ui.md`), the complaints board (`docs/staff-complaints-ui.md`) and the committee report are built |
 | A Proxy (true 307 for resident pages) | See above | Not planned |
 | Waiving a late fee | A waiver is a separate approved workflow; today a fee stays owing until paid (D107) | A later task, if the committee wants it |
 
@@ -142,6 +143,14 @@ Bank reconciliation is built over the T12b services; `docs/staff-ui.md` has the 
 labels, who sees Approve), the loaders in `src/server/statements/ui-data.ts`, and the screens in `src/app/(staff)/staff/reconciliation/`. The staff
 frame (`src/app/(staff)/layout.tsx`) is a banner with one link home and checks nobody. A client component receives only plain data (money as
 decimal strings) and talks to the existing API routes; the one server action ("Load more") is built with `withPermissionAction("payments:match")`.
+
+## Committee report (T14)
+
+The committee report is in `docs/committee-report.md`. Same shape as the other staff screens: the page calls `requireUser({ need: "reports:view" })`, `loadCommitteeReport` (`src/server/reports/report-data.ts`)
+checks the permission again and reads through the app role, and pure views draw the data. The money comes from `positionsForFlat`, the Home's function, over every flat in three queries, and the pure
+metrics are in `src/domain/reports/`. The page is almost all server components: the month selector is a plain GET form (it works without a script and the month is in the address), and the only client
+component is the ageing drill-down's "Load more" (a server action built with `withPermissionAction("reports:view")`). The blocks are a grid, two columns from 1024px and stacked below. Nothing on the
+page names a person.
 
 ## Staff complaint screens (T13c)
 
