@@ -2,7 +2,8 @@ import { defineConfig } from "vitest/config";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-if (existsSync(".env")) process.loadEnvFile(".env");
+// IGNORE_DOTENV=true reproduces CI, where no .env exists (npm run test:ci-parity).
+if (process.env.IGNORE_DOTENV !== "true" && existsSync(".env")) process.loadEnvFile(".env");
 
 export default defineConfig({
   resolve: {

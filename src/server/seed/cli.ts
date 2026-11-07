@@ -30,7 +30,7 @@ function printSummary(counts: Record<string, number>, seconds: number, sizeBytes
 
 async function main(): Promise<void> {
   try {
-    process.loadEnvFile();
+    if (process.env.IGNORE_DOTENV !== "true") process.loadEnvFile();
   } catch {
     // No .env file: the variables may come from the shell.
   }
