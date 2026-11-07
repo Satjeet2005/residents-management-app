@@ -31,13 +31,20 @@ export async function loadEntries(db: Db, flatId: string): Promise<EntryRow[]> {
   });
 }
 
-/** Open complaints of the flat (not closed), newest first. */
+/**
+ * Open complaints of the flat (not closed), newest first. `acknowledgedAt` is the time of the first acknowledgement event (a COMMENT with the kind "ack",
+ * written only by the duty manager's acknowledge action, D149), never `first_response_at`, which any staff action sets.
+ */
 export async function loadOpenComplaints(db: Db, flatId: string): Promise<ComplaintRow[]> {
-  return db.complaint.findMany({
+  const rows = await db.complaint.findMany({
     where: { flatId, status: { not: "CLOSED" } },
     orderBy: { createdAt: "desc" },
-    select: { id: true, safetyFlag: true, body: true, status: true, createdAt: true, responseDueAt: true, firstResponseAt: true },
+    select: {
+      id: true, safetyFlag: true, body: true, status: true, createdAt: true, responseDueAt: true, firstResponseAt: true,
+      events: { where: { eventType: "COMMENT", payload: { path: ["kind"], equals: "ack" } }, orderBy: { createdAt: "asc" }, take: 1, select: { createdAt: true } },
+    },
   });
+  return rows.map(({ events, ...row }) => ({ ...row, acknowledgedAt: events[0]?.createdAt ?? null }));
 }
 
 /** The expected times of the visitors of the flat on the India day `today`, not cancelled. Names are personal data and are not read. */

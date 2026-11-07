@@ -14,7 +14,7 @@ const MIN = 60_000;
 const text = (html: string) => html.replace(/<[^>]*>/g, " ").replace(/&#x27;/g, "'").replace(/\s+/g, " ");
 const count = (html: string, pattern: RegExp) => (html.match(pattern) ?? []).length;
 const alertHtml = (alert: HomeSafetyAlert) => renderToStaticMarkup(h(SafetyAlert, { alert }));
-const safety = (over: Partial<ComplaintRow> = {}): ComplaintRow => ({ id: "s1", safetyFlag: true, body: "There is a fire in the basement", status: "ASSIGNED", createdAt: new Date(DEMO_NOW - MIN), responseDueAt: null, firstResponseAt: null, ...over });
+const safety = (over: Partial<ComplaintRow> = {}): ComplaintRow => ({ id: "s1", safetyFlag: true, body: "There is a fire in the basement", status: "ASSIGNED", createdAt: new Date(DEMO_NOW - MIN), responseDueAt: null, firstResponseAt: null, acknowledgedAt: null, ...over });
 const homeWith = (complaint: ComplaintRow | null, now = DEMO_NOW, settings?: SettingsRow[]): Extract<HomeData, { kind: "OK" }> => {
   const base = inputFor("T12-0408", now);
   const data = assembleHome({ ...base, complaints: complaint === null ? base.complaints : [...base.complaints, complaint], settings: settings ?? base.settings });
@@ -126,7 +126,7 @@ describe("D126 the Home with an open safety complaint: the slot and the outlined
   it("alert 1b is shown only after the acknowledgement, 1c only after the timeout", () => {
     expect(text(render(homeWith(safety(), DEMO_NOW)))).not.toContain("has seen your report");
     expect(text(render(homeWith(safety(), DEMO_NOW)))).not.toContain("No answer yet");
-    expect(text(render(homeWith(safety({ firstResponseAt: new Date(DEMO_NOW) }), DEMO_NOW)))).toContain("The duty manager has seen your report");
+    expect(text(render(homeWith(safety({ acknowledgedAt: new Date(DEMO_NOW) }), DEMO_NOW)))).toContain("The duty manager has seen your report");
     expect(text(render(homeWith(safety(), DEMO_NOW + 5 * MIN)))).toContain("No answer yet");
   });
 });

@@ -23,7 +23,7 @@ export type EntryRow = {
   reversesEntryId: string | null;
   createdAt: Date;
 };
-export type ComplaintRow = { id: string; safetyFlag: boolean; body: string; status: ComplaintStatus; createdAt: Date; responseDueAt: Date | null; firstResponseAt: Date | null };
+export type ComplaintRow = { id: string; safetyFlag: boolean; body: string; status: ComplaintStatus; createdAt: Date; responseDueAt: Date | null; firstResponseAt: Date | null; acknowledgedAt: Date | null };
 export type VisitorRow = { expectedAt: Date };
 /** The newest payment attempt of the flat. */
 export type AttemptRow = { status: "INITIATED" | "PROCESSING" | "SUCCEEDED" | "FAILED" | "RELEASED"; startedAt: Date };
@@ -96,13 +96,13 @@ export function safetyTimeoutMinutes(settings: readonly SettingsRow[]): number {
 export function safetyAlertOf(complaints: readonly ComplaintRow[], settings: readonly SettingsRow[], now: number): HomeSafetyAlert | null {
   const newest = [...complaints].filter((c) => c.safetyFlag && c.status !== "CLOSED").sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
   if (newest === undefined) return null;
-  const state = safetyAlertState({ createdAt: newest.createdAt.getTime(), firstResponseAt: newest.firstResponseAt?.getTime() ?? null, now, timeoutMinutes: safetyTimeoutMinutes(settings) });
+  const state = safetyAlertState({ createdAt: newest.createdAt.getTime(), acknowledgedAt: newest.acknowledgedAt?.getTime() ?? null, now, timeoutMinutes: safetyTimeoutMinutes(settings) });
   const duty = phoneSetting(settings, "duty_manager_phone");
   const services = phoneSetting(settings, "emergency_services_phone");
   return {
     state,
     category: detectSafetyWords(newest.body)[0]?.category ?? null,
-    seenAt: state === "SEEN" ? (newest.firstResponseAt?.getTime() ?? null) : null,
+    seenAt: state === "SEEN" ? (newest.acknowledgedAt?.getTime() ?? null) : null,
     callPhone: state === "NO_ANSWER" ? (services ?? duty) : duty,
   };
 }

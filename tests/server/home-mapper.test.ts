@@ -208,7 +208,7 @@ describe("HM1 the other parts of the Home data", () => {
 
   it("the shown complaint is the newest open one; a closed complaint is not counted; the others are counted", () => {
     const base = inputFor("T12-0408");
-    const extra = (body: string, minutes: number, status: ComplaintRow["status"]): ComplaintRow => ({ id: `extra-${body}`, safetyFlag: false, body, status, createdAt: new Date(DEMO_NOW + minutes * 60_000), responseDueAt: null, firstResponseAt: null });
+    const extra = (body: string, minutes: number, status: ComplaintRow["status"]): ComplaintRow => ({ id: `extra-${body}`, safetyFlag: false, body, status, createdAt: new Date(DEMO_NOW + minutes * 60_000), responseDueAt: null, firstResponseAt: null, acknowledgedAt: null });
     const data = assembleHome({ ...base, complaints: [...base.complaints, extra("Newest one\nsecond line", 5, "NEW"), extra("Closed one", 10, "CLOSED"), extra("Older", -9999, "IN_PROGRESS")] });
     expect(data.kind === "OK" && data.complaint?.title).toBe("Newest one");
     expect(data.kind === "OK" && data.otherOpenComplaints).toBe(2);

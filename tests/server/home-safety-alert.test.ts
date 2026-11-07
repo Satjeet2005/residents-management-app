@@ -5,7 +5,7 @@ import { inputFor } from "./home-fixtures";
 
 const MIN = 60_000;
 const settings = (extra: SettingsRow[] = []): SettingsRow[] => [{ key: "duty_manager_phone", value: "5900000001" }, { key: "emergency_services_phone", value: null }, ...extra];
-const row = (over: Partial<ComplaintRow>): ComplaintRow => ({ id: "c1", safetyFlag: true, body: "Gas smell in the corridor", status: "ASSIGNED", createdAt: new Date(DEMO_NOW), responseDueAt: null, firstResponseAt: null, ...over });
+const row = (over: Partial<ComplaintRow>): ComplaintRow => ({ id: "c1", safetyFlag: true, body: "Gas smell in the corridor", status: "ASSIGNED", createdAt: new Date(DEMO_NOW), responseDueAt: null, firstResponseAt: null, acknowledgedAt: null, ...over });
 
 describe("D126 safetyAlertOf", () => {
   it("is null with no open safety complaint: none at all, an ordinary one, or a closed safety one", () => {
@@ -18,9 +18,15 @@ describe("D126 safetyAlertOf", () => {
     expect(safetyAlertOf([row({})], settings(), DEMO_NOW + MIN)).toEqual({ state: "SENT", category: "GAS", seenAt: null, callPhone: "5900000001" });
   });
 
-  it("1b: seen once first_response_at is set, with the time of the acknowledgement", () => {
+  it("1b: seen once the duty manager has acknowledged, with the time of the acknowledgement", () => {
     const seenAt = DEMO_NOW + 2 * MIN;
-    expect(safetyAlertOf([row({ firstResponseAt: new Date(seenAt) })], settings(), DEMO_NOW + 3 * MIN)).toEqual({ state: "SEEN", category: "GAS", seenAt, callPhone: "5900000001" });
+    expect(safetyAlertOf([row({ acknowledgedAt: new Date(seenAt) })], settings(), DEMO_NOW + 3 * MIN)).toEqual({ state: "SEEN", category: "GAS", seenAt, callPhone: "5900000001" });
+  });
+
+  it("D149 a first reply by other staff (first_response_at) is not an acknowledgement: 1a, then 1c", () => {
+    const replied = row({ firstResponseAt: new Date(DEMO_NOW + MIN) });
+    expect(safetyAlertOf([replied], settings(), DEMO_NOW + 2 * MIN)).toMatchObject({ state: "SENT", seenAt: null });
+    expect(safetyAlertOf([replied], settings(), DEMO_NOW + 5 * MIN)).toMatchObject({ state: "NO_ANSWER", seenAt: null });
   });
 
   it("1b is NOT shown before the acknowledgement, whatever else has happened to the complaint", () => {

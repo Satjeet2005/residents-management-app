@@ -3,7 +3,7 @@ import { DEFAULT_SAFETY_ACK_TIMEOUT_MINUTES, safetyAlertState } from "@/domain/c
 
 const T0 = Date.UTC(2026, 10, 6, 6, 30);
 const MIN = 60_000;
-const state = (now: number, firstResponseAt: number | null = null, timeoutMinutes = 5) => safetyAlertState({ createdAt: T0, firstResponseAt, now, timeoutMinutes });
+const state = (now: number, acknowledgedAt: number | null = null, timeoutMinutes = 5) => safetyAlertState({ createdAt: T0, acknowledgedAt, now, timeoutMinutes });
 
 describe("D126 the safety alert state", () => {
   it("the default timeout is 5 minutes", () => {
