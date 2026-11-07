@@ -1,7 +1,7 @@
 # Classifier providers (T13d)
 
 How a complaint can be classified by a language model, server side only. Decisions: D140 (the provider chain), D141 (breaker and daily cap in memory), D142
-(a 401 or 403 opens the breaker), with D9, D73, D88, D118 and D119. Assumptions: R50 to R59 (`docs/assumptions.md`). Code: `src/server/complaints/providers/`.
+(a 401 or 403 opens the breaker), D144 (the model name is optional), with D9, D73, D88, D118 and D119. Assumptions: R50 to R62 (`docs/assumptions.md`). Code: `src/server/complaints/providers/`.
 The ports and rules around it are in `docs/complaints-design.md` and `docs/complaint-classification.md`.
 
 ## The chain
@@ -30,7 +30,7 @@ Pages used: `api/system-one`, `api/errors`, `primitives/choice`, `models`.
 | Limits | Context 64k tokens per request and 32k per question (a long-context header raises it; this app does not use it). A body of at most 32 MiB, UTF-8 JSON. Rate limits are per organisation, in tokens and requests per second; the limit is set in the provider's console. |
 | Errors | 400 (a request rule, or the request is longer than the context), 401 (missing or invalid key), 413, 415, 422 (validation), 429 (rate limit: retry later), 529 (overloaded). |
 
-The request this app sends (`buildRequest`): `model`, `state` (the de-identified text) and two choice questions: `category` over PLUMBING, ELECTRICAL,
+The request this app sends (`buildRequest`): `model` (only when the human set one: without it the field is left out and the provider chooses, D144), `state` (the de-identified text) and two choice questions: `category` over PLUMBING, ELECTRICAL,
 HOUSEKEEPING, LIFT, OTHER, and `urgency` over HIGH, NORMAL, LOW, each with plain-language instructions and a description per option. Nothing else: no user id,
 no flat, no complaint id. The fixtures in `tests/fixtures/system-one/` are the documentation's example bodies (labelled with their source and date) and one body
 in the documented shape with this app's labels.
@@ -42,7 +42,7 @@ in the documented shape with this app's labels.
 | Address the human uses | `https://opencode.ai/inference/systemone/v1/systemone` | `https://jevmodel.app/api/v1/systemone` |
 | Tier | Free, may rate-limit | Limited free tier |
 | What was found (2026-11-07) | OpenCode's inference documentation (`opencode.ai/v2/docs/console/inference/`) and its live model list (`opencode.ai/inference/v1/models`, 81 models) describe OpenAI-, Anthropic- and Gemini-compatible endpoints. **Neither mentions System One, Jev or TypeSafe**, and no model in the list uses such an endpoint. An unauthenticated GET of the address above returns 404 (expected for a POST-only route, but it proves nothing). | The address returns a web page titled "JevModel" (a single-page app) with no API documentation; automated access was not refused, but nothing about the protocol could be read. The operator is **not verified**. |
-| What is assumed | The same protocol as TypeSafe's (R50). The model name is whatever the human's account expects, set in `JEV_PRIMARY_MODEL`. | The same protocol (R51). Only de-identified text goes there. |
+| What is assumed | The same protocol as TypeSafe's (R50). The model name, if the account needs one, is set in `JEV_PRIMARY_MODEL`; otherwise the provider's default is used (D144). | The same protocol (R51). Only de-identified text goes there. |
 | Documented limits | None found. | None found. |
 
 Nothing in this task was sent to either provider: no key was available to the agent and no test uses the real network. `npm run llm:check` is how the human
@@ -54,8 +54,8 @@ Names only, in `.env.example`; values in the human's own `.env` and in the Verce
 
 | Variable | Meaning | Default and range |
 |---|---|---|
-| `JEV_PRIMARY_URL`, `JEV_PRIMARY_MODEL`, `JEV_PRIMARY_KEY` | OpenCode. All three, or the provider is not configured. | URL must be https (http only for 127.0.0.1 and localhost, for tests); no credentials in it |
-| `JEV_SECONDARY_URL`, `JEV_SECONDARY_MODEL`, `JEV_SECONDARY_KEY` | jevmodel.app, same rules. | |
+| `JEV_PRIMARY_URL`, `JEV_PRIMARY_KEY`, `JEV_PRIMARY_MODEL` | OpenCode. The URL and the key are needed, or the provider is not configured. The model is OPTIONAL (D144): unset, the request has no `model` field. Set, it is 1 to 80 characters of letters, digits and `. - _ / :`; anything else leaves out THAT provider (reason `BAD_MODEL`) and the variable name is logged once, never the value. | URL must be https (http only for 127.0.0.1 and localhost, for tests); no credentials in it |
+| `JEV_SECONDARY_URL`, `JEV_SECONDARY_KEY`, `JEV_SECONDARY_MODEL` | jevmodel.app, same rules. | |
 | `JEV_TIMEOUT_MS` | The most one request may take. | 3000; 500 to 4000 |
 | `JEV_DAILY_CAP` | Calls per provider per India day. | 300; 1 to 100000 |
 | `JEV_BREAKER_FAILURES` | Failures in a row before the breaker opens. | 3; 1 to 20 |
@@ -85,7 +85,7 @@ and a demo; a shared store (a database row, or a cache) would be a new decision 
 ## Privacy
 
 - Only the de-identified text is sent (D88). De-identification reduces personal data; it does not remove all of it (`docs/complaint-classification.md`).
-- The request body is only the model, the text and the questions. A test compares it byte for byte with `buildRequest(text, model)`.
+- The request body is only the model (when set), the text and the questions. A test compares it byte for byte with `buildRequest(text, model)`; another checks the exact keys with and without a model.
 - The key goes only in the `Authorization` header, from the environment; it is never logged or put in an error message.
 - Logging is one fixed sentence: `classifier provider failed: provider=<name> failure=<KIND> status=<code> latency_ms=<n>`. A test captures every console method after
   every kind of failure and checks that it holds no key, no complaint text, no URL, no query and no response body.

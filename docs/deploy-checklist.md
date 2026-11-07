@@ -150,8 +150,9 @@ installed).
 
       Do **not** add `DATABASE_URL_UNPOOLED`, the owner string, `SESSION_SECRET` (unused), `LLM_API_KEY` (not yet) or `DEMO_AS_OF` (optional, for local use only: leave it unset so the live dues use the real date, D97).
       Add `CRON_SECRET` only when the cron route is built.
-      Optional, to turn on the language-model classifier (D140): `JEV_PRIMARY_URL`, `JEV_PRIMARY_MODEL`, `JEV_PRIMARY_KEY` and, if you use
-      the second provider, `JEV_SECONDARY_URL`, `JEV_SECONDARY_MODEL`, `JEV_SECONDARY_KEY` (the keys as **Secret**). Set the keys **only in the Vercel
+      Optional, to turn on the language-model classifier (D140): `JEV_PRIMARY_URL`, `JEV_PRIMARY_KEY` and, if you use
+      the second provider, `JEV_SECONDARY_URL`, `JEV_SECONDARY_KEY` (the keys as **Secret**). `JEV_PRIMARY_MODEL` and `JEV_SECONDARY_MODEL` are optional (D144):
+      leave them out and the provider chooses its default model; set one only if `npm run llm:check` tells you a provider needs it. Set the keys **only in the Vercel
       dashboard**: never paste a key into a chat, a file, an issue or a command. Without them the keyword fallback answers every complaint.
 - [ ] **D3. Expose system variables.** On the same Environment Variables page tick **"Enable access to System Environment
       Variables"** (https://vercel.com/docs/environment-variables/system-environment-variables). **Expected:** the box is ticked
