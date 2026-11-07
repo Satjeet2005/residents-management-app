@@ -22,6 +22,11 @@ export class CircuitBreaker {
     return true;
   }
 
+  /** Would `allow()` say yes now? It does not hand out the trial, so it can be asked to plan how to share a time budget. */
+  canAttempt(): boolean {
+    return this.openUntil === 0 || (this.options.now() >= this.openUntil && !this.trialInFlight);
+  }
+
   /** The request succeeded: closed again. */
   success(): void {
     this.consecutive = 0;
