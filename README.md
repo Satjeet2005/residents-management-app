@@ -25,6 +25,17 @@ npm run build
 npm run scan:secrets
 ```
 
+## Browser checks and installing the app
+
+```bash
+npx playwright install chromium   # once; the browser is not in the repository
+npm run e2e                       # builds on a scratch database, runs every real-browser spec at 360px and 1280px, tears down
+```
+
+`npm run e2e` is not part of `check` or `test:ci-parity` (it needs a browser and a build). The method, the checks and what it found are in `docs/browser-verification.md`; screenshots are written to `docs/screenshots/`.
+
+To install the app on a phone, open the site over HTTPS and use "Install app" (Chrome on Android) or "Add to Home Screen" (Safari); `docs/installable-app.md` says what the service worker keeps (only the offline page and the icons, never a page after login).
+
 ## Before you push
 
 Run `npm run test:ci-parity`. CI has no `.env` and only `DATABASE_URL` in its environment, and a test that passes only with your `.env` is a bug (D128).
