@@ -1,11 +1,13 @@
 import { type Ageing, ageingTable } from "@/domain/reports/age";
-import { type MoneyLine, moneyLine } from "@/domain/reports/money-line";
+import { type ComplaintMetrics, complaintMetrics } from "@/domain/reports/complaints";
+import { type CollectionQuality, type MoneyLine, collectionQuality, moneyLine } from "@/domain/reports/money-line";
 import type { ReportPosition } from "@/domain/reports/positions";
 import { type CalendarDate, istDateOf } from "@/domain/time/calendar";
 import { choosePeriod, periodOptions } from "@/lib/reports/period";
 import type { Db } from "@/server/auth/db";
 import type { SessionUser } from "@/server/auth/session-service";
 import { requirePermission } from "@/server/statements/ui-data";
+import { loadMonthComplaints } from "./complaints";
 import { loadReportPositions } from "./positions";
 
 type Viewer = Pick<SessionUser, "id" | "role" | "active" | "permissions">;
@@ -21,6 +23,10 @@ export type CommitteeReport = {
   money: MoneyLine | null;
   /** What is owed, all open dues of all months, as of the business date. */
   ageing: Ageing;
+  /** How promptly the month's bills were paid; null when the month has no bills. */
+  quality: CollectionQuality | null;
+  /** The complaints raised in the month, as counts and medians (the screen takes the shares with `percent`). */
+  complaints: ComplaintMetrics;
 };
 
 /** The positions of the bills of one period. */
@@ -37,5 +43,14 @@ export async function loadCommitteeReport(input: { db: Db; user: Viewer; request
   const periods = periodOptions(positions.map((p) => p.bill.period), asOf);
   const period = choosePeriod({ requested: input.requestedPeriod, options: periods, asOf });
   const monthPositions = inPeriod(positions, period);
-  return { asOf, period, periods, money: monthPositions.length === 0 ? null : moneyLine(monthPositions), ageing: ageingTable(positions, asOf) };
+  const complaints = await loadMonthComplaints(input.db, period);
+  return {
+    asOf,
+    period,
+    periods,
+    money: monthPositions.length === 0 ? null : moneyLine(monthPositions),
+    ageing: ageingTable(positions, asOf),
+    quality: monthPositions.length === 0 ? null : collectionQuality(monthPositions, asOf),
+    complaints: complaintMetrics(complaints, input.now),
+  };
 }

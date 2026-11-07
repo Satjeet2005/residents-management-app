@@ -177,6 +177,91 @@ describe("RP2 the ageing, checked against raw SQL and against the Home's own sum
   });
 });
 
+describe("RP2 collection quality, checked against raw SQL", () => {
+  it("October: bills due or paid, paid on time, paid, and the median days to pay equal a separate SQL query", async () => {
+    const sql = await fx.owner.$queryRawUnsafe<{ due_or_paid: string; on_time: string; paid: string; median_days: string | null }[]>(
+      `WITH live AS (
+         SELECT e.bill_id, e.effective_date, e.amount_paise FROM ledger_entries e
+         WHERE e.entry_type = 'PAYMENT' AND e.direction = 'PAYMENT' AND e.effective_date <= $1::date
+           AND NOT EXISTS (SELECT 1 FROM ledger_entries r WHERE r.entry_type = 'REVERSAL' AND r.reverses_entry_id = e.id AND r.effective_date <= $1::date)),
+       run AS (SELECT bill_id, effective_date, sum(amount_paise) OVER (PARTITION BY bill_id ORDER BY effective_date RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cum FROM live),
+       settled AS (SELECT r.bill_id, min(r.effective_date) AS settled_on FROM run r JOIN bills b ON b.id = r.bill_id WHERE r.cum >= b.amount_paise GROUP BY r.bill_id)
+       SELECT (count(*) FILTER (WHERE b.due_on <= $1::date OR s.settled_on IS NOT NULL))::text AS due_or_paid,
+              (count(*) FILTER (WHERE s.settled_on IS NOT NULL AND s.settled_on <= b.due_on))::text AS on_time,
+              (count(*) FILTER (WHERE s.settled_on IS NOT NULL))::text AS paid,
+              (percentile_disc(0.5) WITHIN GROUP (ORDER BY (s.settled_on - b.issued_on)) FILTER (WHERE s.settled_on IS NOT NULL))::text AS median_days
+       FROM bills b LEFT JOIN settled s ON s.bill_id = b.id
+       WHERE b.period = $2::date AND b.issued_on <= $1::date`,
+      AS_OF,
+      OCTOBER,
+    );
+    const q = october.quality;
+    console.log(`RP2 SQL    quality due_or_paid=${sql[0].due_or_paid} on_time=${sql[0].on_time} paid=${sql[0].paid} median_days=${sql[0].median_days}`);
+    console.log(`RP2 loader quality due_or_paid=${q?.dueOrPaid} on_time=${q?.paidOnTime} paid=${q?.paid} median_days=${q?.medianDaysToPay}`);
+    expect(String(q?.dueOrPaid)).toBe(sql[0].due_or_paid);
+    expect(String(q?.paidOnTime)).toBe(sql[0].on_time);
+    expect(String(q?.paid)).toBe(sql[0].paid);
+    expect(q?.paidLate).toBe(Number(sql[0].paid) - Number(sql[0].on_time));
+    expect(String(q?.medianDaysToPay)).toBe(String(sql[0].median_days));
+  });
+});
+
+describe("RP2 complaints, checked against raw SQL", () => {
+  it("October: raised, replies, the SLA share, resolved, reopened, closed by whom, open now and the safety figures equal a separate SQL query", async () => {
+    const sql = await fx.owner.$queryRawUnsafe<Record<string, string | null>[]>(
+      `WITH m AS (SELECT * FROM complaints WHERE created_at >= $1::timestamptz AND created_at < $2::timestamptz),
+            res AS (SELECT e.complaint_id, min(e.created_at) AS at FROM complaint_events e JOIN m ON m.id = e.complaint_id WHERE e.event_type = 'STATUS_CHANGED' AND e.payload->>'to' = 'PENDING_CONFIRMATION' GROUP BY e.complaint_id),
+            ack AS (SELECT e.complaint_id, min(e.created_at) AS at FROM complaint_events e JOIN m ON m.id = e.complaint_id WHERE e.event_type = 'COMMENT' AND e.payload->>'kind' = 'ack' GROUP BY e.complaint_id)
+       SELECT count(*)::text AS raised,
+              (count(*) FILTER (WHERE m.first_response_at IS NOT NULL))::text AS replied,
+              (percentile_disc(0.5) WITHIN GROUP (ORDER BY floor(extract(epoch FROM (m.first_response_at - m.created_at)) / 60)) FILTER (WHERE m.first_response_at IS NOT NULL))::text AS median_reply,
+              (count(*) FILTER (WHERE m.first_response_at IS NOT NULL OR m.response_due_at < $3::timestamptz))::text AS decided,
+              (count(*) FILTER (WHERE m.first_response_at IS NOT NULL AND m.response_due_at IS NOT NULL AND m.first_response_at <= m.response_due_at))::text AS within_sla,
+              count(res.at)::text AS resolved,
+              (percentile_disc(0.5) WITHIN GROUP (ORDER BY floor(extract(epoch FROM (res.at - m.created_at)) / 60)) FILTER (WHERE res.at IS NOT NULL))::text AS median_resolved,
+              (count(*) FILTER (WHERE res.at IS NOT NULL AND m.reopen_count > 0))::text AS reopened,
+              (count(*) FILTER (WHERE m.status = 'CLOSED' AND m.close_kind = 'CONFIRMED'))::text AS by_resident,
+              (count(*) FILTER (WHERE m.status = 'CLOSED' AND m.close_kind = 'AUTO_CLOSED'))::text AS auto_closed,
+              (count(*) FILTER (WHERE m.status <> 'CLOSED'))::text AS open_now,
+              (count(*) FILTER (WHERE m.safety_flag))::text AS safety,
+              (count(*) FILTER (WHERE m.safety_flag AND ack.at IS NOT NULL))::text AS safety_acked,
+              (percentile_disc(0.5) WITHIN GROUP (ORDER BY floor(extract(epoch FROM (ack.at - m.created_at)) / 60)) FILTER (WHERE m.safety_flag AND ack.at IS NOT NULL))::text AS median_ack,
+              (count(*) FILTER (WHERE m.safety_flag AND m.status <> 'CLOSED' AND ack.at IS NULL))::text AS unacked
+       FROM m LEFT JOIN res ON res.complaint_id = m.id LEFT JOIN ack ON ack.complaint_id = m.id`,
+      "2026-09-30T18:30:00Z",
+      "2026-10-31T18:30:00Z",
+      new Date(DEMO_NOW).toISOString(),
+    );
+    const x = sql[0];
+    const c = october.complaints;
+    console.log(`RP2 SQL    complaints raised=${x.raised} replied=${x.replied} median_reply=${x.median_reply} decided=${x.decided} within_sla=${x.within_sla} resolved=${x.resolved} median_resolved=${x.median_resolved} reopened=${x.reopened} by_resident=${x.by_resident} auto=${x.auto_closed} open_now=${x.open_now} safety=${x.safety} acked=${x.safety_acked} median_ack=${x.median_ack} unacked=${x.unacked}`);
+    console.log(`RP2 loader complaints raised=${c.raised} replied=${c.firstReply.replied} median_reply=${c.firstReply.medianMinutes} decided=${c.firstReply.decided} within_sla=${c.firstReply.withinSla} resolved=${c.resolved.count} median_resolved=${c.resolved.medianMinutes} reopened=${c.resolved.reopened} by_resident=${c.closed.byResident} auto=${c.closed.automatically} open_now=${c.openNow} safety=${c.safety.count} acked=${c.safety.acknowledged} median_ack=${c.safety.medianMinutesToAcknowledge} unacked=${c.safety.unacknowledgedNow}`);
+    expect(c.raised).toBeGreaterThan(100);
+    expect(String(c.raised)).toBe(x.raised);
+    expect(String(c.firstReply.replied)).toBe(x.replied);
+    expect(String(c.firstReply.medianMinutes)).toBe(String(x.median_reply));
+    expect(String(c.firstReply.decided)).toBe(x.decided);
+    expect(String(c.firstReply.withinSla)).toBe(x.within_sla);
+    expect(String(c.resolved.count)).toBe(x.resolved);
+    expect(String(c.resolved.medianMinutes)).toBe(String(x.median_resolved));
+    expect(String(c.resolved.reopened)).toBe(x.reopened);
+    expect(String(c.closed.byResident)).toBe(x.by_resident);
+    expect(String(c.closed.automatically)).toBe(x.auto_closed);
+    expect(String(c.openNow)).toBe(x.open_now);
+    expect(String(c.safety.count)).toBe(x.safety);
+    expect(String(c.safety.acknowledged)).toBe(x.safety_acked);
+    expect(String(c.safety.medianMinutesToAcknowledge)).toBe(String(x.median_ack));
+    expect(String(c.safety.unacknowledgedNow)).toBe(x.unacked);
+  });
+
+  it("the shares have a denominator, so the page shows percentages and not 'no data' for October", () => {
+    expect(october.complaints.firstReply.decided).toBeGreaterThan(0);
+    expect(october.complaints.resolved.count).toBeGreaterThan(0);
+    expect(october.complaints.safety.count).toBeGreaterThan(0);
+    expect(october.quality?.dueOrPaid).toBeGreaterThan(0);
+  });
+});
+
 describe("RP3 positions: a FEE_ONLY bill, a bill settled late and a part payment, in a month of their own (May 2026)", () => {
   const MAY = "2026-05-01";
   let may: { positions: typeof seeded; over90: typeof firstPage; report: typeof october };
