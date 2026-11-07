@@ -7,6 +7,7 @@ import { AgeingRows } from "@/app/(staff)/staff/reports/ageing-rows";
 import { ReportView } from "@/app/(staff)/staff/reports/report-view";
 import type { Ageing } from "@/domain/reports/age";
 import type { AgeingPage, AgeingRowView } from "@/server/reports/ageing-page";
+import { emptyReport } from "./committee-fixtures";
 import type { CommitteeReport } from "@/server/reports/report-data";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: () => {}, refresh: () => {}, push: () => {} }), usePathname: () => "/", redirect: () => {} }));
@@ -150,7 +151,7 @@ describe("CA3 the drill-down section", () => {
 });
 
 describe("CA4 the page with the ageing", () => {
-  const report = (drilldown: AgeingPage | null): CommitteeReport => ({ asOf: "2026-10-27", period: "2026-10-01", periods: ["2026-10-01"], money: null, ageing, drilldown } as unknown as CommitteeReport);
+  const report = (drilldown: AgeingPage | null): CommitteeReport => emptyReport({ ageing, drilldown });
 
   it("shows the ageing block always, and the drill-down only when a bucket is chosen, after the block", () => {
     const without = html(h(ReportView, { report: report(null) }));

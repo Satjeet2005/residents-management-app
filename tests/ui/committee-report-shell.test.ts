@@ -8,6 +8,7 @@ import { StaffView } from "@/app/(staff)/staff/staff-view";
 import { AGE_BUCKETS } from "@/domain/reports/age";
 import type { MoneyLine } from "@/domain/reports/money-line";
 import { dateWords, periodLabel } from "@/lib/reports/period";
+import { emptyReport } from "./committee-fixtures";
 import type { CommitteeReport } from "@/server/reports/report-data";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: () => {}, refresh: () => {}, push: () => {} }), usePathname: () => "/", redirect: () => {} }));
@@ -26,19 +27,12 @@ const money: MoneyLine = {
   fees: { postedPaidPaise: 380_000n, postedOwingPaise: 190_000n, accruingPaise: 12_345_600n },
 };
 const report = (over: Partial<CommitteeReport> = {}): CommitteeReport =>
-  ({
-    asOf: "2026-10-27",
-    period: "2026-10-01",
+  emptyReport({
     periods: ["2026-10-01", "2026-09-01", "2026-08-01"],
     money,
     ageing: { buckets: AGE_BUCKETS.map((bucket) => ({ bucket, flats: 0, bills: 0, amountDuePaise: 0n })), total: { flats: 0, bills: 0, amountDuePaise: 0n } },
-    drilldown: null,
-    quality: null,
-    complaints: null,
-    reconciliation: null,
-    goals: { rows: [], source: "SETTING" },
     ...over,
-  }) as unknown as CommitteeReport;
+  });
 
 describe("CR1 the period selector", () => {
   const out = html(h(PeriodForm, { period: "2026-10-01", periods: ["2026-10-01", "2026-09-01", "2026-08-01"] }));
