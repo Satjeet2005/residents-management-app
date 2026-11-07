@@ -1,4 +1,6 @@
 import type { Db } from "@/server/auth/db";
+import { phoneSetting } from "@/server/home/mapper";
+import { loadSettings } from "@/server/home/queries";
 import { autoCloseQuietly } from "./auto-close";
 import type { Actor } from "./context";
 import { type OwnComplaintLine, listOwnComplaints } from "./read";
@@ -18,4 +20,9 @@ export async function loadComplaintList(input: { db: Db; user: Actor; now: numbe
     throw new Error(`complaints list: ${result.error}`);
   }
   return { kind: "OK", open: result.complaints.filter((c) => c.status !== "CLOSED"), closed: result.complaints.filter((c) => c.status === "CLOSED") };
+}
+
+/** What the raise form needs: the duty manager's number from the settings (null when it is not set), for the call link shown after "Yes". */
+export async function loadRaiseFormData(input: { db: Db }): Promise<{ dutyManagerPhone: string | null }> {
+  return { dutyManagerPhone: phoneSetting(await loadSettings(input.db), "duty_manager_phone") };
 }

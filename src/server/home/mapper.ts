@@ -75,7 +75,7 @@ export function paymentNoticeOf(latest: AttemptRow | null, now: number): "LAST_F
   return now - latest.startedAt.getTime() <= DAY_MS ? "LAST_FAILED" : null;
 }
 
-const phoneSetting = (settings: readonly SettingsRow[], key: string): string | null => {
+export const phoneSetting = (settings: readonly SettingsRow[], key: string): string | null => {
   const value = settings.find((s) => s.key === key)?.value;
   return typeof value === "string" && value.trim() !== "" ? value.trim() : null;
 };
