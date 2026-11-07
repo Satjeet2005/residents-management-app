@@ -36,11 +36,12 @@ export async function writeAuthAudit(
 /**
  * Records that a signed-in person was refused (a 403). The detail holds what was needed, the method, the path
  * without its query string, and the address hash. It never holds the cookie, the token or the address (D82).
+ * When the address could not be hashed the hash is null and `ipHashStatus` says "unavailable" (D129).
  * A 401 is not recorded: an unauthenticated request has no person to attribute it to, and anyone can send one.
  */
 export async function writeAccessDeniedAudit(
   db: DbOrTx,
-  entry: { userId: string; need: string; method: string; path: string; ipHash: string | null; now: number },
+  entry: { userId: string; need: string; method: string; path: string; ipHash: string | null; ipHashStatus?: "unavailable"; now: number },
 ): Promise<void> {
   await db.auditLog.create({
     data: {
@@ -48,7 +49,7 @@ export async function writeAccessDeniedAudit(
       action: "ACCESS_DENIED",
       entityType: "auth",
       entityId: entry.userId,
-      detail: { need: entry.need, method: entry.method, path: entry.path, ipHash: entry.ipHash },
+      detail: { need: entry.need, method: entry.method, path: entry.path, ipHash: entry.ipHash, ...(entry.ipHashStatus === undefined ? {} : { ipHashStatus: entry.ipHashStatus }) },
       createdAt: new Date(entry.now),
     },
   });

@@ -110,15 +110,26 @@ export function createGuards(getDeps: () => AuthRouteDeps) {
   return { publicRoute, withPermission };
 }
 
-/** A failed audit write must not turn a 403 into a 500, so it is logged (without data) and the refusal stands. */
+/**
+ * A refusal is recorded even when the address cannot be hashed (D129): the row is written with no hash and `ipHashStatus: "unavailable"`, and the
+ * failure is logged with a fixed message (never the address, the pepper or the error text). A failed audit write must not turn a 403 into a 500
+ * either, so it is logged without data and the refusal stands.
+ */
 export async function auditDenied(deps: AuthRouteDeps, request: Request, user: SessionUser, need: Need, now: number): Promise<void> {
+  let hash: string | null = null;
+  try {
+    hash = ipHash((deps.ip ?? clientIp)(request.headers));
+  } catch {
+    console.error("access denied audit: address hash unavailable");
+  }
   try {
     await writeAccessDeniedAudit(deps.db, {
       userId: user.id,
       need,
       method: request.method,
       path: new URL(request.url).pathname,
-      ipHash: ipHash((deps.ip ?? clientIp)(request.headers)),
+      ipHash: hash,
+      ...(hash === null ? { ipHashStatus: "unavailable" as const } : {}),
       now,
     });
   } catch {
