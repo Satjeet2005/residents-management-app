@@ -22,25 +22,27 @@ const minute = 60_000;
 const T0 = Date.UTC(2026, 9, 5, 6, 30);
 
 describe("CB1 collection quality", () => {
-  const quality: CollectionQuality = { dueOrPaid: 2399, paidOnTime: 1687, paid: 1915, paidLate: 228, medianDaysToPay: 3 };
+  const quality: CollectionQuality = { due: 2399, dueOnTime: 1687, paidOnTime: 1687, paid: 1915, paidLate: 228, medianDaysToPay: 3 };
   const out = html(h(QualityBlock, { period: "2026-10-01", quality }));
   const text = words(out);
 
   it("shows the on-time rate, the median days to pay and the share paid late, each with what it counts", () => {
     expect(text).toContain("Collection quality, October 2026");
-    expect(text).toContain("Paid on time 1687 of 2399 bills settled on or before their due date 70%");
+    expect(text).toContain("Paid on time 1687 of 2399 bills due so far were paid on or before their due date 70%");
+    expect(text).toContain("On time, of paid bills 1687 of 1915 paid bills were paid on or before their due date 88%");
     expect(text).toContain("Median days to pay From the day the bill was issued, over 1915 paid bills 3 days");
     expect(text).toContain("Paid late 228 of 1915 paid bills settled after their due date 12%");
   });
 
   it("is a description list with tabular, right-aligned figures", () => {
     expect(out).toContain("<dl");
-    expect(count(out, /<dd class="tnum text-right/g)).toBe(3);
+    expect(count(out, /<dd class="tnum text-right/g)).toBe(4);
   });
 
   it("says 'No data' in words, never 0%, when there is nothing to measure", () => {
-    const none = words(html(h(QualityBlock, { period: "2026-10-01", quality: { dueOrPaid: 0, paidOnTime: 0, paid: 0, paidLate: 0, medianDaysToPay: null } })));
+    const none = words(html(h(QualityBlock, { period: "2026-10-01", quality: { due: 0, dueOnTime: 0, paidOnTime: 0, paid: 0, paidLate: 0, medianDaysToPay: null } })));
     expect(none).toContain("Paid on time No data");
+    expect(none).toContain("On time, of paid bills No data");
     expect(none).toContain("Median days to pay No data");
     expect(none).toContain("Paid late No data");
     expect(none).not.toContain("0%");

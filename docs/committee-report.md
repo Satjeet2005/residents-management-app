@@ -41,7 +41,8 @@ All pure functions are in `src/domain/reports/`; the loaders in `src/server/repo
 | **Late fees: accruing** | The computed fee on bills whose principal is still open: not yet posted (it is posted when the principal is paid, D110). | `moneyLine` |
 | **Ageing** | ALL open positions of ALL months (PRINCIPAL_OPEN and FEE_ONLY) as of the business date, in five buckets by the days from the bill's due date to the business date: 0 or less "Not yet due", 1 to 30, 31 to 60, 61 to 90, over 90 (boundaries 0/1, 30/31, 60/61, 90/91). Per bucket: flats (each once), bills, amount due = principal outstanding + fee outstanding. The label says "All open dues, all months". | `ageBucket`, `ageingTable`, `src/domain/reports/age.ts` |
 | **Drill-down** | The open positions of one bucket, oldest first, then flat code, then bill id; flat code, bill month, days overdue, amount due; keyset pages of 25 (an opaque cursor over that order). | `ageingRows`; `src/lib/reports/cursor.ts`; `src/server/reports/ageing-page.ts` |
-| **On-time rate** | Bills settled on or before their due date, out of the bills that are due (due date on or before the business date) or already paid. A bill not yet due and unpaid is in neither. | `collectionQuality`, `money-line.ts` |
+| **On-time rate (headline, D134)** | The bills of the month paid on or before their due date, out of ALL the month's bills that are due as of the business date (due date on or before it), paid or not: an unpaid bill past its due date counts against it, and a bill whose due date has not come is left out. This is the figure the goal compares. | `collectionQuality` (`due`, `dueOnTime`), `money-line.ts` |
+| **On time, of paid bills (secondary)** | Bills paid on or before their due date (whether or not the due date has come), out of the paid bills only. It is shown under the headline and is never the goal's actual. | `collectionQuality` (`paidOnTime`, `paid`) |
 | **Median days to pay** | Over the paid bills, days from the issue date to the day the principal was paid; the median takes the lower middle value. | `collectionQuality`, `medianOf` (`stats.ts`) |
 | **Share paid late** | Paid bills settled after their due date, out of the paid bills. | `collectionQuality` |
 | **Complaints raised** | Complaints whose `created_at` falls in the month (India time). | `complaintMetrics`, `src/domain/reports/complaints.ts`; `src/server/reports/complaints.ts` |
@@ -65,13 +66,13 @@ A share with a denominator of zero is **"No data"** in words, never 0 percent (`
 | Flats paid in full + flats with principal outstanding = flats billed | the same |
 | Collected never exceeds Billed | the same, and "a payment above the bill is not Collected" |
 | The five buckets' amounts and bills add up to the total, and each open position is in exactly one bucket and one set of rows | RP1 `age.test.ts` (2,000 random sets); RP2 (against the Home's own sum over every flat) |
-| The figures equal an INDEPENDENT raw SQL query (October as of 27 Oct 2026: Billed, Collected, Outstanding, flat counts, open bills, quality, complaints, reconciliation) | RP2 and RP5 `committee-report.test.ts` |
+| The figures equal an INDEPENDENT raw SQL query (October as of 27 Oct 2026: Billed, Collected, Outstanding, flat counts, open bills, the bills due and those paid on time, complaints, reconciliation) | RP2 and RP5 `committee-report.test.ts` |
 | A FEE_ONLY position is in the ageing and in "posted and owing"; a bill settled late is in Collected and its fee in "posted and paid"; a part payment and a bill with two payments count once | RP3 `committee-report.test.ts`, `money-line.test.ts` |
 | No resident name or phone number is in the page (every seeded name and phone is searched for) | RP6 `committee-report.test.ts` |
 
 ## The goals
 
-`society_settings.committee_goals` = `{ "onTimeCollectionPercent": 90, "firstReplyWithinSlaPercent": 90, "reopenedPercentMax": 8 }`. They are **assumptions** (R67): on-time collection and first replies
+`society_settings.committee_goals` = `{ "onTimeCollectionPercent": 90, "firstReplyWithinSlaPercent": 90, "reopenedPercentMax": 8 }`. They are **assumptions** (R67): on-time collection (the headline rate of D134) and first replies
 within the SLA are floors, reopened is a ceiling. The seed writes the row (`COMMITTEE_GOALS` in `src/domain/seed/settings.ts`). A hosted database seeded earlier needs the row inserted ONCE by the owner:
 the exact INSERT and a verifying SELECT are step E8 of `docs/deploy-checklist.md` and in `docs/deployment-plan.md`, and `tests/integration/committee-goals-sql.test.ts` runs that text on a freshly seeded
 database (it also checks that running it twice is harmless). Until it is inserted, or if the value is invalid, the report shows the same numbers as built-in defaults and says so.
@@ -92,7 +93,7 @@ Each goal row has the target, the actual and "Met" or "Not met" in words with an
 - **RC1.** The median of an even count is the LOWER of the two middle values, in whole units (days or minutes rounded down), so a median is always an observed value. SQL's `percentile_disc(0.5)` has the same rule, which is how the tests check it.
 - **RC2.** The default month is the business month if it has bills, else the newest billed month (a new month before its bills are issued would otherwise open on an empty page). A future month in the address is ignored.
 - **RC3.** "Paid in full" and "with principal outstanding" are about the PRINCIPAL, so they add up to the flats billed; a flat that has paid the principal but owes a late fee is paid in full and is in the fee block ("posted and owing") and the ageing.
-- **RC4.** The on-time rate leaves out bills that are not yet due and unpaid; the share paid late is out of the paid bills, so the two do not share a denominator.
+- **RC4.** The headline on-time rate is out of ALL bills due so far (D134), so a bill nobody has paid counts against it; a bill not yet due is out of it, even if paid early. The "of paid bills" line and the share paid late are out of the paid bills, so those two add up to 100 percent and the headline does not share their denominator.
 - **RC5.** The share of complaints within the SLA is out of the complaints whose reply is decided (replied, or unreplied past the due time).
 - **RC6.** The complaint figures describe the month's complaints in their CURRENT state ("open now", who closed them), not their state on the business date. The seed has no acknowledgement events, so its safety median is "No data".
 - **RC7.** The reconciliation window starts 29 days before the business date and has no upper bound, because the import service stamps `uploaded_at` with the real time: under a frozen demo date (`DEMO_AS_OF`) an import made later in real time still counts. On a live clock nothing is newer than the business date.

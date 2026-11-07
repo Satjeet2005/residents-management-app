@@ -74,7 +74,7 @@ export async function loadCommitteeReport(input: { db: Db; user: Viewer; request
     goals: {
       source,
       rows: evaluateGoals(goals, {
-        onTime: { n: quality?.paidOnTime ?? 0, d: quality?.dueOrPaid ?? 0 },
+        onTime: { n: quality?.dueOnTime ?? 0, d: quality?.due ?? 0 },
         firstReply: { n: metrics.firstReply.withinSla, d: metrics.firstReply.decided },
         reopened: { n: metrics.resolved.reopened, d: metrics.resolved.count },
       }),

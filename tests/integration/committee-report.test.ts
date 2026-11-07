@@ -206,15 +206,16 @@ describe("RP2 the ageing, checked against raw SQL and against the Home's own sum
 });
 
 describe("RP2 collection quality, checked against raw SQL", () => {
-  it("October: bills due or paid, paid on time, paid, and the median days to pay equal a separate SQL query", async () => {
-    const sql = await fx.owner.$queryRawUnsafe<{ due_or_paid: string; on_time: string; paid: string; median_days: string | null }[]>(
+  it("October: the bills due so far, those paid on time, the paid bills and the median days to pay equal a separate SQL query (D134)", async () => {
+    const sql = await fx.owner.$queryRawUnsafe<{ due: string; due_on_time: string; on_time: string; paid: string; median_days: string | null }[]>(
       `WITH live AS (
          SELECT e.bill_id, e.effective_date, e.amount_paise FROM ledger_entries e
          WHERE e.entry_type = 'PAYMENT' AND e.direction = 'PAYMENT' AND e.effective_date <= $1::date
            AND NOT EXISTS (SELECT 1 FROM ledger_entries r WHERE r.entry_type = 'REVERSAL' AND r.reverses_entry_id = e.id AND r.effective_date <= $1::date)),
        run AS (SELECT bill_id, effective_date, sum(amount_paise) OVER (PARTITION BY bill_id ORDER BY effective_date RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cum FROM live),
        settled AS (SELECT r.bill_id, min(r.effective_date) AS settled_on FROM run r JOIN bills b ON b.id = r.bill_id WHERE r.cum >= b.amount_paise GROUP BY r.bill_id)
-       SELECT (count(*) FILTER (WHERE b.due_on <= $1::date OR s.settled_on IS NOT NULL))::text AS due_or_paid,
+       SELECT (count(*) FILTER (WHERE b.due_on <= $1::date))::text AS due,
+              (count(*) FILTER (WHERE b.due_on <= $1::date AND s.settled_on IS NOT NULL AND s.settled_on <= b.due_on))::text AS due_on_time,
               (count(*) FILTER (WHERE s.settled_on IS NOT NULL AND s.settled_on <= b.due_on))::text AS on_time,
               (count(*) FILTER (WHERE s.settled_on IS NOT NULL))::text AS paid,
               (percentile_disc(0.5) WITHIN GROUP (ORDER BY (s.settled_on - b.issued_on)) FILTER (WHERE s.settled_on IS NOT NULL))::text AS median_days
@@ -224,9 +225,10 @@ describe("RP2 collection quality, checked against raw SQL", () => {
       OCTOBER,
     );
     const q = october.quality;
-    console.log(`RP2 SQL    quality due_or_paid=${sql[0].due_or_paid} on_time=${sql[0].on_time} paid=${sql[0].paid} median_days=${sql[0].median_days}`);
-    console.log(`RP2 loader quality due_or_paid=${q?.dueOrPaid} on_time=${q?.paidOnTime} paid=${q?.paid} median_days=${q?.medianDaysToPay}`);
-    expect(String(q?.dueOrPaid)).toBe(sql[0].due_or_paid);
+    console.log(`RP2 SQL    quality due=${sql[0].due} due_on_time=${sql[0].due_on_time} on_time=${sql[0].on_time} paid=${sql[0].paid} median_days=${sql[0].median_days}`);
+    console.log(`RP2 loader quality due=${q?.due} due_on_time=${q?.dueOnTime} on_time=${q?.paidOnTime} paid=${q?.paid} median_days=${q?.medianDaysToPay}`);
+    expect(String(q?.due)).toBe(sql[0].due);
+    expect(String(q?.dueOnTime)).toBe(sql[0].due_on_time);
     expect(String(q?.paidOnTime)).toBe(sql[0].on_time);
     expect(String(q?.paid)).toBe(sql[0].paid);
     expect(q?.paidLate).toBe(Number(sql[0].paid) - Number(sql[0].on_time));
@@ -286,7 +288,7 @@ describe("RP2 complaints, checked against raw SQL", () => {
     expect(october.complaints.firstReply.decided).toBeGreaterThan(0);
     expect(october.complaints.resolved.count).toBeGreaterThan(0);
     expect(october.complaints.safety.count).toBeGreaterThan(0);
-    expect(october.quality?.dueOrPaid).toBeGreaterThan(0);
+    expect(october.quality?.due).toBeGreaterThan(0);
   });
 });
 
@@ -358,8 +360,8 @@ describe("RP2 the goals", () => {
     const q = october.quality;
     const c = october.complaints;
     const [onTime, firstReply, reopened] = october.goals.rows;
-    expect(onTime.actualPercent).toBe(Math.round((100 * (q?.paidOnTime ?? 0)) / (q?.dueOrPaid ?? 1)));
-    expect(onTime.status).toBe((q?.paidOnTime ?? 0) * 100 >= 90 * (q?.dueOrPaid ?? 1) ? "MET" : "NOT_MET");
+    expect(onTime.actualPercent).toBe(Math.round((100 * (q?.dueOnTime ?? 0)) / (q?.due ?? 1)));
+    expect(onTime.status).toBe((q?.dueOnTime ?? 0) * 100 >= 90 * (q?.due ?? 1) ? "MET" : "NOT_MET");
     expect(firstReply.status).toBe(c.firstReply.withinSla * 100 >= 90 * c.firstReply.decided ? "MET" : "NOT_MET");
     expect(reopened.status).toBe(c.resolved.reopened * 100 <= 8 * c.resolved.count ? "MET" : "NOT_MET");
     console.log(`RP2 goals ${october.goals.rows.map((r) => `${r.key} target=${r.targetPercent} actual=${r.actualPercent} ${r.status}`).join("; ")}`);

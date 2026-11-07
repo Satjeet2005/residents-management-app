@@ -58,9 +58,11 @@ export function moneyLine(positions: readonly ReportPosition[]): MoneyLine {
 }
 
 export type CollectionQuality = {
-  /** Bills that are due or already paid: a bill not yet due and unpaid is neither on time nor late, so it is not counted. */
-  dueOrPaid: number;
-  /** Bills whose principal was paid on or before the due date. */
+  /** ALL the month's bills that are due as of the business date (due date on or before it), paid or not: the denominator of the headline on-time rate (D134). */
+  due: number;
+  /** Of those, the bills whose principal was paid on or before the due date: the numerator of the headline rate. */
+  dueOnTime: number;
+  /** Bills whose principal was paid on or before the due date, whether or not the due date has come (the secondary line, "of paid bills"). */
   paidOnTime: number;
   /** Bills whose principal is paid (on time or late). */
   paid: number;
@@ -71,15 +73,18 @@ export type CollectionQuality = {
 
 /**
  * How promptly a month's bills were paid, as of `asOf`. A bill is "paid" when its principal is (settledOn is set: SETTLED or FEE_ONLY). On time means
- * settled on or before the due date. The on-time rate is paidOnTime out of dueOrPaid; the share paid late is paidLate out of paid; days to pay run from the
- * issue date to the settling date, and the median uses the lower middle value (`medianOf`).
+ * settled on or before the due date. The HEADLINE on-time rate (D134) is dueOnTime out of due: the on-time payments out of ALL the month's bills that are due as
+ * of `asOf`, so an unpaid bill past its due date counts against it and a bill not yet due is left out. The secondary line is paidOnTime out of paid ("of paid
+ * bills"); the share paid late is paidLate out of paid; days to pay run from the issue date to the settling date, and the median uses the lower middle value
+ * (`medianOf`).
  */
 export function collectionQuality(positions: readonly ReportPosition[], asOf: CalendarDate): CollectionQuality {
   const paid = positions.filter((p) => p.position.settledOn !== null);
   const onTime = paid.filter((p) => (p.position.settledOn as CalendarDate) <= p.bill.dueOn);
-  const dueOrPaid = positions.filter((p) => p.bill.dueOn <= asOf || p.position.settledOn !== null);
+  const due = positions.filter((p) => p.bill.dueOn <= asOf);
   return {
-    dueOrPaid: dueOrPaid.length,
+    due: due.length,
+    dueOnTime: due.filter((p) => p.position.settledOn !== null && p.position.settledOn <= p.bill.dueOn).length,
     paidOnTime: onTime.length,
     paid: paid.length,
     paidLate: paid.length - onTime.length,

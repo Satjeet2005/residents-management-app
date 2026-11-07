@@ -89,31 +89,41 @@ describe("RP1 collection quality", () => {
   const month = (flats: FlatSpec[], asOf = AS_OF) => collectionQuality(positionsOf(flats, asOf), asOf);
 
   it("no bills: nothing is counted and there is no median", () => {
-    expect(month([])).toEqual({ dueOrPaid: 0, paidOnTime: 0, paid: 0, paidLate: 0, medianDaysToPay: null });
+    expect(month([])).toEqual({ due: 0, dueOnTime: 0, paidOnTime: 0, paid: 0, paidLate: 0, medianDaysToPay: null });
   });
 
   it("a bill paid on its due date is on time (the boundary), the day after is late", () => {
     const a = bill("2026-10-01", 100_000n, "2026-10-10");
     const c = bill("2026-10-01", 100_000n, "2026-10-10");
     const quality = month([flat("T01-0001", [a], [payment(a.id, 100_000n, "2026-10-10")]), flat("T01-0002", [c], [payment(c.id, 100_000n, "2026-10-11")])]);
-    expect(quality).toMatchObject({ dueOrPaid: 2, paidOnTime: 1, paid: 2, paidLate: 1 });
+    expect(quality).toMatchObject({ due: 2, dueOnTime: 1, paidOnTime: 1, paid: 2, paidLate: 1 });
   });
 
-  it("an unpaid bill past its due date counts in the denominator; an unpaid bill not yet due does not", () => {
+  it("an unpaid bill past its due date counts in the denominator (D134); an unpaid bill not yet due does not", () => {
     const past = bill("2026-10-01", 100_000n, "2026-10-10");
     const future = bill("2026-10-01", 100_000n, "2026-11-10");
     const quality = month([flat("T01-0001", [past]), flat("T01-0002", [future])]);
-    expect(quality).toMatchObject({ dueOrPaid: 1, paidOnTime: 0, paid: 0, paidLate: 0, medianDaysToPay: null });
+    expect(quality).toMatchObject({ due: 1, dueOnTime: 0, paidOnTime: 0, paid: 0, paidLate: 0, medianDaysToPay: null });
   });
 
-  it("a bill paid before its due date counts even if the due date is still ahead", () => {
+  it("a bill paid before a due date that is still ahead is not due yet: it is out of the headline rate, and in the 'of paid bills' line", () => {
     const b = bill("2026-10-01", 100_000n, "2026-11-10");
-    expect(month([flat("T01-0001", [b], [payment(b.id, 100_000n, "2026-10-05")])])).toMatchObject({ dueOrPaid: 1, paidOnTime: 1, paid: 1 });
+    expect(month([flat("T01-0001", [b], [payment(b.id, 100_000n, "2026-10-05")])])).toMatchObject({ due: 0, dueOnTime: 0, paidOnTime: 1, paid: 1 });
+  });
+
+  it("the headline rate is on-time payments out of ALL bills due: 3 due, 1 paid on time, 1 paid late, 1 unpaid is one third, while of the paid bills it is a half", () => {
+    const a = bill("2026-10-01", 100_000n, "2026-10-10");
+    const c = bill("2026-10-01", 100_000n, "2026-10-10");
+    const d = bill("2026-10-01", 100_000n, "2026-10-10");
+    const quality = month([flat("T01-0001", [a], [payment(a.id, 100_000n, "2026-10-09")]), flat("T01-0002", [c], [payment(c.id, 100_000n, "2026-10-20")]), flat("T01-0003", [d])]);
+    expect(quality).toMatchObject({ due: 3, dueOnTime: 1, paid: 2, paidOnTime: 1, paidLate: 1 });
+    expect(Math.round((100 * quality.dueOnTime) / quality.due)).toBe(33);
+    expect(Math.round((100 * quality.paidOnTime) / quality.paid)).toBe(50);
   });
 
   it("a part-paid bill is not paid", () => {
     const b = bill("2026-10-01", 100_000n, "2026-10-10");
-    expect(month([flat("T01-0001", [b], [payment(b.id, 99_999n, "2026-10-05")])])).toMatchObject({ dueOrPaid: 1, paid: 0 });
+    expect(month([flat("T01-0001", [b], [payment(b.id, 99_999n, "2026-10-05")])])).toMatchObject({ due: 1, dueOnTime: 0, paid: 0 });
   });
 
   it("days to pay run from the issue date to the day the principal was paid; the median takes the lower middle value", () => {
