@@ -1,4 +1,4 @@
-# UI architecture (T11a, T11b)
+# UI architecture (T11a, T11b, T13b)
 
 The login screen, the app shell, Profile and the resident Home with its Pay flow (T11b). This page says how the screens are built, where
 the data comes from, which clock they use, and what is deliberately **not** here yet and which task adds it. The look is
@@ -13,6 +13,9 @@ the Emergency sheet (the call link there is the large accent link the task descr
 |---|---|---|---|
 | `/login` | `src/app/login/` | anyone | Phone, then one code field. Handles every answer of `/api/auth/otp/*`. A signed-in person is sent on. |
 | `/` | `src/app/(resident)/page.tsx` | resident (a staff member is sent to `/staff`) | The Home: flat, dues with Pay, complaint, visitors (times only), recent activity, Emergency. |
+| `/complaints` | `src/app/(resident)/complaints/` | resident | The complaints list: open first, closed collapsed (T13b, `docs/complaints-ui.md`). |
+| `/complaints/new` | `.../complaints/new/` | resident | The form with the danger question (D121, D127). |
+| `/complaints/[id]` | `.../complaints/[id]/` | resident, own flat (another flat's id is the not-found page) | One complaint: tracker, timeline, confirm or reopen. |
 | `/pay/mock/[attemptId]` | `src/app/(demo)/pay/mock/[attemptId]/` | resident, own flat, demo mode only (404 otherwise) | The demo payment page of the mock gateway (D100). |
 | `/profile` | `src/app/(resident)/profile/` | resident | Name, phone masked to the last 4 digits, role, current flats, sign out here or everywhere, the demo note (demo mode only). |
 | `/staff` | `src/app/(staff)/staff/` | staff | Name, the tools the person may open, permissions in words, sign out. |
@@ -113,12 +116,12 @@ numbers (`DEMO_AS_OF=2026-10-27`). It is never shown otherwise (tests: `tests/ui
 |---|---|---|
 | Payment in flight (PROCESSING, UNKNOWN, RELEASED) variants of the dues, "Contact accounts" | Only INITIATED, SUCCEEDED and FAILED exist | The next payment task (D33, D36, D52) |
 | View ledger, Receipt | Their pages do not exist | The ledger page task (optional, behind a flag) |
-| Bills and Complaints pages, and their navigation items | The pages do not exist (`enabled: false` in `src/lib/nav.ts`) | The bills and complaints tasks |
-| Raise a complaint, confirm or reopen, safety alert | Complaint actions are not built | The complaints task |
+| Bills page and its navigation item | The page does not exist (`enabled: false` in `src/lib/nav.ts`) | The bills task |
+| Complaint screens, the safety alert | Built in T13b (`docs/complaints-ui.md`) | |
 | Notifications bell (D22, D55) | Not built | The notifications task |
 | Offline banner, service worker | A later task | The installable-app task |
 | Hindi and Marathi UI, the language choice (D44) | English only for now (D2) | The translation task, if time allows |
-| Staff features other than bank reconciliation (reports, complaints) | Not built | The staff tasks. Bank reconciliation is built: `docs/staff-ui.md` |
+| Staff features other than bank reconciliation (reports, the complaints board, acknowledging a safety complaint) | Not built | The staff tasks. Bank reconciliation is built: `docs/staff-ui.md` |
 | A Proxy (true 307 for resident pages) | See above | Not planned |
 | Waiving a late fee | A waiver is a separate approved workflow; today a fee stays owing until paid (D107) | A later task, if the committee wants it |
 
@@ -137,3 +140,11 @@ Bank reconciliation is built over the T12b services; `docs/staff-ui.md` has the 
 labels, who sees Approve), the loaders in `src/server/statements/ui-data.ts`, and the screens in `src/app/(staff)/staff/reconciliation/`. The staff
 frame (`src/app/(staff)/layout.tsx`) is a banner with one link home and checks nobody. A client component receives only plain data (money as
 decimal strings) and talks to the existing API routes; the one server action ("Load more") is built with `withPermissionAction("payments:match")`.
+
+## Complaint screens (T13b)
+
+The complaints list, the raise form, one complaint and the Home safety alert are in `docs/complaints-ui.md`. They follow the same shape as the Home: the
+page calls `requireUser({ need: "RESIDENT" })`, a loader in `src/server/complaints/page-data.ts` (or `getHomeData`) reads through the app role, a pure
+view draws the data, and a client component (the form, the answer buttons) holds a reducer from `src/lib/` and calls the existing routes. The Home's
+loader runs auto-close lazily and adds `safetyAlert`; while it is set the Pay buttons are outlined. The resident pages stream under
+`(resident)/loading.tsx`, so a not-found page for a complaint of another flat is a 200 response with the not-found page and a `noindex` tag.

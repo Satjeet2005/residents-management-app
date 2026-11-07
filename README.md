@@ -109,6 +109,29 @@ To look at it at 1280px and at 360px, open the page in Chrome or Firefox, press 
 type 1280 x 800, then 360 x 800. At 1280px the review panel is docked at the right and the rows are a table; at 360px the rows are cards and the panel
 is a full-screen sheet (Escape or Close returns to the row). Tab through the page: every control shows a ring, and the tabs move with the arrow keys.
 
+## Raising a complaint (resident)
+
+Complaint screens: `docs/complaints-ui.md`. With a seeded database and the app running in demo mode (see Run and Demo data above), open the page in a
+browser at 360 x 800 (F12, then Ctrl+Shift+M):
+
+1. Log in as **Swati Joshi** (`5000000007`). Press **Complaints** in the bottom bar, then **Raise a complaint**.
+2. Write "Stairwell light on floor 4 is flickering", press **Send complaint** without answering "Is anyone in danger right now?": it refuses and says
+   "Choose Yes or No." Choose **No** and send. You land on the complaint with a confirmation and its tracker.
+3. Raise another, choose **Yes**: the call link appears at once ("You can still send this report."). Send it, even with nothing written. Go Home: the
+   safety alert is above the dues ("Your report has gone to the duty manager") with a filled **Call duty manager**, and Pay is outlined.
+4. The duty manager has no screen yet, so acknowledge it through the API (the id is in the address of the complaint page; the code of each login is in the
+   `demoCode` of the first answer):
+
+```bash
+curl -s -c /tmp/duty.jar -H 'content-type: application/json' -d '{"phone":"5000000005"}' http://localhost:3000/api/auth/otp/request
+curl -s -c /tmp/duty.jar -H 'content-type: application/json' -d '{"phone":"5000000005","code":"<the demoCode>"}' http://localhost:3000/api/auth/otp/verify
+curl -s -b /tmp/duty.jar -X POST -H 'content-type: application/json' -d '{}' http://localhost:3000/api/staff/complaints/<id>/acknowledge
+```
+
+   Reload Home: "The duty manager has seen your report. Seen at ...". Left alone for 5 minutes (real clock; `DEMO_AS_OF` freezes time) it changes to "No answer yet".
+5. To see "Is it fixed?", mark a normal complaint resolved as **Kavita Rao** (`5000000004`) with `POST /api/staff/complaints/<id>/status`
+   (`{"status":"PENDING_CONFIRMATION","expectedVersion":<version from GET /api/staff/complaints/<id>>}`), then reload the complaint page.
+
 ## Demo logins
 
 Login is a one-time code. With `DEMO_MODE=true` and a demo phone (starts with 5), the API returns the code in

@@ -1,7 +1,7 @@
 # Complaints: service, lifecycle and routes (T13a)
 
-Server side only: no screen, no provider adapter, no network. The classification rules are in `docs/complaint-classification.md` (T10a); this document is what
-happens around them. Decisions: D9, D15, D39, D73, D118, D119, D120 (`docs/decisions.md`). Code: `src/domain/complaints/lifecycle.ts`, `body.ts`,
+Server side only: no provider adapter, no network. The resident screens (T13b) are in `docs/complaints-ui.md`; staff screens are not built. The classification rules are in `docs/complaint-classification.md` (T10a); this document is what
+happens around them. Decisions: D9, D15, D39, D73, D118, D119, D120, D121 (`docs/decisions.md`). Code: `src/domain/complaints/lifecycle.ts`, `body.ts`,
 `timeline.ts`; `src/server/complaints/*`; routes under `src/app/api/complaints` and `src/app/api/staff`.
 
 ## The flow
@@ -9,6 +9,9 @@ happens around them. Decisions: D9, D15, D39, D73, D118, D119, D120 (`docs/decis
 1. **Raise** (`createComplaint`, resident with a current flat). The text is 1 to 2,000 characters after trimming; control characters are removed and the words
    are kept as written (`prepareComplaintBody`). `language` holds the script label LATIN, DEVANAGARI or MIXED. A repeat of the same text by the same person
    within 60 seconds returns the first complaint (checked again under an advisory lock, so six simultaneous taps make one).
+1a. **Declared danger** (T13b, D121): `POST /api/complaints` takes an optional boolean `declaredDanger` (default false). True takes the safety path exactly as a
+   safety word does (CRITICAL, no classifier call, the duty manager, ESCALATED with reason `DECLARED`, a SAFETY_ALERT notification), whatever the text says;
+   `CREATED` records `{ declaredDanger: true }`. An empty text is accepted only with it, stored as "(no description)" with the note `NO_DESCRIPTION`.
 2. **Classify** (`classifyComplaint`), outside the transaction so a slow classifier never holds a database connection:
    - the safety rules read the RAW text first; a hit never calls the classifier (D119);
    - otherwise the DE-IDENTIFIED text (T10a `deidentify`: no phone, e-mail, flat code or known name) goes to the classifier port within a hard total budget of
@@ -78,8 +81,9 @@ thirteen columns of `complaints` and nothing else (D95).
 
 ## What is absent
 
-Provider adapters (a later task), translation, duplicate linking, reminders and escalation timers, a notifications list, every screen. Auto-close has no cron: the
-two list routes call `autoCloseDue` as they load (D120); the Home and the staff screens will call it when they are built.
+Provider adapters (a later task), translation, duplicate linking, reminders and escalation timers, a notifications list, the staff screens. The resident screens are
+built (`docs/complaints-ui.md`). Auto-close has no cron: the two list routes, the resident's list and detail pages and the Home call `autoCloseDue` as they load
+(D120); the staff screens will call it when they are built.
 
 ## Assumptions
 
