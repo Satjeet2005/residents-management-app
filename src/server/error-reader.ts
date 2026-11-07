@@ -2,7 +2,7 @@
  * The pure part of the developer's log reader (`npm run logs:errors`, D135): reads the command line, builds the one SELECT, and formats
  * rows. It touches no database and no process state, so a test can read it whole. Rows are redacted again before anything is printed.
  */
-import { LOG_SOURCES, digestText, redact } from "./log";
+import { LOG_SOURCES, digestText, redact, redactStack, requestIdText } from "./log";
 
 export const SINCE_MS: Readonly<Record<string, number>> = { "30m": 30 * 60_000, "1h": 3_600_000, "24h": 86_400_000, "7d": 7 * 86_400_000 };
 export const DEFAULT_LIMIT = 20;
@@ -95,12 +95,12 @@ export function redactedRow(row: ErrorRow): ErrorRow {
     route: redact(row.route),
     error_name: redact(row.error_name),
     message: redact(row.message),
-    stack: safe(row.stack),
+    stack: row.stack === null ? null : redactStack(row.stack),
     method: safe(row.method),
     error_code: safe(row.error_code),
     deployment: safe(row.deployment),
     digest: row.digest === null ? null : digestText(row.digest),
-    request_id: safe(row.request_id),
+    request_id: row.request_id === null ? null : requestIdText(row.request_id),
   };
 }
 

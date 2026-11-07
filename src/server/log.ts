@@ -36,6 +36,8 @@ const EMAIL_PATTERN = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Z
 /** Any script's decimal digits, so a number written in Devanagari digits is removed too. */
 const LONG_DIGITS_PATTERN = /\p{Nd}{10,}/gu;
 const LONG_TOKEN_PATTERN = /[A-Za-z0-9+/=_-]{32,}/g;
+/** In a stack, "/" does not join a run: a long file path (src/server/complaints/providers/classifier-jev) is not a key, and the stack is useless without it. */
+const LONG_STACK_TOKEN_PATTERN = /[A-Za-z0-9+=_-]{32,}/g;
 
 /** The password inside a connection string, as written and decoded, so it is removed even when it appears without the rest of the URL. */
 function passwordsIn(connectionString: string | undefined): string[] {
@@ -60,6 +62,10 @@ function secretValues(env: Env): string[] {
  * more digits (phone and account numbers); and any run of 32 or more token characters (keys, hashes, tokens). It never throws.
  */
 export function redact(text: string, env: Env = process.env): string {
+  return redactWith(text, env, LONG_TOKEN_PATTERN);
+}
+
+function redactWith(text: string, env: Env, tokenPattern: RegExp): string {
   let result = text.slice(0, MAX_INPUT_CHARS);
   for (const value of secretValues(env)) result = result.split(value).join(REDACTED);
   return result
@@ -70,7 +76,15 @@ export function redact(text: string, env: Env = process.env): string {
     .replace(SECRET_PARAMETER_PATTERN, `$1${REDACTED}`)
     .replace(EMAIL_PATTERN, REDACTED)
     .replace(LONG_DIGITS_PATTERN, REDACTED)
-    .replace(LONG_TOKEN_PATTERN, REDACTED);
+    .replace(tokenPattern, REDACTED);
+}
+
+/**
+ * `redact` for the "at ..." lines of a stack: the same rules, except that "/" does not extend a run of token characters, so the file paths of the
+ * frames stay readable. A key, hash or token with no "/" in it is still removed, and so are all the exact secret values.
+ */
+export function redactStack(text: string, env: Env = process.env): string {
+  return redactWith(text, env, LONG_STACK_TOKEN_PATTERN);
 }
 
 /** Redacts, then cuts: a secret that straddles the cut is removed before it, so no piece of it is kept. */
@@ -82,6 +96,14 @@ export const clean = (text: string, max: number, env: Env = process.env): string
  */
 export function digestText(value: string, env: Env = process.env): string {
   return /^[A-Za-z0-9]{1,40}$/.test(value) && !secretValues(env).includes(value) ? value : clean(value, MAX_FIELD_CHARS, env);
+}
+
+/** The shape of a host request id (`iad1::sfo1::abcde-1730000000000-0123456789ab`): its digits and hyphens would be removed as a token. Only this exact shape is kept. */
+const HOST_REQUEST_ID = /^(?:[a-z0-9]{2,8}::){1,3}[a-z0-9]{3,12}-[0-9]{10,14}-[a-f0-9]{8,16}$/i;
+
+/** A request id as the host writes it is kept as it is (it is what the host's own log search takes); anything else is redacted like any text. */
+export function requestIdText(value: string, env: Env = process.env): string {
+  return HOST_REQUEST_ID.test(value) && !secretValues(env).includes(value) ? value : clean(value, MAX_FIELD_CHARS, env);
 }
 
 /** A Postgres SQLSTATE (23505) or a Prisma code (P1001): exactly five characters, digits and capitals. */
@@ -143,7 +165,7 @@ export function describeError(error: unknown, env: Env = process.env): ErrorDesc
       errorName: clean(nameOf(error), MAX_FIELD_CHARS, env),
       errorCode: codeOf(error),
       message: clean(messageOf(error), MAX_EVENT_MESSAGE_CHARS, env),
-      stack: frames.length === 0 ? null : clean(frames.join("\n"), MAX_STACK_CHARS, env),
+      stack: frames.length === 0 ? null : redactStack(frames.join("\n"), env).slice(0, MAX_STACK_CHARS),
       firstFrame: frames[0] ?? null,
     };
   } catch {
@@ -193,11 +215,11 @@ export function logEvent(input: LogEventInput, env: Env = process.env): void {
     const line: Record<string, unknown> = { level: input.level, source: input.source, msg: clean(input.msg, MAX_FIELD_CHARS, env) };
     for (const field of TEXT_FIELDS) {
       const value = input[field];
-      if (typeof value === "string" && value !== "") line[field] = field === "digest" ? digestText(value, env) : clean(value, MAX_FIELD_CHARS, env);
+      if (typeof value === "string" && value !== "") line[field] = field === "digest" ? digestText(value, env) : field === "requestId" ? requestIdText(value, env) : clean(value, MAX_FIELD_CHARS, env);
     }
     if (typeof input.status === "number" && Number.isInteger(input.status)) line.status = input.status;
     if (typeof input.message === "string") line.message = clean(input.message, MAX_EVENT_MESSAGE_CHARS, env);
-    if (typeof input.stack === "string") line.stack = clean(input.stack, MAX_STACK_CHARS, env);
+    if (typeof input.stack === "string") line.stack = redactStack(input.stack, env).slice(0, MAX_STACK_CHARS);
     const deployment = deploymentOf(env);
     if (deployment !== null) line.deployment = clean(deployment, MAX_FIELD_CHARS, env);
     (input.level === "warn" ? console.warn : console.error)(JSON.stringify(line));

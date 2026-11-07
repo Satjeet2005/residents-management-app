@@ -9,7 +9,7 @@
 import { createHash } from "node:crypto";
 import { after } from "next/server";
 import type { PrismaClient } from "../../generated/prisma/client";
-import { codeOf, deploymentOf, describeError, clean, digestText, logError, logEvent, newRef, type ErrorContext, type LogSource } from "./log";
+import { codeOf, deploymentOf, describeError, clean, digestText, requestIdText, logError, logEvent, newRef, type ErrorContext, type LogSource } from "./log";
 
 type Env = Readonly<Record<string, string | undefined>>;
 
@@ -89,7 +89,7 @@ export function buildEvent(input: EventInput, env: Env = process.env): StoredEve
     method: optional(input.method, env),
     status: typeof input.status === "number" && Number.isInteger(input.status) ? input.status : null,
     digest: input.digest === undefined || input.digest === "" ? null : digestText(input.digest, env),
-    requestId: optional(input.requestId, env),
+    requestId: input.requestId === undefined || input.requestId === "" ? null : requestIdText(input.requestId, env),
     userId: input.userId !== undefined && /^[0-9a-f-]{36}$/i.test(input.userId) ? input.userId : null,
     role: optional(input.role, env),
     errorName,

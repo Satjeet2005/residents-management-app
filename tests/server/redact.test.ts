@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { describeError, digestText, logError, logEvent, newRef, redact } from "@/server/log";
+import { describeError, digestText, logError, logEvent, newRef, redact, redactStack, requestIdText } from "@/server/log";
 
 /** D135: redaction v2, the structured event line and the reference. Adversarial inputs, then a seeded property test. */
 
@@ -160,6 +160,51 @@ describe("D135 digest", () => {
     expect(digestText("9876543210 and more", ENV)).toBe("[secret] and more");
     expect(digestText("x".repeat(80), ENV)).toBe("[secret]");
     expect(digestText(ENV.LLM_API_KEY.replace(/[^A-Za-z0-9]/g, ""), { LLM_API_KEY: ENV.LLM_API_KEY.replace(/[^A-Za-z0-9]/g, "") })).toBe("[secret]");
+  });
+});
+
+describe("D135 stacks keep their file paths", () => {
+  const PATH_LINE = "at classify (/var/task/src/server/complaints/providers/classifier-jev.ts:55:12)";
+
+  it("a long file path in a frame is not a token: redactStack keeps it, while redact (strict) does not", () => {
+    expect(redactStack(PATH_LINE, ENV)).toBe(PATH_LINE);
+    expect(redact(PATH_LINE, ENV)).toContain("[secret]");
+  });
+
+  it("describeError keeps the path in the stack, and the stdout line too", () => {
+    const error = new Error("x");
+    error.stack = `Error: x\n    ${PATH_LINE}`;
+    expect(describeError(error, ENV).stack).toBe(PATH_LINE);
+    logError(error, { source: "ROUTE", route: "/x" }, ENV);
+    expect(JSON.parse(lines[0]).stack).toBe(PATH_LINE);
+  });
+
+  it("a key, a hash and every exact secret in a frame are still removed", () => {
+    const frame = `at run (${"a1b2c3d4".repeat(8)}:1:1) at x (${ENV.OTP_PEPPER}) at y (/srv/${ENV.JEV_PRIMARY_KEY}/z.ts:1:1) at w (${"Zz9_-".repeat(10)})`;
+    const out = redactStack(frame, ENV);
+    expect(out).not.toMatch(/[A-Za-z0-9+=_-]{32,}/);
+    expect(out).not.toContain(ENV.OTP_PEPPER);
+    expect(out).not.toContain(ENV.JEV_PRIMARY_KEY);
+  });
+
+  it("a phone number, an e-mail address and a bearer value in a frame are removed too", () => {
+    expect(redactStack("at f (/a/9876543210/b.ts) Bearer abc.def mail a@b.com", ENV)).not.toMatch(/9876543210|abc\.def|a@b\.com/);
+  });
+});
+
+describe("D135 request ids", () => {
+  const VERCEL = "iad1::sfo1::wqh7h-1730000000000-0123456789ab";
+
+  it("a host request id keeps its digits and hyphens (the host's own log search takes it), in the line and by requestIdText", () => {
+    expect(requestIdText(VERCEL, ENV)).toBe(VERCEL);
+    logEvent({ level: "error", source: "ROUTE", msg: "x", requestId: VERCEL }, ENV);
+    expect(JSON.parse(lines[0]).requestId).toBe(VERCEL);
+  });
+
+  it("anything that does not have exactly that shape is redacted like any text", () => {
+    for (const value of ["9876543210123", "a@b.com", "x".repeat(40), `${VERCEL} 9876543210`, ENV.LLM_API_KEY, "iad1::wqh7h-12-0123456789ab"]) {
+      expect(requestIdText(value, ENV)).not.toBe(value);
+    }
   });
 });
 
