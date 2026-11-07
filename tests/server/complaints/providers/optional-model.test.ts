@@ -51,20 +51,20 @@ describe("PV10 the model name is optional (D144)", () => {
 
     it("describeProviders says configured, and whether the model is set or the provider default", () => {
       const env = { ...urls(), JEV_SECONDARY_MODEL: "org/model:v1_2.3-x" };
-      expect(describeProviders(env)).toEqual([
+      expect(describeProviders(env).providers).toEqual([
         { name: "opencode", status: "configured", model: "provider_default" },
         { name: "jevmodel", status: "configured", model: "set" },
       ]);
     });
 
     it("a model without a URL and key is not configured", () => {
-      expect(describeProviders({ JEV_PRIMARY_MODEL: "m" })[0]).toEqual({ name: "opencode", status: "not_configured", model: "set" });
+      expect(describeProviders({ JEV_PRIMARY_MODEL: "m" }).providers[0]).toEqual({ name: "opencode", status: "not_configured", model: "set" });
     });
 
     it.each(["has space", "x".repeat(81), "semi;colon", "quote\"d", "new\nline", "back\\slash", "ünïcode"])("model %j is invalid: BAD_MODEL on that provider only", (model) => {
       const env = { ...urls(), JEV_PRIMARY_MODEL: model };
-      expect(describeProviders(env)).toEqual([
-        { name: "opencode", status: "invalid", model: "set", invalid: { variable: "JEV_PRIMARY_MODEL", reason: "BAD_MODEL" } },
+      expect(describeProviders(env).providers).toEqual([
+        { name: "opencode", status: "invalid", model: "set", reason: "BAD_MODEL", variable: "JEV_PRIMARY_MODEL" },
         { name: "jevmodel", status: "configured", model: "provider_default" },
       ]);
       expect(readJevConfig(env).providers.map((p) => p.name)).toEqual(["jevmodel"]);
@@ -181,7 +181,7 @@ describe("PV10 the model name is optional (D144)", () => {
     it("an invalid model is reported as BAD_MODEL by variable name, without the value", async () => {
       const { code, output: text } = await run({ JEV_PRIMARY_URL: primary.url, JEV_PRIMARY_KEY: KEY, JEV_PRIMARY_MODEL: `bad ${MODEL_VALUE}` });
       expect(code).toBe(1);
-      expect(text).toContain("opencode: not checked, JEV_PRIMARY_MODEL is not valid (BAD_MODEL).");
+      expect(text).toContain("opencode: invalid (BAD_MODEL), not checked: look at JEV_PRIMARY_MODEL");
       expect(text).not.toContain(MODEL_VALUE);
     });
 

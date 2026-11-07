@@ -16,10 +16,15 @@ export type ProviderDescription = {
   name: ProviderName;
   status: "configured" | "not_configured" | "invalid";
   model: "set" | "provider_default";
-  invalid?: { variable: string; reason: ProviderReason };
+  reason?: ProviderReason;
+  variable?: string;
 };
 
-type SettingState = "default" | "set" | "invalid_using_default";
+export type SettingState = "default" | "set" | "invalid_using_default";
+
+/** The shared settings, one state each; `breaker` covers both breaker numbers and is invalid when either is. */
+export type SharedDescription = { timeout: SettingState; cap: SettingState; breaker: SettingState };
+export type JevDescription = { providers: ProviderDescription[]; shared: SharedDescription };
 
 export type JevConfig = {
   /** The configured providers only, primary first. */
@@ -95,7 +100,7 @@ function inspect(env: Env, name: ProviderName, prefix: Prefix): Inspected {
   const model = read(env, `${prefix}_MODEL`);
   const key = read(env, `${prefix}_KEY`);
   const modelState = model === undefined ? "provider_default" : "set";
-  const invalid = (reason: ProviderReason): Inspected => ({ config: null, description: { name, status: "invalid", model: modelState, invalid: { variable: `${prefix}_${VARIABLE_OF[reason]}`, reason } } });
+  const invalid = (reason: ProviderReason): Inspected => ({ config: null, description: { name, status: "invalid", model: modelState, reason, variable: `${prefix}_${VARIABLE_OF[reason]}` } });
   const badModel = model !== undefined && !MODEL_PATTERN.test(model);
   if (rawUrl === undefined && key === undefined) {
     return badModel ? invalid("BAD_MODEL") : { config: null, description: { name, status: "not_configured", model: modelState } };
@@ -120,9 +125,22 @@ function inspectAll(env: Env): { providers: Inspected[]; numbers: Record<NumberN
   return { providers, numbers };
 }
 
-/** The status of both providers, primary first (D144, D145). It never throws and holds no value. */
-export function describeProviders(env: Env = process.env): ProviderDescription[] {
-  return inspectAll(env).providers.map((p) => p.description);
+const merged = (...states: SettingState[]): SettingState => (states.includes("invalid_using_default") ? "invalid_using_default" : states.includes("set") ? "set" : "default");
+
+/**
+ * The status of every setting (D144, D145): both providers, primary first, and the shared settings. It never throws and holds no value, only states,
+ * fixed reason codes and variable names.
+ */
+export function describeProviders(env: Env = process.env): JevDescription {
+  const { providers, numbers } = inspectAll(env);
+  return {
+    providers: providers.map((p) => p.description),
+    shared: {
+      timeout: numbers.JEV_TIMEOUT_MS.state,
+      cap: numbers.JEV_DAILY_CAP.state,
+      breaker: merged(numbers.JEV_BREAKER_FAILURES.state, numbers.JEV_BREAKER_COOLDOWN_SECONDS.state),
+    },
+  };
 }
 
 /**
@@ -138,7 +156,7 @@ export function readJevConfig(env: Env = process.env): JevConfig {
     breakerFailures: numbers.JEV_BREAKER_FAILURES.value,
     breakerCooldownSeconds: numbers.JEV_BREAKER_COOLDOWN_SECONDS.value,
     invalidVariables: [
-      ...providers.flatMap((p) => (p.description.invalid === undefined ? [] : [p.description.invalid.variable])),
+      ...providers.flatMap((p) => (p.description.variable === undefined ? [] : [p.description.variable])),
       ...NUMBER_NAMES.filter((name) => numbers[name].state === "invalid_using_default"),
     ],
   };

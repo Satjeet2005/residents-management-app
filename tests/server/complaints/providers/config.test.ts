@@ -80,4 +80,36 @@ describe("PV1 provider configuration", () => {
     expect(readJevConfig({ ...FULL, JEV_PRIMARY_MODEL: "jev latest" }).providers.map((p) => p.name)).toEqual(["jevmodel"]);
     expect(readJevConfig({ ...FULL, JEV_PRIMARY_MODEL: "x".repeat(81) }).providers.map((p) => p.name)).toEqual(["jevmodel"]);
   });
+
+  describe("describeProviders covers every setting without a value (D145)", () => {
+    it("nothing set: both providers not configured and every shared setting at its default", () => {
+      expect(describeProviders({})).toEqual({
+        providers: [
+          { name: "opencode", status: "not_configured", model: "provider_default" },
+          { name: "jevmodel", status: "not_configured", model: "provider_default" },
+        ],
+        shared: { timeout: "default", cap: "default", breaker: "default" },
+      });
+    });
+
+    it.each([
+      ["http://primary.example/x", "URL_NOT_HTTPS"],
+      ["ftp://primary.example/x", "URL_NOT_HTTPS"],
+      ["not a url", "URL_INVALID"],
+      [`https://primary.example/${"a".repeat(2100)}`, "URL_INVALID"],
+      ["https://user:pw@primary.example/x", "URL_HAS_CREDENTIALS"],
+    ])("an invalid URL is invalid with a fixed reason", (url, reason) => {
+      expect(describeProviders({ ...FULL, JEV_PRIMARY_URL: url }).providers[0]).toEqual({ name: "opencode", status: "invalid", model: "set", reason, variable: "JEV_PRIMARY_URL" });
+    });
+
+    it("a provider with only a key or only a URL is invalid: MISSING_URL or MISSING_KEY", () => {
+      expect(describeProviders({ JEV_PRIMARY_KEY: "k" }).providers[0]).toMatchObject({ status: "invalid", reason: "MISSING_URL", variable: "JEV_PRIMARY_URL" });
+      expect(describeProviders({ JEV_SECONDARY_URL: FULL.JEV_SECONDARY_URL }).providers[1]).toMatchObject({ status: "invalid", reason: "MISSING_KEY", variable: "JEV_SECONDARY_KEY" });
+    });
+
+    it("the shared settings are set, default or invalid_using_default, and the breaker is invalid when either of its two numbers is", () => {
+      expect(describeProviders({ JEV_TIMEOUT_MS: "1000", JEV_DAILY_CAP: "0", JEV_BREAKER_FAILURES: "5" }).shared).toEqual({ timeout: "set", cap: "invalid_using_default", breaker: "set" });
+      expect(describeProviders({ JEV_BREAKER_FAILURES: "5", JEV_BREAKER_COOLDOWN_SECONDS: "x" }).shared.breaker).toBe("invalid_using_default");
+    });
+  });
 });

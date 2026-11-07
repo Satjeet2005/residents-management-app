@@ -63,7 +63,7 @@ describe("llm:check", () => {
   it("a missing key is said in a sentence, nothing is sent, and the exit is 1", async () => {
     const { code, output } = await run({ JEV_PRIMARY_URL: fake.url, JEV_PRIMARY_MODEL: "jev-latest" });
     expect(code).toBe(1);
-    expect(output).toContain("opencode: not checked, JEV_PRIMARY_KEY is not set.");
+    expect(output).toContain("opencode: invalid (MISSING_KEY), not checked: look at JEV_PRIMARY_KEY");
     expect(output).toContain("No provider is configured");
     expect(fake.requests).toHaveLength(0);
   });
@@ -72,13 +72,14 @@ describe("llm:check", () => {
     const { code, output } = await run({ ...primaryEnv(), JEV_TIMEOUT_MS: "99999" });
     expect(code).toBe(0);
     expect(output).toContain("JEV_TIMEOUT_MS is not valid, so its default is used.");
+    expect(output).toContain("shared settings: timeout invalid, using the default, cap default, breaker default.");
     expect(output).not.toContain("99999");
   });
 
   it("an invalid URL is named by variable and reason, never its value, and exits 1", async () => {
     const { code, output } = await run({ JEV_PRIMARY_URL: "http://secret-host.example/x", JEV_PRIMARY_KEY: KEY });
     expect(code).toBe(1);
-    expect(output).toContain("opencode: not checked, JEV_PRIMARY_URL is not valid (URL_NOT_HTTPS).");
+    expect(output).toContain("opencode: invalid (URL_NOT_HTTPS), not checked: look at JEV_PRIMARY_URL");
     expect(output).not.toContain("secret-host");
   });
 });
