@@ -1,3 +1,4 @@
+import { slaOutcome } from "@/domain/complaints/sla";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { LANES, type Lane, listBoard } from "@/server/complaints/board";
 import { createComplaint } from "@/server/complaints/create";
@@ -49,7 +50,7 @@ describe("CL3 the staff board lanes", () => {
     const expected: Record<Lane, string[]> = {
       NEEDS_TRIAGE: ["triage"],
       OPEN: ["assigned", "progress", "overdue", "safety"],
-      OVERDUE: ["overdue", "late", "safety"],
+      OVERDUE: ["overdue", "safety"],
       WAITING_RESIDENT: ["waiting", "late"],
       SAFETY: ["safety"],
       CLOSED: ["closed"],
@@ -60,7 +61,7 @@ describe("CL3 the staff board lanes", () => {
       expect(result.counts[lane], lane).toBe(expected[lane].length);
       expect(result.nextCursor).toBeNull();
     }
-    expect((await board("OPEN")).counts).toEqual({ NEEDS_TRIAGE: 1, OPEN: 4, OVERDUE: 3, WAITING_RESIDENT: 2, SAFETY: 1, CLOSED: 1 });
+    expect((await board("OPEN")).counts).toEqual({ NEEDS_TRIAGE: 1, OPEN: 4, OVERDUE: 2, WAITING_RESIDENT: 2, SAFETY: 1, CLOSED: 1 });
   });
 
   it("CL3 a reopened complaint is in OPEN, and a complaint with a category but no assignee is in NEEDS_TRIAGE", async () => {
@@ -74,6 +75,21 @@ describe("CL3 the staff board lanes", () => {
     await arrange(world, orphan.id, { status: "CLOSED", closedAt: new Date(NOW), closeKind: "CONFIRMED", needsReview: false });
   });
 
+  it("D150 a late first reply is LATE, not OVERDUE and not MET; the OVERDUE lane is exactly the complaints slaOutcome calls MISSED_OPEN", async () => {
+    const lateReply = await raise("lateReply", "Tap in the garage leaks", NOW - 3 * DAY);
+    await arrange(world, lateReply.id, { firstResponseAt: new Date(NOW - 3 * DAY + 1441 * MIN) });
+    const row = (await board("OPEN")).rows.find((r) => r.id === lateReply.id);
+    expect(row?.sla).toBe("LATE");
+    const all = await world.ownerPrisma.complaint.findMany({ select: { id: true, status: true, responseDueAt: true, firstResponseAt: true } });
+    const missedOpen = all
+      .filter((c) => c.status !== "CLOSED" && slaOutcome({ responseDueAt: c.responseDueAt?.getTime() ?? null, firstResponseAt: c.firstResponseAt?.getTime() ?? null, now: NOW }) === "MISSED_OPEN")
+      .map((c) => c.id)
+      .sort();
+    expect(idsOf((await board("OVERDUE")).rows)).toEqual(missedOpen);
+    expect(missedOpen).not.toContain(lateReply.id);
+    await arrange(world, lateReply.id, { status: "CLOSED", closedAt: new Date(NOW), closeKind: "CONFIRMED" });
+  });
+
   it("CL3 a row has the flat code, category, urgency, status, assignee, age, SLA state and the source of the classification", async () => {
     const rows = (await board("SAFETY")).rows;
     expect(rows).toHaveLength(1);
@@ -82,7 +98,7 @@ describe("CL3 the staff board lanes", () => {
     const triage = (await board("NEEDS_TRIAGE")).rows.find((r) => r.id === ids.triage);
     expect(triage).toMatchObject({ category: null, assignee: null, status: "NEW", needsReview: true, source: "FALLBACK", sla: "ON_TIME", title: "Please look into the matter soon" });
     expect((await board("WAITING_RESIDENT")).rows.find((r) => r.id === ids.waiting)).toMatchObject({ sla: "MET", status: "PENDING_CONFIRMATION" });
-    expect((await board("WAITING_RESIDENT")).rows.find((r) => r.id === ids.late)?.sla).toBe("OVERDUE");
+    expect((await board("WAITING_RESIDENT")).rows.find((r) => r.id === ids.late)?.sla).toBe("MET");
     expect((await board("CLOSED")).rows[0]).toMatchObject({ sla: "NONE", status: "CLOSED" });
   });
 

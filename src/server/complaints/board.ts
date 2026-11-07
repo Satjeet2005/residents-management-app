@@ -29,7 +29,7 @@ function predicate(lane: Lane, now: Date): Prisma.Sql {
     case "OPEN":
       return Prisma.sql`(c.status IN ('ASSIGNED', 'IN_PROGRESS', 'REOPENED'))`;
     case "OVERDUE":
-      return Prisma.sql`(c.status <> 'CLOSED' AND ((c.first_response_at IS NULL AND c.response_due_at < ${now}::timestamptz) OR (c.pending_confirmation_at IS NOT NULL AND c.pending_confirmation_at > c.response_due_at)))`;
+      return Prisma.sql`(c.status <> 'CLOSED' AND c.first_response_at IS NULL AND c.response_due_at < ${now}::timestamptz)`;
     case "WAITING_RESIDENT":
       return Prisma.sql`(c.status = 'PENDING_CONFIRMATION')`;
     case "SAFETY":

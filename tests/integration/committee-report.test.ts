@@ -245,8 +245,11 @@ describe("RP2 complaints, checked against raw SQL", () => {
        SELECT count(*)::text AS raised,
               (count(*) FILTER (WHERE m.first_response_at IS NOT NULL))::text AS replied,
               (percentile_disc(0.5) WITHIN GROUP (ORDER BY floor(extract(epoch FROM (m.first_response_at - m.created_at)) / 60)) FILTER (WHERE m.first_response_at IS NOT NULL))::text AS median_reply,
-              (count(*) FILTER (WHERE m.first_response_at IS NOT NULL OR m.response_due_at < $3::timestamptz))::text AS decided,
-              (count(*) FILTER (WHERE m.first_response_at IS NOT NULL AND m.response_due_at IS NOT NULL AND m.first_response_at <= m.response_due_at))::text AS within_sla,
+              (count(*) FILTER (WHERE m.response_due_at IS NOT NULL AND (m.first_response_at IS NOT NULL OR m.response_due_at < $3::timestamptz)))::text AS decided,
+              (count(*) FILTER (WHERE m.first_response_at <= m.response_due_at))::text AS within_sla,
+              (count(*) FILTER (WHERE m.first_response_at > m.response_due_at))::text AS replied_late,
+              (count(*) FILTER (WHERE m.first_response_at IS NULL AND m.response_due_at < $3::timestamptz))::text AS unreplied_overdue,
+              (count(*) FILTER (WHERE m.first_response_at IS NULL AND m.response_due_at >= $3::timestamptz))::text AS not_due,
               count(res.at)::text AS resolved,
               (percentile_disc(0.5) WITHIN GROUP (ORDER BY floor(extract(epoch FROM (res.at - m.created_at)) / 60)) FILTER (WHERE res.at IS NOT NULL))::text AS median_resolved,
               (count(*) FILTER (WHERE res.at IS NOT NULL AND m.reopen_count > 0))::text AS reopened,
@@ -272,6 +275,11 @@ describe("RP2 complaints, checked against raw SQL", () => {
     expect(String(c.firstReply.medianMinutes)).toBe(String(x.median_reply));
     expect(String(c.firstReply.decided)).toBe(x.decided);
     expect(String(c.firstReply.withinSla)).toBe(x.within_sla);
+    expect(Number(x.within_sla) + Number(x.replied_late) + Number(x.unreplied_overdue)).toBe(c.firstReply.decided);
+    expect(Number(x.within_sla) + Number(x.replied_late) + Number(x.unreplied_overdue) + Number(x.not_due)).toBe(c.raised);
+    expect(Number(x.replied_late)).toBeGreaterThan(0);
+    console.log(`D150 SQL    replied within the SLA = ${x.within_sla} of ${Number(x.within_sla) + Number(x.replied_late) + Number(x.unreplied_overdue)} (late ${x.replied_late}, unreplied overdue ${x.unreplied_overdue}, not due ${x.not_due})`);
+    console.log(`D150 loader replied within the SLA = ${c.firstReply.withinSla} of ${c.firstReply.decided}`);
     expect(String(c.resolved.count)).toBe(x.resolved);
     expect(String(c.resolved.medianMinutes)).toBe(String(x.median_resolved));
     expect(String(c.resolved.reopened)).toBe(x.reopened);
