@@ -98,7 +98,7 @@ describe("D81 route inventory", () => {
 
   it("finds the route files", () => {
     expect(files.map(toRoute).sort()).toEqual(
-      ["/api/auth/logout", "/api/auth/logout-all", "/api/auth/otp/request", "/api/auth/otp/verify", "/api/health", "/api/me", "/api/payments", "/api/payments/webhook", "/api/statements", "/api/statements/[id]", "/api/statements/sample", "/api/statements/[id]/rows", "/api/bank-rows/[id]", "/api/bank-rows/[id]/match", "/api/bank-rows/[id]/ignore", "/api/bank-rows/[id]/approve", "/api/bank-rows/[id]/reject", "/api/flats/search"].sort(),
+      ["/api/auth/logout", "/api/auth/logout-all", "/api/auth/otp/request", "/api/auth/otp/verify", "/api/health", "/api/me", "/api/payments", "/api/payments/webhook", "/api/statements", "/api/statements/[id]", "/api/statements/sample", "/api/statements/[id]/rows", "/api/bank-rows/[id]", "/api/bank-rows/[id]/match", "/api/bank-rows/[id]/ignore", "/api/bank-rows/[id]/approve", "/api/bank-rows/[id]/reject", "/api/flats/search", "/api/complaints", "/api/complaints/[id]", "/api/complaints/[id]/confirm", "/api/complaints/[id]/reopen", "/api/staff/complaints", "/api/staff/complaints/[id]", "/api/staff/complaints/[id]/assign", "/api/staff/complaints/[id]/status", "/api/staff/complaints/[id]/comment", "/api/staff/complaints/[id]/category", "/api/staff/complaints/[id]/acknowledge", "/api/staff/complaints/[id]/close", "/api/staff/users"].sort(),
     );
   });
 

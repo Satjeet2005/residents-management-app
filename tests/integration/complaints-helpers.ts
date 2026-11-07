@@ -6,6 +6,7 @@ import { inject } from "vitest";
 import { PrismaClient } from "../../generated/prisma/client";
 import type { ArmResult, ClassifierInput } from "@/domain/complaints/decision";
 import { CATEGORY_CODES, type CategoryCode, MODEL_URGENCIES, type ModelUrgency } from "@/domain/complaints/taxonomy";
+import { createSession } from "@/server/auth/session-service";
 import { type Classifier } from "@/server/complaints/classifier";
 import type { Actor } from "@/server/complaints/context";
 import { dbPoolOptions } from "@/server/db-options";
@@ -59,6 +60,8 @@ export type World = {
   databaseName: string;
   databaseUrl: string;
   staff: { kavita: Actor; sanjay: Actor; priya: Actor };
+  /** The Cookie header of a new session of the user, started at `now`. */
+  signIn: (userId: string, role: "RESIDENT" | "STAFF", now: number) => Promise<string>;
   close: () => Promise<void>;
 };
 
@@ -111,6 +114,7 @@ export async function setupWorld(): Promise<World> {
       databaseName,
       databaseUrl,
       staff: { kavita: await actorOf(ownerPrisma, kavita.id), sanjay: await actorOf(ownerPrisma, sanjay.id), priya: await actorOf(ownerPrisma, priya.id) },
+      signIn: async (userId, userRole, now) => `session=${(await createSession(appPrisma, { id: userId, role: userRole }, now)).token}`,
       close: async () => {
         await appPrisma.$disconnect();
         await ownerPrisma.$disconnect();
