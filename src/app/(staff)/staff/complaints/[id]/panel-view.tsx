@@ -28,6 +28,8 @@ export type PanelViewProps = {
   currentCategory: string | null;
   needsReview: boolean;
   handlers: PanelHandlers;
+  /** A prefix for every element id, so two panels on one page (the side panel and the actions sheet) never share one. */
+  idPrefix?: string;
 };
 
 /** What worked, in words: the action and the one fact it changed (a name, a category, or whether the comment is visible). */
@@ -103,7 +105,8 @@ function ActionButton({ action, state, label, onSubmit, disabled = false, varian
  * manager's "I have seen this", which is the one filled control of the page while a safety complaint is unacknowledged. "I have seen this" and "Close this
  * safety complaint" appear only when `controls` offers them, which is only to the duty manager on a safety complaint.
  */
-export function PanelView({ state, controls, staffUsers, currentCategory, needsReview, handlers }: PanelViewProps) {
+export function PanelView({ state, controls, staffUsers, currentCategory, needsReview, handlers, idPrefix = "" }: PanelViewProps) {
+  const i = (name: string): string => `${idPrefix}${name}`;
   const resultRef = useRef<HTMLDivElement>(null);
   const assignRef = useRef<HTMLSelectElement>(null);
   const commentRef = useRef<HTMLTextAreaElement>(null);
@@ -138,7 +141,7 @@ export function PanelView({ state, controls, staffUsers, currentCategory, needsR
       </div>
 
       {(controls.acknowledge || controls.close) && (
-        <Section id="panel-safety" title={t("staffComplaints.safetyPanel.heading")}>
+        <Section id={i("panel-safety")} title={t("staffComplaints.safetyPanel.heading")}>
           {controls.acknowledge && (
             <>
               <p className="text-body">{t("staffComplaints.safetyPanel.acknowledgeHint")}</p>
@@ -156,25 +159,25 @@ export function PanelView({ state, controls, staffUsers, currentCategory, needsR
           )}
           {controls.close && state.noteOpen === "CLOSE" && (
             <div className="flex flex-col gap-2">
-              <label htmlFor="close-note" className="text-body font-semibold">
+              <label htmlFor={i("close-note")} className="text-body font-semibold">
                 {t("staffComplaints.note.label")}
               </label>
-              <p id="close-note-hint" className="text-caption text-ink-2">
+              <p id={i("close-note-hint")} className="text-caption text-ink-2">
                 {t("staffComplaints.safetyPanel.closeHint")}
               </p>
               <textarea
                 ref={closeNoteRef}
-                id="close-note"
+                id={i("close-note")}
                 rows={3}
                 value={state.closeNote}
                 onChange={(event) => handlers.onField("closeNote", event.target.value)}
                 disabled={busy}
                 aria-invalid={state.invalid === "CLOSE" || undefined}
-                aria-describedby={state.invalid === "CLOSE" ? "close-note-hint close-note-error" : "close-note-hint"}
+                aria-describedby={state.invalid === "CLOSE" ? `${i("close-note-hint")} ${i("close-note-error")}` : i("close-note-hint")}
                 className={FIELD}
               />
               <p className="tnum text-caption text-ink-2">{t("staffComplaints.count", { n: countChars(state.closeNote), max: NOTE_MAX })}</p>
-              <Invalid id="close-note-error" show={state.invalid === "CLOSE"} text={t("staffComplaints.note.invalid")} />
+              <Invalid id={i("close-note-error")} show={state.invalid === "CLOSE"} text={t("staffComplaints.note.invalid")} />
               <div className="flex flex-wrap gap-2">
                 <ActionButton action="CLOSE" state={state} label={t("staffComplaints.safetyPanel.close")} onSubmit={handlers.onSubmit} />
                 <Button variant="outlined" disabled={busy} onClick={handlers.onCloseNote}>
@@ -187,18 +190,18 @@ export function PanelView({ state, controls, staffUsers, currentCategory, needsR
       )}
 
       {controls.assign && (
-        <Section id="panel-assign" title={t("staffComplaints.assign.heading")}>
-          <label htmlFor="assign-select" className="text-body">
+        <Section id={i("panel-assign")} title={t("staffComplaints.assign.heading")}>
+          <label htmlFor={i("assign-select")} className="text-body">
             {t("staffComplaints.assign.label")}
           </label>
           <select
             ref={assignRef}
-            id="assign-select"
+            id={i("assign-select")}
             value={state.assigneeId}
             onChange={(event) => handlers.onField("assigneeId", event.target.value)}
             disabled={busy}
             aria-invalid={state.invalid === "ASSIGN" || undefined}
-            aria-describedby={state.invalid === "ASSIGN" ? "assign-error" : undefined}
+            aria-describedby={state.invalid === "ASSIGN" ? i("assign-error") : undefined}
             className={SELECT}
           >
             <option value="">{t("staffComplaints.assign.choose")}</option>
@@ -208,7 +211,7 @@ export function PanelView({ state, controls, staffUsers, currentCategory, needsR
               </option>
             ))}
           </select>
-          <Invalid id="assign-error" show={state.invalid === "ASSIGN"} text={t("staffComplaints.assign.invalid")} />
+          <Invalid id={i("assign-error")} show={state.invalid === "ASSIGN"} text={t("staffComplaints.assign.invalid")} />
           <div>
             <ActionButton action="ASSIGN" state={state} label={t("staffComplaints.assign.button")} onSubmit={handlers.onSubmit} />
           </div>
@@ -216,7 +219,7 @@ export function PanelView({ state, controls, staffUsers, currentCategory, needsR
       )}
 
       {showStatus && (
-        <Section id="panel-status" title={t("staffComplaints.statusPanel.heading")}>
+        <Section id={i("panel-status")} title={t("staffComplaints.statusPanel.heading")}>
           <div className="flex flex-wrap gap-2">
             {controls.start && <ActionButton action="START" state={state} label={t("staffComplaints.statusPanel.start")} onSubmit={handlers.onSubmit} />}
             {controls.resolve && state.noteOpen !== "RESOLVE" && (
@@ -227,25 +230,25 @@ export function PanelView({ state, controls, staffUsers, currentCategory, needsR
           </div>
           {controls.resolve && state.noteOpen === "RESOLVE" && (
             <div className="flex flex-col gap-2">
-              <label htmlFor="resolve-note" className="text-body font-semibold">
+              <label htmlFor={i("resolve-note")} className="text-body font-semibold">
                 {t("staffComplaints.note.label")}
               </label>
-              <p id="resolve-note-hint" className="text-caption text-ink-2">
+              <p id={i("resolve-note-hint")} className="text-caption text-ink-2">
                 {t("staffComplaints.statusPanel.noteHint")}
               </p>
               <textarea
                 ref={resolveNoteRef}
-                id="resolve-note"
+                id={i("resolve-note")}
                 rows={3}
                 value={state.resolveNote}
                 onChange={(event) => handlers.onField("resolveNote", event.target.value)}
                 disabled={busy}
                 aria-invalid={state.invalid === "RESOLVE" || undefined}
-                aria-describedby={state.invalid === "RESOLVE" ? "resolve-note-hint resolve-note-error" : "resolve-note-hint"}
+                aria-describedby={state.invalid === "RESOLVE" ? `${i("resolve-note-hint")} ${i("resolve-note-error")}` : i("resolve-note-hint")}
                 className={FIELD}
               />
               <p className="tnum text-caption text-ink-2">{t("staffComplaints.count", { n: countChars(state.resolveNote), max: NOTE_MAX })}</p>
-              <Invalid id="resolve-note-error" show={state.invalid === "RESOLVE"} text={t("staffComplaints.note.invalid")} />
+              <Invalid id={i("resolve-note-error")} show={state.invalid === "RESOLVE"} text={t("staffComplaints.note.invalid")} />
               <div className="flex flex-wrap gap-2">
                 <ActionButton action="RESOLVE" state={state} label={t("staffComplaints.statusPanel.send")} onSubmit={handlers.onSubmit} />
                 <Button variant="outlined" disabled={busy} onClick={handlers.onCloseNote}>
@@ -258,28 +261,28 @@ export function PanelView({ state, controls, staffUsers, currentCategory, needsR
       )}
 
       {controls.comment && (
-        <Section id="panel-comment" title={t("staffComplaints.comment.heading")}>
-          <label htmlFor="comment-text" className="text-body">
+        <Section id={i("panel-comment")} title={t("staffComplaints.comment.heading")}>
+          <label htmlFor={i("comment-text")} className="text-body">
             {t("staffComplaints.comment.label")}
           </label>
           <textarea
             ref={commentRef}
-            id="comment-text"
+            id={i("comment-text")}
             rows={4}
             value={state.commentText}
             onChange={(event) => handlers.onField("commentText", event.target.value)}
             disabled={busy}
             aria-invalid={state.invalid === "COMMENT" || undefined}
-            aria-describedby={state.invalid === "COMMENT" ? "comment-error" : undefined}
+            aria-describedby={state.invalid === "COMMENT" ? i("comment-error") : undefined}
             className={FIELD}
           />
           <p className="tnum text-caption text-ink-2">{t("staffComplaints.count", { n: countChars(state.commentText), max: COMMENT_MAX })}</p>
-          <Invalid id="comment-error" show={state.invalid === "COMMENT"} text={t("staffComplaints.comment.invalid")} />
-          <label htmlFor="comment-visible" className="flex min-h-12 items-center gap-3 text-body">
-            <input id="comment-visible" type="checkbox" checked={state.commentVisible} onChange={handlers.onToggleVisible} disabled={busy} aria-describedby="comment-visible-hint" className="h-6 w-6" />
+          <Invalid id={i("comment-error")} show={state.invalid === "COMMENT"} text={t("staffComplaints.comment.invalid")} />
+          <label htmlFor={i("comment-visible")} className="flex min-h-12 items-center gap-3 text-body">
+            <input id={i("comment-visible")} type="checkbox" checked={state.commentVisible} onChange={handlers.onToggleVisible} disabled={busy} aria-describedby={i("comment-visible-hint")} className="h-6 w-6" />
             {t("staffComplaints.comment.visible")}
           </label>
-          <p id="comment-visible-hint" className="text-caption text-ink-2">
+          <p id={i("comment-visible-hint")} className="text-caption text-ink-2">
             {state.commentVisible ? t("staffComplaints.comment.visibleOn") : t("staffComplaints.comment.visibleOff")}
           </p>
           <div>
@@ -289,19 +292,19 @@ export function PanelView({ state, controls, staffUsers, currentCategory, needsR
       )}
 
       {controls.category && (
-        <Section id="panel-category" title={t("staffComplaints.categoryPanel.heading")}>
+        <Section id={i("panel-category")} title={t("staffComplaints.categoryPanel.heading")}>
           <p className="text-body">{t("staffComplaints.categoryPanel.now", { category: categoryLabel(currentCategory) })}</p>
-          <label htmlFor="category-select" className="text-body">
+          <label htmlFor={i("category-select")} className="text-body">
             {t("staffComplaints.categoryPanel.label")}
           </label>
           <select
             ref={categoryRef}
-            id="category-select"
+            id={i("category-select")}
             value={state.category}
             onChange={(event) => handlers.onField("category", event.target.value)}
             disabled={busy}
             aria-invalid={state.invalid === "CATEGORY" || undefined}
-            aria-describedby={state.invalid === "CATEGORY" ? "category-error" : undefined}
+            aria-describedby={state.invalid === "CATEGORY" ? i("category-error") : undefined}
             className={SELECT}
           >
             <option value="">{t("staffComplaints.categoryPanel.choose")}</option>
@@ -311,7 +314,7 @@ export function PanelView({ state, controls, staffUsers, currentCategory, needsR
               </option>
             ))}
           </select>
-          <Invalid id="category-error" show={state.invalid === "CATEGORY"} text={t("staffComplaints.categoryPanel.invalid")} />
+          <Invalid id={i("category-error")} show={state.invalid === "CATEGORY"} text={t("staffComplaints.categoryPanel.invalid")} />
           <div>
             <ActionButton action="CATEGORY" state={state} label={t("staffComplaints.categoryPanel.button")} onSubmit={handlers.onSubmit} disabled={state.category !== "" && categoryUnchanged(state.category, currentCategory, needsReview)} />
           </div>

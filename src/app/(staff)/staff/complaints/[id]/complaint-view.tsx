@@ -6,9 +6,11 @@ import { type DetailTab, classificationOneLine, trimTimeline } from "@/lib/staff
 import { categoryLabel, confidenceWords, sourceName, sourceTag, staffStatusLabel, urgencyLabel, urgencyTone } from "@/lib/staff-complaints/labels";
 import { replyChipWords, whenWords } from "@/lib/staff-complaints/time";
 import { controlsFor } from "@/lib/staff-complaints/controls";
+import { barKind } from "@/lib/staff-complaints/primary-bar";
 import { complaintTitle } from "@/server/home/mapper";
 import type { ComplaintPage } from "@/server/complaints/staff-page-data";
 import { ActionPanel } from "./action-panel";
+import { ActionsBar } from "./actions-bar";
 import { DetailTabs } from "./detail-tabs";
 import { TimelineList } from "./timeline-list";
 
@@ -143,14 +145,15 @@ function TimelinePanel({ page }: { page: ComplaintPage }) {
 
 /**
  * One complaint for staff (D152): a header with the title (two lines at most) and the chips for the flat, the urgency, the status and the reply clock; for a safety
- * complaint a one-line banner; the Details and Timeline tabs; and the action panel (on the right from 1024px, below on a narrow screen). One h1 (the title).
+ * complaint a one-line banner; the Details and Timeline tabs; and the actions: the panel on the right from 1024px, and below 1024px a pinned bar with an actions sheet. One h1 (the title).
  */
 export function ComplaintView({ page, tab }: { page: ComplaintPage; tab: DetailTab }) {
   const { complaint } = page;
   const controls = controlsFor({ status: complaint.status, safety: complaint.safety, acknowledged: page.acknowledgedAt !== null, viewer: page.viewer });
+  const bar = barKind({ status: complaint.status, safety: complaint.safety, acknowledged: page.acknowledgedAt !== null, viewer: page.viewer });
   const lateTone = page.sla === "OVERDUE" || page.sla === "LATE";
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-4">
+    <main className={bar === "NONE" ? "mx-auto flex w-full max-w-7xl flex-col gap-4 p-4" : "mx-auto flex w-full max-w-7xl flex-col gap-4 p-4 pb-28 lg:pb-4"}>
       <header className="flex flex-col gap-2">
         <Link href="/staff/complaints" className="inline-flex min-h-12 items-center self-start text-body font-semibold text-accent underline underline-offset-4">
           {t("staffComplaints.back")}
@@ -166,13 +169,14 @@ export function ComplaintView({ page, tab }: { page: ComplaintPage; tab: DetailT
       <SafetyLine page={page} />
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
         <DetailTabs initial={tab} details={<DetailsPanel page={page} />} timeline={<TimelinePanel page={page} />} />
-        <aside aria-labelledby="panel-heading" className="flex flex-col gap-3 lg:sticky lg:top-4">
+        <aside aria-labelledby="panel-heading" className="hidden flex-col gap-3 lg:sticky lg:top-4 lg:flex">
           <h2 id="panel-heading" className="text-title font-semibold">
             {t("staffComplaints.panel.heading")}
           </h2>
           <ActionPanel id={complaint.id} version={complaint.version} controls={controls} staffUsers={page.staffUsers} currentCategory={complaint.category} needsReview={complaint.needsReview} />
         </aside>
       </div>
+      {bar !== "NONE" && <ActionsBar id={complaint.id} version={complaint.version} kind={bar} controls={controls} staffUsers={page.staffUsers} currentCategory={complaint.category} needsReview={complaint.needsReview} />}
     </main>
   );
 }

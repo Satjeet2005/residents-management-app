@@ -37,22 +37,31 @@ const page = (viewer: ControlViewer, status: ComplaintStatus, safety: boolean, a
 });
 const render = (p: ComplaintPage) => html(h(ComplaintView, { page: p, tab: "details" }));
 
+/** The page has the side panel (from 1024px) and the phone's bar and sheet (below it); CSS shows one of them, so "one filled control" is counted in each. */
+const regions = (out: string) => ({
+  panel: out.slice(out.indexOf("<aside"), out.indexOf("</aside>")),
+  bar: out.includes("fixed inset-x-0") ? out.slice(out.indexOf("fixed inset-x-0")) : "",
+});
+
 describe("SS1 the duty manager on an unacknowledged safety complaint", () => {
   const out = render(page(DUTY, "ASSIGNED", true, false));
 
   it("sees 'I have seen this' as the ONE filled control of the page, and 'Close this safety complaint' outlined", () => {
-    expect(out).toMatch(/<button[^>]*bg-accent[^>]*>I have seen this<\/button>/);
-    expect(count(out, /bg-accent/g)).toBe(1);
-    expect(out).toMatch(/<button[^>]*border-control[^>]*>Close this safety complaint<\/button>/);
+    const { panel, bar } = regions(out);
+    expect(panel).toMatch(/<button[^>]*bg-accent[^>]*>I have seen this<\/button>/);
+    expect(count(panel, /bg-accent/g)).toBe(1);
+    expect(count(bar, /bg-accent/g)).toBe(1);
+    expect(panel).toMatch(/<button[^>]*border-control[^>]*>Close this safety complaint<\/button>/);
   });
 
   it("sees it first in the panel, with what it tells the resident", () => {
-    expect(out.indexOf("I have seen this")).toBeLessThan(out.indexOf(">Assign</h3>"));
+    expect(regions(out).panel.indexOf("I have seen this")).toBeLessThan(regions(out).panel.indexOf(">Assign</h3>"));
     expect(words(out)).toContain("The resident is told that the duty manager has seen the report.");
   });
 
   it("both controls are 48px tall", () => {
-    for (const label of ["I have seen this", "Close this safety complaint"]) expect(out).toMatch(new RegExp(`<button[^>]*min-h-12[^>]*>${label}</button>`));
+    for (const label of ["I have seen this", "Close this safety complaint"]) expect(regions(out).panel).toMatch(new RegExp(`<button[^>]*min-h-12[^>]*>${label}</button>`));
+    expect(regions(out).bar).toMatch(/<button[^>]*min-h-12[^>]*>I have seen this<\/button>/);
   });
 
   it("still never sees Mark resolved", () => {
@@ -137,19 +146,21 @@ describe("SS5 at most ONE filled control in any view", () => {
   it("across every viewer, status, safety flag and acknowledgement the page has at most one filled control", () => {
     let seen = 0;
     for (const viewer of viewers) for (const status of statuses) for (const safety of [false, true]) for (const acknowledged of [false, true]) {
-      const filled = count(render(page(viewer, status, safety, acknowledged)), /bg-accent/g);
-      expect(filled, `${viewer.isDutyManager} ${viewer.canManage} ${status} ${safety} ${acknowledged}`).toBeLessThanOrEqual(1);
-      seen += filled;
+      const { panel, bar } = regions(render(page(viewer, status, safety, acknowledged)));
+      for (const region of [panel, bar]) {
+        const filled = count(region, /bg-accent/g);
+        expect(filled, `${viewer.isDutyManager} ${viewer.canManage} ${status} ${safety} ${acknowledged}`).toBeLessThanOrEqual(1);
+        seen += filled;
+      }
     }
     expect(seen).toBeGreaterThan(0);
   });
 
   it("the one filled control is 'I have seen this', and only while a safety complaint is unacknowledged", () => {
     for (const viewer of viewers) for (const status of statuses) for (const safety of [false, true]) for (const acknowledged of [false, true]) {
-      const out = render(page(viewer, status, safety, acknowledged));
-      const filled = count(out, /bg-accent/g) === 1;
+      const { panel, bar } = regions(render(page(viewer, status, safety, acknowledged)));
       const expected = viewer.canManage && viewer.isDutyManager && safety && status !== "CLOSED" && !acknowledged;
-      expect(filled, `${viewer.isDutyManager} ${viewer.canManage} ${status} ${safety} ${acknowledged}`).toBe(expected);
+      for (const region of [panel, bar]) expect(count(region, /bg-accent/g) === 1, `${viewer.isDutyManager} ${viewer.canManage} ${status} ${safety} ${acknowledged}`).toBe(expected);
     }
   });
 });
