@@ -143,7 +143,7 @@ curl -s -b /tmp/duty.jar -X POST -H 'content-type: application/json' -d '{}' htt
 ## Checking the classifier providers (you, with your own keys)
 
 The complaint classifier can use two System One providers (`docs/classifier-providers.md`). Without keys the keyword fallback answers every complaint. To
-check your keys, put the `JEV_PRIMARY_*` and `JEV_SECONDARY_*` lines from `.env.example` in your own `.env` (never in a chat, an issue or a commit) and run. The URL and the key are needed; the two `_MODEL` lines are optional: without one the request carries no model name and the provider uses its default (if a provider answers 400 or 422 the check tells you to set one):
+check your keys, put the `JEV_PRIMARY_*` and `JEV_SECONDARY_*` lines from `.env.example` in your own `.env` (never in a chat, an issue or a commit) and run. The URL and the key are needed; the two `_MODEL` lines are optional: without one the request carries no model name and the provider uses its default (if a provider answers 400 or 422 the check tells you to set one). A mistake in any of these settings never stops a complaint from being raised: that provider is skipped, or the number uses its default, and the check names the variable:
 
 ```bash
 npm run llm:check

@@ -1,7 +1,7 @@
 # Classifier providers (T13d)
 
 How a complaint can be classified by a language model, server side only. Decisions: D140 (the provider chain), D141 (breaker and daily cap in memory), D142
-(a 401 or 403 opens the breaker), D144 (the model name is optional), with D9, D73, D88, D118 and D119. Assumptions: R50 to R62 (`docs/assumptions.md`). Code: `src/server/complaints/providers/`.
+(a 401 or 403 opens the breaker), D144 (the model name is optional), D145 (a bad setting never blocks a complaint), with D9, D73, D88, D118 and D119. Assumptions: R50 to R65 (`docs/assumptions.md`). Code: `src/server/complaints/providers/`.
 The ports and rules around it are in `docs/complaints-design.md` and `docs/complaint-classification.md`.
 
 ## The chain
@@ -61,7 +61,13 @@ Names only, in `.env.example`; values in the human's own `.env` and in the Verce
 | `JEV_BREAKER_FAILURES` | Failures in a row before the breaker opens. | 3; 1 to 20 |
 | `JEV_BREAKER_COOLDOWN_SECONDS` | How long it stays open. | 120; 1 to 3600 |
 
-An invalid value throws a `RangeError` when the classifier is built (never repeating a URL or a key). `createClassifierFromEnv` returns a `JevClassifier` when at
+**A bad setting never blocks a complaint (D145).** `createClassifierFromEnv` and `productionClassifier` never throw, whatever the environment holds. Each provider is
+judged on its own: one whose URL is not https (or is not a URL, or is over 2,048 characters, or holds credentials), whose key or URL is missing while the other is set, or
+whose model name is invalid is SKIPPED and the other still answers. A shared number that is invalid (timeout, daily cap, breaker) falls back to its default. Each bad
+variable is warned ONCE per classifier, so once per server instance, as `classifier setting invalid: JEV_PRIMARY_URL`: the variable name only, never a value, a URL, a
+key or a length. `describeProviders(env)` reports every setting without a value: each provider is `configured`, `not_configured` or `invalid` with a fixed reason
+(`URL_INVALID`, `URL_NOT_HTTPS`, `URL_HAS_CREDENTIALS`, `MISSING_URL`, `MISSING_KEY`, `BAD_MODEL`), and the shared timeout, cap and breaker are `default`, `set` or
+`invalid_using_default`. `createClassifierFromEnv` returns a `JevClassifier` when at
 least one provider is configured and `NullClassifier` otherwise; the complaint handler builds one per server instance (`productionClassifier`) and tests inject fakes.
 
 ## Failover, time and the breaker
@@ -87,7 +93,7 @@ and a demo; a shared store (a database row, or a cache) would be a new decision 
 - Only the de-identified text is sent (D88). De-identification reduces personal data; it does not remove all of it (`docs/complaint-classification.md`).
 - The request body is only the model (when set), the text and the questions. A test compares it byte for byte with `buildRequest(text, model)`; another checks the exact keys with and without a model.
 - The key goes only in the `Authorization` header, from the environment; it is never logged or put in an error message.
-- Logging is one fixed sentence: `classifier provider failed: provider=<name> failure=<KIND> status=<code> latency_ms=<n>`. A test captures every console method after
+- Logging is two fixed sentences: `classifier provider failed: provider=<name> failure=<KIND> status=<code> latency_ms=<n>`, and, when a setting is bad, `classifier setting invalid: <VARIABLE NAME>` (D145). A test captures every console method after
   every kind of failure and checks that it holds no key, no complaint text, no URL, no query and no response body.
 - The provider's NAME is not stored with the classification (R58).
 
@@ -100,8 +106,9 @@ npm run llm:check
 ```
 
 For each configured provider it sends three fictional complaints (a leak under a sink, a corridor light, uncollected garbage) and prints one line per sample: the
-provider name, the HTTP status, the latency, the top category and the top urgency with their probabilities. A provider with a missing variable is named with that
-variable. It never prints a key, a URL or a body. Exit 0 if at least one provider answered; 1 if none did; 2 for an invalid setting. It uses three calls per provider.
+provider name, the HTTP status, the latency, the top category and the top urgency with their probabilities. A provider with a bad or missing setting gets one plain line
+(`opencode: invalid (URL_NOT_HTTPS), not checked: look at JEV_PRIMARY_URL`), and a line says whether the shared settings are default, set or invalid. It never prints
+a key, a URL or a body. Exit 0 if at least one provider answered; 1 if none did (including when none is usable); an invalid setting no longer has its own exit code. It uses three calls per provider.
 
 ## Rotating a key
 
@@ -116,5 +123,5 @@ A 401 or 403 in the logs ("failure=CONFIG") means a key is wrong, expired or rev
 
 - No real provider has been called by this work; the protocol of both is assumed to be TypeSafe's (R50, R51).
 - The thresholds that decide whether an answer is trusted are still the starting guesses of T10a (R36 to R38); the benchmark will set them.
-- The breaker and cap are not shared between instances (D141); an invalid setting fails the first complaint in an instance (R59).
+- The breaker and cap are not shared between instances (D141); a bad setting disables that provider or falls back to its default and is named once, and never blocks a complaint (D145, R63 to R65).
 - A response with a repeated JSON key keeps the last value (JSON parsing); the parser cannot see the duplicate.
