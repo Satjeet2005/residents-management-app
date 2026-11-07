@@ -68,6 +68,13 @@ describe("T2 component semantics", () => {
     expect(out.match(/after:border-dashed/g)).toHaveLength(1);
   });
 
+  it("T15 every Tracker marker is a block or flex box, because an inline span ignores its height and width (the browser showed bars, not circles)", () => {
+    const out = html(h(Tracker, { steps: steps("done", "current", "upcoming") }));
+    const markers = [...out.matchAll(/<span class="([^"]*\bh-6 w-6\b[^"]*)"/g)].map((m) => m[1]);
+    expect(markers).toHaveLength(3);
+    for (const classes of markers) expect(classes).toMatch(/\b(block|flex)\b/);
+  });
+
   it("T2 Tracker marks every state in words for a screen reader, and the all-done tracker is the last step", () => {
     const out = html(h(Tracker, { steps: steps("done", "done", "done") }));
     expect(out).toContain("Done: ");

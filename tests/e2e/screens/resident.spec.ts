@@ -12,7 +12,7 @@ test.describe("resident screens: logged out", () => {
     await page.goto("/login");
     await checkScreen(page, watch, "login", "idle");
     // A phone is asked to wait 30 seconds between codes, so each profile uses its own.
-    await page.getByLabel("Mobile number").fill(testInfo.project.name === "mobile-360" ? "5000000013" : "5000000014");
+    await page.getByLabel("Mobile number").fill(testInfo.project.name.endsWith("-360") ? "5000000013" : "5000000014");
     await page.getByRole("button", { name: "Send code" }).click();
     await expect(page.getByText(/Demo mode: your code is \d{6}/)).toBeVisible();
     await checkScreen(page, watch, "login", "code-sent");

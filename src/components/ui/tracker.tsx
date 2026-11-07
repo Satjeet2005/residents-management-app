@@ -23,8 +23,8 @@ function Marker({ state }: { state: TrackerState }) {
       </span>
     );
   }
-  if (state === "current") return <span className="h-6 w-6 rounded-full border-[6px] border-accent bg-paper" aria-hidden="true" />;
-  return <span className="h-6 w-6 rounded-full border-2 border-control bg-paper" aria-hidden="true" />;
+  if (state === "current") return <span className="block h-6 w-6 rounded-full border-[6px] border-accent bg-paper" aria-hidden="true" />;
+  return <span className="block h-6 w-6 rounded-full border-2 border-control bg-paper" aria-hidden="true" />;
 }
 
 /**
