@@ -25,17 +25,24 @@ const toolLabel = (tool: StaffTool): string => {
   switch (tool.key) {
     case "reconciliation":
       return t("staff.tool.reconciliation");
+    case "complaints":
+      return t("staff.tool.complaints");
   }
 };
 const toolHint = (tool: StaffTool): string => {
   switch (tool.key) {
     case "reconciliation":
       return t("staff.tool.reconciliation.hint");
+    case "complaints":
+      return t("staff.tool.complaints.hint");
   }
 };
 
-/** The staff landing page: who is signed in, the tools they may open, what they may do in words, and sign out. */
-export function StaffView({ name, permissions }: { name: string; permissions: readonly string[] }) {
+/** The open safety complaints under the Complaints tool, in words; nothing when there are none. */
+const safetyNote = (openSafety: number): string | null => (openSafety === 0 ? null : openSafety === 1 ? t("staff.tool.complaints.safetyOne") : t("staff.tool.complaints.safetyMany", { n: openSafety }));
+
+/** The staff landing page: who is signed in, the tools they may open (Complaints says how many safety complaints are open), what they may do in words, and sign out. */
+export function StaffView({ name, permissions, openSafety = 0 }: { name: string; permissions: readonly string[]; openSafety?: number }) {
   const tools = staffToolsFor({ role: "STAFF", active: true, permissions });
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4">
@@ -55,6 +62,7 @@ export function StaffView({ name, permissions }: { name: string; permissions: re
                   {toolLabel(tool)}
                 </Link>
                 <span className="text-caption text-ink-2">{toolHint(tool)}</span>
+                {tool.key === "complaints" && safetyNote(openSafety) !== null && <span className="text-body font-semibold text-caution">{safetyNote(openSafety)}</span>}
               </li>
             ))}
           </ul>

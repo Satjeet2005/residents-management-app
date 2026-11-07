@@ -65,7 +65,7 @@ describe("RU3 the staff tools", () => {
   it("Bank reconciliation is a tool for payments:match only", () => {
     expect(staffToolsFor(staff(["payments:match"])).map((t) => t.href)).toEqual(["/staff/reconciliation"]);
     expect(staffToolsFor(staff(["payments:approve"]))).toEqual([]);
-    expect(staffToolsFor(staff(["reports:view", "complaints:manage"]))).toEqual([]);
+    expect(staffToolsFor(staff(["reports:view"]))).toEqual([]);
     expect(staffToolsFor({ ...staff(["payments:match"]), active: false })).toEqual([]);
     expect(staffToolsFor({ role: "RESIDENT", active: true, permissions: ["payments:match"] })).toEqual([]);
   });
