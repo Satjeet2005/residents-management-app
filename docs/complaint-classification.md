@@ -23,7 +23,7 @@ first 2,000 characters for reading only (`normalizeComplaintText`).
 |---|---|
 | `taxonomy.ts` | The five categories, the four urgencies, the three urgencies a model may use (no CRITICAL), guards. |
 | `text.ts` | Normalise (NFC, zero-width characters out, Devanagari digits to ASCII, whitespace, 2,000 characters), detect the script, guess romanised Hindi or Marathi. |
-| `safety.ts` | 79 rules in four categories and five language families; `detectSafetyWords`. |
+| `safety.ts` | 129 rules in five categories and five language families; `detectSafetyWords`. |
 | `deidentify.ts` | Takes phones, e-mails, addresses of web pages, flat codes and names out of a text. |
 | `fallback.ts` | Keyword reading: a category, an urgency. |
 | `decision.ts` | R1 to R5, the policy, the reason codes, and the types `ClassifierPort` and `TranslatorPort` for the adapters. |
@@ -47,15 +47,15 @@ MODEL_UNAVAILABLE, FALLBACK_USED, NO_CLASSIFICATION, EMPTY_TEXT, SINGLE_ARM_NOT_
 
 ## The safety words
 
-- **Rules in a table** (`SAFETY_RULES`): an id, a category (FIRE, GAS, LIFT_STUCK, SHOCK: the brief's four, no others), a language (`en`, `hi`, `mr`,
-  `hi-Latn`, `mr-Latn`), a match kind and the terms. There are 79 rules: FIRE 20, GAS 17, LIFT_STUCK 21, SHOCK 21.
+- **Rules in a table** (`SAFETY_RULES`): an id, a category (FIRE, GAS, LIFT_STUCK, SHOCK: the brief's four, and MEDICAL_VIOLENCE, a human-added fifth, D153), a language (`en`, `hi`, `mr`,
+  `hi-Latn`, `mr-Latn`), a match kind and the terms. There are 129 rules: FIRE 20, GAS 17, LIFT_STUCK 21, SHOCK 21, MEDICAL_VIOLENCE 50 (ids start with `MV_`, ten rules in each language family).
 - **A Latin term is a whole word** ("gas" does not hit "gasket", "fire" does not hit "fireplace"). **A Devanagari term is a stem**: it starts a word and may be
   followed by more letters, so Marathi and Hindi endings hit (`अडकल` covers अडकली, अडकलो, अडकले). Where a stem is also the start of an everyday word the rule names the
   exception (`आग` does not hit `आगे`, ahead; `धूर` does not hit `धुरळा`, dust).
 - **The text is normalised first**, then lower-cased for Latin letters, apostrophes dropped ("can't" is "cant") and Devanagari folded (nukta removed, chandrabindu
   made anusvara), and matched on its original words. A translation is never what is read.
 - **High recall over precision**, on purpose: a missed fire is worse than a false alarm. So there is **no negation handling**: "no fire" and "there is no gas leak"
-  still escalate, and some everyday sentences hit ("fire exit", "the gas bill", "shock absorber", "smoke detector", "cigarette smoke", "करंट बिल"). The accepted false
+  still escalate, and some everyday sentences hit ("fire exit", "the gas bill", "shock absorber", "smoke detector", "cigarette smoke", "करंट बिल") and, for MEDICAL_VIOLENCE, "blood donation camp", "a blood test", "a kitchen knife set", "the plant died", "a photo shot", and the Hindi and Marathi `गोली`/`गोळी`, which also mean a tablet, and `रक्तदान` (blood donation). The accepted false
   positives are listed as tests (`tests/domain/complaints/safety.test.ts`, "accepted false positives") so a change that stops them is a decision, not an accident.
 - **Known gaps**: only the first 2,000 characters are read; a spelling nobody thought of is missed; a word split by an unusual character is missed; "gas" alone
   is a hit but "gaas" is not. The lists are in a table so a native speaker's corrections are one line each.

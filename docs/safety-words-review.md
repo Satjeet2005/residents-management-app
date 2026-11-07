@@ -1,7 +1,7 @@
 # Safety words: list for review
 
 **These lists are NOT yet verified by a native speaker.** The Hindi and Marathi words and phrases below were written by the agent that built the
-classifier, from general knowledge of the languages, to catch a fire, a gas leak, a person stuck in a lift and an electric shock when a resident
+classifier, from general knowledge of the languages, to catch a fire, a gas leak, a person stuck in a lift, an electric shock and (a fifth category added by a human, D153) a medical emergency or violence when a resident
 writes in Hindi, Marathi, or Hindi or Marathi typed in Latin letters. They may contain wrong spellings, words that do not mean what the English
 column says, missing common phrases, and words that are too general (a false alarm costs a phone call; a missed fire costs far more, so the
 rules are written to catch too much rather than too little: see `docs/complaint-classification.md`).
@@ -23,7 +23,7 @@ spellings are rough. The English meaning is per rule. English rules are not list
 2. Does it mean what the English column says, in that language?
 3. Could it be an ordinary word in a message that is NOT an incident (for example `करंट` also means the electricity "current" on a bill)?
    That is acceptable if it is common in real incidents; say so, or ask for the rule to be narrowed.
-4. Which common phrases are missing for the four categories: fire, gas, someone stuck in a lift, electric shock?
+4. Which common phrases are missing for the five categories: fire, gas, someone stuck in a lift, electric shock, medical emergency or violence?
 
 Write your name and the date in the last column, and your corrections under the table or in a note to the developers.
 
@@ -700,3 +700,13 @@ A fifth category added by a human decision (D153): someone is hurt, ill, attacke
 | `MV_MR_LATN_DROWN_KIDNAP` | mr-Latn | apaharan | apaharan | drowning or kidnapping, typed in Latin letters | |
 | `MV_MR_LATN_DROWN_KIDNAP` | mr-Latn | kidnap zala | kidnap zala | drowning or kidnapping, typed in Latin letters | |
 | `MV_MR_LATN_DROWN_KIDNAP` | mr-Latn | kidnap kela | kidnap kela | drowning or kidnapping, typed in Latin letters | |
+
+### Accepted false positives of MEDICAL_VIOLENCE
+
+These sentences hit although nobody is hurt. They are accepted on purpose (high recall, no negation) and are tests in
+`tests/domain/complaints/medical-violence-cases.ts` (`MV_ACCEPTED_FALSE_POSITIVES`), so a change that stops them is a decision.
+
+- English: "blood donation camp", "blood test", "kitchen knife" (a set for sale), "the plant died", "a photo shot", "passed out snacks", "sword fern", "a stroke of luck".
+- Hindi and Marathi: `रक्तदान शिविर` (blood donation camp), `गोली` / `गोळी` (also a tablet), and the same typed in Latin letters (`goli leke aana`, `rakt daan`).
+
+No self-harm word (for example "suicide") is in the list: that is a separate human decision.
