@@ -1,29 +1,17 @@
-import net from "node:net";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { PrismaClient } from "../../generated/prisma/client";
 import { dbPoolOptions } from "@/server/db-options";
+import { type SilentServer, startSilentServer } from "./silent-server";
 
-/** A server that accepts a connection and then never says a word: a database that is waking up, or unreachable. */
-let silent: net.Server;
-let port = 0;
-const sockets = new Set<net.Socket>();
-
+let silent: SilentServer;
 beforeAll(async () => {
-  silent = net.createServer((socket) => {
-    sockets.add(socket);
-    socket.on("error", () => {});
-  });
-  await new Promise<void>((resolve) => silent.listen(0, "127.0.0.1", resolve));
-  port = (silent.address() as net.AddressInfo).port;
+  silent = await startSilentServer();
 });
-afterAll(async () => {
-  for (const socket of sockets) socket.destroy();
-  await new Promise<void>((resolve) => silent.close(() => resolve()));
-});
+afterAll(() => silent.close());
 
-const silentUrl = () => `postgresql://app:secret@127.0.0.1:${port}/none`;
+const silentUrl = () => silent.url();
 
 async function timeIt(work: Promise<unknown>): Promise<{ ms: number; error: Error | null }> {
   const started = performance.now();
