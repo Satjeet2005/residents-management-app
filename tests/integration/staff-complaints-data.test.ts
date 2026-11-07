@@ -58,14 +58,14 @@ describe("SDATA1 the loaders run as the app role", () => {
 describe("SDATA2 the lanes", () => {
   it("each lane holds the complaints the rules put in it, and the tabs carry the counts", async () => {
     const lanes = Object.fromEntries(await Promise.all(BOARD_LANES.map(async (lane) => [lane, await board(world.staff.kavita, lane)]))) as Record<(typeof BOARD_LANES)[number], Awaited<ReturnType<typeof board>>>;
-    // A safety complaint has no category from the keyword fallback, so needs_review is true (A6 of docs/complaints-design.md) and it is in Needs triage too.
-    expect(idsOf(lanes.NEEDS_TRIAGE.rows)).toEqual([ids.triage, ids.safety].sort());
+    // D151: the safety complaint has needs_review true (no category from the keyword fallback, A6 of docs/complaints-design.md) but it is assigned and ASSIGNED, so it is not in Needs triage.
+    expect(idsOf(lanes.NEEDS_TRIAGE.rows)).toEqual([ids.triage]);
     expect(idsOf(lanes.SAFETY.rows)).toEqual([ids.safety]);
     expect(idsOf(lanes.OPEN.rows)).toEqual([ids.open, ids.safety, ids.overdue].sort());
     expect(idsOf(lanes.OVERDUE.rows)).toEqual([ids.overdue]);
     expect(idsOf(lanes.WAITING_RESIDENT.rows)).toEqual([ids.waiting]);
     expect(idsOf(lanes.CLOSED.rows)).toEqual([ids.closed]);
-    expect(lanes.OPEN.counts).toEqual({ NEEDS_TRIAGE: 2, SAFETY: 1, OPEN: 3, OVERDUE: 1, WAITING_RESIDENT: 1, CLOSED: 1 });
+    expect(lanes.OPEN.counts).toEqual({ NEEDS_TRIAGE: 1, SAFETY: 1, OPEN: 3, OVERDUE: 1, WAITING_RESIDENT: 1, CLOSED: 1 });
     expect(lanes.OPEN.now).toBe(LOAD);
   });
 

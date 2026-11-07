@@ -61,20 +61,20 @@ async function staffAction(
   );
 }
 
-/** Assigns the complaint to an active staff user who holds `complaints:manage` (else ASSIGNEE_INVALID). NEW and REOPENED become ASSIGNED; the first staff action sets first_response_at. */
+/** Assigns the complaint to an active staff user who holds `complaints:manage` (else ASSIGNEE_INVALID). NEW and REOPENED become ASSIGNED; the first staff action sets first_response_at; needs_review is cleared (D151). */
 export function assign(input: { db: Db; user: Actor; id: string; assigneeUserId: string; expectedVersion: number; now: number }): Promise<StaffActionResult> {
   return staffAction(input, async (row, tx) => {
     if (!isUuid(input.assigneeUserId) || !(await isAssignable(tx, input.assigneeUserId))) return failure("ASSIGNEE_INVALID");
     return {
       action: { kind: "ASSIGN" },
-      extra: { assigneeId: input.assigneeUserId },
+      extra: { assigneeId: input.assigneeUserId, needsReview: false },
       events: [{ eventType: "ASSIGNED", actorId: input.user.id, payload: { assignee: input.assigneeUserId, from: row.assigneeId } }],
       audit: { action: "COMPLAINT_ASSIGNED", detail: { assignee: input.assigneeUserId } },
     };
   });
 }
 
-/** IN_PROGRESS, or PENDING_CONFIRMATION ("mark resolved", never for a safety complaint). The note is optional, at most 500 characters, and internal. */
+/** IN_PROGRESS, or PENDING_CONFIRMATION ("mark resolved", never for a safety complaint). The note is optional, at most 500 characters, and internal. A person has looked at it, so needs_review is cleared (D151). */
 export function setStatus(input: { db: Db; user: Actor; id: string; status: "IN_PROGRESS" | "PENDING_CONFIRMATION"; note?: string; expectedVersion: number; now: number }): Promise<StaffActionResult> {
   return staffAction(input, async (row) => {
     const note = input.note === undefined ? null : input.note.trim();
@@ -82,6 +82,7 @@ export function setStatus(input: { db: Db; user: Actor; id: string; status: "IN_
     if (note !== null && Array.from(note).length > 500) return failure("VALIDATION");
     return {
       action: { kind: input.status === "IN_PROGRESS" ? "START" : "MARK_RESOLVED" },
+      extra: { needsReview: false },
       events: [{ eventType: "STATUS_CHANGED", actorId: input.user.id, payload: { from: row.status, to: input.status, note: note === "" ? null : note } }],
       audit: { action: "COMPLAINT_STATUS_CHANGED", detail: { from: row.status, to: input.status } },
     };

@@ -75,6 +75,24 @@ describe("CL3 the staff board lanes", () => {
     await arrange(world, orphan.id, { status: "CLOSED", closedAt: new Date(NOW), closeKind: "CONFIRMED", needsReview: false });
   });
 
+  it("D151 NEEDS_TRIAGE is not closed and (no assignee, or NEW with needs_review): assigned, in-progress and waiting complaints are never in it, even with needs_review", async () => {
+    const kinds: [string, Parameters<typeof arrange>[2]][] = [
+      ["t1", { assigneeId: null, status: "NEW", needsReview: false }],
+      ["t2", { status: "NEW", needsReview: true }],
+      ["t3", { status: "ASSIGNED", needsReview: true }],
+      ["t4", { status: "IN_PROGRESS", needsReview: true }],
+      ["t5", { status: "PENDING_CONFIRMATION", needsReview: true, pendingConfirmationAt: new Date(NOW - MIN), firstResponseAt: new Date(NOW - 2 * MIN) }],
+      ["t6", { status: "REOPENED", needsReview: true, reopenCount: 1, firstResponseAt: new Date(NOW - 2 * MIN) }],
+      ["t7", { assigneeId: null, status: "CLOSED", closedAt: new Date(NOW), closeKind: "CONFIRMED" }],
+    ];
+    for (const [name, data] of kinds) await arrange(world, (await raise(name, `Tap ${name} leaks`, NOW - 8 * MIN)).id, data);
+    const triage = idsOf((await board("NEEDS_TRIAGE")).rows);
+    expect(triage).toEqual(named("triage", "t1", "t2"));
+    const [{ n }] = await world.ownerPrisma.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM complaints WHERE status <> 'CLOSED' AND (assignee_id IS NULL OR (needs_review AND status = 'NEW'))`;
+    expect((await board("NEEDS_TRIAGE")).counts.NEEDS_TRIAGE).toBe(n);
+    for (const [name] of kinds) await arrange(world, ids[name], { status: "CLOSED", closedAt: new Date(NOW), closeKind: "CONFIRMED", needsReview: false });
+  });
+
   it("D150 a late first reply is LATE, not OVERDUE and not MET; the OVERDUE lane is exactly the complaints slaOutcome calls MISSED_OPEN", async () => {
     const lateReply = await raise("lateReply", "Tap in the garage leaks", NOW - 3 * DAY);
     await arrange(world, lateReply.id, { firstResponseAt: new Date(NOW - 3 * DAY + 1441 * MIN) });

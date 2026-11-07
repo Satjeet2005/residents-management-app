@@ -15,7 +15,7 @@ export const BOARD_PAGE_MAX = 50;
 
 /**
  * What puts a complaint in a lane (a complaint can be in several; the counts are per lane, not a partition). `now` is a timestamp.
- * - NEEDS_TRIAGE: not closed, and needs_review or no assignee.
+ * - NEEDS_TRIAGE: not closed, and either nobody is assigned or it is still NEW and flagged needs_review (D151). Assigned, in-progress and waiting complaints never are.
  * - OPEN: assigned, in progress or reopened (a reopened complaint is work that is open again).
  * - OVERDUE: not closed, and either nobody has responded and the due time has passed, or it was marked resolved after the due time.
  * - WAITING_RESIDENT: marked resolved, waiting for the resident.
@@ -25,7 +25,7 @@ export const BOARD_PAGE_MAX = 50;
 function predicate(lane: Lane, now: Date): Prisma.Sql {
   switch (lane) {
     case "NEEDS_TRIAGE":
-      return Prisma.sql`(c.status <> 'CLOSED' AND (c.needs_review OR c.assignee_id IS NULL))`;
+      return Prisma.sql`(c.status <> 'CLOSED' AND (c.assignee_id IS NULL OR (c.needs_review AND c.status = 'NEW')))`;
     case "OPEN":
       return Prisma.sql`(c.status IN ('ASSIGNED', 'IN_PROGRESS', 'REOPENED'))`;
     case "OVERDUE":

@@ -189,3 +189,37 @@ describe("CL3 status, comment and category", () => {
     expect(await setStatus({ db: db(), user: { ...kavita(), active: false }, id, status: "IN_PROGRESS", expectedVersion: 1, now: NOW + DAY })).toEqual({ status: "ERROR", error: "FORBIDDEN" });
   });
 });
+
+describe("D151 a person's action clears needs_review", () => {
+  const unreviewed = async () => {
+    const r = await makeResident(world);
+    const id = await raise(r, "Please look into the matter soon", new FakeClassifier());
+    expect(await loadComplaint(world, id)).toMatchObject({ needsReview: true, status: "NEW", assigneeId: null });
+    return id;
+  };
+
+  it("D151 assigning clears needs_review", async () => {
+    const id = await unreviewed();
+    ok(await assign({ db: db(), user: kavita(), id, assigneeUserId: kavita().id, expectedVersion: 1, now: NOW + 1000 }));
+    expect(await loadComplaint(world, id)).toMatchObject({ needsReview: false, status: "ASSIGNED" });
+  });
+
+  it("D151 setting the status (in progress, and resolved) clears needs_review", async () => {
+    const started = await unreviewed();
+    ok(await setStatus({ db: db(), user: kavita(), id: started, status: "IN_PROGRESS", expectedVersion: 1, now: NOW + 1000 }));
+    expect(await loadComplaint(world, started)).toMatchObject({ needsReview: false, status: "IN_PROGRESS" });
+    const resolved = await unreviewed();
+    await world.ownerPrisma.complaint.update({ where: { id: resolved }, data: { status: "IN_PROGRESS", assigneeId: kavita().id } });
+    ok(await setStatus({ db: db(), user: kavita(), id: resolved, status: "PENDING_CONFIRMATION", expectedVersion: 1, now: NOW + 1000 }));
+    expect(await loadComplaint(world, resolved)).toMatchObject({ needsReview: false, status: "PENDING_CONFIRMATION" });
+  });
+
+  it("D151 correcting the category clears needs_review, and a comment alone does not", async () => {
+    const corrected = await unreviewed();
+    ok(await correctCategory({ db: db(), user: kavita(), id: corrected, category: "LIFT", expectedVersion: 1, now: NOW + 1000 }));
+    expect((await loadComplaint(world, corrected)).needsReview).toBe(false);
+    const commented = await unreviewed();
+    ok(await addComment({ db: db(), user: kavita(), id: commented, text: "Looking at it", visibleToResident: false, now: NOW + 1000 }));
+    expect((await loadComplaint(world, commented)).needsReview).toBe(true);
+  });
+});
