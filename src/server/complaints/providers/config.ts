@@ -2,8 +2,16 @@
 export const PROVIDER_NAMES = ["opencode", "jevmodel"] as const;
 export type ProviderName = (typeof PROVIDER_NAMES)[number];
 
-/** A provider that is CONFIGURED: its URL, model and key are all present and valid. */
-export type ProviderConfig = { name: ProviderName; url: string; model: string; key: string };
+/** A provider that is CONFIGURED: its URL and key are present and valid. The model is optional (D144): without one the request omits it and the provider chooses. */
+export type ProviderConfig = { name: ProviderName; url: string; model?: string; key: string };
+
+/** What the status function says about one provider. `invalid` is a model name that failed the check; the variable is named, the value never is. */
+export type ProviderDescription = {
+  name: ProviderName;
+  status: "configured" | "not_configured" | "invalid";
+  model: "set" | "provider_default";
+  invalid?: { variable: string; reason: "BAD_MODEL" };
+};
 
 export type JevConfig = {
   /** The configured providers only, primary first. */
@@ -23,7 +31,7 @@ const LIMITS = {
   JEV_BREAKER_COOLDOWN_SECONDS: { fallback: 120, min: 1, max: 3600 },
 } as const;
 
-const MAX_MODEL_LENGTH = 100;
+const MODEL_PATTERN = /^[A-Za-z0-9._\-/:]{1,80}$/;
 const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost"]);
 
 /** The variable's trimmed value, or undefined when it is unset or blank. */
@@ -55,24 +63,38 @@ function checkedUrl(name: string, raw: string): string {
   return url.toString();
 }
 
-function provider(env: Env, name: ProviderName, prefix: "JEV_PRIMARY" | "JEV_SECONDARY"): ProviderConfig | null {
+type Inspected = { config: ProviderConfig | null; description: ProviderDescription };
+
+function inspect(env: Env, name: ProviderName, prefix: "JEV_PRIMARY" | "JEV_SECONDARY"): Inspected {
   const rawUrl = read(env, `${prefix}_URL`);
   const model = read(env, `${prefix}_MODEL`);
   const key = read(env, `${prefix}_KEY`);
   const url = rawUrl === undefined ? undefined : checkedUrl(`${prefix}_URL`, rawUrl);
-  if (model !== undefined && (model.length > MAX_MODEL_LENGTH || /[\u0000-\u001f\u007f\s]/.test(model))) throw new RangeError(`${prefix}_MODEL must be one word of at most ${MAX_MODEL_LENGTH} characters`);
-  return url === undefined || model === undefined || key === undefined ? null : { name, url, model, key };
+  const modelState = model === undefined ? "provider_default" : "set";
+  if (model !== undefined && !MODEL_PATTERN.test(model)) {
+    return { config: null, description: { name, status: "invalid", model: modelState, invalid: { variable: `${prefix}_MODEL`, reason: "BAD_MODEL" } } };
+  }
+  if (url === undefined || key === undefined) return { config: null, description: { name, status: "not_configured", model: modelState } };
+  return { config: { name, url, key, ...(model === undefined ? {} : { model }) }, description: { name, status: "configured", model: modelState } };
+}
+
+function inspectAll(env: Env): Inspected[] {
+  return [inspect(env, "opencode", "JEV_PRIMARY"), inspect(env, "jevmodel", "JEV_SECONDARY")];
+}
+
+/** The status of both providers, primary first (D144). Throws like `readJevConfig` for an invalid URL. */
+export function describeProviders(env: Env = process.env): ProviderDescription[] {
+  return inspectAll(env).map((p) => p.description);
 }
 
 /**
- * Reads the classifier providers' settings (D140). A provider is configured only when its URL, model and key are ALL present; a partly
- * configured provider is skipped. A value that is present but invalid throws a RangeError at once (the factory calls this at start-up), never
+ * Reads the classifier providers' settings (D140). A provider is configured when its URL and key are present; the model is optional (D144).
+ * A partly configured provider is skipped, and so is one whose model name is invalid (BAD_MODEL, see `describeProviders`). Any other value that is present but invalid throws a RangeError at once (the factory calls this at start-up), never
  * later in a request, and the error never repeats a URL or a key.
  */
 export function readJevConfig(env: Env = process.env): JevConfig {
-  const configured = [provider(env, "opencode", "JEV_PRIMARY"), provider(env, "jevmodel", "JEV_SECONDARY")];
   return {
-    providers: configured.filter((p): p is ProviderConfig => p !== null),
+    providers: inspectAll(env).flatMap((p) => (p.config === null ? [] : [p.config])),
     timeoutMs: whole(env, "JEV_TIMEOUT_MS"),
     dailyCap: whole(env, "JEV_DAILY_CAP"),
     breakerFailures: whole(env, "JEV_BREAKER_FAILURES"),

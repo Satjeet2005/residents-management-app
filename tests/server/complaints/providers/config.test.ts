@@ -21,7 +21,7 @@ describe("PV1 provider configuration", () => {
     expect(config.providers[0]).toEqual({ name: "opencode", url: "https://primary.example/v1/systemone", model: "jev-latest", key: "key-primary-000" });
   });
 
-  it.each(["URL", "MODEL", "KEY"])("a provider with its %s missing is not configured", (part) => {
+  it.each(["URL", "KEY"])("a provider with its %s missing is not configured", (part) => {
     const env: Record<string, string | undefined> = { ...FULL };
     delete env[`JEV_PRIMARY_${part}`];
     expect(readJevConfig(env).providers.map((p) => p.name)).toEqual(["jevmodel"]);
@@ -73,8 +73,8 @@ describe("PV1 provider configuration", () => {
     });
   });
 
-  it("a model name with a space or over 100 characters throws", () => {
-    expect(() => readJevConfig({ ...FULL, JEV_PRIMARY_MODEL: "jev latest" })).toThrow(RangeError);
-    expect(() => readJevConfig({ ...FULL, JEV_PRIMARY_MODEL: "x".repeat(101) })).toThrow(RangeError);
+  it("an invalid model name leaves that provider out, it does not throw", () => {
+    expect(readJevConfig({ ...FULL, JEV_PRIMARY_MODEL: "jev latest" }).providers.map((p) => p.name)).toEqual(["jevmodel"]);
+    expect(readJevConfig({ ...FULL, JEV_PRIMARY_MODEL: "x".repeat(81) }).providers.map((p) => p.name)).toEqual(["jevmodel"]);
   });
 });

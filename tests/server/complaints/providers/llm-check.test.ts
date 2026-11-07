@@ -29,7 +29,7 @@ describe("llm:check", () => {
     const lines = output.split("\n").filter((l) => l.startsWith("opencode  sample"));
     expect(lines).toHaveLength(3);
     expect(lines[0]).toMatch(/^opencode {2}sample 1 {2}HTTP 200 {2}\d+ ms {2}category PLUMBING 0\.90 {2}urgency NORMAL 0\.80$/);
-    expect(output).toContain("jevmodel: not checked, JEV_SECONDARY_URL, JEV_SECONDARY_MODEL, JEV_SECONDARY_KEY are not set.");
+    expect(output).toContain("jevmodel: not checked, JEV_SECONDARY_URL, JEV_SECONDARY_KEY are not set.");
   });
 
   it("never prints the key, the URL or a response body", async () => {

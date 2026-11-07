@@ -4,7 +4,7 @@
 // It never prints a key, a URL or a response body. It exits 1 when no configured provider answered (or none is configured), and 2 for an invalid setting.
 import { pathToFileURL } from "node:url";
 import { JevClient } from "../src/server/complaints/providers/client";
-import { PROVIDER_NAMES, readJevConfig } from "../src/server/complaints/providers/config";
+import { describeProviders, readJevConfig } from "../src/server/complaints/providers/config";
 
 export const SAMPLES = [
   "Water is leaking under the kitchen sink and the floor is wet.",
@@ -29,10 +29,14 @@ export async function runCheck(env: Env, print: (line: string) => void): Promise
     print(`A setting is not valid: ${error instanceof RangeError ? error.message : "unknown error"}.`);
     return 2;
   }
-  for (const name of PROVIDER_NAMES) {
-    if (config.providers.some((p) => p.name === name)) continue;
+  for (const { name, status, invalid } of describeProviders(env)) {
+    if (status === "configured") continue;
+    if (invalid !== undefined) {
+      print(`${name}: not checked, ${invalid.variable} is not valid (${invalid.reason}).`);
+      continue;
+    }
     const prefix = PREFIXES[name];
-    const missing = ["URL", "MODEL", "KEY"].filter((part) => (env[`${prefix}_${part}`]?.trim() ?? "") === "").map((part) => `${prefix}_${part}`);
+    const missing = ["URL", "KEY"].filter((part) => (env[`${prefix}_${part}`]?.trim() ?? "") === "").map((part) => `${prefix}_${part}`);
     print(`${name}: not checked, ${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} not set.`);
   }
   if (config.providers.length === 0) {
@@ -43,6 +47,8 @@ export async function runCheck(env: Env, print: (line: string) => void): Promise
   for (const provider of config.providers) {
     const client = new JevClient(provider);
     let providerAnswered = false;
+    let askedForModel = false;
+    print(`${provider.name}  model: ${provider.model === undefined ? "provider default" : "set"}`);
     for (const [index, text] of SAMPLES.entries()) {
       const outcome = await client.call(text, { timeoutMs: config.timeoutMs });
       const where = `${provider.name}  sample ${index + 1}`;
@@ -51,8 +57,10 @@ export async function runCheck(env: Env, print: (line: string) => void): Promise
         print(`${where}  HTTP ${outcome.status}  ${outcome.latencyMs} ms  category ${top(outcome.value.categories)}  urgency ${top(outcome.value.urgencies)}`);
       } else {
         print(`${where}  ${outcome.status === undefined ? "no HTTP status" : `HTTP ${outcome.status}`}  ${outcome.latencyMs} ms  failed: ${outcome.failure}`);
+        if (provider.model === undefined && (outcome.status === 400 || outcome.status === 422)) askedForModel = true;
       }
     }
+    if (askedForModel) print(`${provider.name}: this provider may require a model name: set ${PREFIXES[provider.name]}_MODEL`);
     if (providerAnswered) answered += 1;
   }
   print(answered > 0 ? `${answered} of ${config.providers.length} configured provider(s) answered.` : "Every configured provider failed.");

@@ -6,9 +6,9 @@ export type SystemOneDistributions = {
   urgencies: { label: ModelUrgency; probability: number }[];
 };
 
-/** The request body of POST /v1/systemone (docs.typesafe.ai/api/system-one, read 2026-11-07): the model, the state, and named questions. */
+/** The request body of POST /v1/systemone (docs.typesafe.ai/api/system-one, read 2026-11-07): the model (only when set, D144), the state, and named questions. */
 export type SystemOneRequest = {
-  model: string;
+  model?: string;
   state: string;
   questions: { category: ChoiceQuestion; urgency: ChoiceQuestion };
 };
@@ -31,10 +31,11 @@ const URGENCY_CRITERIA: Record<ModelUrgency, string> = {
 /**
  * The request for one complaint (D140). TWO questions in one call: the category over exactly the five codes, and the urgency over HIGH, NORMAL and
  * LOW (never CRITICAL: only the safety rules produce it). The body holds ONLY the model, the de-identified text and the questions: no user id, no flat.
+ * Without a model the `model` key is left out entirely, not empty and not null, and the provider chooses its default (D144).
  */
-export function buildRequest(deidentifiedText: string, model: string): SystemOneRequest {
+export function buildRequest(deidentifiedText: string, model?: string): SystemOneRequest {
   return {
-    model,
+    ...(model === undefined ? {} : { model }),
     state: deidentifiedText,
     questions: {
       category: { type: "choice", instructions: "Which kind of problem does this complaint from a resident of a housing society describe?", criteria: { ...CATEGORY_CRITERIA } },
