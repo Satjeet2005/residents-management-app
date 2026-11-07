@@ -34,9 +34,10 @@ beforeAll(async () => {
 afterAll(async () => {
   for (const prisma of prismas) await prisma.$disconnect().catch(() => {});
   await silent?.close();
-  for (const role of roles) await role.drop().catch(() => {});
   await owner?.end();
+  // The grants live in the scratch database, so it goes first; only then can the roles be dropped.
   await scratch?.drop();
+  for (const role of roles) await role.drop();
 });
 afterEach(() => vi.unstubAllEnvs());
 
