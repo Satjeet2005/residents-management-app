@@ -2,6 +2,7 @@ import { can, type Permission } from "@/domain/auth/permissions";
 import { writeAccessDeniedAudit } from "./audit";
 import { clientIp } from "./client-ip";
 import { clearSessionCookies, hasSessionCookie, isHttps, readSessionToken } from "./cookie";
+import { logRouteError } from "../log";
 import { ipHash } from "./crypto";
 import { csrfBlocked } from "./csrf";
 import { defaultDeps } from "./default-deps";
@@ -59,14 +60,23 @@ function finish(response: Response, extra: [string, string][] = []): Response {
 const error = (status: number, code: string, extra: [string, string][] = []): Response =>
   finish(Response.json({ error: code }, { status }), extra);
 
+/** The path only: the query string can hold a search text or a phone number, so it is never logged. */
+function routeOf(request: Request): string {
+  try {
+    return new URL(request.url).pathname;
+  } catch {
+    return "unknown";
+  }
+}
+
 /** The two wrappers every route handler must use (D81). `createGuards` takes the dependencies so tests control the clock and database. */
 export function createGuards(getDeps: () => AuthRouteDeps) {
-  /** Anything unexpected becomes a plain 500 with no detail; the failure itself is logged without data. */
-  async function run(work: () => Promise<Response>): Promise<Response> {
+  /** Anything unexpected becomes a plain 500 with no detail; the failure is logged with its redacted code and message (D111), never the request. */
+  async function run(request: Request, work: () => Promise<Response>): Promise<Response> {
     try {
       return finish(await work());
-    } catch {
-      console.error("route failed");
+    } catch (failure) {
+      logRouteError(routeOf(request), failure);
       return error(500, "SERVER_ERROR");
     }
   }
@@ -77,7 +87,7 @@ export function createGuards(getDeps: () => AuthRouteDeps) {
    */
   function publicRoute(handler: (context: PublicContext) => Promise<Response> | Response): RouteHandler {
     return (request) =>
-      run(async () => {
+      run(request, async () => {
         if (csrfBlocked(request)) return error(403, "CSRF_BLOCKED");
         const deps = getDeps();
         return handler({ now: deps.now(), request, deps });
@@ -91,7 +101,7 @@ export function createGuards(getDeps: () => AuthRouteDeps) {
    */
   function withPermission(need: Need, handler: (context: GuardContext) => Promise<Response> | Response): RouteHandler {
     return (request) =>
-      run(async () => {
+      run(request, async () => {
         if (csrfBlocked(request)) return error(403, "CSRF_BLOCKED");
         const deps = getDeps();
         const now = deps.now();
