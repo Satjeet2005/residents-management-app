@@ -5,6 +5,7 @@ import { MoneyBlock } from "@/app/(staff)/staff/reports/money-block";
 import { PeriodForm } from "@/app/(staff)/staff/reports/period-form";
 import { ReportView } from "@/app/(staff)/staff/reports/report-view";
 import { StaffView } from "@/app/(staff)/staff/staff-view";
+import { AGE_BUCKETS } from "@/domain/reports/age";
 import type { MoneyLine } from "@/domain/reports/money-line";
 import { dateWords, periodLabel } from "@/lib/reports/period";
 import type { CommitteeReport } from "@/server/reports/report-data";
@@ -30,7 +31,8 @@ const report = (over: Partial<CommitteeReport> = {}): CommitteeReport =>
     period: "2026-10-01",
     periods: ["2026-10-01", "2026-09-01", "2026-08-01"],
     money,
-    ageing: { buckets: [], total: { flats: 0, bills: 0, amountDuePaise: 0n } },
+    ageing: { buckets: AGE_BUCKETS.map((bucket) => ({ bucket, flats: 0, bills: 0, amountDuePaise: 0n })), total: { flats: 0, bills: 0, amountDuePaise: 0n } },
+    drilldown: null,
     quality: null,
     complaints: null,
     reconciliation: null,
@@ -119,7 +121,7 @@ describe("CR3 the page", () => {
   });
 
   it("has no filled control and no uppercase", () => {
-    expect(out).not.toContain("bg-accent");
+    for (const control of out.match(/<(button|a) [^>]*>/g) ?? []) expect(control).not.toContain("bg-accent");
     expect(out).not.toMatch(/uppercase|tracking-/);
   });
 
@@ -128,7 +130,7 @@ describe("CR3 the page", () => {
     expect(words(empty)).toContain("No bills for this month");
     expect(words(empty)).toContain("Choose another month above.");
     expect(empty).not.toContain("committee-money");
-    expect(empty).not.toContain("₹0");
+    expect(empty).not.toContain("Billed");
   });
 
   it("names the period and the date in words", () => {

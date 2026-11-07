@@ -1,4 +1,4 @@
-import { type Ageing, ageingTable } from "@/domain/reports/age";
+import { type AgeBucket, type Ageing, ageingTable } from "@/domain/reports/age";
 import { type ComplaintMetrics, complaintMetrics } from "@/domain/reports/complaints";
 import { type GoalRow, evaluateGoals, goalsFromSetting } from "@/domain/reports/goals";
 import { type CollectionQuality, type MoneyLine, collectionQuality, moneyLine } from "@/domain/reports/money-line";
@@ -9,6 +9,7 @@ import { choosePeriod, periodOptions } from "@/lib/reports/period";
 import type { Db } from "@/server/auth/db";
 import type { SessionUser } from "@/server/auth/session-service";
 import { requirePermission } from "@/server/statements/ui-data";
+import { type AgeingPage, ageingPageOf } from "./ageing-page";
 import { loadMonthComplaints } from "./complaints";
 import { loadReportPositions } from "./positions";
 import { loadReconciliationLine } from "./reconciliation";
@@ -26,6 +27,8 @@ export type CommitteeReport = {
   money: MoneyLine | null;
   /** What is owed, all open dues of all months, as of the business date. */
   ageing: Ageing;
+  /** The first page of the drill-down of the bucket in the address (`?bucket=`), or null when none was asked for. */
+  drilldown: AgeingPage | null;
   /** How promptly the month's bills were paid; null when the month has no bills. */
   quality: CollectionQuality | null;
   /** The complaints raised in the month, as counts and medians (the screen takes the shares with `percent`). */
@@ -43,7 +46,7 @@ export const inPeriod = (positions: readonly ReportPosition[], period: CalendarD
  * The data of /staff/reports (D5, D131). The permission is checked here, at the data (the page has already sent anyone else away). The business clock decides
  * "as of". Every figure comes from `billPosition` through `positionsForFlat`, the function the Home uses.
  */
-export async function loadCommitteeReport(input: { db: Db; user: Viewer; requestedPeriod: CalendarDate | null; now: number }): Promise<CommitteeReport> {
+export async function loadCommitteeReport(input: { db: Db; user: Viewer; requestedPeriod: CalendarDate | null; bucket?: AgeBucket | null; now: number }): Promise<CommitteeReport> {
   requirePermission(input.user, "reports:view");
   const asOf = istDateOf(input.now);
   const { positions } = await loadReportPositions(input.db, asOf);
@@ -64,6 +67,7 @@ export async function loadCommitteeReport(input: { db: Db; user: Viewer; request
     periods,
     money: monthPositions.length === 0 ? null : moneyLine(monthPositions),
     ageing: ageingTable(positions, asOf),
+    drilldown: input.bucket === undefined || input.bucket === null ? null : ageingPageOf(positions, asOf, input.bucket, null),
     quality,
     complaints: metrics,
     reconciliation,

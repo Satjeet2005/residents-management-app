@@ -35,7 +35,7 @@ export function choosePeriod(input: { requested: CalendarDate | null; options: r
 export function reportHref(input: { period: CalendarDate; bucket?: string | null }): string {
   const params = new URLSearchParams({ period: periodQuery(input.period) });
   if (input.bucket !== undefined && input.bucket !== null) params.set("bucket", input.bucket);
-  return `/staff/reports?${params.toString()}`;
+  return `/staff/reports?${params.toString()}${input.bucket === undefined || input.bucket === null ? "" : "#ageing-detail"}`;
 }
 
 /** "October 2026": a period as the page names it. */

@@ -1,6 +1,8 @@
 import { t } from "@/lib/messages";
 import { dateWords } from "@/lib/reports/period";
 import type { CommitteeReport } from "@/server/reports/report-data";
+import { AgeingBlock } from "./ageing-block";
+import { AgeingDetail } from "./ageing-detail";
 import { MoneyBlock } from "./money-block";
 import { PeriodForm } from "./period-form";
 
@@ -26,6 +28,8 @@ export function ReportView({ report }: { report: CommitteeReport }) {
       ) : (
         <MoneyBlock period={report.period} money={report.money} />
       )}
+      <AgeingBlock ageing={report.ageing} period={report.period} selected={report.drilldown?.bucket ?? null} />
+      {report.drilldown !== null && <AgeingDetail page={report.drilldown} period={report.period} />}
     </main>
   );
 }

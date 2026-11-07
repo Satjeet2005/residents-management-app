@@ -12,7 +12,7 @@ describe("RC1 the period", () => {
   it("round-trips through the address", () => {
     expect(periodQuery("2026-10-01")).toBe("2026-10");
     expect(reportHref({ period: "2026-10-01" })).toBe("/staff/reports?period=2026-10");
-    expect(reportHref({ period: "2026-09-01", bucket: "DAYS_31_60" })).toBe("/staff/reports?period=2026-09&bucket=DAYS_31_60");
+    expect(reportHref({ period: "2026-09-01", bucket: "31-60" })).toBe("/staff/reports?period=2026-09&bucket=31-60#ageing-detail");
     expect(monthStart("2026-10-27")).toBe("2026-10-01");
   });
 

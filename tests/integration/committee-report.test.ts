@@ -168,6 +168,13 @@ describe("RP2 the ageing, checked against raw SQL and against the Home's own sum
     expect(Object.keys(both[0]).sort()).toEqual(["amountDuePaise", "billId", "daysPastDue", "flatCode", "period"]);
   });
 
+  it("asking for a bucket in the report returns the same first page as the drill-down loader, from the same positions", async () => {
+    const withBucket = await loadCommitteeReport({ db: fx.app, user: meera, requestedPeriod: OCTOBER, bucket: "DAYS_31_60", now: DEMO_NOW });
+    expect(withBucket.drilldown).toEqual(firstPage);
+    expect(withBucket.ageing).toEqual(october.ageing);
+    expect(october.drilldown).toBeNull();
+  });
+
   it("a cursor that is not one is refused", async () => {
     expect(await loadAgeingPage({ db: fx.app, user: meera, bucket: "DAYS_31_60", cursor: "not-a-cursor", now: DEMO_NOW })).toBeNull();
   });
