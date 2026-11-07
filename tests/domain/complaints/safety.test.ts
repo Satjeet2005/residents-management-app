@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { SAFETY_RULES, detectSafetyWords, hasSafetyWord, type SafetyCategory, type SafetyLanguage } from "@/domain/complaints/safety";
 import { createPrng } from "@/domain/seed/prng";
+import { MV_ACCEPTED_FALSE_POSITIVES, MV_NEGATIVES, MV_POSITIVES } from "./medical-violence-cases";
 
 /** [text, the rule that must hit]. Every rule of the table appears at least once. */
 const POSITIVES: [string, string][] = [
+  ...MV_POSITIVES,
   // FIRE: English
   ["There is fire in the parking lot", "FIRE_EN_WORD"],
   ["FIRE!!!", "FIRE_EN_WORD"],
@@ -115,6 +117,7 @@ const POSITIVES: [string, string][] = [
 
 /** Texts that must NOT hit anything. */
 const NEGATIVES: string[] = [
+  ...MV_NEGATIVES,
   "the gasket of the tap is broken",
   "gastric problem since morning",
   "fireplace in the clubhouse",
@@ -179,6 +182,7 @@ const NEGATIVES: string[] = [
 
 /** Sentences that DO hit although they are not incidents: the price of high recall (no negation handling), accepted on purpose. */
 const ACCEPTED_FALSE_POSITIVES: [string, string][] = [
+  ...MV_ACCEPTED_FALSE_POSITIVES,
   ["there is no fire, just checking", "FIRE_EN_WORD"],
   ["the fire exit is blocked by bikes", "FIRE_EN_WORD"],
   ["the fire extinguisher has expired", "FIRE_EN_WORD"],
@@ -194,21 +198,23 @@ const ACCEPTED_FALSE_POSITIVES: [string, string][] = [
   ["गैस बिल नहीं मिला", "GAS_HI_WORD"],
 ];
 
+const CATEGORIES: SafetyCategory[] = ["FIRE", "GAS", "LIFT_STUCK", "SHOCK", "MEDICAL_VIOLENCE"];
+const ID_PREFIX: Record<SafetyCategory, string> = { FIRE: "FIRE_", GAS: "GAS_", LIFT_STUCK: "LIFT_", SHOCK: "SHOCK_", MEDICAL_VIOLENCE: "MV_" };
 const ids = new Set(SAFETY_RULES.map((r) => r.id));
 const rule = (id: string) => SAFETY_RULES.find((r) => r.id === id)!;
 
 describe("CP2 the rule table", () => {
-  it("has unique ids and at least 8 rules for each of the four categories, and only those categories", () => {
+  it("has unique ids and at least 8 rules for each of the five categories, and only those categories", () => {
     expect(ids.size).toBe(SAFETY_RULES.length);
-    for (const category of ["FIRE", "GAS", "LIFT_STUCK", "SHOCK"] as SafetyCategory[]) expect(SAFETY_RULES.filter((r) => r.category === category).length, category).toBeGreaterThanOrEqual(8);
-    expect(new Set(SAFETY_RULES.map((r) => r.category))).toEqual(new Set(["FIRE", "GAS", "LIFT_STUCK", "SHOCK"]));
+    for (const category of CATEGORIES) expect(SAFETY_RULES.filter((r) => r.category === category).length, category).toBeGreaterThanOrEqual(8);
+    expect(new Set(SAFETY_RULES.map((r) => r.category))).toEqual(new Set(CATEGORIES));
   });
 
   it("covers all five language families in every category, with the id naming its language", () => {
-    for (const category of ["FIRE", "GAS", "LIFT_STUCK", "SHOCK"] as SafetyCategory[]) {
+    for (const category of CATEGORIES) {
       expect(new Set(SAFETY_RULES.filter((r) => r.category === category).map((r) => r.language)), category).toEqual(new Set(["en", "hi", "mr", "hi-Latn", "mr-Latn"]));
     }
-    for (const r of SAFETY_RULES) expect(r.id.startsWith(r.category === "LIFT_STUCK" ? "LIFT_" : `${r.category}_`), r.id).toBe(true);
+    for (const r of SAFETY_RULES) expect(r.id.startsWith(ID_PREFIX[r.category]), r.id).toBe(true);
   });
 
   it("every Devanagari rule has Devanagari terms and every Latin rule has none", () => {
@@ -221,10 +227,10 @@ describe("CP2 the rule table", () => {
 });
 
 describe("CP2 positives", () => {
-  it("there are at least 70 positive cases, in the four categories and the four language families", () => {
+  it("there are at least 70 positive cases, in the five categories and the five language families", () => {
     expect(POSITIVES.length).toBeGreaterThanOrEqual(70);
     const used = POSITIVES.map(([, id]) => rule(id));
-    expect(new Set(used.map((r) => r.category)).size).toBe(4);
+    expect(new Set(used.map((r) => r.category)).size).toBe(5);
     expect(new Set(used.map((r) => r.language)).size).toBe(5);
   });
 

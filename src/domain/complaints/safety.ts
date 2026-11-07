@@ -1,7 +1,7 @@
 import { type MatchKind, compileTerms, foldForMatching } from "./match";
 import { normalizeComplaintText } from "./text";
 
-export type SafetyCategory = "FIRE" | "GAS" | "LIFT_STUCK" | "SHOCK";
+export type SafetyCategory = "FIRE" | "GAS" | "LIFT_STUCK" | "SHOCK" | "MEDICAL_VIOLENCE";
 /** en: English; hi and mr: Hindi and Marathi in Devanagari; hi-Latn and mr-Latn: the same typed in Latin letters. */
 export type SafetyLanguage = "en" | "hi" | "mr" | "hi-Latn" | "mr-Latn";
 export type SafetyHit = { rule: string; category: SafetyCategory; language: SafetyLanguage; matched: string };
@@ -18,7 +18,7 @@ const rule = (id: string, category: SafetyCategory, language: SafetyLanguage, ki
 /**
  * THE RULES. HIGH RECALL over precision: a missed fire is worse than a false alarm, so a rule may also hit a sentence that is not an incident
  * ("fire exit", "gas bill", "no fire": there is NO negation handling, on purpose). The Hindi and Marathi lists are NOT yet verified by a native
- * speaker (docs/safety-words-review.md). A new category is not added here: the brief has these four.
+ * speaker (docs/safety-words-review.md). The first four categories are the brief's; MEDICAL_VIOLENCE is a human-added fifth (D153, docs/assumptions.md).
  * In a Latin term a space means one or more spaces, hyphens or underscores; in a Devanagari term it means zero or more spaces (people write
  * "लिफ्टमध्ये" and "लिफ्ट मध्ये" alike).
  */
@@ -109,6 +109,57 @@ export const SAFETY_RULES: readonly Rule[] = [
   rule("SHOCK_HI_LATN_TAAR", "SHOCK", "hi-Latn", "WORD", ["nanga taar", "nange taar", "khula taar", "khule taar", "taar toot", "taar tuta"]),
   rule("SHOCK_MR_LATN_DHAKKA", "SHOCK", "mr-Latn", "WORD", ["vijecha dhakka", "viji cha dhakka", "vijecha shock", "current laagla", "current lagla", "shock laagla", "shock baisla", "karant laagla"]),
   rule("SHOCK_MR_LATN_WIRE", "SHOCK", "mr-Latn", "WORD", ["ughadi tar", "ughadi wire", "wire tutli", "tar tutli", "ughdi wire"]),
+  // MEDICAL_VIOLENCE (D153: a human-added fifth category: someone is hurt, ill, attacked or dead; the ids start with MV_)
+  rule("MV_EN_AMBULANCE", "MEDICAL_VIOLENCE", "en", "WORD", ["ambulance", "ambulances", "ambulence", "paramedic", "paramedics"]),
+  rule("MV_EN_COLLAPSE", "MEDICAL_VIOLENCE", "en", "WORD", ["unconscious", "unconcious", "fainted", "fainting", "passed out", "collapsed", "unresponsive", "not responding", "fell unconscious"]),
+  rule("MV_EN_BREATH", "MEDICAL_VIOLENCE", "en", "WORD", ["not breathing", "stopped breathing", "cannot breathe", "cant breathe", "unable to breathe", "difficulty breathing", "struggling to breathe", "gasping for air"]),
+  rule("MV_EN_CARDIAC", "MEDICAL_VIOLENCE", "en", "WORD", ["heart attack", "cardiac arrest", "chest pain", "chest pains", "seizure", "seizures", "epileptic fit", "stroke", "paralysis attack"]),
+  rule("MV_EN_BLOOD", "MEDICAL_VIOLENCE", "en", "WORD", ["blood", "bleed", "bleeds", "bleeding", "bloody", "bloodied", "blood loss"]),
+  rule("MV_EN_INJURY", "MEDICAL_VIOLENCE", "en", "WORD", ["injured", "injury", "injuries", "badly hurt", "seriously hurt", "severely hurt", "wounded", "fractured", "fracture", "head injury"]),
+  rule("MV_EN_ATTACK", "MEDICAL_VIOLENCE", "en", "WORD", ["stabbed", "stabbing", "shot", "shooting", "gunshot", "gunshots", "attacked", "attacking", "attacker", "assault", "assaulted", "beaten up", "being beaten", "molested"]),
+  rule("MV_EN_DEATH", "MEDICAL_VIOLENCE", "en", "WORD", ["murder", "murdered", "killed", "killing", "dead body", "someone died", "person died", "has died", "died", "found dead", "passed away"]),
+  rule("MV_EN_DROWN_KIDNAP", "MEDICAL_VIOLENCE", "en", "WORD", ["drowning", "drowned", "kidnap", "kidnaps", "kidnapped", "kidnapping", "abducted", "abduction"]),
+  rule("MV_EN_WEAPON", "MEDICAL_VIOLENCE", "en", "WORD", ["knife", "knives", "gun", "guns", "weapon", "weapons", "pistol", "revolver", "sword", "machete"]),
+  rule("MV_HI_AMBULANCE", "MEDICAL_VIOLENCE", "hi", "STEM", ["एम्बुलेंस", "एंबुलेंस", "एम्बुलेन्स", "एंबुलेन्स", "अम्बुलेंस", "ऐम्बुलेंस"]),
+  rule("MV_HI_BEHOSH", "MEDICAL_VIOLENCE", "hi", "STEM", ["बेहोश", "अचेत", "होश नहीं", "होश में नहीं", "बेसुध"]),
+  rule("MV_HI_BREATH", "MEDICAL_VIOLENCE", "hi", "STEM", ["सांस नहीं", "सांस रुक", "सांस लेने में", "सांस फूल", "दम घुट", "सांस नही"]),
+  rule("MV_HI_CARDIAC", "MEDICAL_VIOLENCE", "hi", "STEM", ["हार्ट अटैक", "हार्टअटैक", "दिल का दौरा", "दौरा पड़", "मिर्गी", "सीने में दर्द", "छाती में दर्द", "हृदयघात", "लकवा"]),
+  rule("MV_HI_KHOON", "MEDICAL_VIOLENCE", "hi", "STEM", ["खून", "रक्त", "लहूलुहान", "रक्तस्राव"]),
+  rule("MV_HI_GHAYAL", "MEDICAL_VIOLENCE", "hi", "STEM", ["घायल", "जख्मी", "जख्म", "गंभीर चोट", "सिर में चोट", "चोट लग", "हड्डी टूट", "फ्रैक्चर", "चोटिल"]),
+  rule("MV_HI_WEAPON", "MEDICAL_VIOLENCE", "hi", "STEM", ["चाकू", "छुरा", "छुरी", "गोली", "गोलीबारी", "बंदूक", "बन्दूक", "हथियार", "पिस्तौल", "तलवार", "कट्टा"]),
+  rule("MV_HI_ATTACK", "MEDICAL_VIOLENCE", "hi", "STEM", ["हमला", "हमले", "हमलावर", "मारपीट", "मार दिया", "मार डाला", "पिटाई", "पीटा", "पीट रहे", "पीट रहा"]),
+  rule("MV_HI_DEATH", "MEDICAL_VIOLENCE", "hi", "STEM", ["हत्या", "कत्ल", "मर गया", "मर गई", "मर गये", "मर गए", "मौत", "लाश", "मृत"]),
+  rule("MV_HI_DROWN_KIDNAP", "MEDICAL_VIOLENCE", "hi", "STEM", ["अपहरण", "किडनैप", "डूब रहा", "डूब रही", "डूब गया", "डूब गई", "डूबने"]),
+  rule("MV_MR_AMBULANCE", "MEDICAL_VIOLENCE", "mr", "STEM", ["रुग्णवाहिका", "रुग्णवाहीका", "अॅम्ब्युलन्स", "ऍम्ब्युलन्स", "ॲम्ब्युलन्स", "अँब्युलन्स", "एम्बुलेन्स", "अम्बुलन्स"]),
+  rule("MV_MR_BEHOSH", "MEDICAL_VIOLENCE", "mr", "STEM", ["बेशुद्ध", "बेशुध्द", "बेहोश", "शुद्ध हरपली", "शुद्ध हरपला", "भोवळ"]),
+  rule("MV_MR_BREATH", "MEDICAL_VIOLENCE", "mr", "STEM", ["श्वास घेता येत नाही", "श्वास घेण्यास त्रास", "श्वास थांबला", "श्वास कोंडला", "दम लागत", "धाप लागत", "दम कोंडला"]),
+  rule("MV_MR_CARDIAC", "MEDICAL_VIOLENCE", "mr", "STEM", ["हृदयविकार", "हार्ट अटॅक", "हार्ट अॅटॅक", "छातीत दुखत", "छातीत कळ", "फिट आली", "फिट आला", "फेफरे", "अर्धांगवायू", "पक्षाघात"]),
+  rule("MV_MR_RAKTA", "MEDICAL_VIOLENCE", "mr", "STEM", ["रक्त", "रक्तबंबाळ", "रक्तस्राव", "रक्तस्त्राव"]),
+  rule("MV_MR_JAKHMI", "MEDICAL_VIOLENCE", "mr", "STEM", ["जखम", "गंभीर जखम", "डोक्याला मार", "डोक्याला लागले", "हाड मोडले", "फ्रॅक्चर"]),
+  rule("MV_MR_WEAPON", "MEDICAL_VIOLENCE", "mr", "STEM", ["चाकू", "गोळी", "गोळीबार", "बंदूक", "बंदुक", "शस्त्र", "पिस्तूल", "तलवार", "कोयता"]),
+  rule("MV_MR_ATTACK", "MEDICAL_VIOLENCE", "mr", "STEM", ["हल्ला", "हल्लेखोर", "मारहाण", "मारामारी", "जीवे मार", "मारून टाक"]),
+  rule("MV_MR_DEATH", "MEDICAL_VIOLENCE", "mr", "STEM", ["खून", "हत्या", "मृत्यू", "मृतदेह", "प्रेत", "मरण पाव", "जीव गेला", "जीव गेली"]),
+  rule("MV_MR_DROWN_KIDNAP", "MEDICAL_VIOLENCE", "mr", "STEM", ["अपहरण", "किडनॅप", "बुडत", "बुडाला", "बुडाली", "बुडून"]),
+  rule("MV_HI_LATN_AMBULANCE", "MEDICAL_VIOLENCE", "hi-Latn", "WORD", ["ambulance bulao", "ambulance bulaiye", "ambulance bula do", "ambulance chahiye", "ambulans"]),
+  rule("MV_HI_LATN_BEHOSH", "MEDICAL_VIOLENCE", "hi-Latn", "WORD", ["behosh", "behoosh", "behosh ho gaya", "behosh ho gayi", "hosh nahi", "hosh nahin", "hosh me nahi", "hosh mein nahi"]),
+  rule("MV_HI_LATN_BREATH", "MEDICAL_VIOLENCE", "hi-Latn", "WORD", ["saans nahi", "saans nahin", "saans nhi", "saans ruk", "saans lene mein takleef", "saans lene me dikkat", "dam ghut", "dum ghut"]),
+  rule("MV_HI_LATN_CARDIAC", "MEDICAL_VIOLENCE", "hi-Latn", "WORD", ["dil ka daura", "dil ka dora", "daura pada", "mirgi", "seene mein dard", "seene me dard", "chhati mein dard", "chhati me dard", "lakwa"]),
+  rule("MV_HI_LATN_KHOON", "MEDICAL_VIOLENCE", "hi-Latn", "WORD", ["khoon", "khun", "khoon beh raha", "khoon nikal raha", "lahuluhan", "rakt", "khoon nikla"]),
+  rule("MV_HI_LATN_GHAYAL", "MEDICAL_VIOLENCE", "hi-Latn", "WORD", ["ghayal", "zakhmi", "jakhmi", "chot lagi", "chot lag gayi", "gambhir chot", "sar mein chot", "haddi tut", "haddi toot"]),
+  rule("MV_HI_LATN_WEAPON", "MEDICAL_VIOLENCE", "hi-Latn", "WORD", ["chaku", "chakoo", "chaaku", "goli", "goliyan", "goli chali", "bandook", "banduk", "talwar", "katta", "tamancha", "hathiyar", "chhura", "chhuri"]),
+  rule("MV_HI_LATN_ATTACK", "MEDICAL_VIOLENCE", "hi-Latn", "WORD", ["hamla", "hamla kiya", "hamlawar", "maar diya", "maar dala", "maar daala", "maarpit", "marpit", "maar peet", "pitai"]),
+  rule("MV_HI_LATN_DEATH", "MEDICAL_VIOLENCE", "hi-Latn", "WORD", ["hatya", "katl", "qatal", "mar gaya", "mar gayi", "mar gaye", "maut", "laash", "mrit", "jaan se maar"]),
+  rule("MV_HI_LATN_DROWN_KIDNAP", "MEDICAL_VIOLENCE", "hi-Latn", "WORD", ["doob raha", "doob rahi", "doob gaya", "doob gayi", "apaharan", "agwa", "agva"]),
+  rule("MV_MR_LATN_AMBULANCE", "MEDICAL_VIOLENCE", "mr-Latn", "WORD", ["ambulance bolava", "ambulance bolwa", "ambulance pathva", "ambulance pahije", "rugnavahika", "rugnavahika bolava"]),
+  rule("MV_MR_LATN_BEHOSH", "MEDICAL_VIOLENCE", "mr-Latn", "WORD", ["beshudh", "beshuddh", "beshuddha", "bhoval", "bhowal", "bhoval aali", "chakkar yeun pad", "shudh haravli", "behosh zala", "behosh zali"]),
+  rule("MV_MR_LATN_BREATH", "MEDICAL_VIOLENCE", "mr-Latn", "WORD", ["shwas gheta yet nahi", "shvas gheta yet nahi", "shwas thambla", "dam lagto", "dhaap lagte", "dhap lagte", "dam kondla", "shwas kondla", "shwas ghenyas tras"]),
+  rule("MV_MR_LATN_CARDIAC", "MEDICAL_VIOLENCE", "mr-Latn", "WORD", ["hrudayvikar", "hruday vikar", "chhatit dukhtay", "chhatit dukhte", "chhatit dukhat", "chhatit kal", "chatit dukhtay", "fit aali", "fit aala", "phephre"]),
+  rule("MV_MR_LATN_RAKTA", "MEDICAL_VIOLENCE", "mr-Latn", "WORD", ["rakta", "raktabambal", "raktasrav", "raktastrav", "rakta yet aahe"]),
+  rule("MV_MR_LATN_JAKHMI", "MEDICAL_VIOLENCE", "mr-Latn", "WORD", ["jakhmi", "jakhami", "jakham", "jakham zali", "jakhmi zala", "gambhir jakham", "dokyala mar", "dokyala lagle", "had modle"]),
+  rule("MV_MR_LATN_WEAPON", "MEDICAL_VIOLENCE", "mr-Latn", "WORD", ["chaku", "chakku", "golibar", "golibaar", "goli zadli", "bandhuk", "shastra", "pistool", "koyta"]),
+  rule("MV_MR_LATN_ATTACK", "MEDICAL_VIOLENCE", "mr-Latn", "WORD", ["halla", "halla kela", "hallekhor", "marhan", "maramari", "jeeve mar", "jive mar", "marun taka", "marun takle"]),
+  rule("MV_MR_LATN_DEATH", "MEDICAL_VIOLENCE", "mr-Latn", "WORD", ["khoon zala", "khun zala", "khoon kela", "hatya zali", "mrutyu", "mrityu", "mrutyu zala", "mrutdeh", "mrutadeh", "jeev gela", "jiv gela", "maran pavla", "maran pavli"]),
+  rule("MV_MR_LATN_DROWN_KIDNAP", "MEDICAL_VIOLENCE", "mr-Latn", "WORD", ["budat aahe", "budtay", "budun", "budala", "budali", "apaharan", "kidnap zala", "kidnap kela"]),
 ];
 
 const LETTER_OR_MARK_OR_DIGIT = /[\p{L}\p{M}\p{N}]/u;

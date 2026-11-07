@@ -54,6 +54,11 @@ describe("D126 alert 1a: sent", () => {
     expect(text(alertHtml({ state: "SENT", category, seenAt: null, callPhone: "5900000001" }))).toContain(words);
   });
 
+  it("D153 MEDICAL_VIOLENCE has no specific wording: it says 'Your report', never a guessed category", () => {
+    const html = text(alertHtml({ state: "SENT", category: "MEDICAL_VIOLENCE", seenAt: null, callPhone: "5900000001" }));
+    expect(html).toContain("Your report has gone to the duty manager");
+  });
+
   it("a declared danger with no word says 'Your report', never a guessed category", () => {
     const none = text(alertHtml({ state: "SENT", category: null, seenAt: null, callPhone: "5900000001" }));
     expect(none).toContain("Your report has gone to the duty manager");

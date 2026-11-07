@@ -6,7 +6,8 @@ import { t } from "@/lib/messages";
 import { telHref } from "@/lib/phone-link";
 import type { HomeSafetyAlert } from "@/server/home/types";
 
-function categoryWord(category: SafetyCategory): string {
+/** The word in "Your <word> report", or null when there is no specific wording (the title then names no category). */
+function categoryWord(category: SafetyCategory): string | null {
   switch (category) {
     case "FIRE":
       return t("safetyAlert.category.fire");
@@ -16,7 +17,14 @@ function categoryWord(category: SafetyCategory): string {
       return t("safetyAlert.category.lift");
     case "SHOCK":
       return t("safetyAlert.category.shock");
+    case "MEDICAL_VIOLENCE":
+      return null;
   }
+}
+
+function sentTitle(category: SafetyCategory | null): string {
+  const word = category === null ? null : categoryWord(category);
+  return word === null ? t("safetyAlert.sentNoCategory") : t("safetyAlert.sent", { category: word });
 }
 
 /** The title and the line under it for each of the three states (design 1a, 1b, 1c). */
@@ -24,7 +32,7 @@ function wordsOf(alert: HomeSafetyAlert): { title: string; line: string | null; 
   switch (alert.state) {
     case "SENT":
       return {
-        title: alert.category === null ? t("safetyAlert.sentNoCategory") : t("safetyAlert.sent", { category: categoryWord(alert.category) }),
+        title: sentTitle(alert.category),
         line: t("safetyAlert.callNow"),
         call: t("safetyAlert.callDuty"),
       };

@@ -72,6 +72,11 @@ describe("CL2 the safety path (D9, D73, D119)", () => {
     ["Hinglish fire", "tower 2 mein aag lagi hai"],
     ["Marathi fire", "इमारतीला आगी लागली"],
     ["Marathi smoke", "तळघरातून धूर येत आहे"],
+    ["D153 English killed (the live-site case)", "Killed someone"],
+    ["D153 English ambulance", "my father is unconscious, send an ambulance"],
+    ["D153 Hindi attack", "गार्ड पर हमला हुआ"],
+    ["D153 Hinglish blood", "seedhiyon pe khoon hai"],
+    ["D153 Marathi injury", "एक माणूस जखमी झाला आहे"],
   ])("CL2 %s: CRITICAL, assigned to the duty manager with ESCALATED, a notification, and no classifier call", async (_name, text) => {
     const { user, flat } = await makeResident(world);
     const classifier = new FakeClassifier({ result: arm("OTHER", 0.95, "LOW", 0.95 /* a model would have said OTHER and LOW */) });
