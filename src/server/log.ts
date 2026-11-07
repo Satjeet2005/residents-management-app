@@ -14,13 +14,23 @@ const REDACTED = "[secret]";
 const DATABASE_URL_PATTERN = /postgres(?:ql)?:\/\/\S+/gi;
 const LONG_TOKEN_PATTERN = /[A-Za-z0-9+/=_-]{32,}/g;
 
+/** The password inside DATABASE_URL, as written and decoded, so it is removed even when it appears without the rest of the URL. */
+function passwordsIn(connectionString: string | undefined): string[] {
+  try {
+    const raw = new URL(connectionString ?? "").password;
+    return raw === "" ? [] : [raw, decodeURIComponent(raw)];
+  } catch {
+    return [];
+  }
+}
+
 /**
- * Removes secrets from text: the exact values of the secret variables that are set, any postgres:// or postgresql:// URL, and any
- * run of 32 or more token characters (keys, hashes, tokens). The exact values go first, longest first, so a value that contains
- * another is replaced whole.
+ * Removes secrets from text: the exact values of the secret variables that are set (and the password inside DATABASE_URL), any
+ * postgres:// or postgresql:// URL, and any run of 32 or more token characters (keys, hashes, tokens). The exact values go first,
+ * longest first, so a value that contains another is replaced whole.
  */
 export function redact(text: string, env: Readonly<Record<string, string | undefined>> = process.env): string {
-  const exact = SECRET_ENV_NAMES.map((name) => env[name]).filter((value): value is string => typeof value === "string" && value !== "");
+  const exact = [...SECRET_ENV_NAMES.map((name) => env[name]), ...passwordsIn(env.DATABASE_URL)].filter((value): value is string => typeof value === "string" && value !== "");
   exact.sort((a, b) => b.length - a.length);
   let result = text;
   for (const value of exact) result = result.split(value).join(REDACTED);
