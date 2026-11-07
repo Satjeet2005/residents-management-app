@@ -32,10 +32,30 @@ export function readinessRows(report) {
 }
 
 /**
+ * The only checks `--allow-owner-role` may let pass: what an OWNER connection fails (it is a superuser or at least the table owner, so it can update the
+ * ledger, delete from the audit log and read the error log). LOCAL DEVELOPMENT ONLY (D136): a developer's database has no app role.
+ */
+export const OWNER_ROLE_CHECKS = ["appRole.isSuperuser", "appRole.canUpdateLedger", "appRole.canDeleteAuditLog", "appRole.canReadErrorEvents"];
+
+/** Is this base URL on this machine? Exactly localhost or 127.0.0.1: a host that merely starts with one of them is not. */
+export function isLocalBaseUrl(baseUrl) {
+  try {
+    const { hostname } = new URL(baseUrl);
+    return hostname === "localhost" || hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Prints the readiness table and returns true when the deployment is ready. When it is not, it prints a plain message naming
  * the failing checks and returns false, and the caller stops before it tries to log in.
  */
-export async function readinessFirst(baseUrl, label) {
+export async function readinessFirst(baseUrl, label, { allowOwnerRole = false } = {}) {
+  if (allowOwnerRole && !isLocalBaseUrl(baseUrl)) {
+    console.log(`${label}: REFUSED --allow-owner-role: it is for local development only, and ${baseUrl} is not localhost or 127.0.0.1. No request was sent.`);
+    return false;
+  }
   let report = null;
   let status = 0;
   try {
@@ -57,6 +77,12 @@ export async function readinessFirst(baseUrl, label) {
   const failing = rows.filter((row) => row[1] === "FAIL").map((row) => row[0]);
   if (failing.length === 0 && report.status === "ok") {
     console.log("\nREADY: the deployment can sign someone in. Starting the checks.\n");
+    return true;
+  }
+  if (allowOwnerRole && failing.length > 0 && failing.every((name) => OWNER_ROLE_CHECKS.includes(name))) {
+    console.log("\n!!! WARNING: --allow-owner-role is set. The only failures are the ones an OWNER connection has (" + failing.join(", ") + ").");
+    console.log("!!! This server connects as the database owner, not as the restricted app role. That is acceptable on a developer's machine ONLY.");
+    console.log("!!! Never use this flag against a deployment. Continuing with the checks.\n");
     return true;
   }
   console.log(`\nStopped before login: not ready (HTTP ${status}). Failing: ${failing.join(", ") || "status is degraded"}. See docs/deploy-checklist.md, "If the readiness check fails".`);

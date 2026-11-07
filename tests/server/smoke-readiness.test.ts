@@ -18,6 +18,12 @@ const READY = {
 const LEDGER_WRITABLE = { ...READY, status: "degraded", checks: { ...READY.checks, appRole: { ...READY.checks.appRole, canUpdateLedger: true } } };
 const ERRORS_READABLE = { ...READY, status: "degraded", checks: { ...READY.checks, appRole: { ...READY.checks.appRole, canReadErrorEvents: true } } };
 const ERRORS_NOT_WRITABLE = { ...READY, status: "degraded", checks: { ...READY.checks, appRole: { ...READY.checks.appRole, canInsertErrorEvents: false } } };
+const OWNER_ROLE = {
+  ...READY,
+  status: "degraded",
+  checks: { ...READY.checks, appRole: { isSuperuser: true, canInsertOtp: true, canUpdateLedger: true, canDeleteAuditLog: true, canInsertErrorEvents: true, canReadErrorEvents: true } },
+};
+const OWNER_ROLE_AND_NO_SEED = { ...OWNER_ROLE, checks: { ...OWNER_ROLE.checks, data: { seeded: false } } };
 const UNREACHABLE = { status: "degraded", checks: { config: READY.checks.config, database: "unreachable", schema: "skipped", appRole: "skipped", data: "skipped" } };
 
 let server: http.Server;
@@ -119,5 +125,63 @@ describe("D112 the smoke scripts check readiness first", () => {
     expect(out).toMatch(/PASS\s+appRole.canReadErrorEvents\s+false/);
     expect(seen.length).toBeGreaterThan(1);
     expect(seen.some((line) => line.includes("/api/auth/otp/request") || line.includes("/api/health"))).toBe(true);
+  });
+});
+
+describe("D136 --allow-owner-role is for local development only", () => {
+  const FLAG = "--allow-owner-role";
+  const withFlag = (args: string[]) => [...args, FLAG];
+
+  it.each(SCRIPTS)("%s: without the flag an owner connection is stopped, exactly as before", async (script, args) => {
+    report = OWNER_ROLE;
+    reportStatus = 503;
+    seen = [];
+    const { code, out } = await run(script, args());
+    expect(code).toBe(1);
+    expect(seen).toEqual(["GET /api/health/ready"]);
+    expect(out).toContain("Failing: appRole.isSuperuser, appRole.canUpdateLedger, appRole.canDeleteAuditLog, appRole.canReadErrorEvents.");
+    expect(out).not.toContain("WARNING");
+  });
+
+  it.each(SCRIPTS)("%s: with the flag on 127.0.0.1 it prints a loud warning and goes on to the login steps", async (script, args) => {
+    report = OWNER_ROLE;
+    reportStatus = 503;
+    seen = [];
+    const { out } = await run(script, withFlag(args()));
+    expect(out).toContain("!!! WARNING: --allow-owner-role is set");
+    expect(out).toContain("ONLY");
+    expect(seen.length).toBeGreaterThan(1);
+  });
+
+  it.each(SCRIPTS)("%s: with the flag, any other failure still stops it (an unseeded database, an unreachable one)", async (script, args) => {
+    for (const bad of [OWNER_ROLE_AND_NO_SEED, UNREACHABLE]) {
+      report = bad;
+      reportStatus = 503;
+      seen = [];
+      const { code, out } = await run(script, withFlag(args()));
+      expect(code).toBe(1);
+      expect(seen).toEqual(["GET /api/health/ready"]);
+      expect(out).not.toContain("--allow-owner-role is set");
+    }
+  });
+
+  it.each(SCRIPTS)("%s: with the flag and a base URL that is not localhost or 127.0.0.1 it is refused before any request", async (script) => {
+    seen = [];
+    for (const remote of ["https://township.example.test", "http://localhost.evil.test:3000", "http://127.0.0.1.evil.test", "http://127.0.0.2:3000", "http://[::1]:3000"]) {
+      const { code, out } = await run(script, remote.startsWith("http") && script.includes("auth") ? [remote, "5000000006", FLAG] : [remote, "--as-of=real", "--demo=true", FLAG]);
+      expect(code, remote).toBe(1);
+      expect(out, remote).toContain("REFUSED --allow-owner-role");
+      expect(out, remote).not.toContain("GET /api/health/ready answered");
+    }
+    expect(seen).toEqual([]);
+  });
+
+  it.each(SCRIPTS)("%s: with the flag a fully ready server prints no warning", async (script, args) => {
+    report = READY;
+    reportStatus = 200;
+    seen = [];
+    const { out } = await run(script, withFlag(args()));
+    expect(out).toContain("READY: the deployment can sign someone in");
+    expect(out).not.toContain("WARNING");
   });
 });

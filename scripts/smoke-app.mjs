@@ -3,6 +3,7 @@
 //   node scripts/smoke-app.mjs <BASE_URL> --as-of=2026-10-27 --demo=true     the server runs with DEMO_AS_OF=2026-10-27
 //   node scripts/smoke-app.mjs <BASE_URL> --as-of=real --demo=true           the server uses the real India date
 //   npm run smoke:app -- http://localhost:3100 --as-of=real --demo=false
+//   add --allow-owner-role on a developer's machine whose server connects as the database owner (refused unless the URL is localhost or 127.0.0.1)
 //
 // It logs in as the T12-0408 resident (5000000007, Swati Joshi) and as a staff member (5000000001, Priya Nair) of the
 // demo data, and checks the pages. The expected numbers are worked out here, independently of the app, with BigInt.
@@ -26,7 +27,7 @@ if (!baseUrl || !(asOfArg === "real" || /^\d{4}-\d{2}-\d{2}$/.test(asOfArg))) {
 }
 
 // Readiness first (D112): a misconfigured deployment is named here, before a login is tried.
-if (!(await readinessFirst(baseUrl, "smoke:app"))) process.exit(1);
+if (!(await readinessFirst(baseUrl, "smoke:app", { allowOwnerRole: args.includes("--allow-owner-role") }))) process.exit(1);
 
 const RESIDENT = "5000000007";
 const RESIDENT_PART_PAID = "5000000009";

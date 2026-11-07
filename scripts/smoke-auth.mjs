@@ -2,6 +2,7 @@
 //
 //   node scripts/smoke-auth.mjs <BASE_URL> <demo-phone>
 //   npm run smoke:auth -- http://localhost:3000 5000000006
+//   add --allow-owner-role on a developer's machine whose server connects as the database owner (refused unless the URL is localhost or 127.0.0.1)
 //
 // BASE_URL and the phone may also come from the BASE_URL and SMOKE_PHONE environment variables.
 // The cookie checks depend on the scheme of BASE_URL: https expects __Host-session with Secure; http expects session without Secure.
@@ -10,8 +11,11 @@
 
 import { readinessFirst } from "./smoke-readiness.mjs";
 
-const baseUrl = (process.argv[2] ?? process.env.BASE_URL ?? "").replace(/\/+$/, "");
-const phone = process.argv[3] ?? process.env.SMOKE_PHONE ?? "";
+const args = process.argv.slice(2);
+const allowOwnerRole = args.includes("--allow-owner-role"); // LOCAL DEVELOPMENT ONLY: see scripts/smoke-readiness.mjs
+const positional = args.filter((a) => !a.startsWith("--"));
+const baseUrl = (positional[0] ?? process.env.BASE_URL ?? "").replace(/\/+$/, "");
+const phone = positional[1] ?? process.env.SMOKE_PHONE ?? "";
 
 if (!/^https?:\/\//.test(baseUrl) || !/^[0-9]{10}$/.test(phone)) {
   console.error("Usage: node scripts/smoke-auth.mjs <BASE_URL> <10-digit demo phone>");
@@ -19,7 +23,7 @@ if (!/^https?:\/\//.test(baseUrl) || !/^[0-9]{10}$/.test(phone)) {
 }
 
 // Readiness first (D112): a misconfigured deployment is named here, before a login is tried.
-if (!(await readinessFirst(baseUrl, "smoke:auth"))) process.exit(1);
+if (!(await readinessFirst(baseUrl, "smoke:auth", { allowOwnerRole }))) process.exit(1);
 
 const results = [];
 const check = (name, ok, detail = "") => {
