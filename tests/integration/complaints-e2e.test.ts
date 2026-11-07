@@ -2,7 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { type LifecycleAction, type LifecycleState, applyTransition } from "@/domain/complaints/lifecycle";
 import { createPrng } from "@/domain/seed/prng";
 import { autoCloseDue } from "@/server/complaints/auto-close";
-import { listBoard } from "@/server/complaints/board";
+import { NO_FILTERS } from "@/lib/staff-complaints/board-query";
+import { listBoardView } from "@/server/complaints/board-views";
 import { createComplaint } from "@/server/complaints/create";
 import { getComplaint, listOwnComplaints } from "@/server/complaints/read";
 import { confirmFixed, reopen } from "@/server/complaints/resident";
@@ -144,7 +145,7 @@ describe("end to end: the complaint loop and the safety loop", () => {
     const id = raised.complaint.id;
     expect(raised.complaint).toMatchObject({ urgency: "HIGH", category: "PLUMBING", status: "ASSIGNED" });
 
-    const lane = await listBoard({ db: db(), user: world.staff.kavita, lane: "OPEN", limit: 50, now: NOW });
+    const lane = await listBoardView({ db: db(), user: world.staff.kavita, view: "open", filters: NO_FILTERS, limit: 50, now: NOW });
     if (lane.status !== "OK") throw new Error(lane.error);
     expect(lane.rows.find((x) => x.id === id)).toMatchObject({ assignee: { name: "Kavita Rao" }, urgency: "HIGH", sla: "ON_TIME" });
 
@@ -163,8 +164,15 @@ describe("end to end: the complaint loop and the safety loop", () => {
     if (full.status !== "OK") throw new Error(full.error);
     expect(full.complaint).toMatchObject({ status: "CLOSED", closeKind: "CONFIRMED", rating: 5, version: 5 });
     expect(full.complaint.events.map((e) => e.eventType)).toEqual(["CREATED", "CLASSIFIED", "ASSIGNED", "ASSIGNED", "COMMENT", "STATUS_CHANGED", "STATUS_CHANGED", "CLOSED"]);
-    const closedLane = await listBoard({ db: db(), user: world.staff.kavita, lane: "CLOSED", now: NOW + 400_000 });
-    expect(closedLane.status === "OK" && closedLane.rows.some((x) => x.id === id)).toBe(true);
+    let cursor: string | undefined;
+    let found = false;
+    do {
+      const closedPage = await listBoardView({ db: db(), user: world.staff.kavita, view: "closed", filters: NO_FILTERS, cursor, limit: 50, now: NOW + 400_000 });
+      if (closedPage.status !== "OK") throw new Error(closedPage.error);
+      found = found || closedPage.rows.some((x) => x.id === id);
+      cursor = closedPage.nextCursor ?? undefined;
+    } while (cursor !== undefined && !found);
+    expect(found).toBe(true);
   });
 
   it("CL4 a complaint with no category: triage, a person corrects the category and assigns, the resident reopens after the first resolution and it is resolved again", async () => {
@@ -172,7 +180,7 @@ describe("end to end: the complaint loop and the safety loop", () => {
     const result = await createComplaint({ db: db(), user: r.user, body: "Please look into the matter soon", now: NOW, classifier: new FakeClassifier() });
     if (result.status !== "OK") throw new Error(result.error);
     const id = result.complaint.id;
-    const triage = await listBoard({ db: db(), user: world.staff.kavita, lane: "NEEDS_TRIAGE", limit: 50, now: NOW });
+    const triage = await listBoardView({ db: db(), user: world.staff.kavita, view: "triage", filters: NO_FILTERS, limit: 50, now: NOW });
     expect(triage.status === "OK" && triage.rows.some((x) => x.id === id)).toBe(true);
     await correctCategory({ db: db(), user: world.staff.kavita, id, category: "HOUSEKEEPING", expectedVersion: 1, now: NOW + 1000 });
     await assign({ db: db(), user: world.staff.kavita, id, assigneeUserId: world.staff.kavita.id, expectedVersion: 2, now: NOW + 2000 });
@@ -187,16 +195,16 @@ describe("end to end: the complaint loop and the safety loop", () => {
   it("CL3 a safety complaint: SAFETY lane for the duty manager, acknowledged, closed by the duty manager, and the resident may dispute the closure", async () => {
     const r = await makeResident(world);
     const id = await raise(r, "There is a gas leak in the corridor");
-    const lane = await listBoard({ db: db(), user: world.staff.sanjay, lane: "SAFETY", limit: 50, now: NOW + 60_000 });
+    const lane = await listBoardView({ db: db(), user: world.staff.sanjay, view: "safety", filters: NO_FILTERS, limit: 50, now: NOW + 60_000 });
     if (lane.status !== "OK") throw new Error(lane.error);
     expect(lane.rows.find((x) => x.id === id)).toMatchObject({ assignee: { name: "Sanjay Pawar" }, urgency: "CRITICAL", sla: "ON_TIME" });
     expect(await acknowledgeSafety({ db: db(), user: world.staff.sanjay, id, now: NOW + 120_000 })).toMatchObject({ status: "OK" });
     expect(await setStatus({ db: db(), user: world.staff.sanjay, id, status: "PENDING_CONFIRMATION", expectedVersion: 1, now: NOW + 130_000 })).toEqual({ status: "ERROR", error: "INVALID_TRANSITION" });
     expect(await closeSafety({ db: db(), user: world.staff.sanjay, id, note: "Gas isolated, area ventilated", now: NOW + 600_000 })).toMatchObject({ status: "OK" });
-    const after = await listBoard({ db: db(), user: world.staff.sanjay, lane: "SAFETY", limit: 50, now: NOW + 700_000 });
+    const after = await listBoardView({ db: db(), user: world.staff.sanjay, view: "safety", filters: NO_FILTERS, limit: 50, now: NOW + 700_000 });
     expect(after.status === "OK" && after.rows.some((x) => x.id === id)).toBe(false);
     expect(await reopen({ db: db(), user: r.user, id, reason: "I can still smell gas", now: NOW + DAY })).toMatchObject({ status: "OK", complaint: { status: "REOPENED" } });
-    const back = await listBoard({ db: db(), user: world.staff.sanjay, lane: "SAFETY", limit: 50, now: NOW + DAY });
+    const back = await listBoardView({ db: db(), user: world.staff.sanjay, view: "safety", filters: NO_FILTERS, limit: 50, now: NOW + DAY });
     expect(back.status === "OK" && back.rows.some((x) => x.id === id)).toBe(true);
     await autoCloseDue({ db: db(), now: NOW + 365 * DAY });
     expect(await loadComplaint(world, id)).toMatchObject({ status: "REOPENED", closeKind: null, safetyFlag: true });

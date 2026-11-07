@@ -1,10 +1,11 @@
 import { type SlaState, slaState } from "@/domain/complaints/lifecycle";
 import type { Db } from "@/server/auth/db";
 import { type TimelineLine, staffTimeline, userIdsIn } from "@/lib/staff-complaints/timeline";
-import { type BoardLane, chooseLane } from "@/lib/staff-complaints/lanes";
+import type { BoardView } from "@/domain/complaints/board-views";
+import type { BoardFilters, BoardQuery } from "@/lib/staff-complaints/board-query";
 import { requirePermission } from "@/server/statements/ui-data";
 import { autoCloseQuietly } from "./auto-close";
-import { type Board, type BoardRow, listBoard } from "./board";
+import { type BoardRow, type ViewBoard, type ViewCounts, listBoardView } from "./board-views";
 import { type Actor, isDutyManager, isUuid } from "./context";
 import { type ClassificationLine, type StaffComplaint, getStaffComplaint, listStaffUsers } from "./staff-read";
 import type { ControlViewer } from "@/lib/staff-complaints/controls";
@@ -20,38 +21,39 @@ export async function loadStaffLanding(input: { db: Db; user: Actor }): Promise<
 }
 
 export type BoardPage = {
-  lane: BoardLane;
-  counts: Record<BoardLane, number>;
+  view: BoardView;
+  filters: BoardFilters;
+  counts: ViewCounts;
+  /** Safety complaints waiting for the duty manager's acknowledgement, whatever the filters (the alert strip). */
+  unacknowledgedSafety: number;
+  /** How many complaints the view holds with the filters on ("Showing 15 of <total>"). */
+  total: number;
   rows: BoardRow[];
   nextCursor: string | null;
   /** The business clock at the time of the read: every "Reply due in 40 min" on the page is worked out from it. */
   now: number;
 };
 
-async function readBoard(input: { db: Db; user: Actor; lane: BoardLane; cursor?: string; now: number }): Promise<Board> {
-  const board = await listBoard({ db: input.db, user: input.user, lane: input.lane, cursor: input.cursor, now: input.now });
+async function readBoard(input: { db: Db; user: Actor; view: BoardView; filters: BoardFilters; cursor?: string; now: number }): Promise<ViewBoard> {
+  const board = await listBoardView(input);
   if (board.status === "ERROR") throw new Error(`complaints board: ${board.error}`);
   return board;
 }
 
 /**
- * The data of /staff/complaints (D130). The permission is checked here again, at the data (the page already sent anyone else away). Auto-close runs first,
- * lazily and quietly (D120), so a complaint that waited long enough shows as closed and a failure never breaks the page. With no lane in the address the
- * duty manager gets Safety when it has items, everybody else Needs triage; a second read is made only when a duty manager's Safety lane turns out empty.
+ * The data of /staff/complaints (D130, D151). The permission is checked here again, at the data (the page already sent anyone else away). Auto-close runs first,
+ * lazily and quietly (D120), so a complaint that waited long enough shows as closed and a failure never breaks the page. The view and the filters come from the
+ * address, already checked against their allowlists; the default view is needs_action for everybody.
  */
-export async function loadBoardPage(input: { db: Db; user: Actor; requested: BoardLane | null; now: number }): Promise<BoardPage> {
+export async function loadBoardPage(input: { db: Db; user: Actor; query: BoardQuery; now: number }): Promise<BoardPage> {
   requirePermission(input.user, "complaints:manage");
   await autoCloseQuietly({ db: input.db, now: input.now });
-  const dutyManager = isDutyManager(input.user);
-  const first = input.requested ?? (dutyManager ? "SAFETY" : "NEEDS_TRIAGE");
-  let board = await readBoard({ db: input.db, user: input.user, lane: first, now: input.now });
-  const lane = chooseLane({ requested: input.requested, isDutyManager: dutyManager, safetyCount: board.counts.SAFETY });
-  if (lane !== first) board = await readBoard({ db: input.db, user: input.user, lane, now: input.now });
-  return { lane, counts: board.counts, rows: board.rows, nextCursor: board.nextCursor, now: input.now };
+  const board = await readBoard({ db: input.db, user: input.user, view: input.query.view, filters: input.query.filters, now: input.now });
+  return { view: board.view, filters: input.query.filters, counts: board.counts, unacknowledgedSafety: board.unacknowledgedSafety, total: board.total, rows: board.rows, nextCursor: board.nextCursor, now: input.now };
 }
 
-/** The next page of one lane after `cursor` ("Load more"). Needs complaints:manage. */
-export async function loadBoardMore(input: { db: Db; user: Actor; lane: BoardLane; cursor: string; now: number }): Promise<{ rows: BoardRow[]; nextCursor: string | null }> {
+/** The next page of one view after `cursor` ("Show 15 more"). Needs complaints:manage. */
+export async function loadBoardMore(input: { db: Db; user: Actor; view: BoardView; filters: BoardFilters; cursor: string; now: number }): Promise<{ rows: BoardRow[]; nextCursor: string | null }> {
   requirePermission(input.user, "complaints:manage");
   const board = await readBoard(input);
   return { rows: board.rows, nextCursor: board.nextCursor };

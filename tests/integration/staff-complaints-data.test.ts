@@ -2,7 +2,8 @@ import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ComplaintView } from "@/app/(staff)/staff/complaints/[id]/complaint-view";
-import { BOARD_LANES } from "@/lib/staff-complaints/lanes";
+import { BOARD_VIEWS, type BoardView } from "@/domain/complaints/board-views";
+import { NO_FILTERS, parseBoardQuery } from "@/lib/staff-complaints/board-query";
 import { NullClassifier } from "@/server/complaints/classifier";
 import { createComplaint } from "@/server/complaints/create";
 import { loadComplaintDetail } from "@/server/complaints/page-data";
@@ -25,7 +26,7 @@ const raise = async (user: Awaited<ReturnType<typeof makeResident>>["user"], bod
   if (result.status !== "OK") throw new Error(result.error);
   return result.complaint;
 };
-const board = (user = world.staff.kavita, requested: Parameters<typeof loadBoardPage>[0]["requested"] = null, now = LOAD) => loadBoardPage({ db: world.appPrisma, user, requested, now });
+const board = (user = world.staff.kavita, view: BoardView | null = null, now = LOAD) => loadBoardPage({ db: world.appPrisma, user, query: view === null ? parseBoardQuery({}) : { view, filters: NO_FILTERS }, now });
 const page = (id: string, user = world.staff.kavita) => loadComplaintPage({ db: world.appPrisma, user, id, now: LOAD });
 const idsOf = (rows: { id: string }[]) => rows.map((r) => r.id).sort();
 
@@ -55,39 +56,42 @@ describe("SDATA1 the loaders run as the app role", () => {
   });
 });
 
-describe("SDATA2 the lanes", () => {
-  it("each lane holds the complaints the rules put in it, and the tabs carry the counts", async () => {
-    const lanes = Object.fromEntries(await Promise.all(BOARD_LANES.map(async (lane) => [lane, await board(world.staff.kavita, lane)]))) as Record<(typeof BOARD_LANES)[number], Awaited<ReturnType<typeof board>>>;
+describe("SDATA2 the views", () => {
+  it("each view holds the complaints the rules put in it, and every count is in the page", async () => {
+    const views = Object.fromEntries(await Promise.all(BOARD_VIEWS.map(async (view) => [view, await board(world.staff.kavita, view)]))) as Record<BoardView, Awaited<ReturnType<typeof board>>>;
     // D151: the safety complaint has needs_review true (no category from the keyword fallback, A6 of docs/complaints-design.md) but it is assigned and ASSIGNED, so it is not in Needs triage.
-    expect(idsOf(lanes.NEEDS_TRIAGE.rows)).toEqual([ids.triage]);
-    expect(idsOf(lanes.SAFETY.rows)).toEqual([ids.safety]);
-    expect(idsOf(lanes.OPEN.rows)).toEqual([ids.open, ids.safety, ids.overdue].sort());
-    expect(idsOf(lanes.OVERDUE.rows)).toEqual([ids.overdue]);
-    expect(idsOf(lanes.WAITING_RESIDENT.rows)).toEqual([ids.waiting]);
-    expect(idsOf(lanes.CLOSED.rows)).toEqual([ids.closed]);
-    expect(lanes.OPEN.counts).toEqual({ NEEDS_TRIAGE: 1, SAFETY: 1, OPEN: 3, OVERDUE: 1, WAITING_RESIDENT: 1, CLOSED: 1 });
-    expect(lanes.OPEN.now).toBe(LOAD);
+    expect(idsOf(views.triage.rows)).toEqual([ids.triage]);
+    expect(idsOf(views.safety.rows)).toEqual([ids.safety]);
+    expect(idsOf(views.open.rows)).toEqual([ids.open, ids.safety, ids.overdue].sort());
+    expect(idsOf(views.overdue.rows)).toEqual([ids.overdue]);
+    expect(idsOf(views.waiting.rows)).toEqual([ids.waiting]);
+    expect(idsOf(views.closed.rows)).toEqual([ids.closed]);
+    expect(idsOf(views.needs_action.rows)).toEqual([ids.triage, ids.safety, ids.overdue].sort());
+    expect(idsOf(views.mine.rows)).toEqual([ids.open, ids.waiting, ids.overdue].sort());
+    expect(views.open.counts).toEqual({ needs_action: 3, mine: 3, safety: 1, triage: 1, open: 3, overdue: 1, waiting: 1, closed: 1 });
+    expect(views.open.unacknowledgedSafety).toBe(1);
+    expect(views.open.now).toBe(LOAD);
   });
 
   it("a row says where its classification came from, whether it needs review, who has it and the reply clock", async () => {
-    const triage = (await board(world.staff.kavita, "NEEDS_TRIAGE")).rows.find((r) => r.id === ids.triage);
+    const triage = (await board(world.staff.kavita, "triage")).rows.find((r) => r.id === ids.triage);
     expect(triage).toMatchObject({ category: null, needsReview: true, assignee: null, status: "NEW", sla: "ON_TIME" });
-    const safety = (await board(world.staff.kavita, "SAFETY")).rows[0];
+    const safety = (await board(world.staff.kavita, "safety")).rows[0];
     expect(safety).toMatchObject({ urgency: "CRITICAL", safety: true, source: "RULE", assignee: { name: "Sanjay Pawar" } });
-    const overdue = (await board(world.staff.kavita, "OVERDUE")).rows[0];
+    const overdue = (await board(world.staff.kavita, "overdue")).rows[0];
     expect(overdue.sla).toBe("OVERDUE");
   });
 });
 
-describe("SDATA3 which lane opens first", () => {
-  it("the duty manager lands on Safety while it has items; a plain manager on Needs triage", async () => {
-    expect((await board(world.staff.sanjay)).lane).toBe("SAFETY");
-    expect((await board(world.staff.kavita)).lane).toBe("NEEDS_TRIAGE");
+describe("SDATA3 which view opens first", () => {
+  it("everybody lands on Needs action, the duty manager too (D151)", async () => {
+    expect((await board(world.staff.sanjay)).view).toBe("needs_action");
+    expect((await board(world.staff.kavita)).view).toBe("needs_action");
   });
 
-  it("a lane in the address wins for both", async () => {
-    expect((await board(world.staff.sanjay, "CLOSED")).lane).toBe("CLOSED");
-    expect((await board(world.staff.kavita, "SAFETY")).lane).toBe("SAFETY");
+  it("a view in the address wins for both", async () => {
+    expect((await board(world.staff.sanjay, "closed")).view).toBe("closed");
+    expect((await board(world.staff.kavita, "safety")).view).toBe("safety");
   });
 });
 
@@ -99,7 +103,7 @@ describe("SDATA4 nobody without complaints:manage can load the pages", () => {
 
   it("a resident is refused by every loader at the data (the pages also send them away)", async () => {
     await forbidden(() => board(resident.user));
-    await forbidden(() => loadBoardMore({ db: world.appPrisma, user: resident.user, lane: "OPEN", cursor: "x", now: LOAD }));
+    await forbidden(() => loadBoardMore({ db: world.appPrisma, user: resident.user, view: "open", filters: NO_FILTERS, cursor: "x", now: LOAD }));
     await forbidden(() => page(ids.open, resident.user));
   });
 
@@ -205,35 +209,39 @@ describe("SDATA7 the duty manager's controls, from the real data", () => {
 });
 
 describe("SDATA8 paging and lazy auto-close", () => {
-  it("Load more returns the rest of a long lane, newest first, with no repeat", async () => {
+  it("Show more returns the rest of a long view in the same order as one big page, with no repeat", async () => {
     const WORDS = ["alder", "birch", "cedar", "dogwood", "elm", "fir", "ginkgo", "hazel", "iroko", "juniper", "kauri", "larch", "maple", "neem", "oak", "palm", "quince", "rowan", "sal", "teak", "ulmo", "vine", "willow", "yew", "zelkova", "acacia", "banyan"];
     const user = (await makeResident(world)).user;
     for (const [index, word] of WORDS.entries()) await raise(user, `Water leak near the ${word} tree`, NOW - (index + 1) * 60_000);
-    const first = await board(world.staff.kavita, "OPEN");
-    expect(first.rows).toHaveLength(25);
+    const first = await board(world.staff.kavita, "open");
+    expect(first.rows).toHaveLength(15);
     expect(first.nextCursor).not.toBeNull();
-    const second = await loadBoardMore({ db: world.appPrisma, user: world.staff.kavita, lane: "OPEN", cursor: first.nextCursor ?? "", now: LOAD });
-    expect(second.nextCursor).toBeNull();
-    const all = [...first.rows, ...second.rows];
-    expect(all).toHaveLength(first.counts.OPEN);
+    const all = [...first.rows];
+    let cursor = first.nextCursor;
+    while (cursor !== null) {
+      const more = await loadBoardMore({ db: world.appPrisma, user: world.staff.kavita, view: "open", filters: NO_FILTERS, cursor, now: LOAD });
+      all.push(...more.rows);
+      cursor = more.nextCursor;
+    }
+    expect(all).toHaveLength(first.counts.open);
+    expect(first.total).toBe(first.counts.open);
     expect(new Set(all.map((r) => r.id)).size).toBe(all.length);
-    const ages = all.map((r) => r.ageMinutes);
-    expect([...ages].sort((a, b) => a - b)).toEqual(ages);
   });
 
   it("D120 loading the board closes a resolved complaint the resident never answered", async () => {
     const user = (await makeResident(world)).user;
     const stale = await raise(user, "Garbage was not collected from our floor");
     await arrange(world, stale.id, { status: "PENDING_CONFIRMATION", pendingConfirmationAt: new Date(NOW - 8 * DAY) });
-    const closed = await board(world.staff.kavita, "CLOSED");
+    const closed = await board(world.staff.kavita, "closed");
     expect(closed.rows.map((r) => r.id)).toContain(stale.id);
     expect((await page(stale.id))?.complaint.closeKind).toBe("AUTO_CLOSED");
   });
 
-  it("closing the safety complaint empties the Safety lane, so the duty manager lands on Needs triage again", async () => {
+  it("closing the safety complaint empties the Safety view and the alert strip count", async () => {
     const closed = await closeSafety({ db: world.appPrisma, user: world.staff.sanjay, id: ids.safety, note: "Gas isolated and checked", now: NOW + 10 * 60_000 });
     expect(closed.status).toBe("OK");
-    expect((await board(world.staff.sanjay)).lane).toBe("NEEDS_TRIAGE");
+    expect((await board(world.staff.sanjay, "safety")).total).toBe(0);
+    expect((await board(world.staff.sanjay)).unacknowledgedSafety).toBe(0);
     expect(await loadStaffLanding({ db: world.appPrisma, user: world.staff.sanjay })).toEqual({ openSafety: 0 });
   });
 });

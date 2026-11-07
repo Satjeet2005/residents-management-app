@@ -5,9 +5,13 @@ import { StaffView } from "@/app/(staff)/staff/staff-view";
 import { BoardList } from "@/app/(staff)/staff/complaints/board-list";
 import { BoardRows } from "@/app/(staff)/staff/complaints/board-rows";
 import { BoardView } from "@/app/(staff)/staff/complaints/board-view";
-import { LaneTabs } from "@/app/(staff)/staff/complaints/lane-tabs";
-import { BOARD_LANES } from "@/lib/staff-complaints/lanes";
-import type { BoardRow } from "@/server/complaints/board";
+import { FilterChips } from "@/app/(staff)/staff/complaints/filter-chips";
+import { FiltersMenu } from "@/app/(staff)/staff/complaints/filters-menu";
+import { ViewList } from "@/app/(staff)/staff/complaints/view-list";
+import { ViewsMenu } from "@/app/(staff)/staff/complaints/views-menu";
+import { BOARD_VIEWS } from "@/domain/complaints/board-views";
+import { NO_FILTERS } from "@/lib/staff-complaints/board-query";
+import type { BoardRow } from "@/server/complaints/board-views";
 import type { BoardPage } from "@/server/complaints/staff-page-data";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: () => {}, refresh: () => {}, push: () => {} }), usePathname: () => "/", redirect: () => {} }));
@@ -28,6 +32,7 @@ const row = (over: Partial<BoardRow> = {}): BoardRow => ({
   urgency: "NORMAL",
   status: "ASSIGNED",
   safety: false,
+  acknowledged: false,
   needsReview: false,
   assignee: { id: "u1", name: "Kavita Rao" },
   ageMinutes: 185,
@@ -37,117 +42,186 @@ const row = (over: Partial<BoardRow> = {}): BoardRow => ({
   version: 1,
   ...over,
 });
-const counts = { NEEDS_TRIAGE: 4, SAFETY: 1, OPEN: 7, OVERDUE: 2, WAITING_RESIDENT: 3, CLOSED: 12 };
-const page = (over: Partial<BoardPage> = {}): BoardPage => ({ lane: "NEEDS_TRIAGE", counts, rows: [row()], nextCursor: null, now: NOW, ...over });
+const counts = { needs_action: 9, mine: 5, safety: 1, triage: 4, open: 7, overdue: 2, waiting: 3, closed: 12 };
+const page = (over: Partial<BoardPage> = {}): BoardPage => ({ view: "needs_action", filters: NO_FILTERS, counts, unacknowledgedSafety: 0, total: 1, rows: [row()], nextCursor: null, now: NOW, ...over });
 
-describe("SB1 the lane tabs", () => {
-  const out = html(h(LaneTabs, { lane: "OPEN", counts }));
+describe("SB1 the views list (the content of the sheet and the sidebar)", () => {
+  const out = html(h(ViewList, { view: "open", counts, filters: NO_FILTERS }));
 
-  it("are a tablist with six tabs in the order of the task, each with its count", () => {
-    expect(out).toContain('role="tablist"');
-    expect(out).toContain('aria-label="Complaint lanes"');
-    expect(count(out, /role="tab"/g)).toBe(6);
-    const labels = ["Needs triage", "Safety", "Open", "Overdue", "Waiting for resident", "Closed"];
-    const positions = labels.map((label) => out.indexOf(`>${label}<`));
+  it("is a nav with eight links in the order of the sheet, each with its count and ONE plain sentence", () => {
+    expect(out).toContain('aria-label="Complaint views"');
+    expect(count(out, /<a /g)).toBe(8);
+    const labels = ["Needs action", "Mine", "Safety", "Needs triage", "Open", "Overdue", "Waiting for resident", "Closed"];
+    const positions = labels.map((label) => out.indexOf(`${label}<span`));
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
     expect(positions.every((p) => p > 0)).toBe(true);
-    expect(words(out)).toContain("Needs triage 4 Safety 1 Open 7 Overdue 2 Waiting for resident 3 Closed 12");
+    expect(words(out)).toContain("Needs action 9");
+    expect(words(out)).toContain("Closed 12");
+    expect(count(out, /<span class="text-caption text-ink-2">/g)).toBe(8);
   });
 
-  it("only the chosen tab is selected and in the tab order; every tab links to its lane in the address", () => {
-    expect(count(out, /aria-selected="true"/g)).toBe(1);
-    expect(count(out, /tabindex="0"/g)).toBe(1);
-    expect(count(out, /tabindex="-1"/g)).toBe(5);
-    expect(out).toMatch(/<a[^>]*id="complaints-tab-OPEN"[^>]*aria-selected="true"/);
-    for (const query of ["needs-triage", "safety", "open", "overdue", "waiting", "closed"]) expect(out).toContain(`href="/staff/complaints?lane=${query}"`);
+  it("only the chosen view is the current page; every link keeps the filters and names its view in the address", () => {
+    expect(count(out, /aria-current="page"/g)).toBe(1);
+    expect(out).toMatch(/<a[^>]*aria-current="page"[^>]*href="\/staff\/complaints\?view=open"|<a[^>]*href="\/staff\/complaints\?view=open"[^>]*aria-current="page"/);
+    for (const view of BOARD_VIEWS) expect(out).toContain(`href="/staff/complaints?view=${view}"`);
+    const filtered = html(h(ViewList, { view: "open", counts, filters: { ...NO_FILTERS, assignee: "me", category: "LIFT" } }));
+    expect(filtered).toContain('href="/staff/complaints?view=mine&amp;category=LIFT&amp;assignee=me"');
   });
 
-  it("each tab is at least 48px tall, with 8px between tabs, and none is filled", () => {
-    expect(count(out, /min-h-12/g)).toBe(6);
+  it("each link is at least 48px tall with 8px between them, and none is filled", () => {
+    expect(count(out, /min-h-12/g)).toBe(8);
     expect(out).toContain("gap-2");
     expect(out).not.toContain("bg-accent");
   });
 });
 
-describe("SB2 the list", () => {
+describe("SB1b the View button and the Filters button", () => {
+  it("the View button is outlined, 48px, and names the current view with its count", () => {
+    const out = html(h(ViewsMenu, { view: "needs_action", counts, filters: NO_FILTERS }));
+    expect(out).toMatch(/<button[^>]*min-h-12[^>]*aria-haspopup="dialog"[^>]*>View: Needs action <span class="tnum">9<\/span><\/button>/);
+    expect(out).not.toContain("bg-accent");
+    expect(out).toContain("Choose a view");
+  });
+
+  it("the Filters sheet has the four filters, Apply (the only filled control) and Reset (disabled with no filter on)", () => {
+    const out = html(h(FiltersMenu, { view: "open", filters: NO_FILTERS }));
+    expect(out).toMatch(/<button[^>]*min-h-12[^>]*>Filters<\/button>/);
+    for (const name of ["category", "assignee", "urgency", "q"]) expect(out).toContain(`name="${name}"`);
+    for (const label of ["Category", "Assigned to", "Urgency", "Flat code"]) expect(words(out)).toContain(label);
+    expect(out).toMatch(/<button[^>]*type="submit"[^>]*>Apply<\/button>/);
+    expect(out).toMatch(/<button[^>]*disabled=""[^>]*>Reset<\/button>/);
+    expect(count(out, /bg-accent/g)).toBe(1);
+  });
+
+  it("Reset is available when a filter is on, and the fields show the filter", () => {
+    const out = html(h(FiltersMenu, { view: "open", filters: { category: "LIFT", assignee: "me", urgency: "HIGH", q: "T12" } }));
+    expect(out).not.toMatch(/<button[^>]*disabled=""[^>]*>Reset<\/button>/);
+    expect(out).toContain('value="T12"');
+  });
+});
+
+describe("SB1c the active filters", () => {
+  it("are removable chips, each a 48px link to the same board without that filter", () => {
+    const out = html(h(FilterChips, { view: "open", filters: { category: "LIFT", assignee: "me", urgency: "HIGH", q: "T12-04" } }));
+    expect(count(out, /<a /g)).toBe(4);
+    expect(words(out)).toContain("Category: Lift");
+    expect(words(out)).toContain("Assigned to: Me");
+    expect(words(out)).toContain("Urgency: High");
+    expect(words(out)).toContain("Flat: T12-04");
+    expect(out).toContain('aria-label="Remove filter Category: Lift"');
+    expect(out).toContain('href="/staff/complaints?view=open&amp;assignee=me&amp;urgency=HIGH&amp;q=T12-04"');
+    expect(count(out, /min-h-12/g)).toBe(4);
+  });
+
+  it("are absent when no filter is on", () => {
+    expect(html(h(FilterChips, { view: "open", filters: NO_FILTERS }))).toBe("");
+  });
+});
+
+describe("SB2 the compact rows", () => {
   const rows = [
     row(),
-    row({ id: "b0000000-0000-4000-8000-000000000002", title: "Gas smell in the corridor", flatCode: "T07-1203", category: null, urgency: "CRITICAL", status: "NEW", safety: true, needsReview: true, assignee: null, ageMinutes: 5, responseDueAt: NOW - 120 * minute, sla: "OVERDUE", source: "RULE" }),
+    row({ id: "b0000000-0000-4000-8000-000000000002", title: "Gas smell in the corridor", flatCode: "T07-1203", category: null, urgency: "CRITICAL", status: "NEW", safety: true, needsReview: true, assignee: null, ageMinutes: 5, responseDueAt: NOW - 152 * minute, sla: "OVERDUE" }),
   ];
-  const out = html(h(BoardRows, { rows, caption: "Needs triage complaints, newest first", now: NOW }));
+  const out = html(h(BoardRows, { rows, caption: "Needs action complaints", now: NOW }));
+  const cards = out.slice(out.indexOf('<ul class="flex flex-col gap-2 md:hidden">'));
 
-  it("is a real table from 768px, with a caption, column headers and one row per complaint, and stacked cards below", () => {
+  it("is a real table from 768px, with a caption and the eight columns, and one tappable card per complaint below", () => {
     expect(out).toContain('<div class="hidden md:block">');
-    expect(out).toContain('<ul class="flex flex-col md:hidden">');
     expect(out).toContain("<caption");
     expect(count(out, /<th scope="col"/g)).toBe(8);
     expect(count(out, /<tr /g)).toBe(3);
-    expect(count(out, /<li /g)).toBe(2);
-    for (const heading of ["Complaint", "Category", "Urgency", "Status", "Assigned to", "Age", "Reply", "Classified by"]) expect(out).toContain(`>${heading}</th>`);
+    expect(count(cards, /<li>/g)).toBe(2);
+    for (const heading of ["Flat", "Complaint", "Category", "Urgency", "Status", "Assigned to", "Reply", "Age"]) expect(out).toContain(`>${heading}</th>`);
   });
 
-  it("each row has the flat code, category, urgency tag, status, assignee, age and the reply clock in words", () => {
-    const first = out.slice(out.indexOf("<tbody>"), out.indexOf("</tbody>")).split("<tr ")[1];
-    const text = words(first);
-    for (const part of ["T12-0408", "Water leak under the kitchen sink", "Plumbing", "Normal", "Assigned", "Kavita Rao", "3 h 5 min", "Reply due in 40 min", "Model"]) expect(text).toContain(part);
+  it("a card is ONE link with four lines at most: flat chip, a one-line title, Category · Status · Assignee, and a notice only when notable", () => {
+    const first = words(cards.split("<li>")[1]);
+    expect(first).toContain("T12-0408 Water leak under the kitchen sink Plumbing · Assigned · Kavita Rao Reply due in 40 min");
+    expect(first).not.toContain("Normal");
+    const quietHtml = html(h(BoardRows, { rows: [row({ responseDueAt: NOW + 600 * minute })], caption: "c", now: NOW }));
+    expect(words(quietHtml.slice(quietHtml.indexOf('<ul class="flex flex-col gap-2 md:hidden">')))).not.toContain("Reply");
+    expect(cards.split("<li>")[1]).toMatch(/<span class="truncate text-body font-semibold text-accent">Water leak under the kitchen sink<\/span>/);
+    expect(count(cards, /<a /g)).toBe(2);
   });
 
-  it("a critical complaint has the urgency tag in the caution tone WITH its word, the unassigned word, the overdue words and a Needs review tag", () => {
-    const second = out.slice(out.indexOf("<tbody>"), out.indexOf("</tbody>")).split("<tr ")[2];
-    expect(second).toMatch(/<span class="[^"]*text-caution[^"]*border-caution[^"]*"[^>]*>Critical<\/span>/);
-    expect(second).toMatch(/<span class="[^"]*text-caution[^"]*"[^>]*>Needs review<\/span>/);
-    const text = words(second);
-    for (const part of ["T07-1203", "No category", "Unassigned", "5 min", "Reply overdue by 2 h"]) expect(text).toContain(part);
+  it("a critical safety complaint has the urgency chip, the Safety chip and the overdue line with the caution mark", () => {
+    const second = cards.split("<li>")[2];
+    expect(words(second)).toContain("T07-1203 Critical Safety Gas smell in the corridor No category · New · Unassigned Reply overdue 2 h 32 min");
+    expect(second).toMatch(/<span class="[^"]*text-caution[^"]*"><svg[^>]*aria-hidden="true"/);
+    expect(second).toMatch(/text-caution[^"]*border-caution[^"]*"[^>]*>Critical<\/span>/);
   });
 
-  it("the cards say the same in sentences", () => {
-    const cards = out.slice(out.indexOf('<ul class="flex flex-col md:hidden">'));
-    expect(words(cards)).toContain("Raised 3 h 5 min ago");
-    expect(words(cards)).toContain("Plumbing. Assigned. Kavita Rao.");
-    expect(words(cards)).toContain("No category. New. Unassigned.");
+  it("the classification source tags are not on the row", () => {
+    for (const source of ["RULE", "LLM", "FALLBACK", "MANUAL"] as const) {
+      const text = words(html(h(BoardRows, { rows: [row({ source, needsReview: true })], caption: "c", now: NOW })));
+      for (const gone of ["Model", "Rules", "Keywords", "Manual", "Needs review", "Classified by"]) expect(text).not.toContain(gone);
+    }
   });
 
-  it("the source tags read Rules, Model, Keywords and Manual", () => {
-    const sources = (["RULE", "LLM", "FALLBACK", "MANUAL"] as const).map((source) => words(html(h(BoardRows, { rows: [row({ source })], caption: "c", now: NOW }))));
-    expect(sources.map((text) => ["Rules", "Model", "Keywords", "Manual"].filter((w) => text.includes(` ${w} `)).length)).toEqual([1, 1, 1, 1]);
+  it("the table says the full reply words and the age", () => {
+    const body = out.slice(out.indexOf("<tbody>"), out.indexOf("</tbody>"));
+    expect(words(body.split("<tr ")[1])).toContain("T12-0408 Water leak under the kitchen sink Plumbing Normal Assigned Kavita Rao Reply due in 40 min 3 h 5 min");
+    expect(words(body.split("<tr ")[2])).toContain("Reply overdue by 2 h 32 min");
   });
 
-  it("the title of each complaint is a 48px link to its page", () => {
+  it("every target is at least 48px tall, the cards are 8px apart, no cell is filled and nothing is written in capitals", () => {
+    expect(cards).toContain("gap-2");
+    expect(count(cards, /min-h-12/g)).toBe(2);
     expect(out).toMatch(/<a [^>]*min-h-12[^>]*>Water leak under the kitchen sink<\/a>/);
-    expect(out).toContain('href="/staff/complaints/b0000000-0000-4000-8000-000000000001"');
-    expect(count(out, /<a /g)).toBe(4);
-  });
-
-  it("no cell is filled and nothing is written in capitals", () => {
     expect(out).not.toContain("bg-accent");
     expect(out).not.toMatch(/uppercase|tracking-/);
   });
 });
 
 describe("SB3 the board page", () => {
-  const out = html(h(BoardView, { page: page({ nextCursor: "abc" }) }));
-
-  it("has one main landmark, one h1 'Complaints', the tabs and the tab panel labelled by the chosen tab", () => {
+  it("has one main landmark, one h1 'Complaints', the views as a sidebar from 1024px, and the View and Filters buttons", () => {
+    const out = html(h(BoardView, { page: page(), demo: false }));
     expect(out).toContain("<main");
     expect(count(out, /<h1/g)).toBe(1);
     expect(out).toMatch(/<h1[^>]*>Complaints<\/h1>/);
-    expect(out).toMatch(/<div role="tabpanel" id="complaints-lane-panel" aria-labelledby="complaints-tab-NEEDS_TRIAGE"/);
+    expect(out).toContain('<aside class="hidden w-80 shrink-0 lg:block">');
+    expect(out).toContain('<div class="lg:hidden">');
+    expect(words(out)).toContain("View: Needs action 9");
+    expect(out).toMatch(/<button[^>]*>Filters<\/button>/);
   });
 
-  it("offers Load more only when there is a next page, outlined and 48px tall", () => {
-    expect(out).toMatch(/<button[^>]*min-h-12[^>]*>Load more<\/button>/);
-    expect(out).not.toContain("bg-accent");
-    expect(html(h(BoardView, { page: page({ nextCursor: null }) }))).not.toContain("Load more");
+  it("shows the alert strip only when a safety complaint waits for the duty manager, as a link to the Safety view", () => {
+    const none = html(h(BoardView, { page: page({ unacknowledgedSafety: 0 }), demo: false }));
+    expect(none).not.toContain("waiting for the duty manager");
+    const two = html(h(BoardView, { page: page({ unacknowledgedSafety: 2 }), demo: false }));
+    expect(two).toMatch(/<a [^>]*href="\/staff\/complaints\?view=safety"[^>]*>(<svg.*?<\/svg>)2 safety complaints waiting for the duty manager\.<\/a>/);
+    expect(words(html(h(BoardView, { page: page({ unacknowledgedSafety: 1 }), demo: false })))).toContain("1 safety complaint waiting for the duty manager.");
   });
 
-  it("an empty lane says so in words and draws no table", () => {
-    const empty = html(h(BoardView, { page: page({ rows: [] }) }));
+  it("shows the demo note only in demo mode", () => {
+    expect(words(html(h(BoardView, { page: page(), demo: true })))).toContain("Demo data is dated 27 October, so replies can look overdue.");
+    expect(words(html(h(BoardView, { page: page(), demo: false })))).not.toContain("Demo data");
+  });
+
+  it("offers Show 15 more and Showing 15 of n only when there is more; outlined, 48px", () => {
+    const rows15 = Array.from({ length: 15 }, (_, i) => row({ id: `b0000000-0000-4000-8000-${String(i + 1).padStart(12, "0")}` }));
+    const out = html(h(BoardView, { page: page({ rows: rows15, total: 40, nextCursor: "abc" }), demo: false }));
+    expect(out).toMatch(/<button[^>]*min-h-12[^>]*>Show 15 more<\/button>/);
+    expect(words(out)).toContain("Showing 15 of 40");
+    expect(html(h(BoardView, { page: page({ nextCursor: null }), demo: false }))).not.toContain("Show 15 more");
+    expect(words(html(h(BoardView, { page: page({ rows: rows15.slice(0, 2), total: 17, nextCursor: "abc" }), demo: false }))).replace(/\s+/g, " ")).toContain("Show 15 more");
+  });
+
+  it("an empty view says so in words and draws no table; with a filter on it says that nothing matches", () => {
+    const empty = html(h(BoardView, { page: page({ rows: [], total: 0 }), demo: false }));
     expect(empty).toContain("Nothing here. Every complaint is handled.");
     expect(empty).not.toContain("<table");
+    const filtered = html(h(BoardView, { page: page({ rows: [], total: 0, filters: { ...NO_FILTERS, assignee: "me" } }), demo: false }));
+    expect(filtered).toContain("No complaint matches these filters.");
+  });
+
+  it("no control on the page is filled", () => {
+    expect(html(h(BoardView, { page: page({ unacknowledgedSafety: 2, nextCursor: "x" }), demo: true }))).not.toContain("bg-accent border-2 border-accent");
   });
 
   it("BoardList on its own renders the rows it is given", () => {
-    expect(words(html(h(BoardList, { lane: "OPEN", initialRows: [row()], initialCursor: null, now: NOW })))).toContain("T12-0408");
+    expect(words(html(h(BoardList, { view: "open", filters: NO_FILTERS, initialRows: [row()], initialCursor: null, total: 1, now: NOW })))).toContain("T12-0408");
   });
 });
 
@@ -175,11 +249,5 @@ describe("SB4 the staff landing tool", () => {
   it("the two tools are listed together for a person who holds both permissions, reconciliation first", () => {
     const out = html(h(StaffView, { name: "N", permissions: ["payments:match", "complaints:manage"] }));
     expect(out.indexOf("Bank reconciliation")).toBeLessThan(out.indexOf(">Complaints<"));
-  });
-});
-
-describe("SB5 every lane has a tab", () => {
-  it.each(BOARD_LANES)("%s", (lane) => {
-    expect(html(h(LaneTabs, { lane, counts }))).toContain(`id="complaints-tab-${lane}"`);
   });
 });

@@ -6,7 +6,9 @@ import Loading from "@/app/(staff)/staff/complaints/loading";
 import ComplaintLoading from "@/app/(staff)/staff/complaints/[id]/loading";
 import ComplaintNotFound from "@/app/(staff)/staff/complaints/[id]/not-found";
 import { BoardView } from "@/app/(staff)/staff/complaints/board-view";
-import { BOARD_LANES, emptyLaneText } from "@/lib/staff-complaints/lanes";
+import { BOARD_VIEWS } from "@/domain/complaints/board-views";
+import { NO_FILTERS } from "@/lib/staff-complaints/board-query";
+import { emptyViewText } from "@/lib/staff-complaints/views";
 import type { BoardPage } from "@/server/complaints/staff-page-data";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: () => {}, refresh: () => {}, push: () => {} }), usePathname: () => "/", redirect: () => {} }));
@@ -47,15 +49,15 @@ describe("SX2 the error boundary", () => {
   });
 });
 
-describe("SX3 empty lanes", () => {
-  const page = (lane: BoardPage["lane"]): BoardPage => ({ lane, counts: { NEEDS_TRIAGE: 0, SAFETY: 0, OPEN: 0, OVERDUE: 0, WAITING_RESIDENT: 0, CLOSED: 0 }, rows: [], nextCursor: null, now: Date.UTC(2026, 10, 6) });
+describe("SX3 empty views", () => {
+  const page = (view: BoardPage["view"]): BoardPage => ({ view, filters: NO_FILTERS, counts: { needs_action: 0, mine: 0, safety: 0, triage: 0, open: 0, overdue: 0, waiting: 0, closed: 0 }, unacknowledgedSafety: 0, total: 0, rows: [], nextCursor: null, now: Date.UTC(2026, 10, 6) });
 
-  it.each(BOARD_LANES)("%s says there is nothing to do, draws no table and no Load more", (lane) => {
-    const out = html(h(BoardView, { page: page(lane) }));
-    expect(out).toContain(emptyLaneText());
+  it.each(BOARD_VIEWS)("%s says there is nothing to do, draws no table and no Show more", (view) => {
+    const out = html(h(BoardView, { page: page(view), demo: false }));
+    expect(out).toContain(emptyViewText(false));
     expect(out).toContain("Nothing here. Every complaint is handled.");
     expect(out).not.toContain("<table");
-    expect(out).not.toContain("Load more");
+    expect(out).not.toContain("Show 15 more");
   });
 });
 

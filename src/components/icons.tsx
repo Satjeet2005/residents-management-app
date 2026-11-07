@@ -66,3 +66,9 @@ export const ChevronIcon = (props: IconProps) => (
     <path d="m9 5 7 7-7 7" />
   </Icon>
 );
+
+export const CloseIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M6 6l12 12M18 6 6 18" />
+  </Icon>
+);

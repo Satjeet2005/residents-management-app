@@ -1,15 +1,16 @@
 import { z } from "zod";
 import { Prisma } from "../../../generated/prisma/client";
 import { BOARD_VIEWS, type BoardView, isBoardView } from "@/domain/complaints/board-views";
-import { slaState } from "@/domain/complaints/lifecycle";
+import { type SlaState, slaState } from "@/domain/complaints/lifecycle";
 import { type BoardFilters, NO_FILTERS } from "@/lib/staff-complaints/board-query";
 import type { Db } from "@/server/auth/db";
 import { complaintTitle } from "@/server/home/mapper";
-import type { BoardRow } from "./board";
+import type { ComplaintStatus } from "@/domain/complaints/step";
+import type { Urgency } from "@/domain/complaints/taxonomy";
 import { type Actor, canManage } from "./context";
 import { type ComplaintFailure, failure } from "./errors";
+import { VIEW_PAGE_SIZE } from "./page-size";
 
-export const VIEW_PAGE_SIZE = 15;
 const PAGE_MAX = 50;
 
 /** The duty manager's acknowledgement fact (D149): the complaints that have an `ack` event, once. Joined as `a`; `a.complaint_id IS NOT NULL` means acknowledged. */
@@ -81,8 +82,27 @@ function decodeCursor(text: string): Cursor | null {
   }
 }
 
-export type ViewBoardRow = BoardRow & { acknowledged: boolean };
-export type ViewBoard = { status: "OK"; view: BoardView; counts: ViewCounts; unacknowledgedSafety: number; total: number; rows: ViewBoardRow[]; nextCursor: string | null };
+export type BoardRow = {
+  id: string;
+  title: string;
+  flatCode: string;
+  category: string | null;
+  urgency: Urgency;
+  status: ComplaintStatus;
+  safety: boolean;
+  /** The duty manager has acknowledged it (an `ack` event); only meaningful for a safety complaint. */
+  acknowledged: boolean;
+  needsReview: boolean;
+  assignee: { id: string; name: string } | null;
+  /** Whole minutes since the complaint was raised. */
+  ageMinutes: number;
+  responseDueAt: number | null;
+  sla: SlaState;
+  /** Who classified it last: RULE, LLM, FALLBACK or MANUAL. */
+  source: "RULE" | "LLM" | "FALLBACK" | "MANUAL" | null;
+  version: number;
+};
+export type ViewBoard = { status: "OK"; view: BoardView; counts: ViewCounts; unacknowledgedSafety: number; total: number; rows: BoardRow[]; nextCursor: string | null };
 
 /**
  * One page of one view (D151), in the order of the view, with a keyset cursor, and the count of every view. The cursor is opaque: the band, the due time, the
@@ -133,7 +153,7 @@ export async function listBoardView(input: { db: Db; user: Actor; view: BoardVie
     },
   });
   const byId = new Map(details.map((d) => [d.id, d]));
-  const rows = shown.flatMap((p): ViewBoardRow[] => {
+  const rows = shown.flatMap((p): BoardRow[] => {
     const d = byId.get(p.id);
     if (d === undefined) return [];
     return [

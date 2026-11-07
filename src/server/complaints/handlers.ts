@@ -3,7 +3,8 @@ import { CATEGORY_CODES } from "@/domain/complaints/taxonomy";
 import type { GuardContext } from "@/server/auth/guard";
 import { businessNow } from "@/server/clock";
 import { autoCloseQuietly } from "./auto-close";
-import { LANES, listBoard } from "./board";
+import { parseBoardQuery } from "@/lib/staff-complaints/board-query";
+import { listBoardView } from "./board-views";
 import type { Classifier } from "./classifier";
 import { isUuid } from "./context";
 import { createComplaint } from "./create";
@@ -115,16 +116,16 @@ export async function handleReopen(context: Context, options: Options = {}): Pro
   return result.status === "ERROR" ? refused(result.error) : json(200, result);
 }
 
-/** GET /api/staff/complaints?lane=&cursor=&limit=: one lane of the board, a page at a time. */
+/** GET /api/staff/complaints?view=&category=&assignee=&urgency=&q=&cursor=&limit=: one view of the board, a page at a time (`lane=` is the old name of `view=`). */
 export async function handleBoard(context: Context, options: Options = {}): Promise<Response> {
   const url = new URL(context.request.url);
-  const lane = z.enum(LANES).safeParse(url.searchParams.get("lane") ?? "NEEDS_TRIAGE");
-  const limit = z.coerce.number().int().min(1).max(50).safeParse(url.searchParams.get("limit") ?? "25");
+  const query = parseBoardQuery(Object.fromEntries(url.searchParams));
+  const limit = z.coerce.number().int().min(1).max(50).safeParse(url.searchParams.get("limit") ?? "15");
   const cursor = url.searchParams.get("cursor") ?? undefined;
-  if (!lane.success || !limit.success || (cursor !== undefined && cursor.length > 500)) return invalid();
+  if (!limit.success || (cursor !== undefined && cursor.length > 500)) return invalid();
   const now = clock(options);
   await lazyAutoClose(context, now);
-  const result = await listBoard({ db: context.deps.db, user: context.user, lane: lane.data, cursor, limit: limit.data, now });
+  const result = await listBoardView({ db: context.deps.db, user: context.user, view: query.view, filters: query.filters, cursor, limit: limit.data, now });
   return result.status === "ERROR" ? refused(result.error) : json(200, result);
 }
 

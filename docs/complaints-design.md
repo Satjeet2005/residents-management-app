@@ -82,7 +82,7 @@ CLASSIFIED, corrections, links, acknowledgements, internal notes and every name 
 ## Routes
 
 Resident (`RESIDENT`): `POST` and `GET /api/complaints`, `GET /api/complaints/[id]`, `POST .../confirm`, `POST .../reopen`. Staff (`complaints:manage`):
-`GET /api/staff/complaints?lane=&cursor=&limit=`, `GET /api/staff/complaints/[id]`, `POST .../assign`, `.../status`, `.../comment`, `.../category`, `GET
+`GET /api/staff/complaints?view=&cursor=&limit=` (`lane=` is the old name of `view=`, D151), `GET /api/staff/complaints/[id]`, `POST .../assign`, `.../status`, `.../comment`, `.../category`, `GET
 /api/staff/users`. Duty manager (`complaints:duty_manager`): `POST .../acknowledge`, `.../close`. Status: 200 and 201 ok; 409 STALE and INVALID_TRANSITION; 422
 NO_FLAT, VALIDATION and ASSIGNEE_INVALID; 404 NOT_FOUND; 403 permission. The body of a refusal is only `{ "error": CODE }`. The app role gets column-level UPDATE on
 thirteen columns of `complaints` and nothing else (D95).
