@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { type ReactNode, useState } from "react";
 import { telHref } from "@/lib/phone-link";
 import { t } from "@/lib/messages";
@@ -11,7 +12,10 @@ import { Sheet } from "./ui/sheet";
 
 export type EmergencyNumbers = { dutyManagerPhone: string | null; emergencyServicesPhone: string | null };
 
-function WordList({ title, icon, items, strong }: { title: string; icon: ReactNode; items: readonly string[]; strong: boolean }) {
+const NEW_COMPLAINT = "/complaints/new";
+
+/** A column of the sheet. With `href`, each item is a link that opens the complaint form (48px tall, 8px between neighbours). */
+function WordList({ title, icon, items, strong, href }: { title: string; icon: ReactNode; items: readonly string[]; strong: boolean; href?: string }) {
   return (
     <section className="min-w-0">
       <h3 className={cx("flex items-center gap-2 pb-2 text-body font-semibold", strong ? "border-b-2 border-ink" : "border-b border-hairline")}>
@@ -20,8 +24,14 @@ function WordList({ title, icon, items, strong }: { title: string; icon: ReactNo
       </h3>
       <ul>
         {items.map((item) => (
-          <li key={item} className="border-b border-hairline py-3 text-body">
-            {item}
+          <li key={item} className={cx("border-b border-hairline text-body", href === undefined && "py-3")}>
+            {href === undefined ? (
+              item
+            ) : (
+              <Link href={href} className="my-1 flex min-h-12 items-center underline underline-offset-4">
+                {item}
+              </Link>
+            )}
           </li>
         ))}
       </ul>
@@ -32,8 +42,8 @@ function WordList({ title, icon, items, strong }: { title: string; icon: ReactNo
 /**
  * What the Emergency sheet says (D43): call the duty manager for danger, then two columns, what to call about and what to
  * raise as a complaint, each item on its own hairline-ruled row. The call links come from the society's settings: a number
- * that is not set draws nothing, so no link points nowhere. The column "Raise a complaint" is plain text for now, because
- * complaints cannot be raised yet, and so "Not an emergency? Raise a complaint" is not drawn.
+ * that is not set draws nothing, so no link points nowhere. The items of "Raise a complaint" and the button under
+ * "Not an emergency?" open the complaint form.
  */
 export function EmergencySheetContent({ numbers }: { numbers: EmergencyNumbers }) {
   const duty = telHref(numbers.dutyManagerPhone);
@@ -62,7 +72,13 @@ export function EmergencySheetContent({ numbers }: { numbers: EmergencyNumbers }
           strong
           items={[t("emergency.callNow.fire"), t("emergency.callNow.gas"), t("emergency.callNow.lift"), t("emergency.callNow.shock"), t("emergency.callNow.hurt")]}
         />
-        <WordList title={t("emergency.raise")} icon={<ChatIcon />} strong={false} items={[t("emergency.raise.leak"), t("emergency.raise.lift"), t("emergency.raise.noise"), t("emergency.raise.parking")]} />
+        <WordList title={t("emergency.raise")} icon={<ChatIcon />} strong={false} href={NEW_COMPLAINT} items={[t("emergency.raise.leak"), t("emergency.raise.lift"), t("emergency.raise.noise"), t("emergency.raise.parking")]} />
+      </div>
+      <div className="flex flex-col gap-2 border-t border-hairline pt-4">
+        <p className="text-body text-ink-2">{t("emergency.notEmergency")}</p>
+        <ButtonLink href={NEW_COMPLAINT} variant="outlined">
+          {t("emergency.raise")}
+        </ButtonLink>
       </div>
     </div>
   );

@@ -10,9 +10,9 @@ describe("HM4 navigation config", () => {
     }
   });
 
-  it("only Home and Profile are enabled now: Bills and Complaints are not drawn until their features exist", () => {
-    expect(enabledNavItems().map((i) => i.key)).toEqual(["home", "profile"]);
-    expect(NAV_ITEMS.filter((i) => !i.enabled).map((i) => i.key)).toEqual(["bills", "complaints"]);
+  it("Home, Complaints and Profile are enabled: Bills is not drawn until its feature exists", () => {
+    expect(enabledNavItems().map((i) => i.key)).toEqual(["home", "complaints", "profile"]);
+    expect(NAV_ITEMS.filter((i) => !i.enabled).map((i) => i.key)).toEqual(["bills"]);
   });
 
   it("a switched-on item appears in its place", () => {
@@ -27,7 +27,10 @@ describe("HM4 navigation config", () => {
     ["/profilex", null],
     ["/staff", null],
     ["/bills", null],
-  ])("the active item for %s is %s while only Home and Profile are enabled", (path, key) => {
+    ["/complaints", "complaints"],
+    ["/complaints/new", "complaints"],
+    ["/complaints/0b8f", "complaints"],
+  ])("the active item for %s is %s while Bills is not enabled", (path, key) => {
     expect(activeNavKey(path)).toBe(key);
   });
 

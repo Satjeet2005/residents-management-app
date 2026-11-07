@@ -20,21 +20,21 @@ describe("HM5 bottom navigation", () => {
 
   it("is a labelled nav landmark with exactly the enabled items, in words", () => {
     expect(out).toContain('<nav aria-label="Main navigation"');
-    expect(count(out, /<li/g)).toBe(2);
+    expect(count(out, /<li/g)).toBe(3);
     expect(out).toContain(">Home<");
+    expect(out).toContain(">Complaints<");
     expect(out).toContain(">Profile<");
     expect(out).not.toContain("Bills");
-    expect(out).not.toContain("Complaints");
   });
 
   it("marks the active item with aria-current and every item is at least 48px tall", () => {
     expect(count(out, /aria-current="page"/g)).toBe(1);
     expect(out).toMatch(/href="\/"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/"/);
-    expect(count(out, /min-h-14/g)).toBe(2);
+    expect(count(out, /min-h-14/g)).toBe(3);
   });
 
   it("draws an icon above each label, hidden from screen readers, and marks the active item with a top bar and a tint", () => {
-    expect(count(out, /<svg[^>]*aria-hidden="true"/g)).toBe(2);
+    expect(count(out, /<svg[^>]*aria-hidden="true"/g)).toBe(3);
     expect(out).toMatch(/<a [^>]*class="[^"]*flex-col[^"]*"[^>]*><svg/);
     expect(out).toContain("aria-[current=page]:border-accent");
     expect(out).toContain("aria-[current=page]:bg-paper-2");

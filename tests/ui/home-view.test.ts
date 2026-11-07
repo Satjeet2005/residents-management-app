@@ -103,7 +103,9 @@ describe("HM5 Home: T12-0408, overdue (₹6,468, 47 days)", () => {
   it("builds nothing that is not built: no View ledger, no Receipt, no complaint buttons", () => {
     expect(html).not.toMatch(/View ledger|Receipt|Confirm|Reopen/);
     expect(html).not.toMatch(/<button[^>]*>Raise a complaint/);
-    expect(html).not.toMatch(/<a [^>]*href="\/(bills|complaints|ledger)/);
+    expect(html).not.toMatch(/<a [^>]*href="\/(bills|ledger)/);
+    const complaintLinks = html.match(/<a [^>]*href="\/complaints[^"]*"/g) ?? [];
+    for (const link of complaintLinks) expect(link).toContain('href="/complaints/new"');
   });
 
   it("one filled control on the page itself: the Pay button (the other filled controls are inside the closed sheets)", () => {

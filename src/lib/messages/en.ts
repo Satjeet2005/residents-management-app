@@ -83,6 +83,7 @@ export const en = {
   "emergency.callNow.shock": "Electric shock",
   "emergency.callNow.hurt": "Someone is hurt",
   "emergency.raise": "Raise a complaint",
+  "emergency.notEmergency": "Not an emergency?",
   "emergency.raise.leak": "Water leak",
   "emergency.raise.lift": "Lift not working with nobody inside",
   "emergency.raise.noise": "Noise",

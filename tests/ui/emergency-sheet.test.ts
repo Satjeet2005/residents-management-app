@@ -39,20 +39,35 @@ describe("HM5 the Emergency sheet (D43)", () => {
   });
 
   it("separates the items with hairlines, one row each", () => {
-    expect((out.match(/<li class="border-b border-hairline py-3 text-body">/g) ?? []).length).toBe(9);
+    expect((out.match(/<li class="border-b border-hairline text-body( py-3)?">/g) ?? []).length).toBe(9);
   });
 
   it("the large Call duty manager link is in the accent colour with a phone icon", () => {
     expect(out).toMatch(/<a class="[^"]*bg-accent[^"]*" href="tel:5900000001"><svg[^>]*aria-hidden="true"[\s\S]*?<\/svg>Call duty manager<\/a>/);
   });
 
-  it("does not draw 'Not an emergency? Raise a complaint': complaints cannot be raised yet", () => {
-    expect(out).not.toMatch(/Not an emergency/);
+  it("the four 'Raise a complaint' items are links to /complaints/new, each at least 48px tall", () => {
+    const column = out.split("<section")[2].split("</section>")[0];
+    const links = column.match(/<a [^>]*>/g) ?? [];
+    expect(links).toHaveLength(4);
+    for (const link of links) {
+      expect(link).toContain('href="/complaints/new"');
+      expect(link).toContain("min-h-12");
+      expect(link).toContain("my-1");
+    }
   });
 
-  it("has no Raise a complaint button: complaints cannot be raised yet (the list is words only)", () => {
+  it("'Not an emergency?' is followed by an outlined 'Raise a complaint' link to /complaints/new, not a filled one", () => {
+    expect(out).toContain("Not an emergency?");
+    const button = /<a [^>]*>Raise a complaint<\/a>/.exec(out)?.[0] ?? "";
+    expect(button).toContain('href="/complaints/new"');
+    expect(button).toContain("border-control");
+    expect(button).not.toContain("bg-accent");
     expect(out).not.toContain("<button");
-    expect((out.match(/<a /g) ?? []).length).toBe(1);
+  });
+
+  it("has exactly one filled control: Call duty manager", () => {
+    expect((out.match(/bg-accent/g) ?? []).length).toBe(1);
   });
 
   it("shows nothing for emergency services while that setting is null", () => {
@@ -64,13 +79,12 @@ describe("HM5 the Emergency sheet (D43)", () => {
     const both = sheet({ dutyManagerPhone: "5900000001", emergencyServicesPhone: "112" });
     expect(both).toMatch(/<a [^>]*href="tel:112"/);
     expect(both).toContain("Call emergency services");
-    expect((both.match(/<a /g) ?? []).length).toBe(2);
+    expect((both.match(/href="tel:/g) ?? []).length).toBe(2);
   });
 
   it("with no duty manager number, says so and draws no link to nowhere", () => {
     const none = sheet({ dutyManagerPhone: null, emergencyServicesPhone: null });
     expect(none).toContain("The duty manager&#x27;s number is not set");
-    expect(none).not.toContain("<a ");
     expect(none).not.toContain("tel:");
   });
 

@@ -8,13 +8,13 @@ export type NavItem = {
 };
 
 /**
- * The resident navigation. Bills and Complaints are listed so the order is fixed, and switched on by the task that builds
- * them (a later task); until then they are not rendered.
+ * The resident navigation. Bills is listed so the order is fixed, and switched on by the task that builds it; until then it
+ * is not rendered.
  */
 export const NAV_ITEMS: readonly NavItem[] = [
   { key: "home", labelKey: "nav.home", href: "/", enabled: true },
   { key: "bills", labelKey: "nav.bills", href: "/bills", enabled: false },
-  { key: "complaints", labelKey: "nav.complaints", href: "/complaints", enabled: false },
+  { key: "complaints", labelKey: "nav.complaints", href: "/complaints", enabled: true },
   { key: "profile", labelKey: "nav.profile", href: "/profile", enabled: true },
 ];
 
