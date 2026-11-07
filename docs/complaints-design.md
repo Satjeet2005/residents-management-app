@@ -74,8 +74,8 @@ one that says CRITICAL) takes the keyword fallback; a valid answer that disagree
 
 ## The board and the reads
 
-Lanes (a complaint can be in several; the counts are per lane): NEEDS_TRIAGE (not closed, and `needs_review` or no assignee), OPEN (ASSIGNED, IN_PROGRESS or
-REOPENED), OVERDUE, WAITING_RESIDENT, SAFETY (not closed), CLOSED. Newest first, keyset pagination on (creation time, id) with an opaque cursor. A resident
+Views (a complaint can be in several; the counts are per view; D151, exact definitions in `docs/staff-complaints-ui.md`): needs_action, mine, safety, triage (not closed, and no assignee, or NEW with `needs_review`), open (ASSIGNED, IN_PROGRESS or
+REOPENED), overdue, waiting, closed. Ordered by band (unacknowledged safety, CRITICAL and HIGH, the rest), due time, newest created and id (closed: newest closed first), keyset pagination on those keys with an opaque cursor; 15 to a page. A resident
 sees the timeline built by `residentTimeline`: Raised, Assigned, status changes, comments marked visible, "Sent to the duty manager", Reopened, Closed.
 CLASSIFIED, corrections, links, acknowledgements, internal notes and every name are never shown. A complaint of another flat is 404, like a missing one.
 
@@ -100,7 +100,7 @@ built (`docs/complaints-ui.md`). Auto-close has no cron: the two list routes, th
 - **A3** The complaints clock is the business clock (D97), as on the Home. Under a frozen demo clock the same text by the same person is a repeat for as long as the clock stays frozen.
 - **A4** (amended by D150) OVERDUE no longer includes "resolved past SLA": a complaint replied to in time but marked resolved late has no reply clock to miss. OPEN includes REOPENED. Newest first (by creation time) in every lane.
 - **A5** When nothing could classify a complaint (source NONE) the `classifications` row says FALLBACK with no category: the fallback was the last thing tried.
-- **A6** `needs_review` is true whenever the category is unknown, a safety complaint included.
+- **A6** `needs_review` is true whenever the category is unknown, a safety complaint included. (D151) It is cleared when staff assign the complaint, set its status or correct its category, and only a NEW complaint with it set, or one with no assignee, is in the triage view.
 - **A7** A staff comment is shown to the resident only when marked `visibleToResident: true`. A comment with no mark (the seeded ones) is hidden.
 - **A8** A comment, and an acknowledgement, set `first_response_at` but do not change `version`, so they never make another person's pending change stale. A safety closure needs a note of 5 to 500 characters.
 - **A9** Events of one complaint are strictly increasing in time (each at least 1 ms after the one before), so the timeline never depends on a tie.

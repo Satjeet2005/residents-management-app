@@ -1,8 +1,8 @@
-# Staff complaint screens (T13c)
+# Staff complaint screens (T13c, reworked in T13h)
 
 The board, one complaint with its full timeline, and the actions, over the T13a services. They show what the services decided and let a person act;
 they add no rule of their own: every change goes through the existing routes of `docs/complaints-design.md` with the version the page was shown with.
-Decision: D130 (`docs/decisions.md`), with D14, D15, D39, D54, D73 and D117 to D121 behind it. The resident side is `docs/complaints-ui.md`; the look is
+Decisions: D130, and D151 (the views), D152 (the complaint page) and D153 (the medical and violence safety words) from T13h (`docs/decisions.md`), with D14, D15, D39, D54, D73, D117 to D121, D149 and D150 behind them. The resident side is `docs/complaints-ui.md`; the look is
 Passbook (`docs/design-system.md`). Every string is in `src/lib/messages/en.ts`.
 
 ## Pages
@@ -10,43 +10,99 @@ Passbook (`docs/design-system.md`). Every string is in `src/lib/messages/en.ts`.
 | Address | Who | What it shows |
 |---|---|---|
 | `/staff` | any active staff | The tools the person may open. **Complaints** (for `complaints:manage`) says how many safety complaints are open, in words, when above zero. |
-| `/staff/complaints` | `complaints:manage` | The board. `?lane=needs-triage\|safety\|open\|overdue\|waiting\|closed` picks the lane and is always in the address. |
-| `/staff/complaints/[id]` | `complaints:manage` | One complaint, its full timeline and the action panel. |
+| `/staff/complaints` | `complaints:manage` | The board. `?view=` picks one of eight views (default `needs_action`); `?category=`, `?assignee=`, `?urgency=` and `?q=` are the filters. The old `?lane=needs-triage\|safety\|open\|overdue\|waiting\|closed` still works as a name for a view. |
+| `/staff/complaints/[id]` | `complaints:manage` | One complaint: header, Details and Timeline tabs (`?tab=details\|timeline`), and the actions (a pinned bar and sheet below 1024px, a side panel from 1024px). |
 
 Every page calls `requireUser({ need: "complaints:manage" })` itself (a layout does not run again between pages), and the loaders in
-`src/server/complaints/staff-page-data.ts` check the permission again at the data (`StaffAccessError`); "Load more" is a server action built with
+`src/server/complaints/staff-page-data.ts` check the permission again at the data (`StaffAccessError`); "Show 15 more" is a server action built with
 `withPermissionAction("complaints:manage")`. A resident, staff without `complaints:manage` and nobody signed in are turned away
 (`tests/server/page-guards.test.ts`, `tests/integration/staff-complaints-data.test.ts` SDATA4, `scripts/smoke-app.mjs`).
 
-## The board
+## The board (D151)
 
-1. **Lanes.** A tablist with the six lanes in this order, each with its count: Needs triage, Safety, Open, Overdue, Waiting for resident, Closed. Arrow
-   keys, Home and End move between them; each tab is a link, so the lane is in the address and it works without a script. A complaint can be in several lanes
-   (the counts are per lane, `docs/complaints-design.md`).
-2. **Which lane opens first.** A lane in the address wins. Without one, the **duty manager** lands on Safety when it has items, and everybody else (and a
-   duty manager with nothing open in Safety) on Needs triage (`chooseLane`). The loader reads a second time only when the duty manager's Safety lane is empty.
-3. **Rows.** A real table from 768px, stacked cards below: the flat code and the first line of the complaint (a 48px link to its page), category, an
-   **urgency tag** (CRITICAL in the caution tone, always with its word), status (staff words: a resolved complaint is "Waiting for resident"), assignee
-   ("Unassigned" when none), age ("3 h 5 min"), the **reply clock in words** ("Reply due in 40 min", "Reply overdue by 2 h", "Replied in time") and a small
-   **source tag**: Rules, Model, Keywords, Manual, or Needs review (which wins: it is what the person has to do).
-4. **Order and paging.** Newest first, then a keyset "Load more" through a server action (25 at a time). A failure shows an error with Try again.
-5. **Auto-close** runs when the board loads (D120), quietly: a failure is logged and never breaks the page.
-6. **Empty lanes** say "Nothing here. Every complaint is handled." No control on the board is filled.
+The staff in the live demo (7 November, seed dated 27 October) found "Needs triage" at 30 rows although most complaints were assigned, rows of about 380px, and
+"I have seen this" five screens below the banner that said the duty manager had not seen the complaint. The board is a priority view, not a list of lanes.
 
-## One complaint
+### The eight views
 
-The first line of the text is the only h1. Then, in this order: for a safety complaint a bordered line ("Safety complaint", and whether the duty manager has
-seen it, with the time); the **text in full**; the details (flat, who raised it by name, when, status, category with "Needs review" when it applies, urgency,
-assignee); the **reply clock** (state in words, due time, first reply, resolved, closed, reopened); the **classification history** (source, category, urgency,
-confidence in words, newest first); and the **full timeline**, oldest first.
+All are computed on the server, in the address as `?view=`, and a complaint can be in several (the counts are per view). `needs_action` is for the person who looks.
+The same rules are written twice, in `inView` (`src/domain/complaints/board-views.ts`, pure) and in SQL (`src/server/complaints/board-views.ts`); a test compares
+both with independent SQL on the seeded database for every view and two viewers.
 
-The timeline holds every event, internal ones included. Each line says in words whether the resident sees it ("Visible to the resident") or only staff do
-("Internal"). The marks follow `residentTimeline` and a test compares the two line by line. Classification, category corrections, acknowledgements, internal
-comments and every note are internal; a note on a visible event is a line of its own, marked internal, because the resident sees the event and not the note.
+| View (`?view=`) | A complaint is in it when |
+|---|---|
+| **Needs action** (`needs_action`, the default) | not closed, and one of: a safety complaint **not acknowledged** by the duty manager; **no assignee**; **status NEW and `needs_review`**; **assigned to the viewer** and either `slaOutcome` is MISSED_OPEN or the status is REOPENED |
+| **Mine** (`mine`) | not closed and assigned to the viewer |
+| **Safety** (`safety`) | a safety complaint that is not closed, acknowledged or not |
+| **Needs triage** (`triage`) | not closed, and (no assignee, **or** status NEW and `needs_review`). Assigned, in-progress and waiting complaints are never in it (D151) |
+| **Open** (`open`) | ASSIGNED, IN_PROGRESS or REOPENED |
+| **Overdue** (`overdue`) | not closed and `slaOutcome` is MISSED_OPEN: no first reply and the due time has passed. A late first reply or a late "resolved" is not overdue (D150) |
+| **Waiting for resident** (`waiting`) | PENDING_CONFIRMATION |
+| **Closed** (`closed`) | CLOSED |
+
+"Acknowledged" is the `ack` event written only by the duty manager's `acknowledgeSafety` (D149). `needs_review` is cleared when staff assign a complaint, set its
+status or correct its category.
+
+### The order
+
+Every view except Closed: **band** (0 an unacknowledged safety complaint, 1 CRITICAL or HIGH urgency, 2 the rest; a closed complaint is never band 0), then the
+**oldest first-reply due time first** (the most overdue first; no due time last), then newest created, then the larger id. Closed: newest closed first. The ranking
+is in SQL and the **keyset cursor** carries exactly (band, due time, created, id), so a page never repeats or skips a row, ties included (tested with eight
+complaints that tie on every key and pages of 3). Counts for all eight views are ONE query. The page holds 15 complaints.
+
+### Filters and the address
+
+`?category=` (the five codes), `?assignee=me|unassigned|anyone`, `?urgency=` (the four) and `?q=` (a flat-code prefix of 2 to 8 characters, any case, with a
+space, hyphen, slash, underscore or dot between tower and number: `t12-04`, `T12 04` and `t1204` are `T12-04`). A value that is not on its list is **ignored**,
+never an error and never in the SQL as text (`parseBoardQuery`, `src/lib/staff-complaints/board-query.ts`). The counts of every view follow the filters, so "Showing
+15 of 40" is the count of the view. The alert strip does not: it counts every safety complaint that waits for the duty manager.
+
+### What the screen shows
+
+1. **Alert strip** when a safety complaint waits: "<n> safety complaint(s) waiting for the duty manager." linking to the Safety view.
+2. **View** button (48px, below 1024px) saying "View: Needs action 9"; it opens a sheet with all eight views, a count and ONE plain sentence each. Choosing one
+   closes the sheet and changes the address. From 1024px the same list is a left sidebar. **Filters** button: a sheet with the four filters, Apply and Reset;
+   the active filters are removable chips under the header. Escape closes either sheet and focus returns to the button.
+3. **Demo note** ("Demo data is dated 27 October, so replies can look overdue.") only when `DEMO_MODE` is exactly `true`.
+4. **Compact row** (one tappable card, about 85 to 110px on a phone, at most 120px). Line 1: the flat chip, an urgency chip only when not Normal, a "Safety" chip.
+   Line 2: the title on ONE line (ellipsis). Line 3 (14px, secondary ink): "Category · Status · Assignee or Unassigned". Line 4 only when notable: "Reply overdue
+   2 h 32 min" with the caution mark, "Reply due in 40 min" when within 4 hours, "Replied late"; nothing for "replied in time". The classification source tags
+   ("Model", "Rules", "Needs review") are not on the row; they are on the complaint page.
+5. **Table** from 768px: flat, complaint, category, urgency, status, assigned to, reply, age, in the order above.
+6. **Show 15 more** and "Showing 15 of <n>"; a failure shows an error with Try again. **Empty** views say "Nothing here. Every complaint is handled." (with a
+   filter on: "No complaint matches these filters."). Auto-close runs when the board loads (D120). No control on the board is filled.
+
+## One complaint (D152)
+
+1. **Header**: back link, the title (two lines at most; the only h1), and chips for the flat, the urgency, the status and the reply clock ("Reply overdue 2 h 32 min").
+2. **Banner** for a safety complaint, one line: "The duty manager has not seen this yet." or "Seen by the duty manager at <time>." (from the acknowledgement fact).
+3. **Tabs**: Details and Timeline (a `tablist`, arrow keys, Home and End; `?tab=` in the address). Both panels are rendered by the server.
+   - **Details**: the resident's words first; a two-column grid (Flat, Raised by, Raised, Category, Urgency, Assigned to, Status); the reply clock on one line
+     ("Reply overdue 2 h · due 7 Nov, 12:00 pm") with the first reply, resolution, closing and reopenings under it; "How it was classified" as ONE line
+     ("Rules · Lift · Critical", with "Needs review" when it applies) and a **Why?** expander (`<details>`) with the history, newest first.
+   - **Timeline**: the latest three events, newest first, and **Show all (n)** for the rest. Each event shows the time, a Visible or Internal tag, what happened,
+     by whom, and the text of a comment or note.
+4. **Actions**, below 1024px: a **pinned bar** fixed to the bottom with the safe-area inset (buttons only, no text input; the page gets bottom padding), and from
+   1024px the side panel below.
+
+### The pinned bar (`src/lib/staff-complaints/primary-bar.ts`)
+
+| Viewer and state | Bar |
+|---|---|
+| duty manager, safety complaint not yet acknowledged (not closed) | **I have seen this** (the ONLY filled control) and an outlined **More** |
+| duty manager, safety complaint already acknowledged | outlined **Update** |
+| any other staff member who may manage (a plain manager included, on a safety complaint too) | outlined **Update** |
+| a closed complaint, or a user without `complaints:manage` | no bar |
+
+**More** and **Update** open the **actions sheet**: a short menu of rows, each opening its own small form, one at a time: Assign, Mark in progress, Mark resolved
+(a note is required; never offered for a safety complaint), Add comment (the box "Visible to the resident" is unchecked), Correct category, and for the duty
+manager on a safety complaint Close this safety complaint (a note is required). Every validation, the version check and the 409 "This complaint changed. Reload
+to see it." are those of the side panel (both use `useStaffActions`). After a success the sheet closes, the page refreshes, a live message in the bar says what
+changed, and focus returns to the control that opened the sheet.
 
 ## The action panel and who sees which control
 
-On the right from 1024px (sticky), below the timeline on a narrow screen. The table below is `controlsFor` (`src/lib/staff-complaints/controls.ts`), written
+On the right from 1024px (sticky); below 1024px the same controls are the actions sheet above, and the panel is not shown. The table below is `controlsFor` (`src/lib/staff-complaints/controls.ts`), written
 as a table test; the services refuse the rest again.
 
 | Control | Offered when |
@@ -60,7 +116,8 @@ as a table test; the services refuse the rest again.
 | **Close this safety complaint** (asks for a note of 5 to 500 characters first) | **the duty manager only**, a safety complaint in NEW, ASSIGNED, IN_PROGRESS or REOPENED |
 
 Nobody else sees the last two, and a person without `complaints:manage` is offered nothing. A test walks every viewer, status, safety flag and
-acknowledgement and finds at most one filled control in each view (the acknowledge button, only while it is offered); every other button is outlined.
+acknowledgement and finds at most one filled control in each of the two layouts, the panel and the bar (the acknowledge button, only while it is offered); every
+other button is outlined.
 
 **What every action does.** It sends the version it was shown with (assign, status and category; a comment, an acknowledgement and a close do not need one).
 A second tap while one action is in flight does nothing (the reducer ignores every event but the answer, and a ref guards the handler); the button says
@@ -75,7 +132,7 @@ and `aria-invalid`, and nothing is meant by colour alone (the tags and the "Visi
 ## States
 
 Loading skeletons (plain bars, a status line, no heading) for the board and for a complaint; an error boundary for both with Try again that never prints the
-error; a not-found page for a complaint address that matches nothing (a missing complaint and a bad id look the same); empty lanes as above.
+error; a not-found page for a complaint address that matches nothing (a missing complaint and a bad id look the same); empty views as above.
 
 ## What is deliberately absent
 
@@ -84,13 +141,12 @@ error; a not-found page for a complaint address that matches nothing (a missing 
 | **Duplicate linking** and "affects me too" | Not built (`DUPLICATE_LINKED`, `AFFECTED_TOO` are never created); the timeline can name them if they ever are. |
 | **Reminders** and escalation timers | Not built. The reply clock only tells; nothing is sent when it runs out. |
 | **A notifications list** | The SAFETY_ALERT notification is a row for the duty manager; no screen reads it (D55). |
-| Reassigning from the board, bulk actions, search | Out of this task; one complaint at a time, from its page. |
+| Reassigning from the board, bulk actions, free-text search | Out of this task; one complaint at a time, from its page. The only search is the flat-code prefix. |
 | Hindi and Marathi, attachments | Out of this task. |
 
 ## Assumptions (labelled)
 
-- **SU1.** A safety complaint with no category also appears in Needs triage: the service sets `needs_review` whenever the category is unknown (A6 of
-  `docs/complaints-design.md`), and the lanes overlap by design.
+- **SU1.** (Replaced by D151.) A safety complaint with no category used to appear in Needs triage because `needs_review` was set; it is now only there while it is unassigned or NEW and unreviewed, and a safety complaint is assigned to the duty manager at once.
 - **SU2.** The note of "Mark resolved" is required (5 to 500 characters) in the screen, although the service accepts none: the next person should know what was done.
 - **SU3.** "Acknowledged" means an acknowledgement event exists, not that `first_response_at` is set (any staff action sets that on a safety complaint too).
 - **SU4.** Comment and category correction are offered in every status, including closed (the services allow them); Assign is offered only where the lifecycle allows it.
@@ -102,6 +158,11 @@ error; a not-found page for a complaint address that matches nothing (a missing 
 - **SU10.** The pages need `complaints:manage` (as the task says). A person who holds only `complaints:duty_manager` can use the API routes but not these
   pages; in the seed the duty manager holds both.
 - **SU11.** An id in an event that the loader cannot name reads as "someone".
+- **SU13.** (T13h) The order inside a band uses the first-reply due time of every complaint, also one that already has a reply, as the task says; a replied complaint with an old due time therefore sorts ahead of an unreplied one with a later time.
+- **SU14.** (T13h) The counts of the views follow the filters (so a total and a list agree); the alert strip does not.
+- **SU15.** (T13h) A one-digit tower in the flat search is zero-padded ("t5" is "T05"), and a three-digit unit part too ("t12 408" is "T12-0408"), as the flat-code parser pads them.
+- **SU16.** (T13h) The bar's safe-area padding uses `env(safe-area-inset-bottom)`; the app does not set `viewport-fit=cover`, so the inset is zero in most browsers and the bar sits above the system area.
+- **SU17.** (T13h) A phone gets no way to comment or correct the category of a closed complaint (there is no bar for it); the side panel from 1024px still offers both.
 - **SU12.** The limits (a comment of 1,000 characters, a note of 5 to 500) are constants in `src/lib/staff-complaints/panel.ts` that the services also enforce; the sentence "Write a note of 5 to 500 characters." in the message catalog states the same numbers, so a change to them is made in both places.
 
 ## How the data is read
@@ -110,8 +171,8 @@ error; a not-found page for a complaint address that matches nothing (a missing 
 requireUser({ need: "complaints:manage" }) -> loadBoardPage / loadBoardMore / loadComplaintPage / loadStaffLanding -> pure views
 ```
 
-The loaders call `listBoard`, `getStaffComplaint` and `listStaffUsers` of T13a and add only reads the app role already has: no privilege was added. The pure
-logic is in `src/lib/staff-complaints/` (lanes, time words, labels and tags, the control table, the timeline, the panel reducer) and is unit tested
+The loaders call `listBoardView`, `getStaffComplaint` and `listStaffUsers` and add only reads the app role already has: no privilege was added. The pure
+logic is in `src/lib/staff-complaints/` (views, the query string, the row summary, time words, labels and tags, the control table, the bar, the tabs, the timeline, the panel reducer) and is unit tested
 (`tests/lib/staff-complaints/`). The actions go to the existing routes (`/api/staff/complaints/[id]/assign|status|comment|category|acknowledge|close`).
 
 ## What is not tested here

@@ -6,9 +6,9 @@ The unit and integration tests never draw a page. This is the check that does: t
 
 `npm run e2e` (`scripts/e2e.sh`) creates the scratch database `township_seed_scratch` (the safety checks of `scripts/e2e-db.mjs` apply), migrates and seeds it, builds the app, starts it in demo mode with the business date frozen at 27 Oct 2026 and the classifier settings blank, runs Playwright, then stops the server by its process id and drops the database. It is not part of `npm run check` or `npm run test:ci-parity`; it needs Chromium (`npx playwright install chromium`, never committed).
 
-Two device profiles, both Chromium: a **360 x 800 phone** (mobile emulation, touch, device scale factor 2) and a **1280 x 800 desktop**. People log in through the real login page once (global setup, the demo code banner), and each spec reuses that session.
+Three device profiles, all Chromium: a **360 x 800 phone** (mobile emulation, touch, device scale factor 2), a **768 x 1024 tablet** (touch; added in T13h for the staff complaints screens) and a **1280 x 800 desktop**. People log in through the real login page once (global setup, the demo code banner), and each spec reuses that session.
 
-The specs run as a chain of Playwright projects (`playwright.config.ts`), because some of them change the data the next ones read: resident screens, resident flows, the reconciliation flow, staff screens, staff flows, installability.
+The specs run as a chain of Playwright projects (`playwright.config.ts`), because some of them change the data the next ones read: resident screens, resident flows, the reconciliation flow, staff screens, the staff complaints board and complaint page at 360, 768 and 1280 (`tests/e2e/screens/staff-complaints.spec.ts`, T13h), staff flows, installability.
 
 ## The checks on every screen (`tests/e2e/helpers/checks.ts`)
 
@@ -29,6 +29,15 @@ For each screen, at both widths:
 A failure names the screen, the width, the selector and the screenshot (`docs/screenshots/<area>-<screen>-<width>.png`). The JSON of every screen is in `test-results/checks/`.
 
 Screens: resident login (idle, code sent), Home (overdue, no dues, safety alert 1a with the outlined Pay, fee only), the dues sheet, the Emergency sheet, the demo payment page, complaints list, raise a complaint (before and after Yes), a complaint (normal, needs your answer, safety), profile; staff landing, reconciliation start page, the workspace (every lane), the review panel, the complaints board (every lane), a complaint as the duty manager and as a plain manager, the committee report (top, ageing, a drill-down).
+
+## Staff complaints v2 (T13h)
+
+`tests/e2e/screens/staff-complaints.spec.ts` runs at the three widths and checks: no horizontal overflow and axe zero serious or critical (inside `checkScreen`); at 360 the
+first screen of Needs action shows at least four complaint rows fully and every row is at most 120 px tall (the measured numbers are printed); at 768 and 1280 the board
+is a table with the eight columns; the views sheet (below 1024px) or sidebar (from 1024px); the filters sheet (Apply, chips, Reset, Escape returning focus); a hostile
+address; the Details and Timeline tabs by keyboard; the bar and actions sheet (assign, a comment with the box unchecked staying internal, resolve with a required note)
+or, from 1024px, the side panel with no bar; a plain manager seeing "Update" and never the duty manager's controls; and the duty manager's "I have seen this" inside
+the viewport on load, acknowledging it, and the resident's Home then showing alert 1b. Each width raises its own safety complaints (as Rohit, through the API).
 
 ## Interaction specs (real clicks)
 

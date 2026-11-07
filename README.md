@@ -137,24 +137,28 @@ is a full-screen sheet (Escape or Close returns to the row). Tab through the pag
 
 ## Walking the complaints board (staff)
 
-The staff complaint screens are in `docs/staff-complaints-ui.md` (decision D130). With a seeded database and the app running in demo mode (see Run and Demo
-data above), first raise a danger report as a resident so the Safety lane has something fresh:
+The staff complaint screens are in `docs/staff-complaints-ui.md` (decisions D130, D151, D152 and D153). With a seeded database and the app running in demo mode (see
+Run and Demo data above), first raise a danger report as a resident so there is a safety complaint nobody has seen:
 
-1. Log in as **Swati Joshi** (`5000000007`), press **Complaints**, **Raise a complaint**, answer **Yes** to "Is anyone in danger right now?" and send. Log out.
-2. Log in as **Sanjay Pawar** (`5000000005`, the duty manager: `complaints:manage` and `complaints:duty_manager`). `/staff` lists **Complaints** with the
-   number of open safety complaints. Open it: it lands on **Safety** and your report is the first row, Critical, with the source "Rules". Press its title.
-3. The page shows the text, the details, the reply clock, how it was classified and the full timeline with "Visible to the resident" and "Internal" marks.
-   In the panel on the right **I have seen this** is the one filled button; **Close this safety complaint** asks for a note first. Press **I have seen this**:
-   the line "Marked as seen." appears and the page now says when it was seen. Log in as Swati again: the Home alert says "The duty manager has seen your report".
-4. Log in as **Kavita Rao** (`5000000004`, `complaints:manage` only) and open the same complaint: there is no **I have seen this**, no **Close this safety
-   complaint** and no **Mark resolved**. Open any ordinary complaint from **Needs triage** or **Open**: assign it, mark it in progress, post a comment with
-   the **Visible to the resident** box off (the resident's page does not show it) and another with it ticked (it does), mark it resolved with a note and
-   find it in **Waiting for resident**.
+1. Log in as **Swati Joshi** (`5000000007`), press **Complaints**, **Raise a complaint**, answer **Yes** to "Is anyone in danger right now?" and send. Try also a
+   plain "Killed someone" with **No**: the safety words catch it (CRITICAL, sent to the duty manager). Log out.
+2. Log in as **Sanjay Pawar** (`5000000005`, the duty manager: `complaints:manage` and `complaints:duty_manager`). `/staff` lists **Complaints**. Open it: it opens
+   on **Needs action**, with a strip "<n> safety complaints waiting for the duty manager." above the rows, and your report is the first row, with the Critical and
+   Safety chips. At 360px press **View** to choose among the eight views and **Filters** to filter by category, assignee, urgency or flat code (`T12`, `t12-04`).
+   Press the title of your report.
+3. The page has the title, chips (flat, urgency, status, reply clock), the line "The duty manager has not seen this yet." and two tabs: **Details** and **Timeline**.
+   On a phone **I have seen this** is the one filled button, pinned at the bottom, with **More**; from 1024px it is in the panel on the right. Press it: "Marked as
+   seen." appears and the banner says when. Log in as Swati again: the Home alert says "The duty manager has seen your report".
+4. Log in as **Kavita Rao** (`5000000004`, `complaints:manage` only) and open the same complaint: the bar says **Update** and there is no **I have seen this**, no
+   **Close this safety complaint** and no **Mark resolved**. Open any ordinary complaint from **Needs triage** or **Open**: press **Update**, assign it, mark it in
+   progress, add a comment with the **Visible to the resident** box off (the resident's page does not show it) and another with it ticked (it does), mark it resolved
+   with a note and find it in **Waiting for resident**.
 
-To look at it at 1280px and at 360px, open the page in Chrome or Firefox, press F12 and then Ctrl+Shift+M (device toolbar), choose Responsive and type
-1280 x 800, then 360 x 800. At 1280px the six lanes are tabs above a table and the action panel sits at the right of the complaint; at 360px the rows are
-cards and the panel is below the timeline. Tab through the page: every control shows a ring, the tabs move with the arrow keys, and after an action the focus
-is on the line that says what happened.
+To look at it at 1280px, 768px and 360px, open the page in Chrome or Firefox, press F12 and then Ctrl+Shift+M (device toolbar), choose Responsive and type 1280 x 800,
+then 768 x 1024, then 360 x 800. From 1024px the views are a sidebar and the actions a panel on the right; at 768px the board is a table and the actions are the bar and
+sheet; at 360px the rows are compact cards. Tab through the page: every control shows a ring, the Details and Timeline tabs move with the arrow keys, Escape closes a
+sheet and returns the focus to the button that opened it. `npm run e2e` checks all of this in a real browser at the three widths. In demo mode the board says that the
+demo data is dated 27 October, so replies can look overdue.
 
 ## Reading the committee report (staff)
 

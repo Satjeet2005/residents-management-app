@@ -99,9 +99,17 @@ These are numbered inside their own files. Read them there.
 | `docs/statement-import-design.md` | S1 to S12 | The statement import: fatal header, the business clock, batched bill locks, the ledger reference, repeats, the empty `created_by_id`; fee-only bills are not shown to the matcher (S10, S11); the sample statement is an illustration, not the benchmark (S12). |
 | `docs/manual-reconciliation-design.md` | M1 to M11 | Manual matching of queued rows: the expected amount, requests checked early, who is `decided_by`, rejecting one's own request, references, the clock. |
 | `docs/complaints-design.md` | A1 to A13 | Complaints: the lifecycle edges, the reopen window, the clock, lanes and overdue, comments and the version, the timeline, the classifier port. |
-| `docs/staff-complaints-ui.md` | SU1 to SU12 | Staff complaint screens: lanes that overlap, the required resolve note, what "acknowledged" means, the confidence words, one clock per page, the permission the pages need. |
+| `docs/staff-complaints-ui.md` | SU1 to SU17 | Staff complaint screens: views that overlap, the required resolve note, what "acknowledged" means, the confidence words, one clock per page, the permission the pages need. |
 | `docs/browser-verification.md`, `docs/installable-app.md` | (R68 to R71 above) | The real-browser checks and what they found; the manifest, the service worker and what it never caches. |
 | `docs/committee-report.md` | RC1 to RC11 (and R67) | The committee report: the median rule, the default month, what "paid in full" means, the on-time and SLA denominators, the current-state complaint figures, the reconciliation window, the goals. |
 | `docs/complaint-classification.md` | CC1 to CC7 | Complaint classification: when the fallback answers, urgent words, the arm names, OTHER, the de-identification decision. |
 | `docs/classifier-providers.md` | (R50 to R65 above) | The System One protocol as documented, the two providers, failover, breaker, cap, privacy, key rotation. |
 | `docs/design-system.md` | A1 to A10 | Colours, radii, tracker markers, fonts, spacing, motion, placeholder translations. |
+
+## T13h: staff complaints v2
+
+- **TH1.** The list of medical and violence terms (`MEDICAL_VIOLENCE`, D153) is a human-added extension of the brief's four safety categories. The English terms were written from the human's list and common variants; the Hindi, Marathi and romanised terms were written by the agent and are NOT verified by a native speaker (`docs/safety-words-review.md`, the review column is empty). No self-harm term is included: whether to add one is a question for the human.
+- **TH2.** "Needs action" (D151) is: not closed, and one of: an unacknowledged safety complaint, no assignee, NEW with `needs_review`, or assigned to the viewer and either past its first-reply time with no reply or reopened. "Unacknowledged" means no `ack` event, not "no first reply" (D149).
+- **TH3.** Within a band the order uses the first-reply due time of every complaint, replied or not, as the task says (SU13 of `docs/staff-complaints-ui.md`).
+- **TH4.** The counts of the views follow the filters; the alert strip counts every unacknowledged safety complaint (SU14).
+
