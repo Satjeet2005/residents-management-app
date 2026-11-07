@@ -1,11 +1,34 @@
-import { defineConfig } from "@playwright/test";
+import { defineConfig, type PlaywrightTestProject } from "@playwright/test";
 import { DESKTOP_1280, MOBILE_360 } from "./tests/e2e/helpers/profiles";
 
 /**
  * The real-browser checks (T15). Chromium only. `npm run e2e` (scripts/e2e.sh) builds the app on a scratch database, starts it and sets E2E_BASE_URL; running
- * this file any other way needs the app already running at that address. One worker, because the specs share one seeded database. The two device profiles are
- * a 360 x 800 phone (mobile emulation, touch) and a 1280 x 800 desktop; the checks of every screen run in both.
+ * this file any other way needs the app already running at that address. One worker, because the specs share one seeded database, and the projects run as a CHAIN,
+ * because the data they read is changed by the ones before:
+ *   1 and 2  the resident screens at 360 and at 1280 (they only read: Swati owes, Neeraj does not, Rohit has a danger report);
+ *   3        the resident flows (real clicks: pay, complaints, the Home alerts; they change data);
+ *   4        the reconciliation flow, which imports the sample statement through the page, matches, requests and approves (it changes Swati's bank row, Aamir's late fee);
+ *   5 and 6  the staff screens at 360 and at 1280, and the Home of a flat that owes only a late fee (they read what 3 and 4 left);
+ *   7        the other staff flows, the keyboard, the installability and the offline page.
+ * The two device profiles are a 360 x 800 phone (mobile emulation, touch) and a 1280 x 800 desktop.
  */
+const chain: { name: string; profile: typeof MOBILE_360 | typeof DESKTOP_1280; match: RegExp }[] = [
+  { name: "resident-screens-360", profile: MOBILE_360, match: /screens[\\/]resident\.spec\.ts$/ },
+  { name: "resident-screens-1280", profile: DESKTOP_1280, match: /screens[\\/]resident\.spec\.ts$/ },
+  { name: "resident-flows", profile: MOBILE_360, match: /flows[\\/]resident-.*\.spec\.ts$/ },
+  { name: "reconciliation-flow", profile: DESKTOP_1280, match: /flows[\\/]reconciliation\.spec\.ts$/ },
+  { name: "staff-screens-360", profile: MOBILE_360, match: /screens[\\/](staff|after-reconciliation)\.spec\.ts$/ },
+  { name: "staff-screens-1280", profile: DESKTOP_1280, match: /screens[\\/](staff|after-reconciliation)\.spec\.ts$/ },
+  { name: "staff-flows", profile: DESKTOP_1280, match: /flows[\\/](staff|keyboard)-.*\.spec\.ts$|installable\.spec\.ts$|harness\.spec\.ts$/ },
+];
+
+const projects: PlaywrightTestProject[] = chain.map((link, index) => ({
+  name: link.name,
+  use: { ...link.profile },
+  testMatch: link.match,
+  dependencies: index === 0 ? [] : [chain[index - 1].name],
+}));
+
 export default defineConfig({
   testDir: "tests/e2e",
   outputDir: "test-results/artifacts",
@@ -17,9 +40,5 @@ export default defineConfig({
   reporter: [["list"]],
   globalSetup: "./tests/e2e/global-setup.ts",
   use: { baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000", trace: "off", screenshot: "off", video: "off" },
-  // A spec runs in both profiles unless its name says otherwise: `x.mobile-only.spec.ts` or `x.desktop-only.spec.ts`.
-  projects: [
-    { name: "mobile-360", use: { ...MOBILE_360 }, testMatch: /.*\.spec\.ts$/, testIgnore: /\.desktop-only\.spec\.ts$/ },
-    { name: "desktop-1280", use: { ...DESKTOP_1280 }, testMatch: /.*\.spec\.ts$/, testIgnore: /\.mobile-only\.spec\.ts$/ },
-  ],
+  projects,
 });
