@@ -178,7 +178,7 @@ async function run() {
     check("a staff member calling POST /api/payments gets 403", staffPay.status === 403, `status ${staffPay.status}`);
   }
   if (expectDemoNote) await staffImportsSample(staffCookie);
-  if (expectDemoNote && paidCheckoutPath !== null) await partPaidResidentFails(paidCheckoutPath, staffCookie);
+  if (expectDemoNote && paidCheckoutPath !== null) await partPaidResidentFails(paidCheckoutPath, staffCookie, cookie);
   await post("/api/auth/logout-all", undefined, staffCookie);
 }
 
@@ -264,7 +264,7 @@ async function residentPays(cookie, homeBefore) {
 }
 
 /** The T21-1601 resident starts a payment and the gateway reports a failure: the strip shows and Pay is still there. */
-async function partPaidResidentFails(otherCheckoutPath, staffCookie) {
+async function partPaidResidentFails(otherCheckoutPath, staffCookie, otherFlatCookie) {
   const cookie = await login(RESIDENT_PART_PAID);
   check("login as the T21-1601 resident", cookie !== null, cookie ? `cookie length ${cookie.length}` : "could not log in");
   if (cookie === null) return;
@@ -289,7 +289,7 @@ async function partPaidResidentFails(otherCheckoutPath, staffCookie) {
     `strip at ${stripAt(after.html)}, amount label at ${after.html.indexOf("Amount due, as of")}, button ${payButtonPaise(after.html) ?? "missing"}`,
   );
   await reconcile(staffCookie, cookie);
-  await complaints(cookie);
+  await complaints(cookie, staffCookie, otherFlatCookie);
   await post("/api/auth/logout-all", undefined, cookie);
 }
 
@@ -298,7 +298,7 @@ async function partPaidResidentFails(otherCheckoutPath, staffCookie) {
  * The server runs with the real keyword fallback and no model (NullClassifier). It needs a database where these two texts have not been raised
  * yet, like the rest of this script (a repeat of the same text by the same person is the same complaint while the clock is frozen).
  */
-async function complaints(residentCookie) {
+async function complaints(residentCookie, staffCookie, otherFlatCookie) {
   const kavita = await login("5000000004");
   const sanjay = await login("5000000005");
   check("login as Kavita Rao (complaints:manage) and Sanjay Pawar (complaints:duty_manager)", kavita !== null && sanjay !== null, "");
@@ -349,8 +349,101 @@ async function complaints(residentCookie) {
   check("a resident gets 403 on the staff complaint routes", denied.every((r) => r.status === 403), denied.map((r) => r.status).join(" "));
   const staffOnResidentRoute = await api("POST", "/api/complaints", kavita, { body: "Water leak under the sink" });
   check("staff get 403 on the resident's raise route", staffOnResidentRoute.status === 403, `status ${staffOnResidentRoute.status}`);
+  await complaintScreens(residentCookie, staffCookie, otherFlatCookie, kavita, sanjay);
   await post("/api/auth/logout-all", undefined, kavita);
   await post("/api/auth/logout-all", undefined, sanjay);
+}
+
+/** The Pay button of the Home with its classes: outlined (a border, no accent fill) or filled. Null when there is none. */
+function payButtonStyle(html) {
+  const match = /<button[^>]*class="([^"]*)"[^>]*>Pay (?:oldest bill )?₹[0-9,]+<\/button>/.exec(html);
+  return match === null ? null : match[1].includes("bg-accent") ? "filled" : "outlined";
+}
+
+/**
+ * The complaint SCREENS over HTTP (T13b), as the T21-1601 resident (the part-paid flat, so a Pay button exists), Sanjay Pawar (the duty manager,
+ * 5000000005: the fifth staff phone of the seed, docs/seed-data.md A6), Kavita Rao (complaints:manage), staff without a complaint role, and the
+ * T12-0408 resident (another flat). The sessions are the ones `complaints` opened (a code is not asked for again within its wait). It needs a
+ * database where these two texts have not been raised yet (a repeat within the frozen clock is the same complaint). It prints no code, cookie or token.
+ */
+async function complaintScreens(residentCookie, staffCookie, neighbour, kavita, sanjay) {
+
+  const form = await get("/complaints/new", residentCookie);
+  check(
+    "GET /complaints/new: 200, one h1, the danger question with Yes and No, and NO answer pre-selected",
+    form.status === 200 && (form.html.match(/<h1/g) ?? []).length === 1 && form.text.includes("Is anyone in danger right now?") && (form.html.match(/type="radio"/g) ?? []).length === 2 && !/checked(=|\s|>)/.test(form.html),
+    `status ${form.status}`,
+  );
+  check("the form's one filled control is 'Send complaint'", /<button[^>]*bg-accent[^>]*>Send complaint<\/button>/.test(form.html), "");
+  const list = await get("/complaints", residentCookie);
+  check("GET /complaints: 200, one h1, the 'Raise a complaint' link to /complaints/new", list.status === 200 && (list.html.match(/<h1/g) ?? []).length === 1 && /href="\/complaints\/new"/.test(list.html) && list.text.includes("Raise a complaint"), `status ${list.status}`);
+
+  const before = await get("/", residentCookie);
+  check("before any danger report the Home has no safety alert and Pay is filled", !before.text.includes("report has gone to the duty manager") && payButtonStyle(before.html) === "filled", `pay ${payButtonStyle(before.html)}`);
+
+  const danger = await api("POST", "/api/complaints", residentCookie, { body: "Bench near the tower 2 gate needs paint", declaredDanger: true });
+  const dangerId = danger.json?.complaint?.id;
+  check("POST /api/complaints with declaredDanger true and innocuous text: 201, CRITICAL, a safety complaint", danger.status === 201 && danger.json?.complaint?.safetyFlag === true && danger.json.complaint.urgency === "CRITICAL", `status ${danger.status}`);
+  if (typeof dangerId !== "string") return;
+
+  const alert1a = await get("/", residentCookie);
+  check(
+    "GET / shows alert 1a above the dues with a tel: Call duty manager link, and the Pay button is OUTLINED",
+    alert1a.text.includes("Your report has gone to the duty manager") && alert1a.text.includes("If anyone is in danger, call now.") && /<a [^>]*href="tel:5900000001"[^>]*>(?:<svg[\s\S]*?<\/svg>)?Call duty manager<\/a>/.test(alert1a.html) && alert1a.html.indexOf("report has gone to the duty manager") < alert1a.html.indexOf("Amount due, as of") && payButtonStyle(alert1a.html) === "outlined",
+    `pay ${payButtonStyle(alert1a.html)}`,
+  );
+  check("before the acknowledgement the Home does NOT say the duty manager has seen the report", !alert1a.text.includes("has seen your report"), "");
+
+  const ack = await api("POST", `/api/staff/complaints/${dangerId}/acknowledge`, sanjay, {});
+  check("the duty manager acknowledges through the existing route: 200", ack.status === 200, `status ${ack.status}`);
+  const alert1b = await get("/", residentCookie);
+  check("GET / then shows alert 1b: 'The duty manager has seen your report' with 'Seen at <time>', and Pay is still outlined", alert1b.text.includes("The duty manager has seen your report") && /Seen at \d{1,2}(:\d{2})? (am|pm)\./.test(alert1b.text) && payButtonStyle(alert1b.html) === "outlined", "");
+
+  const safetyDetail = await get(`/complaints/${dangerId}`, residentCookie);
+  check(
+    "a safety complaint's page: 200, one h1, no auto-close line, no 'Yes, it's fixed', no 'Is it fixed?'",
+    safetyDetail.status === 200 && (safetyDetail.html.match(/<h1/g) ?? []).length === 1 && !safetyDetail.text.includes("closes by itself") && !safetyDetail.text.includes("Yes, it's fixed") && !safetyDetail.text.includes("Is it fixed?"),
+    `status ${safetyDetail.status}`,
+  );
+
+  const normal = await api("POST", "/api/complaints", residentCookie, { body: "Stairwell light on floor 4 is flickering", declaredDanger: false });
+  const normalId = normal.json?.complaint?.id;
+  check("a normal complaint: 201, not a safety complaint", normal.status === 201 && normal.json?.complaint?.safetyFlag === false, `status ${normal.status}`);
+  if (typeof normalId !== "string") return;
+  const open = await get(`/complaints/${normalId}`, residentCookie);
+  check("its page before staff resolve it has the tracker and no confirm buttons", open.status === 200 && open.text.includes("Stairwell light on floor 4 is flickering") && open.html.includes('aria-label="Complaint progress"') && !open.text.includes("Yes, it's fixed"), `status ${open.status}`);
+
+  const staffView = await api("GET", `/api/staff/complaints/${normalId}`, kavita);
+  const resolved = await api("POST", `/api/staff/complaints/${normalId}/status`, kavita, { status: "PENDING_CONFIRMATION", note: "Bulb replaced", expectedVersion: staffView.json?.complaint?.version });
+  check("staff mark it resolved: 200", resolved.status === 200, `status ${resolved.status}`);
+  const asking = await get(`/complaints/${normalId}`, residentCookie);
+  check(
+    "its page then asks 'Is it fixed?' with 'Yes, it's fixed' and 'No, still a problem' and the auto-close line of 7 days",
+    asking.text.includes("Is it fixed?") && asking.text.includes("Yes, it's fixed") && asking.text.includes("No, still a problem") && asking.text.includes("It closes by itself after 7 days if you don't answer."),
+    "",
+  );
+  const confirmed = await api("POST", `/api/complaints/${normalId}/confirm`, residentCookie, { rating: 4 });
+  check("confirming through the route the button calls: 200 CLOSED", confirmed.status === 200 && confirmed.json?.complaint?.status === "CLOSED", `status ${confirmed.status}`);
+  const closedPage = await get(`/complaints/${normalId}`, residentCookie);
+  check("its page then says 'Closed. You confirmed it is fixed.' with no buttons", closedPage.text.includes("Closed. You confirmed it is fixed.") && !closedPage.html.includes("<button"), "");
+  const afterList = await get("/complaints", residentCookie);
+  check("GET /complaints lists the closed one in a collapsed 'Closed (n)' section", /<details(?![^>]*\sopen)[^>]*><summary[^>]*>Closed \(\d+\)<\/summary>/.test(afterList.html), "");
+
+  const foreign = await get(`/complaints/${normalId}`, neighbour);
+  const missing = await get("/complaints/00000000-0000-4000-8000-000000000000", neighbour);
+  check(
+    "a resident of another flat requesting this complaint gets the not-found page (no title, no text of it), the same as a missing id",
+    foreign.text.includes("We can't find that complaint") && !foreign.text.includes("Stairwell light") && missing.text.includes("We can't find that complaint") && foreign.status === missing.status,
+    `status ${foreign.status} and ${missing.status}`,
+  );
+  const foreignHome = await get("/", neighbour);
+  check("a resident of another flat never sees the alert on their own Home", !foreignHome.text.includes("report has gone to the duty manager") && !foreignHome.text.includes("has seen your report"), "");
+
+  const staffList = redirectTarget(await get("/complaints", staffCookie));
+  const staffNew = redirectTarget(await get("/complaints/new", staffCookie));
+  check("staff requesting /complaints or /complaints/new are redirected to /forbidden", staffList?.to === "/forbidden" && staffNew?.to === "/forbidden", `${staffList?.how} -> ${staffList?.to}`);
+  const anonymous = redirectTarget(await get("/complaints"));
+  check("nobody signed in is sent to /login with a returnTo", /^\/login\?returnTo=/.test(anonymous?.to ?? ""), `${anonymous?.how} -> ${anonymous?.to}`);
 }
 
 async function api(method, path, cookie, body) {
