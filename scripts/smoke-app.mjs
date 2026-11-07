@@ -289,7 +289,68 @@ async function partPaidResidentFails(otherCheckoutPath, staffCookie) {
     `strip at ${stripAt(after.html)}, amount label at ${after.html.indexOf("Amount due, as of")}, button ${payButtonPaise(after.html) ?? "missing"}`,
   );
   await reconcile(staffCookie, cookie);
+  await complaints(cookie);
   await post("/api/auth/logout-all", undefined, cookie);
+}
+
+/**
+ * The complaints routes (CL9), as the T12-0408 resident, Kavita Rao (5000000004, complaints:manage) and Sanjay Pawar (5000000005, the duty manager).
+ * The server runs with the real keyword fallback and no model (NullClassifier). It needs a database where these two texts have not been raised
+ * yet, like the rest of this script (a repeat of the same text by the same person is the same complaint while the clock is frozen).
+ */
+async function complaints(residentCookie) {
+  const kavita = await login("5000000004");
+  const sanjay = await login("5000000005");
+  check("login as Kavita Rao (complaints:manage) and Sanjay Pawar (complaints:duty_manager)", kavita !== null && sanjay !== null, "");
+  if (kavita === null || sanjay === null) return;
+
+  const leak = await api("POST", "/api/complaints", residentCookie, { body: "Water leak under the sink" });
+  const leakId = leak.json?.complaint?.id;
+  check(
+    "POST /api/complaints 'Water leak under the sink': 201, PLUMBING and an assignee from the keyword fallback, NORMAL, ASSIGNED, not a safety complaint",
+    leak.status === 201 && leak.json?.complaint?.category === "PLUMBING" && leak.json.complaint.assigned === true && leak.json.complaint.status === "ASSIGNED" && leak.json.complaint.urgency === "NORMAL" && leak.json.complaint.safetyFlag === false,
+    `status ${leak.status}`,
+  );
+  const gas = await api("POST", "/api/complaints", residentCookie, { body: "gas smell in the corridor" });
+  const gasId = gas.json?.complaint?.id;
+  check("POST /api/complaints 'gas smell in the corridor': 201, CRITICAL, a safety complaint, assigned at once", gas.status === 201 && gas.json?.complaint?.urgency === "CRITICAL" && gas.json.complaint.safetyFlag === true && gas.json.complaint.status === "ASSIGNED" && gas.json.complaint.assigned === true, `status ${gas.status}`);
+
+  const lane = await api("GET", "/api/staff/complaints?lane=SAFETY&limit=50", sanjay);
+  const onBoard = lane.json?.rows?.find((r) => r.id === gasId);
+  check("the SAFETY lane of the staff board shows it for the duty manager, Sanjay Pawar, as CRITICAL with the source RULE", lane.status === 200 && onBoard?.assignee?.name === "Sanjay Pawar" && onBoard.urgency === "CRITICAL" && onBoard.source === "RULE", `status ${lane.status}`);
+  const ack = await api("POST", `/api/staff/complaints/${gasId}/acknowledge`, sanjay, {});
+  check("the duty manager acknowledges it: 200", ack.status === 200, `status ${ack.status}`);
+  const notManager = await api("POST", `/api/staff/complaints/${gasId}/close`, kavita, { note: "Gas isolated and checked" });
+  check("a staff user with only complaints:manage cannot close a safety complaint: 403", notManager.status === 403, `status ${notManager.status}`);
+  const closed = await api("POST", `/api/staff/complaints/${gasId}/close`, sanjay, { note: "Gas isolated and checked" });
+  check("the duty manager closes it: 200 CLOSED", closed.status === 200 && closed.json?.complaint?.status === "CLOSED", `status ${closed.status}`);
+  const afterClose = await api("GET", "/api/staff/complaints?lane=SAFETY&limit=50", sanjay);
+  check("it has left the SAFETY lane", afterClose.status === 200 && !afterClose.json.rows.some((r) => r.id === gasId), "");
+
+  const detail = await api("GET", `/api/staff/complaints/${leakId}`, kavita);
+  const resolved = await api("POST", `/api/staff/complaints/${leakId}/status`, kavita, { status: "PENDING_CONFIRMATION", note: "Pipe replaced", expectedVersion: detail.json?.complaint?.version });
+  check("a staff user marks the water leak resolved: 200 PENDING_CONFIRMATION", detail.status === 200 && resolved.status === 200 && resolved.json?.complaint?.status === "PENDING_CONFIRMATION", `status ${resolved.status}`);
+  const stale = await api("POST", `/api/staff/complaints/${leakId}/status`, kavita, { status: "IN_PROGRESS", expectedVersion: detail.json?.complaint?.version });
+  check("the same version again is 409 (stale)", stale.status === 409, `status ${stale.status}`);
+  const mine = await api("GET", `/api/complaints/${leakId}`, residentCookie);
+  check("the resident sees it waiting for their answer, with a timeline and no staff names", mine.status === 200 && mine.json?.complaint?.needsAnswer === true && !JSON.stringify(mine.json).includes("Kavita"), `status ${mine.status}`);
+  const confirmed = await api("POST", `/api/complaints/${leakId}/confirm`, residentCookie, { rating: 5 });
+  check("the resident confirms with a rating: 200 CLOSED", confirmed.status === 200 && confirmed.json?.complaint?.status === "CLOSED" && confirmed.json.complaint.rating === 5, `status ${confirmed.status}`);
+  const again = await api("POST", `/api/complaints/${leakId}/confirm`, residentCookie, {});
+  check("a repeated confirm is 409", again.status === 409, `status ${again.status}`);
+
+  const denied = await Promise.all([
+    api("GET", "/api/staff/complaints", residentCookie),
+    api("GET", `/api/staff/complaints/${leakId}`, residentCookie),
+    api("GET", "/api/staff/users", residentCookie),
+    api("POST", `/api/staff/complaints/${leakId}/assign`, residentCookie, { assigneeUserId: "00000000-0000-4000-8000-000000000000", expectedVersion: 1 }),
+    api("POST", `/api/staff/complaints/${gasId}/close`, residentCookie, { note: "Closing this" }),
+  ]);
+  check("a resident gets 403 on the staff complaint routes", denied.every((r) => r.status === 403), denied.map((r) => r.status).join(" "));
+  const staffOnResidentRoute = await api("POST", "/api/complaints", kavita, { body: "Water leak under the sink" });
+  check("staff get 403 on the resident's raise route", staffOnResidentRoute.status === 403, `status ${staffOnResidentRoute.status}`);
+  await post("/api/auth/logout-all", undefined, kavita);
+  await post("/api/auth/logout-all", undefined, sanjay);
 }
 
 async function api(method, path, cookie, body) {
