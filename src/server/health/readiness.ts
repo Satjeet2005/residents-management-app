@@ -1,5 +1,6 @@
 import type { Db } from "@/server/auth/db";
 import { isDemoMode } from "@/server/clock";
+import { MIN_TOKEN_CHARS } from "@/server/ops/error-test";
 import { isProductionGradeSecret } from "@/server/secret-rules";
 
 /**
@@ -12,14 +13,23 @@ export const READINESS_TIMEOUT_MS = 3000;
 /** The tables the sign-in and Home flows read or write, and the one column added by the latest auth migration. */
 export const REQUIRED_TABLES = [
   "users", "user_permissions", "flats", "flat_members", "sessions", "otp_codes", "audit_log", "society_settings",
-  "bills", "ledger_entries", "payment_attempts", "complaints", "complaint_events", "complaint_categories",
+  "bills", "ledger_entries", "payment_attempts", "complaints", "complaint_events", "complaint_categories", "error_events",
 ] as const;
 export const REQUIRED_COLUMN = "otp_codes.requested_ip_hash";
 
-export type AppRoleCheck = { isSuperuser: boolean; canInsertOtp: boolean; canUpdateLedger: boolean; canDeleteAuditLog: boolean };
+export type AppRoleCheck = {
+  isSuperuser: boolean;
+  canInsertOtp: boolean;
+  canUpdateLedger: boolean;
+  canDeleteAuditLog: boolean;
+  /** D136: the app role must be able to INSERT error events ... */
+  canInsertErrorEvents: boolean;
+  /** ... and must NOT be able to read them (true makes the report degraded). */
+  canReadErrorEvents: boolean;
+};
 
 export type ReadinessChecks = {
-  config: { otpPepper: boolean; webhookSecret: boolean; demoMode: boolean; vercelSystemVars: boolean; nodeMajor: number };
+  config: { otpPepper: boolean; webhookSecret: boolean; demoMode: boolean; opsTestEnabled: boolean; vercelSystemVars: boolean; nodeMajor: number };
   database: "ok" | "unreachable" | "timeout";
   schema: { missingTables: string[] } | "skipped";
   appRole: AppRoleCheck | "skipped";
@@ -47,7 +57,9 @@ async function probe(db: Db): Promise<DatabaseFacts> {
     r.rolsuper AS "isSuperuser",
     COALESCE(has_table_privilege(current_user, to_regclass('public.otp_codes')::oid, 'INSERT'), false) AS "canInsertOtp",
     COALESCE(has_any_column_privilege(current_user, to_regclass('public.ledger_entries')::oid, 'UPDATE'), false) AS "canUpdateLedger",
-    COALESCE(has_table_privilege(current_user, to_regclass('public.audit_log')::oid, 'DELETE'), false) AS "canDeleteAuditLog"
+    COALESCE(has_table_privilege(current_user, to_regclass('public.audit_log')::oid, 'DELETE'), false) AS "canDeleteAuditLog",
+    COALESCE(has_table_privilege(current_user, to_regclass('public.error_events')::oid, 'INSERT'), false) AS "canInsertErrorEvents",
+    COALESCE(has_any_column_privilege(current_user, to_regclass('public.error_events')::oid, 'SELECT'), false) AS "canReadErrorEvents"
     FROM pg_roles r WHERE r.rolname = current_user`;
   return { missingTables, appRole: role, seeded: missingTables.length === 0 && (await isSeeded(db)) };
 }
@@ -89,7 +101,8 @@ export type ReadinessOptions = {
   timeoutMs?: number;
 };
 
-const roleIsRight = (role: AppRoleCheck): boolean => !role.isSuperuser && role.canInsertOtp && !role.canUpdateLedger && !role.canDeleteAuditLog;
+const roleIsRight = (role: AppRoleCheck): boolean =>
+  !role.isSuperuser && role.canInsertOtp && !role.canUpdateLedger && !role.canDeleteAuditLog && role.canInsertErrorEvents && !role.canReadErrorEvents;
 
 /** Never throws. Required for "ok": a valid pepper and webhook secret, a reachable database, no missing table, the right role, and seeded data. */
 export async function checkReadiness({ getDb, env = process.env, nodeVersion = process.versions.node, timeoutMs = READINESS_TIMEOUT_MS }: ReadinessOptions): Promise<Readiness> {
@@ -97,6 +110,7 @@ export async function checkReadiness({ getDb, env = process.env, nodeVersion = p
     otpPepper: isProductionGradeSecret(env.OTP_PEPPER),
     webhookSecret: isProductionGradeSecret(env.PAYMENT_WEBHOOK_SECRET),
     demoMode: isDemoMode(env),
+    opsTestEnabled: (env.OPS_TEST_TOKEN?.length ?? 0) >= MIN_TOKEN_CHARS,
     vercelSystemVars: env.VERCEL === "1",
     nodeMajor: Number.parseInt(nodeVersion, 10) || 0,
   };

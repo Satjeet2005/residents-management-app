@@ -11,6 +11,7 @@ export function readinessRows(report) {
     ["config.otpPepper", word(config.otpPepper === true), "OTP_PEPPER is set, 32 or more characters, not the placeholder"],
     ["config.webhookSecret", word(config.webhookSecret === true), "PAYMENT_WEBHOOK_SECRET is set, 32 or more characters, not the placeholder"],
     ["config.demoMode", "INFO", String(config.demoMode)],
+    ["config.opsTestEnabled", "INFO", `${config.opsTestEnabled} (true when OPS_TEST_TOKEN is set; the error-test route exists)`],
     ["config.vercelSystemVars", "INFO", `${config.vercelSystemVars} (true on Vercel with system variables exposed)`],
     ["config.nodeMajor", "INFO", String(config.nodeMajor)],
     ["database", word(database === "ok"), String(database)],
@@ -23,6 +24,8 @@ export function readinessRows(report) {
     rows.push(["appRole.canInsertOtp", word(appRole.canInsertOtp === true), `${appRole.canInsertOtp} (must be true)`]);
     rows.push(["appRole.canUpdateLedger", word(appRole.canUpdateLedger === false), `${appRole.canUpdateLedger} (must be false)`]);
     rows.push(["appRole.canDeleteAuditLog", word(appRole.canDeleteAuditLog === false), `${appRole.canDeleteAuditLog} (must be false)`]);
+    rows.push(["appRole.canInsertErrorEvents", word(appRole.canInsertErrorEvents === true), `${appRole.canInsertErrorEvents} (must be true)`]);
+    rows.push(["appRole.canReadErrorEvents", word(appRole.canReadErrorEvents === false), `${appRole.canReadErrorEvents} (must be false)`]);
   }
   rows.push(["data.seeded", skipped(data) ? "FAIL" : word(data.seeded === true), skipped(data) ? "skipped" : String(data.seeded)]);
   return rows;

@@ -8,14 +8,16 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 const READY = {
   status: "ok",
   checks: {
-    config: { otpPepper: true, webhookSecret: true, demoMode: true, vercelSystemVars: false, nodeMajor: 24 },
+    config: { otpPepper: true, webhookSecret: true, demoMode: true, opsTestEnabled: false, vercelSystemVars: false, nodeMajor: 24 },
     database: "ok",
     schema: { missingTables: [] },
-    appRole: { isSuperuser: false, canInsertOtp: true, canUpdateLedger: false, canDeleteAuditLog: false },
+    appRole: { isSuperuser: false, canInsertOtp: true, canUpdateLedger: false, canDeleteAuditLog: false, canInsertErrorEvents: true, canReadErrorEvents: false },
     data: { seeded: true },
   },
 };
 const LEDGER_WRITABLE = { ...READY, status: "degraded", checks: { ...READY.checks, appRole: { ...READY.checks.appRole, canUpdateLedger: true } } };
+const ERRORS_READABLE = { ...READY, status: "degraded", checks: { ...READY.checks, appRole: { ...READY.checks.appRole, canReadErrorEvents: true } } };
+const ERRORS_NOT_WRITABLE = { ...READY, status: "degraded", checks: { ...READY.checks, appRole: { ...READY.checks.appRole, canInsertErrorEvents: false } } };
 const UNREACHABLE = { status: "degraded", checks: { config: READY.checks.config, database: "unreachable", schema: "skipped", appRole: "skipped", data: "skipped" } };
 
 let server: http.Server;
@@ -64,6 +66,25 @@ describe("D112 the smoke scripts check readiness first", () => {
     expect(out).toContain("Stopped before login: not ready (HTTP 503). Failing: appRole.canUpdateLedger.");
   });
 
+  it.each(SCRIPTS)("%s: an app role that can READ error events (D136) stops it, naming the check", async (script, args) => {
+    report = ERRORS_READABLE;
+    reportStatus = 503;
+    seen = [];
+    const { code, out } = await run(script, args());
+    expect(code).toBe(1);
+    expect(seen).toEqual(["GET /api/health/ready"]);
+    expect(out).toContain("FAIL  appRole.canReadErrorEvents");
+    expect(out).toContain("Failing: appRole.canReadErrorEvents.");
+  });
+
+  it.each(SCRIPTS)("%s: an app role that cannot INSERT error events stops it, naming the check", async (script, args) => {
+    report = ERRORS_NOT_WRITABLE;
+    reportStatus = 503;
+    seen = [];
+    const { out } = await run(script, args());
+    expect(out).toContain("FAIL  appRole.canInsertErrorEvents");
+  });
+
   it.each(SCRIPTS)("%s: an unreachable database is named, and the skipped checks fail too", async (script, args) => {
     report = UNREACHABLE;
     reportStatus = 503;
@@ -93,6 +114,9 @@ describe("D112 the smoke scripts check readiness first", () => {
     expect(out).toContain("READY: the deployment can sign someone in");
     expect(out).toMatch(/PASS\s+appRole.canUpdateLedger\s+false/);
     expect(out).toMatch(/INFO\s+config.demoMode\s+true/);
+    expect(out).toMatch(/INFO\s+config.opsTestEnabled\s+false/);
+    expect(out).toMatch(/PASS\s+appRole.canInsertErrorEvents\s+true/);
+    expect(out).toMatch(/PASS\s+appRole.canReadErrorEvents\s+false/);
     expect(seen.length).toBeGreaterThan(1);
     expect(seen.some((line) => line.includes("/api/auth/otp/request") || line.includes("/api/health"))).toBe(true);
   });

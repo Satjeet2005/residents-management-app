@@ -85,10 +85,10 @@ describe("D112 readiness on a correctly migrated database", () => {
     const report = await ready(prismaFor(role.url));
     expect(report.status).toBe("degraded");
     expect(report.checks).toEqual({
-      config: { otpPepper: true, webhookSecret: true, demoMode: true, vercelSystemVars: true, nodeMajor: 24 },
+      config: { otpPepper: true, webhookSecret: true, demoMode: true, opsTestEnabled: false, vercelSystemVars: true, nodeMajor: 24 },
       database: "ok",
       schema: { missingTables: [] },
-      appRole: { isSuperuser: false, canInsertOtp: true, canUpdateLedger: false, canDeleteAuditLog: false },
+      appRole: { isSuperuser: false, canInsertOtp: true, canUpdateLedger: false, canDeleteAuditLog: false, canInsertErrorEvents: true, canReadErrorEvents: false },
       data: { seeded: false },
     });
   });
@@ -99,7 +99,7 @@ describe("D112 readiness on a correctly migrated database", () => {
     const report = await ready(prismaFor(role.url));
     expect(report.status).toBe("ok");
     expect(report.checks.schema).toEqual({ missingTables: [] });
-    expect(report.checks.appRole).toEqual({ isSuperuser: false, canInsertOtp: true, canUpdateLedger: false, canDeleteAuditLog: false });
+    expect(report.checks.appRole).toEqual({ isSuperuser: false, canInsertOtp: true, canUpdateLedger: false, canDeleteAuditLog: false, canInsertErrorEvents: true, canReadErrorEvents: false });
     expect(report.checks.data).toEqual({ seeded: true });
     expectValueFree(JSON.stringify(report), secretsOf(role.url));
   });
@@ -171,10 +171,49 @@ describe("D112 each failure mode shows as the right degraded check", () => {
     expect(report.status).toBe("degraded");
   });
 
+  it("D136 a role that cannot INSERT error events: canInsertErrorEvents false, degraded", async () => {
+    await seed();
+    const role = await newRole();
+    await owner.query(`REVOKE INSERT ON "error_events" FROM "${role.name}"`);
+    const report = await ready(prismaFor(role.url));
+    expect(report.checks.appRole).toMatchObject({ canInsertErrorEvents: false, canReadErrorEvents: false });
+    expect(report.status).toBe("degraded");
+  });
+
+  it("D136 a role that CAN read error events (a whole-table grant): canReadErrorEvents true, degraded", async () => {
+    await seed();
+    const role = await newRole();
+    await owner.query(`GRANT SELECT ON "error_events" TO "${role.name}"`);
+    const report = await ready(prismaFor(role.url));
+    expect(report.checks.appRole).toMatchObject({ canReadErrorEvents: true, canInsertErrorEvents: true });
+    expect(report.status).toBe("degraded");
+  });
+
+  it("D136 a role that can read only one column of error events is caught too (a column grant counts)", async () => {
+    await seed();
+    const role = await newRole();
+    await owner.query(`GRANT SELECT ("message") ON "error_events" TO "${role.name}"`);
+    const report = await ready(prismaFor(role.url));
+    expect(report.checks.appRole).toMatchObject({ canReadErrorEvents: true });
+    expect(report.status).toBe("degraded");
+  });
+
+  it("D135 config.opsTestEnabled is true only when OPS_TEST_TOKEN has 32 or more characters, and never carries the token", async () => {
+    await seed();
+    const role = await newRole();
+    const prisma = prismaFor(role.url);
+    const token = "ops-token-0123456789-abcdefghijklmnopqrstuvwxyz";
+    const on = await ready(prisma, { ...GOOD_ENV, OPS_TEST_TOKEN: token });
+    expect(on.checks.config.opsTestEnabled).toBe(true);
+    expect(on.status).toBe("ok");
+    expectValueFree(JSON.stringify(on), [...secretsOf(role.url), token]);
+    for (const value of [undefined, "", "x".repeat(31)]) expect((await ready(prisma, { ...GOOD_ENV, OPS_TEST_TOKEN: value })).checks.config.opsTestEnabled).toBe(false);
+  });
+
   it("the owner connection is degraded: it can update the ledger and delete from the audit log", async () => {
     await seed();
     const report = await ready(prismaFor(scratch.url));
-    expect(report.checks.appRole).toMatchObject({ canUpdateLedger: true, canDeleteAuditLog: true });
+    expect(report.checks.appRole).toMatchObject({ canUpdateLedger: true, canDeleteAuditLog: true, canReadErrorEvents: true });
     expect(report.status).toBe("degraded");
   });
 
@@ -189,6 +228,20 @@ describe("D112 each failure mode shows as the right degraded check", () => {
       expect(report.status).toBe("degraded");
     } finally {
       await owner.query('ALTER TABLE "complaint_categories_gone" RENAME TO "complaint_categories"');
+    }
+  });
+
+  it("D135 a missing error_events table is named, and the status is degraded", async () => {
+    await seed();
+    const role = await newRole();
+    await owner.query('ALTER TABLE "error_events" RENAME TO "error_events_gone"');
+    try {
+      const report = await ready(prismaFor(role.url));
+      expect(report.checks.schema).toEqual({ missingTables: ["error_events"] });
+      expect(report.checks.appRole).toMatchObject({ canInsertErrorEvents: false, canReadErrorEvents: false });
+      expect(report.status).toBe("degraded");
+    } finally {
+      await owner.query('ALTER TABLE "error_events_gone" RENAME TO "error_events"');
     }
   });
 
