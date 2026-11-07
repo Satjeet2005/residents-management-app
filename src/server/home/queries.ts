@@ -7,7 +7,7 @@ import type { AttemptRow, BillRow, ComplaintRow, EntryRow, MembershipRow, Settin
  * these tables). The flat id passed to the functions below comes only from `findCurrentMemberships`, which reads the
  * signed-in person's own memberships; nothing here takes a flat from a request.
  */
-const SETTING_KEYS = ["late_fee_policy", "duty_manager_phone", "emergency_services_phone", "society_bank_account"];
+const SETTING_KEYS = ["late_fee_policy", "duty_manager_phone", "emergency_services_phone", "society_bank_account", "safety_ack_timeout_minutes"];
 
 /** The person's memberships that are current on `today`: started, and not ended before today. */
 export async function findCurrentMemberships(db: Db, userId: string, today: CalendarDate): Promise<MembershipRow[]> {
@@ -36,7 +36,7 @@ export async function loadOpenComplaints(db: Db, flatId: string): Promise<Compla
   return db.complaint.findMany({
     where: { flatId, status: { not: "CLOSED" } },
     orderBy: { createdAt: "desc" },
-    select: { body: true, status: true, createdAt: true, responseDueAt: true, firstResponseAt: true },
+    select: { id: true, safetyFlag: true, body: true, status: true, createdAt: true, responseDueAt: true, firstResponseAt: true },
   });
 }
 

@@ -1,4 +1,6 @@
 import type { Dues } from "@/domain/billing/dues";
+import type { SafetyCategory } from "@/domain/complaints/safety";
+import type { SafetyAlertState } from "@/domain/complaints/safety-alert";
 import type { ComplaintStatus } from "@/domain/complaints/step";
 import type { Paise } from "@/domain/money/money";
 import type { CalendarDate } from "@/domain/time/calendar";
@@ -10,6 +12,7 @@ export type EntryType = "BILL" | "LATE_FEE" | "PAYMENT" | "REVERSAL" | "ADJUSTME
 export type ReplyDue = { kind: "OVERDUE" } | { kind: "DUE"; dueAt: number; today: boolean };
 
 export type HomeComplaint = {
+  id: string;
   /** First line of the complaint, at most 60 characters. */
   title: string;
   status: ComplaintStatus;
@@ -17,6 +20,17 @@ export type HomeComplaint = {
   current: 0 | 1 | 2 | 3;
   needsAnswer: boolean;
   reply: ReplyDue | null;
+};
+
+/** The alert above the dues while the flat has an open safety complaint (design 1a to 1c, D126). */
+export type HomeSafetyAlert = {
+  state: SafetyAlertState;
+  /** What the report was about, when a safety word said so; null for a declared danger with no word. */
+  category: SafetyCategory | null;
+  /** When the duty manager acknowledged it (epoch ms); null until then. */
+  seenAt: number | null;
+  /** The number the Call button dials; null when no number is configured. */
+  callPhone: string | null;
 };
 
 /** A visitor expected today. Only the time: the name is personal data and the Home does not show it. */
@@ -44,6 +58,8 @@ export type HomeData =
       complaint: HomeComplaint | null;
       /** Open complaints besides the one shown. */
       otherOpenComplaints: number;
+      /** Present while the flat has an open safety complaint, above the dues. */
+      safetyAlert: HomeSafetyAlert | null;
       visitors: readonly HomeVisitor[];
       recent: readonly RecentEntry[];
       /** False when the flat has no ledger entry at all (a first-run flat). */

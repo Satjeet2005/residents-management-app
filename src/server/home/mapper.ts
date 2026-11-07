@@ -1,9 +1,11 @@
 import { z } from "zod";
 import { type DueBill, type DueEntry, computeDues } from "@/domain/billing/dues";
 import { type LateFeePolicy, validateLateFeePolicy } from "@/domain/billing/late-fee";
+import { DEFAULT_SAFETY_ACK_TIMEOUT_MINUTES, safetyAlertState } from "@/domain/complaints/safety-alert";
+import { detectSafetyWords } from "@/domain/complaints/safety";
 import { type ComplaintStatus, complaintStep } from "@/domain/complaints/step";
 import { type CalendarDate, istDateOf } from "@/domain/time/calendar";
-import type { BankAccount, EntryType, FlatRelation, HomeComplaint, HomeData, RecentEntry, ReplyDue } from "./types";
+import type { BankAccount, EntryType, FlatRelation, HomeComplaint, HomeData, HomeSafetyAlert, RecentEntry, ReplyDue } from "./types";
 
 /**
  * The rows the queries return, as plain values (the queries file turns a Prisma row into one of these). The mapper below is
@@ -21,7 +23,7 @@ export type EntryRow = {
   reversesEntryId: string | null;
   createdAt: Date;
 };
-export type ComplaintRow = { body: string; status: ComplaintStatus; createdAt: Date; responseDueAt: Date | null; firstResponseAt: Date | null };
+export type ComplaintRow = { id: string; safetyFlag: boolean; body: string; status: ComplaintStatus; createdAt: Date; responseDueAt: Date | null; firstResponseAt: Date | null };
 export type VisitorRow = { expectedAt: Date };
 /** The newest payment attempt of the flat. */
 export type AttemptRow = { status: "INITIATED" | "PROCESSING" | "SUCCEEDED" | "FAILED" | "RELEASED"; startedAt: Date };
@@ -80,6 +82,31 @@ export const phoneSetting = (settings: readonly SettingsRow[], key: string): str
   return typeof value === "string" && value.trim() !== "" ? value.trim() : null;
 };
 
+/** `safety_ack_timeout_minutes`: a whole number of minutes from 1 to 1,440; anything else is the default of 5. */
+export function safetyTimeoutMinutes(settings: readonly SettingsRow[]): number {
+  const value = settings.find((s) => s.key === "safety_ack_timeout_minutes")?.value;
+  return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 1440 ? value : DEFAULT_SAFETY_ACK_TIMEOUT_MINUTES;
+}
+
+/**
+ * The safety alert (D126): present while the flat has an open safety complaint (the newest one counts). The number to call is the duty manager's,
+ * except in the NO_ANSWER state, where it is the emergency services number when one is configured (design 1c). A report that matched no safety word
+ * (a declared danger, D121) has no category: the alert then says "Your report", never a guess.
+ */
+export function safetyAlertOf(complaints: readonly ComplaintRow[], settings: readonly SettingsRow[], now: number): HomeSafetyAlert | null {
+  const newest = [...complaints].filter((c) => c.safetyFlag && c.status !== "CLOSED").sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+  if (newest === undefined) return null;
+  const state = safetyAlertState({ createdAt: newest.createdAt.getTime(), firstResponseAt: newest.firstResponseAt?.getTime() ?? null, now, timeoutMinutes: safetyTimeoutMinutes(settings) });
+  const duty = phoneSetting(settings, "duty_manager_phone");
+  const services = phoneSetting(settings, "emergency_services_phone");
+  return {
+    state,
+    category: detectSafetyWords(newest.body)[0]?.category ?? null,
+    seenAt: state === "SEEN" ? (newest.firstResponseAt?.getTime() ?? null) : null,
+    callPhone: state === "NO_ANSWER" ? (services ?? duty) : duty,
+  };
+}
+
 /** The first line of a complaint, at most 60 characters (a cut one ends with an ellipsis). */
 export function complaintTitle(body: string): string {
   const first = (body.split(/\r?\n/).find((line) => line.trim() !== "") ?? "").trim();
@@ -133,6 +160,7 @@ export function assembleHome(input: HomeInput): HomeData {
     newest === undefined
       ? null
       : {
+          id: newest.id,
           title: complaintTitle(newest.body),
           status: newest.status,
           current: complaintStep(newest.status).current,
@@ -149,6 +177,7 @@ export function assembleHome(input: HomeInput): HomeData {
     dues,
     complaint,
     otherOpenComplaints: Math.max(0, open.length - 1),
+    safetyAlert: safetyAlertOf(input.complaints, input.settings, input.now),
     visitors: [...input.visitors].sort((a, b) => a.expectedAt.getTime() - b.expectedAt.getTime()).map((v) => ({ expectedAt: v.expectedAt.getTime() })),
     recent: recentEntries(input.entries, today),
     hasActivity: input.entries.length > 0,

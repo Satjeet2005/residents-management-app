@@ -28,7 +28,7 @@ export function inputFor(flatCode: string, now = DEMO_NOW): HomeInput {
     .map((e, i) => ({ id: e.key, entryType: e.entryType, direction: e.direction, amountPaise: e.amountPaise, effectiveDate: day(e.effectiveDate), billId: e.billKey, reversesEntryId: null, createdAt: new Date(1_700_000_000_000 + i) }));
   const complaints: ComplaintRow[] = data.complaints
     .filter((c) => c.flatKey === flat.key)
-    .map((c) => ({ body: c.body, status: c.status, createdAt: new Date(c.createdAt), responseDueAt: new Date(c.responseDueAt), firstResponseAt: c.firstResponseAt === null ? null : new Date(c.firstResponseAt) }));
+    .map((c) => ({ id: c.key, safetyFlag: c.safetyFlag, body: c.body, status: c.status, createdAt: new Date(c.createdAt), responseDueAt: new Date(c.responseDueAt), firstResponseAt: c.firstResponseAt === null ? null : new Date(c.firstResponseAt) }));
   const visitors = data.visitorPasses
     .filter((v) => v.flatKey === flat.key && v.status !== "CANCELLED" && v.expectedAt >= DEMO_NOW - 12 * 3_600_000 && v.expectedAt < DEMO_NOW + 12 * 3_600_000)
     .map((v) => ({ expectedAt: new Date(v.expectedAt) }));
