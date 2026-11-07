@@ -1,28 +1,33 @@
 import Link from "next/link";
+import { WarningIcon } from "@/components/icons";
 import { StatusTag } from "@/components/ui/status-tag";
 import { t } from "@/lib/messages";
+import { type DetailTab, classificationOneLine, trimTimeline } from "@/lib/staff-complaints/detail";
 import { categoryLabel, confidenceWords, sourceName, sourceTag, staffStatusLabel, urgencyLabel, urgencyTone } from "@/lib/staff-complaints/labels";
-import { slaWords, whenWords } from "@/lib/staff-complaints/time";
+import { replyChipWords, whenWords } from "@/lib/staff-complaints/time";
+import { controlsFor } from "@/lib/staff-complaints/controls";
 import { complaintTitle } from "@/server/home/mapper";
 import type { ComplaintPage } from "@/server/complaints/staff-page-data";
-import { controlsFor } from "@/lib/staff-complaints/controls";
 import { ActionPanel } from "./action-panel";
+import { DetailTabs } from "./detail-tabs";
 import { TimelineList } from "./timeline-list";
+
+const flatChip = (code: string) => <span className="tnum inline-flex min-h-7 items-center rounded-control border border-control bg-paper-2 px-2 text-caption">{code}</span>;
 
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col">
+    <div className="flex min-w-0 flex-col">
       <dt className="text-caption text-ink-2">{label}</dt>
       <dd className="break-words text-body">{children}</dd>
     </div>
   );
 }
 
+/** The seven facts in two columns, in the order of the task. */
 function Facts({ page }: { page: ComplaintPage }) {
   const { complaint } = page;
-  const review = sourceTag({ source: null, needsReview: complaint.needsReview });
   return (
-    <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
       <Fact label={t("staffComplaints.fact.flat")}>
         <span className="tnum">{complaint.flatCode}</span>
       </Fact>
@@ -30,125 +35,142 @@ function Facts({ page }: { page: ComplaintPage }) {
       <Fact label={t("staffComplaints.fact.raisedAt")}>
         <span className="tnum">{whenWords(complaint.createdAt)}</span>
       </Fact>
-      <Fact label={t("staffComplaints.fact.status")}>{staffStatusLabel(complaint.status)}</Fact>
-      <Fact label={t("staffComplaints.fact.category")}>
-        <span className="flex flex-wrap items-center gap-2">
-          {categoryLabel(complaint.category)}
-          {review !== null && <StatusTag tone={review.tone}>{review.text}</StatusTag>}
-        </span>
-      </Fact>
-      <Fact label={t("staffComplaints.fact.urgency")}>
-        <StatusTag tone={urgencyTone(complaint.urgency)}>{urgencyLabel(complaint.urgency)}</StatusTag>
-      </Fact>
+      <Fact label={t("staffComplaints.fact.category")}>{categoryLabel(complaint.category)}</Fact>
+      <Fact label={t("staffComplaints.fact.urgency")}>{urgencyLabel(complaint.urgency)}</Fact>
       <Fact label={t("staffComplaints.fact.assignee")}>{complaint.assignee?.name ?? t("staffComplaints.unassigned")}</Fact>
+      <Fact label={t("staffComplaints.fact.status")}>{staffStatusLabel(complaint.status)}</Fact>
     </dl>
   );
 }
 
+/** One line for a safety complaint: the duty manager has not seen it, or when it was seen. */
 function SafetyLine({ page }: { page: ComplaintPage }) {
   if (!page.complaint.safety) return null;
   return (
-    <div className="flex flex-col gap-1 rounded-control border-2 border-caution p-4">
-      <p className="text-body font-semibold text-caution">{t("staffComplaints.safety.title")}</p>
-      <p className="text-body">{page.acknowledgedAt === null ? t("staffComplaints.safety.notSeen") : t("staffComplaints.safety.seen", { when: whenWords(page.acknowledgedAt) })}</p>
-    </div>
+    <p className="flex min-h-12 items-center gap-2 rounded-control border-2 border-caution px-3 py-2 text-body font-semibold text-caution">
+      <WarningIcon />
+      {page.acknowledgedAt === null ? t("staffComplaints.safety.notSeen") : t("staffComplaints.safety.seen", { when: whenWords(page.acknowledgedAt) })}
+    </p>
   );
 }
 
-function Classifications({ page }: { page: ComplaintPage }) {
+/** How it was classified in ONE line, and a "Why?" expander with the history (source, category, urgency, confidence of each classification, newest first). */
+function Classification({ page }: { page: ComplaintPage }) {
+  const review = sourceTag({ source: null, needsReview: page.complaint.needsReview });
+  const line = classificationOneLine(page.classifications[0]);
   return (
     <section aria-labelledby="classification-heading" className="flex flex-col gap-2">
       <h2 id="classification-heading" className="text-title font-semibold">
         {t("staffComplaints.classification.heading")}
       </h2>
-      {page.classifications.length === 0 ? (
-        <p className="text-body text-ink-2">{t("staffComplaints.classification.none")}</p>
-      ) : (
-        <ul className="border-t border-hairline">
-          {page.classifications.map((line, index) => (
-            <li key={`${line.at}-${index}`} className="flex flex-col gap-1 border-b border-hairline py-3 text-body">
-              <span className="tnum text-ink-2">{whenWords(line.at)}</span>
-              <span className="break-words">
-                {t("staffComplaints.classification.line", { source: sourceName(line.source), category: categoryLabel(line.category), urgency: urgencyLabel(line.urgency), confidence: confidenceWords(line.confidence) })}
-              </span>
-            </li>
-          ))}
-        </ul>
+      <p className="flex flex-wrap items-center gap-2 text-body">
+        {line ?? t("staffComplaints.classification.none")}
+        {review !== null && <StatusTag tone={review.tone}>{review.text}</StatusTag>}
+      </p>
+      {page.classifications.length > 0 && (
+        <details>
+          <summary className="inline-flex min-h-12 cursor-pointer items-center text-body font-semibold text-accent underline underline-offset-4">{t("staffComplaints.classification.why")}</summary>
+          <ul className="border-t border-hairline">
+            {page.classifications.map((entry, index) => (
+              <li key={`${entry.at}-${index}`} className="flex flex-col gap-1 border-b border-hairline py-2 text-body">
+                <span className="tnum text-caption text-ink-2">{whenWords(entry.at)}</span>
+                <span className="break-words">
+                  {t("staffComplaints.classification.line", { source: sourceName(entry.source), category: categoryLabel(entry.category), urgency: urgencyLabel(entry.urgency), confidence: confidenceWords(entry.confidence) })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
     </section>
   );
 }
 
-function Clocks({ page }: { page: ComplaintPage }) {
+/** The reply clock on one line: the state in words and the due time. The first reply, the resolution, the closing and the reopenings are lines of the timeline. */
+function ReplyClock({ page }: { page: ComplaintPage }) {
   const { complaint, now, sla } = page;
+  const state = replyChipWords({ sla, responseDueAt: complaint.responseDueAt, now });
   return (
-    <section aria-labelledby="clock-heading" className="flex flex-col gap-2">
+    <section aria-labelledby="clock-heading" className="flex flex-col gap-1">
       <h2 id="clock-heading" className="text-title font-semibold">
         {t("staffComplaints.clock.heading")}
       </h2>
-      <ul className="flex flex-col gap-1 text-body">
-        <li className="font-semibold">{slaWords({ sla, responseDueAt: complaint.responseDueAt, now })}</li>
-        {complaint.responseDueAt !== null && <li className="tnum">{t("staffComplaints.clock.due", { when: whenWords(complaint.responseDueAt) })}</li>}
-        <li className="tnum">{complaint.firstResponseAt === null ? t("staffComplaints.clock.noReply") : t("staffComplaints.clock.firstReply", { when: whenWords(complaint.firstResponseAt) })}</li>
-        {complaint.pendingConfirmationAt !== null && <li className="tnum">{t("staffComplaints.clock.resolved", { when: whenWords(complaint.pendingConfirmationAt) })}</li>}
-        {complaint.closedAt !== null && <li className="tnum">{t("staffComplaints.clock.closed", { when: whenWords(complaint.closedAt) })}</li>}
+      <p className="tnum text-body">{complaint.responseDueAt === null ? state : t("staffComplaints.clock.line", { state, when: whenWords(complaint.responseDueAt) })}</p>
+      <ul className="flex flex-col text-caption text-ink-2">
+        <li>{complaint.firstResponseAt === null ? t("staffComplaints.clock.noReply") : t("staffComplaints.clock.firstReply", { when: whenWords(complaint.firstResponseAt) })}</li>
+        {complaint.pendingConfirmationAt !== null && <li>{t("staffComplaints.clock.resolved", { when: whenWords(complaint.pendingConfirmationAt) })}</li>}
+        {complaint.closedAt !== null && <li>{t("staffComplaints.clock.closed", { when: whenWords(complaint.closedAt) })}</li>}
         {complaint.reopenCount > 0 && <li>{complaint.reopenCount === 1 ? t("staffComplaints.clock.reopenedOnce") : t("staffComplaints.clock.reopenedMany", { n: complaint.reopenCount })}</li>}
       </ul>
     </section>
   );
 }
 
+function DetailsPanel({ page }: { page: ComplaintPage }) {
+  return (
+    <>
+      <section aria-labelledby="text-heading" className="flex flex-col gap-2">
+        <h2 id="text-heading" className="text-title font-semibold">
+          {t("staffComplaints.detail.text")}
+        </h2>
+        <p className="whitespace-pre-line break-words text-body">{page.complaint.body}</p>
+      </section>
+      <Facts page={page} />
+      <ReplyClock page={page} />
+      <Classification page={page} />
+    </>
+  );
+}
+
+/** The latest three events, and the earlier ones behind a "Show all (n)" expander (a <details>, so it needs no script). */
+function TimelinePanel({ page }: { page: ComplaintPage }) {
+  const { recent, earlier } = trimTimeline(page.timeline);
+  return (
+    <section aria-labelledby="timeline-heading" className="flex flex-col gap-2">
+      <h2 id="timeline-heading" className="text-title font-semibold">
+        {t("staffComplaints.timeline.heading")}
+      </h2>
+      <TimelineList lines={recent} />
+      {earlier.length > 0 && (
+        <details>
+          <summary className="inline-flex min-h-12 cursor-pointer items-center text-body font-semibold text-accent underline underline-offset-4">{t("staffComplaints.timeline.showAll", { n: page.timeline.length })}</summary>
+          <TimelineList lines={earlier} />
+        </details>
+      )}
+    </section>
+  );
+}
+
 /**
- * One complaint for staff: the full text, the flat, who raised it, how it was classified, the reply clocks and the FULL timeline, internal events and
- * comments included and marked, and the action panel (on the right from 1024px, below the timeline on a narrow screen). One h1 (the title).
+ * One complaint for staff (D152): a header with the title (two lines at most) and the chips for the flat, the urgency, the status and the reply clock; for a safety
+ * complaint a one-line banner; the Details and Timeline tabs; and the action panel (on the right from 1024px, below on a narrow screen). One h1 (the title).
  */
-export function ComplaintView({ page }: { page: ComplaintPage }) {
+export function ComplaintView({ page, tab }: { page: ComplaintPage; tab: DetailTab }) {
   const { complaint } = page;
   const controls = controlsFor({ status: complaint.status, safety: complaint.safety, acknowledged: page.acknowledgedAt !== null, viewer: page.viewer });
+  const lateTone = page.sla === "OVERDUE" || page.sla === "LATE";
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4">
-      <div className="flex flex-col gap-1">
+    <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-4">
+      <header className="flex flex-col gap-2">
         <Link href="/staff/complaints" className="inline-flex min-h-12 items-center self-start text-body font-semibold text-accent underline underline-offset-4">
           {t("staffComplaints.back")}
         </Link>
-        <h1 className="break-words text-heading font-semibold">{complaintTitle(complaint.body)}</h1>
-      </div>
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
-        <div className="flex min-w-0 flex-col gap-6">
-          <SafetyLine page={page} />
-          <section aria-labelledby="text-heading" className="flex flex-col gap-2">
-            <h2 id="text-heading" className="text-title font-semibold">
-              {t("staffComplaints.detail.text")}
-            </h2>
-            <p className="whitespace-pre-line break-words text-body">{complaint.body}</p>
-          </section>
-          <section aria-labelledby="facts-heading" className="flex flex-col gap-2">
-            <h2 id="facts-heading" className="text-title font-semibold">
-              {t("staffComplaints.detail.facts")}
-            </h2>
-            <Facts page={page} />
-          </section>
-          <Clocks page={page} />
-          <Classifications page={page} />
-          <section aria-labelledby="timeline-heading" className="flex flex-col gap-2">
-            <h2 id="timeline-heading" className="text-title font-semibold">
-              {t("staffComplaints.timeline.heading")}
-            </h2>
-            <TimelineList lines={page.timeline} />
-          </section>
+        <h1 className="max-h-[72px] overflow-hidden break-words text-heading font-semibold">{complaintTitle(complaint.body)}</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          {flatChip(complaint.flatCode)}
+          <StatusTag tone={urgencyTone(complaint.urgency)}>{urgencyLabel(complaint.urgency)}</StatusTag>
+          <StatusTag>{staffStatusLabel(complaint.status)}</StatusTag>
+          <StatusTag tone={lateTone ? "caution" : "neutral"}>{replyChipWords({ sla: page.sla, responseDueAt: complaint.responseDueAt, now: page.now })}</StatusTag>
         </div>
+      </header>
+      <SafetyLine page={page} />
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
+        <DetailTabs initial={tab} details={<DetailsPanel page={page} />} timeline={<TimelinePanel page={page} />} />
         <aside aria-labelledby="panel-heading" className="flex flex-col gap-3 lg:sticky lg:top-4">
           <h2 id="panel-heading" className="text-title font-semibold">
             {t("staffComplaints.panel.heading")}
           </h2>
-          <ActionPanel
-            id={complaint.id}
-            version={complaint.version}
-            controls={controls}
-            staffUsers={page.staffUsers}
-            currentCategory={complaint.category}
-            needsReview={complaint.needsReview}
-          />
+          <ActionPanel id={complaint.id} version={complaint.version} controls={controls} staffUsers={page.staffUsers} currentCategory={complaint.category} needsReview={complaint.needsReview} />
         </aside>
       </div>
     </main>

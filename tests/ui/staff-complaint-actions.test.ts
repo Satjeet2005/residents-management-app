@@ -201,7 +201,7 @@ describe("SA5 the panel inside the page", () => {
     staffUsers,
     viewer: { canManage: true, isDutyManager: false },
   };
-  const out = html(h(ComplaintView, { page }));
+  const out = html(h(ComplaintView, { page, tab: "details" }));
 
   it("sits in an aside labelled 'Actions', after the timeline in the page, so it is below it on a narrow screen", () => {
     expect(out).toMatch(/<aside[^>]*aria-labelledby="panel-heading"/);
@@ -221,7 +221,7 @@ describe("SA5 the panel inside the page", () => {
   });
 
   it("a safety complaint's page never offers Mark resolved", () => {
-    const safety = html(h(ComplaintView, { page: { ...page, complaint: { ...page.complaint, safety: true, urgency: "CRITICAL" } } }));
+    const safety = html(h(ComplaintView, { page: { ...page, complaint: { ...page.complaint, safety: true, urgency: "CRITICAL" } }, tab: "details" }));
     expect(safety).not.toContain("Mark resolved");
     expect(safety).toContain("Mark in progress");
   });

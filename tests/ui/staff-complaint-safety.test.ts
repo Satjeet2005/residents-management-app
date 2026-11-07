@@ -35,7 +35,7 @@ const page = (viewer: ControlViewer, status: ComplaintStatus, safety: boolean, a
   staffUsers,
   viewer,
 });
-const render = (p: ComplaintPage) => html(h(ComplaintView, { page: p }));
+const render = (p: ComplaintPage) => html(h(ComplaintView, { page: p, tab: "details" }));
 
 describe("SS1 the duty manager on an unacknowledged safety complaint", () => {
   const out = render(page(DUTY, "ASSIGNED", true, false));
@@ -70,7 +70,7 @@ describe("SS2 after the acknowledgement", () => {
   });
 
   it("the page says when it was seen", () => {
-    expect(words(out)).toContain("The duty manager saw this at 6 Nov, 12:10 pm.");
+    expect(words(out)).toContain("Seen by the duty manager at 6 Nov, 12:10 pm.");
   });
 });
 

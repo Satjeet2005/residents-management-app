@@ -173,7 +173,7 @@ describe("SDATA7 the duty manager's controls, from the real data", () => {
   const render = async (id: string, user: typeof world.staff.sanjay) => {
     const loaded = await page(id, user);
     if (loaded === null) throw new Error("missing");
-    return renderToStaticMarkup(h(ComplaintView, { page: loaded }));
+    return renderToStaticMarkup(h(ComplaintView, { page: loaded, tab: "details" }));
   };
 
   it("before the acknowledgement the duty manager sees both controls, the first filled; a plain manager sees neither", async () => {

@@ -57,7 +57,7 @@ const page = (over: Partial<ComplaintPage> = {}, complaint: Partial<ComplaintPag
 });
 
 describe("SD1 the complaint page", () => {
-  const out = html(h(ComplaintView, { page: page() }));
+  const out = html(h(ComplaintView, { page: page(), tab: "details" }));
   const text = words(out);
 
   it("has one main landmark and one h1, the first line of the text, and a 48px way back to the board", () => {
@@ -76,25 +76,25 @@ describe("SD1 the complaint page", () => {
 
   it("shows the classification history with source, category, urgency and the confidence in words", () => {
     expect(text).toContain("How it was classified");
+    expect(text).toContain("Model · Plumbing · Normal");
     expect(text).toContain("Model: Plumbing, Normal, High confidence");
-    expect(words(html(h(ComplaintView, { page: page({ classifications: [] }) })))).toContain("It has not been classified.");
+    expect(words(html(h(ComplaintView, { page: page({ classifications: [] }), tab: "details" })))).toContain("It has not been classified.");
   });
 
   it("shows the reply clocks: the state in words, the due time, the first reply", () => {
-    expect(text).toContain("Replied in time");
-    expect(text).toContain("Reply due 7 Nov, 12:00 pm");
+    expect(text).toContain("Replied in time · due 7 Nov, 12:00 pm");
     expect(text).toContain("First reply 6 Nov, 12:10 pm");
-    const waiting = words(html(h(ComplaintView, { page: page({ sla: "OVERDUE", now: T0 + 26 * 60 * minute }, { firstResponseAt: null }) })));
-    expect(waiting).toContain("Reply overdue by 2 h");
+    const waiting = words(html(h(ComplaintView, { page: page({ sla: "OVERDUE", now: T0 + 26 * 60 * minute }, { firstResponseAt: null }), tab: "details" })));
+    expect(waiting).toContain("Reply overdue 2 h · due 7 Nov, 12:00 pm");
     expect(waiting).toContain("Nobody has replied yet.");
   });
 
   it("says when it was marked resolved, closed and reopened", () => {
-    const closed = words(html(h(ComplaintView, { page: page({ sla: "NONE" }, { status: "CLOSED", pendingConfirmationAt: T0 + 30 * minute, closedAt: T0 + 60 * minute, reopenCount: 2 }) })));
+    const closed = words(html(h(ComplaintView, { page: page({ sla: "NONE" }, { status: "CLOSED", pendingConfirmationAt: T0 + 30 * minute, closedAt: T0 + 60 * minute, reopenCount: 2 }), tab: "details" })));
     expect(closed).toContain("Marked resolved 6 Nov, 12:30 pm");
     expect(closed).toContain("Closed 6 Nov, 1:00 pm");
     expect(closed).toContain("Reopened 2 times");
-    expect(words(html(h(ComplaintView, { page: page({}, { reopenCount: 1 }) })))).toContain("Reopened once");
+    expect(words(html(h(ComplaintView, { page: page({}, { reopenCount: 1 }), tab: "details" })))).toContain("Reopened once");
   });
 
   it("shows the full timeline, the internal comment included, each line marked visible or internal", () => {
@@ -113,8 +113,10 @@ describe("SD1 the complaint page", () => {
   });
 
   it("a complaint that needs review says so next to the category", () => {
-    expect(words(html(h(ComplaintView, { page: page({}, { needsReview: true, category: null, assignee: null }) })))).toContain("No category Needs review");
-    expect(words(html(h(ComplaintView, { page: page({}, { assignee: null }) })))).toContain("Assigned to Unassigned");
+    const review = words(html(h(ComplaintView, { page: page({}, { needsReview: true, category: null, assignee: null }), tab: "details" })));
+    expect(review).toContain("Category No category");
+    expect(review).toContain("Needs review");
+    expect(words(html(h(ComplaintView, { page: page({}, { assignee: null }), tab: "details" })))).toContain("Assigned to Unassigned");
   });
 });
 
@@ -122,14 +124,15 @@ describe("SD2 a safety complaint", () => {
   const safety = { safety: true, urgency: "CRITICAL" as const };
 
   it("says it is a safety complaint and that the duty manager has not seen it, in the caution border", () => {
-    const out = html(h(ComplaintView, { page: page({}, safety) }));
-    expect(words(out)).toContain("Safety complaint The duty manager has not seen this yet.");
+    const out = html(h(ComplaintView, { page: page({}, safety), tab: "details" }));
+    expect(words(out)).toContain("The duty manager has not seen this yet.");
+    expect(words(out)).not.toContain("Safety complaint");
     expect(out).toContain("border-caution");
     expect(out).toMatch(/<span class="[^"]*text-caution[^"]*border-caution[^"]*"[^>]*>Critical<\/span>/);
   });
 
   it("says when the duty manager saw it", () => {
-    expect(words(html(h(ComplaintView, { page: page({ acknowledgedAt: T0 + 5 * minute }, safety) })))).toContain("The duty manager saw this at 6 Nov, 12:05 pm.");
+    expect(words(html(h(ComplaintView, { page: page({ acknowledgedAt: T0 + 5 * minute }, safety), tab: "details" })))).toContain("Seen by the duty manager at 6 Nov, 12:05 pm.");
   });
 });
 
@@ -141,5 +144,67 @@ describe("SD3 the timeline list on its own", () => {
     expect(words(out)).toContain("by Kavita Rao");
     expect(out).toContain("whitespace-pre-line");
     expect(out).toContain("<ol");
+  });
+});
+
+describe("SD4 the header, the tabs and the facts (D152)", () => {
+  const out = html(h(ComplaintView, { page: page({ sla: "OVERDUE", now: T0 + 26 * 60 * minute }, { firstResponseAt: null }), tab: "details" }));
+  const header = out.slice(out.indexOf("<header"), out.indexOf("</header>"));
+
+  it("the header has the back link, the title limited to two lines, and the chips for the flat, urgency, status and the reply clock", () => {
+    expect(header).toContain("Back to the board");
+    expect(header).toMatch(/<h1 class="[^"]*max-h-\[72px\][^"]*overflow-hidden[^"]*">Water leak under the kitchen sink<\/h1>/);
+    expect(words(header)).toContain("T12-0408 Normal Assigned Reply overdue 2 h");
+    expect(header).toMatch(/text-caution[^"]*border-caution[^"]*"[^>]*>Reply overdue 2 h<\/span>/);
+  });
+
+  it("the tabs are a tablist of two tabs, Details selected, each controlling a panel, and BOTH panels are in the page", () => {
+    expect(out).toContain('role="tablist"');
+    expect(count(out, /role="tab"/g)).toBe(2);
+    expect(out).toMatch(/<button[^>]*id="complaint-tab-details"[^>]*aria-selected="true"/);
+    expect(out).toMatch(/<button[^>]*id="complaint-tab-timeline"[^>]*aria-selected="false"[^>]*tabindex="-1"/);
+    expect(out).toMatch(/<div role="tabpanel" id="complaint-panel-details" aria-labelledby="complaint-tab-details" class="[^"]*">/);
+    expect(out).toMatch(/<div role="tabpanel" id="complaint-panel-timeline" aria-labelledby="complaint-tab-timeline" hidden="" class="[^"]*">/);
+    expect(out).toContain("Plumber is booked for Monday");
+    expect(count(out, /min-h-12 flex-1/g)).toBe(2);
+  });
+
+  it("the Timeline tab is the selected one when the address says so, and the Details panel is then the hidden one", () => {
+    const timeline = html(h(ComplaintView, { page: page(), tab: "timeline" }));
+    expect(timeline).toMatch(/id="complaint-tab-timeline"[^>]*aria-selected="true"/);
+    expect(timeline).toMatch(/id="complaint-panel-details"[^>]*hidden=""/);
+  });
+
+  it("Details: the resident's words come first, then the two-column facts in the order of the task, then the reply clock on one line, then the one-line classification with a Why? expander", () => {
+    const details = out.slice(out.indexOf('id="complaint-panel-details"'), out.indexOf('id="complaint-panel-timeline"'));
+    const order = ["What the resident wrote", "Flat", "Raised by", "Raised", "Category", "Urgency", "Assigned to", "Status", "Reply clock", "How it was classified"].map((part) => words(details).indexOf(part));
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(order.every((p) => p >= 0)).toBe(true);
+    expect(details).toContain('<dl class="grid grid-cols-2');
+    expect(words(details)).toContain("Reply overdue 2 h · due 7 Nov, 12:00 pm");
+    expect(words(details)).toContain("Model · Plumbing · Normal");
+    expect(details).toMatch(/<details><summary[^>]*min-h-12[^>]*>Why\?<\/summary>/);
+  });
+
+  it("Timeline: the latest three events newest first, and the earlier ones behind Show all (n)", () => {
+    const panel = out.slice(out.indexOf('id="complaint-panel-timeline"'), out.indexOf("<aside"));
+    const labels = ["Comment, visible to the resident", "Comment, internal", "Assigned to Kavita Rao", "Classified by Model", "Raised"].map((l) => words(panel).indexOf(l));
+    expect([...labels].sort((a, b) => a - b)).toEqual(labels);
+    expect(labels.every((p) => p >= 0)).toBe(true);
+    expect(panel).toMatch(/<details><summary[^>]*min-h-12[^>]*>Show all \(5\)<\/summary>/);
+    const beforeExpander = panel.slice(0, panel.indexOf("<details>"));
+    expect(count(beforeExpander, /<li /g)).toBe(3);
+  });
+
+  it("a complaint with three events or fewer has no Show all", () => {
+    const small = page();
+    small.timeline = small.timeline.slice(0, 3);
+    expect(html(h(ComplaintView, { page: small, tab: "timeline" }))).not.toContain("Show all");
+  });
+
+  it("no classification says so and has no Why? expander", () => {
+    const none = words(html(h(ComplaintView, { page: page({ classifications: [] }), tab: "details" })));
+    expect(none).toContain("It has not been classified.");
+    expect(none).not.toContain("Why?");
   });
 });

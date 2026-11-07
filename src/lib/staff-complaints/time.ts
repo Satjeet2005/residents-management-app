@@ -48,5 +48,11 @@ export function slaWords(input: { sla: SlaState; responseDueAt: number | null; n
   }
 }
 
+/** The reply clock as a short chip: "Reply overdue 2 h 32 min" when overdue (no "by"), otherwise the words of `slaWords`. */
+export function replyChipWords(input: { sla: SlaState; responseDueAt: number | null; now: number }): string {
+  if (input.sla === "OVERDUE" && input.responseDueAt !== null) return t("staffComplaints.sla.overdue", { span: durationWords((input.now - input.responseDueAt) / 60_000) });
+  return slaWords(input);
+}
+
 /** An instant as "6 Nov, 12:00 pm" in India time, for the clocks and the timeline. */
 export const whenWords = (instant: number): string => t("staffComplaints.when", { date: formatDay(istDateOf(instant)), time: formatClockIst(instant) });
