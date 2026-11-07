@@ -139,3 +139,8 @@ export async function loadComplaint(world: World, id: string) {
     include: { category: { select: { code: true } }, events: { orderBy: { createdAt: "asc" } }, classifications: true },
   });
 }
+
+/** Puts a complaint into a state a test needs (as the owner, bypassing the service), and adds the event that would have led there. */
+export async function arrange(world: World, id: string, data: Parameters<PrismaClient["complaint"]["update"]>[0]["data"]): Promise<void> {
+  await world.ownerPrisma.complaint.update({ where: { id }, data });
+}

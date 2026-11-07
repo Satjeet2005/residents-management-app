@@ -12,6 +12,8 @@ export type Tx = Prisma.TransactionClient;
 /** Who is acting. The route already checked the permission; every service call checks it again (a second lock on the same door). */
 export type Actor = Pick<SessionUser, "id" | "name" | "role" | "active" | "permissions">;
 
+export const isUuid = (id: string): boolean => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
 export const isResident = (user: Actor): boolean => user.role === "RESIDENT" && user.active;
 export const canManage = (user: Actor): boolean => can(user, "complaints:manage");
 export const isDutyManager = (user: Actor): boolean => can(user, "complaints:duty_manager");
