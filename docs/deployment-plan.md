@@ -161,6 +161,8 @@ Names only. No value belongs in a commit, a chat, or a screenshot. "Set by" says
 | `NODE_ENV` | `production` on Vercel; the app needs it to refuse a weak pepper (the cookie name follows the request scheme, not this) | Vercel and Next.js set it. Do not set it by hand | automatic | no |
 | `VERCEL`, `VERCEL_ENV` | System variables. `clientIp` trusts proxy headers only when `VERCEL=1`, which exists only if **"Enable access to System Environment Variables"** is ticked (V4c) | You: tick the box once | automatic | no |
 | `DB_POOL_MAX` | Optional. The most database connections one function instance opens: a whole number from 1 to 10 (default 5). Anything else makes the app throw at first use | You, in Vercel, only if you want to change it | Production only | Config |
+| `OPS_TEST_TOKEN` | **Optional.** At least 32 characters; enables `GET /api/ops/error-test` (D138). Unset, the route is a plain 404 | You, **only in the Vercel dashboard** | Production only | Secret |
+| `LOGS_DATABASE_URL` | The read-only logs role's connection string, for `npm run logs:errors` (D135) | You, in your own shell | **Not in Vercel at all, ever** | Secret |
 | `BASE_URL` | The deployed address, for the smoke test only | You, in your own shell | n/a | no |
 
 Rules that go with this table:
@@ -292,6 +294,7 @@ that writes those columns is built. No table gets DELETE.
 | `bank_rows` | S, I, U(`state`, `flat_id`, `ledger_entry_id`, `version`) | A row is inserted QUEUED and moved to AUTO_MATCHED when it is posted. The narration, amounts, dates and dedupe key can never be changed by the app. |
 | `accounts_queue_items` | S, I, U(`status`, `resolved_at`, `resolved_by_id`, `note`) | Staff resolve a bank-row item by a manual match or an ignore. The row it points at, its type and its opening time can never be changed by the app. |
 | `complaints` | S, I; U on 13 columns (`status`, `assignee_id`, `category_id`, `urgency`, `response_due_at`, `first_response_at`, `pending_confirmation_at`, `closed_at`, `close_kind`, `rating`, `reopen_count`, `needs_review`, `version`); never the text, flat, raiser, language or safety flag | A complaint has a life cycle. |
+| `error_events` | I only | The error log (D135, D136): the app can write a row and cannot read, change or delete one (a plain INSERT without RETURNING, which would need SELECT). The developer reads it as a separate read-only role (`npm run db:print-logs-role-sql`); the owner prunes it. |
 | `outbox_jobs` | S, I; U later (`status`, `attempts`, `run_after`, `last_error`, `finished_at`) | The processor records progress. |
 | `notifications` | S, I; U later (`status`, `sent_at`, `read_at`) | Delivery and read state. |
 | `visitor_passes` | S, I; U later (`status`) | A pass is used or expires. |
@@ -391,6 +394,12 @@ SELECT key, value FROM society_settings WHERE key = 'committee_goals';
 ```
 
 Expected: `INSERT 0 1` (or `INSERT 0 0`), then one row with the three numbers.
+
+### After deploying the error log (D135, D136)
+
+Apply the migration `20261107090000_error_events` with the owner URL, re-run the app role grants (`error_events` is INSERT only), create and verify the
+read-only logs role, set `OPS_TEST_TOKEN` in the Vercel dashboard only, run `GET /api/ops/error-test` and find its reference with `npm run logs:errors`.
+The steps are E9a to E9g of `docs/deploy-checklist.md`; the queries and limits are in `docs/observability.md`.
 
 ## Post-deploy smoke test
 

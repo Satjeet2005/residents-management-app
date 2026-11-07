@@ -55,6 +55,13 @@ databases `township`, `township_seed_scratch` and `township_test_*`, and you mus
 type the exact database name; a remote seed needs `--allow-remote` as well. The
 guards and the reasons for them are in `docs/seed-data.md`.
 
+## Errors and logs (D135)
+
+An unexpected failure is written to stdout and stored in the `error_events` table, with a reference (`E-XXXXXX`, or the digest of a page error).
+Only the developer reads it: no page, no permission. `npm run logs:errors -- --ref E-XXXXXX --paste` (needs `LOGS_DATABASE_URL`, a read-only role, on
+your machine only), `npm run db:print-logs-role-sql -- --role=<name> --owner=<name>`, `npm run db:prune-errors -- --days=30 --yes --confirm-database=<name>`.
+See `docs/observability.md`. On a developer's machine whose server connects as the database owner, add `--allow-owner-role` to the smoke scripts (local only).
+
 ## Smoke test (login over real HTTP)
 
 With the app running in demo mode (`DEMO_MODE=true`, an `OTP_PEPPER`, a database that holds the seed):

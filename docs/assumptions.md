@@ -75,6 +75,12 @@ Decision numbers (D4, D14 and so on) refer to `docs/decisions.md`.
 | R69 | The demo code banner of the login page is how the e2e specs log in; a phone may ask for a code once per 30 seconds, so the specs use their own phones and wait when told to. |
 | R70 | The offline banner does not say when the shown information is from (the design image does), because the app keeps no time for its own data. |
 | R71 | Chrome on Android and Safari on iPhone are the installs that matter; only Chromium is tested. |
+| R72 | The store of an error row runs in Next's `after` (read from the Next.js 16.4.2 docs bundled in `node_modules/next/dist/docs`, `after.md` and `instrumentation.md`, on 2026-11-07); where `after` is not available it is awaited for at most 300 ms. | `src/server/error-log.ts` (`defer`). | Change `PERSIST_BUDGET_MS`. |
+| R73 | Flood protection is in memory per server instance (20 stored events a minute, 1 per fingerprint per 60 seconds); a skipped event has a stdout line and no row. On serverless every instance counts on its own. | `FloodGate` in `src/server/error-log.ts`; `docs/observability.md`. | Move the counters to the database if one total is wanted. |
+| R74 | A reference that collides (23505) is stored again under a new reference; the person already saw the first one, so that case is found by the digest or the stdout line (a one-in-a-billion event, 30 bits). | `persistError`. | Make the reference longer. |
+| R75 | The reference an error page shows is the digest Next gives the browser; the row's own `E-` reference is not known to a server component's error page. | `src/app/**/error.tsx`. | Return the reference from the hook if Next ever allows it. |
+| R76 | Error rows are kept 30 days, pruned by a human running `npm run db:prune-errors` (no cron). | `docs/observability.md`. | Add a cron route later. |
+| R77 | The test-route allowance (5 an hour) counts only calls with the right token, so a stranger cannot lock the developer out; the 6th correct call is a 429. | `src/server/ops/error-test.ts`. | Count every call if lock-out is preferred to a 429. |
 
 ## Assumptions kept in other documents
 

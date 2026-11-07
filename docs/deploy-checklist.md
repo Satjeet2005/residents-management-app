@@ -183,8 +183,8 @@ installed).
 
 - [ ] **D10. Readiness.** Open `$BASE_URL/api/health/ready` in a browser (or `curl -s "$BASE_URL/api/health/ready"`).
       **Expected:** HTTP 200 and `"status":"ok"`, with `"database":"ok"`, `"schema":{"missingTables":[]}`, `"appRole":{"isSuperuser":false,
-      "canInsertOtp":true,"canUpdateLedger":false,"canDeleteAuditLog":false}`, `"data":{"seeded":true}`, and `config.otpPepper` and
-      `config.webhookSecret` both `true`. On Vercel `config.vercelSystemVars` should be `true` and `config.nodeMajor` `24`; `config.demoMode`
+      "canInsertOtp":true,"canUpdateLedger":false,"canDeleteAuditLog":false,"canInsertErrorEvents":true,"canReadErrorEvents":false}`, `"data":{"seeded":true}`, and `config.otpPepper` and
+      `config.webhookSecret` both `true` (`config.opsTestEnabled` is `true` only after step E9). On Vercel `config.vercelSystemVars` should be `true` and `config.nodeMajor` `24`; `config.demoMode`
       is `true` only if you chose demo mode (D2). The report holds only booleans, fixed words and table names, so it is safe to paste into
       the chat. HTTP 503 means a check failed: use the table below. Do not go on to Part E until every check is ok (the smoke scripts
       run this check first and stop at the first failing one).
@@ -286,6 +286,18 @@ SELECT key, value FROM society_settings WHERE key = 'committee_goals';
 - [ ] **E8. Goals.** **Expected:** the INSERT says `INSERT 0 1` (or `INSERT 0 0` if the row was already there) and the SELECT shows one row with
       `{"onTimeCollectionPercent": 90, "firstReplyWithinSlaPercent": 90, "reopenedPercentMax": 8}`. Both statements are tested against a freshly seeded local
       database (`tests/integration/committee-goals-sql.test.ts`, which reads them from this file).
+
+### E9. After deploying the error log (T9d, D135, D136)
+
+Do these in order. Nothing here is pasted into a chat: passwords are typed at prompts, and `OPS_TEST_TOKEN` is set only in the Vercel dashboard.
+
+- [ ] **E9a. Apply the migration with the owner URL.** In your shell, as for Part C: `read -rs DATABASE_URL; export DATABASE_URL` (the "neon-owner-direct" string), `npx prisma migrate deploy`, `unset DATABASE_URL`. **Expected:** `20261107090000_error_events` is applied.
+- [ ] **E9b. Re-run the app role grants** (the matrix gained `error_events`, INSERT only): run `npm run db:print-app-role-sql -- --app=township_app --owner=neondb_owner`, and run its output in the SQL editor as the owner. **Expected:** it finishes with no error.
+- [ ] **E9c. Create and verify the logs role** by the five steps of "Setting up the read-only logs role" in `docs/observability.md`. **Expected:** `npm run logs:errors -- --since=7d --limit=1` prints "No error events matched" or a row, and `SELECT 1 FROM users` as `township_logs` is refused.
+- [ ] **E9d. Redeploy, then open `$BASE_URL/api/health/ready`.** **Expected:** `"canInsertErrorEvents":true` and `"canReadErrorEvents":false`; `canReadErrorEvents: true` makes the report degraded (the app role was given SELECT: re-run E9b).
+- [ ] **E9e. Set `OPS_TEST_TOKEN` in the Vercel dashboard only** (Production, Secret, at least 32 characters: `openssl rand -hex 32`), and redeploy. `config.opsTestEnabled` is now `true`.
+- [ ] **E9f. Run the error-test route and find its reference.** `read -rs T; curl -s -H "x-ops-token: $T" "$BASE_URL/api/ops/error-test"; unset T` answers `{"ref":"E-XXXXXX"}`; then `npm run logs:errors -- --ref E-XXXXXX --paste`. **Expected:** one WARN block, source TEST, message "ops test". Without the header the route answers a plain 404.
+- [ ] **E9g. `LOGS_DATABASE_URL` is never set in Vercel.** **Expected:** the Vercel variable list has no such name.
 
 ## Part F. Keep it alive for the review window
 
