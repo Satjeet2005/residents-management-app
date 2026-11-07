@@ -4,10 +4,11 @@ import type { GuardContext } from "@/server/auth/guard";
 import { businessNow } from "@/server/clock";
 import { autoCloseQuietly } from "./auto-close";
 import { LANES, listBoard } from "./board";
-import { type Classifier, NullClassifier } from "./classifier";
+import type { Classifier } from "./classifier";
 import { isUuid } from "./context";
 import { createComplaint } from "./create";
 import type { ComplaintError } from "./errors";
+import { productionClassifier } from "./providers/factory";
 import { getComplaint, listOwnComplaints } from "./read";
 import { confirmFixed, reopen } from "./resident";
 import { acknowledgeSafety, closeSafety } from "./safety";
@@ -74,7 +75,7 @@ const lazyAutoClose = (context: Context, now: number): Promise<void> => autoClos
 export async function handleCreate(context: Context, options: Options = {}): Promise<Response> {
   const body = raiseBody.safeParse(await readBody(context.request));
   if (!body.success) return invalid();
-  const result = await createComplaint({ db: context.deps.db, user: context.user, body: body.data.body, declaredDanger: body.data.declaredDanger, now: clock(options), classifier: options.classifier ?? NullClassifier });
+  const result = await createComplaint({ db: context.deps.db, user: context.user, body: body.data.body, declaredDanger: body.data.declaredDanger, now: clock(options), classifier: options.classifier ?? productionClassifier() });
   return result.status === "ERROR" ? refused(result.error) : json(result.duplicate ? 200 : 201, result);
 }
 
