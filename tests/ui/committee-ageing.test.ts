@@ -120,6 +120,16 @@ describe("CA2 the drill-down rows", () => {
     expect(words(notDue)).toContain("Not yet due");
   });
 
+  it("every table row has exactly four cells (flat, month, days, amount): there is no cell for a name", () => {
+    const body = out.slice(out.indexOf("<tbody>"), out.indexOf("</tbody>"));
+    const tableRows = body.split("<tr ").slice(1);
+    expect(tableRows).toHaveLength(2);
+    for (const row of tableRows) {
+      expect(count(row, /<th /g)).toBe(1);
+      expect(count(row, /<td /g)).toBe(3);
+    }
+  });
+
   it("carries no name and no phone number: the row type has none", () => {
     expect(Object.keys(row()).sort()).toEqual(["amountDuePaise", "billId", "daysPastDue", "flatCode", "period"]);
     expect(words(out)).not.toMatch(/\d{10}/);

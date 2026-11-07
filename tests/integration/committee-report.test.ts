@@ -293,6 +293,7 @@ describe("RP2 complaints, checked against raw SQL", () => {
 describe("RP3 positions: a FEE_ONLY bill, a bill settled late and a part payment, in a month of their own (May 2026)", () => {
   const MAY = "2026-05-01";
   let may: { positions: typeof seeded; over90: typeof firstPage; report: typeof october };
+  let april: typeof october;
   const flats: Record<"feeOnly" | "settledLate" | "part", { flatCode: string; billId: string }> = { feeOnly: { flatCode: "", billId: "" }, settledLate: { flatCode: "", billId: "" }, part: { flatCode: "", billId: "" } };
 
   beforeAll(async () => {
@@ -302,6 +303,10 @@ describe("RP3 positions: a FEE_ONLY bill, a bill settled late and a part payment
     flats.feeOnly = feeOnly;
     flats.settledLate = settledLate;
     flats.part = part;
+    // Two payments on one bill, in a month of their own (April 2026): a bill that two payments settle, and one that two payments leave part paid.
+    await fx.makeResident({ billAmountPaise: 1_000_000n, dueOn: "2026-04-10", payments: [{ date: "2026-04-05", amountPaise: 400_000n }, { date: "2026-04-08", amountPaise: 600_000n }] });
+    await fx.makeResident({ billAmountPaise: 1_000_000n, dueOn: "2026-04-10", payments: [{ date: "2026-04-05", amountPaise: 300_000n }, { date: "2026-04-08", amountPaise: 200_000n }] });
+    april = await report("2026-04-01");
     may = { positions: (await loadReportPositions(fx.app, AS_OF)).positions, over90: await loadAgeingPage({ db: fx.app, user: meera, bucket: "OVER_90", now: DEMO_NOW }), report: await report(MAY) };
   }, 120_000);
 
@@ -311,6 +316,10 @@ describe("RP3 positions: a FEE_ONLY bill, a bill settled late and a part payment
     expect(money?.fees.postedOwingPaise).toBe(3_800n);
     expect(money?.fees.postedPaidPaise).toBe(3_800n);
     expect(money?.fees.accruingPaise).toBeGreaterThan(0n);
+  });
+
+  it("a bill with two payments is one bill: April's two bills are Billed once each, and their four payments add up in Collected", () => {
+    expect(april.money).toMatchObject({ billedPaise: 2_000_000n, collectedPaise: 1_500_000n, outstandingPaise: 500_000n, flatsBilled: 2, flatsPaidInFull: 1, flatsOutstanding: 1 });
   });
 
   it("the FEE_ONLY bill is in the ageing (as an open position aged from its due date) and its fee is the amount due", () => {
