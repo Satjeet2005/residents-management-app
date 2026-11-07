@@ -48,7 +48,8 @@ test.describe("resident screens: Swati Joshi, T12-0408, overdue", () => {
     await checkScreen(page, watch, "complaint-new", "danger-yes");
     await page.goto("/complaints");
     await page.getByRole("link", { name: /Water leak/ }).first().click();
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    // The heading of the NEW page: "any h1" would match the list while the click is still navigating.
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Water leak");
     await checkScreen(page, watch, "complaint", "detail");
   });
 

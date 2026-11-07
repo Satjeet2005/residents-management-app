@@ -72,6 +72,14 @@ test("import, review, search, post by hand, ask for approval, and approve as a s
   await rahul.goto(`${workspace}?lane=awaiting-approval`);
   await rahul.getByRole("button", { name: "Approve" }).filter({ visible: true }).first().click();
   await rahul.getByRole("button", { name: "Confirm approval" }).click();
-  await expect(rahul.getByText(/Approved and posted to/)).toBeVisible();
+  // The page refreshes and the row leaves the lane, which can remove the result line before it is read, so the outcome is read from the server: the row is Posted, nothing awaits.
+  await expect
+    .poll(async () => {
+      const posted = await (await rahul.request.get(`/api/statements/${importId}/rows?lane=MATCHED&limit=50`)).json();
+      return (posted.items as { narrationRaw: string }[]).some((row) => row.narrationRaw.includes("730000000001"));
+    })
+    .toBe(true);
+  const waiting = await (await rahul.request.get(`/api/statements/${importId}/rows?lane=AWAITING_APPROVAL&limit=50`)).json();
+  expect(waiting.items).toHaveLength(0);
   await second.close();
 });
