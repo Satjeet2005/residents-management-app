@@ -93,6 +93,16 @@ describe("D95 what the app role may do", () => {
     expect(await sqlState(app.query("UPDATE known_payers SET identifier_value = identifier_value WHERE false"))).toBe(DENIED);
   });
 
+  it("D95 complaints: INSERT and the thirteen life-cycle columns may be updated; the text, flat, raiser, language, safety flag and creation time may not; no DELETE", async () => {
+    for (const column of ["status", "assignee_id", "category_id", "urgency", "response_due_at", "first_response_at", "pending_confirmation_at", "closed_at", "close_kind", "rating", "reopen_count", "needs_review", "version"]) {
+      expect(await sqlState(app.query(`UPDATE complaints SET ${column} = ${column} WHERE false`)), column).toBeNull();
+    }
+    for (const column of ["body", "flat_id", "raised_by_id", "language", "safety_flag", "created_at"]) {
+      expect(await sqlState(app.query(`UPDATE complaints SET ${column} = ${column} WHERE false`)), column).toBe(DENIED);
+    }
+    expect(await sqlState(app.query("DELETE FROM complaints WHERE false"))).toBe(DENIED);
+  });
+
   it("D95 bank rows: the narration, amounts, dates, dedupe key and import are read-only for the app, and payment matches cannot be changed or deleted", async () => {
     for (const column of ["narration_raw", "credit_paise", "debit_paise", "balance_paise", "txn_date", "value_date", "dedupe_key", "import_id", "row_number", "parsed"]) {
       expect(await sqlState(app.query(`UPDATE bank_rows SET ${column} = ${column} WHERE false`)), column).toBe(DENIED);

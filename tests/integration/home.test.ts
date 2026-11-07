@@ -68,11 +68,11 @@ afterAll(async () => {
 }, 60_000);
 
 describe("HM6 the connection is the app role, not the owner", () => {
-  it("HM6 the queries run as a role that has no UPDATE on the ledger, bills or complaints", async () => {
+  it("HM6 the queries run as a role that has no UPDATE on the ledger or bills, and none on the text of a complaint", async () => {
     const who = await appPrisma.$queryRaw<{ user: string }[]>`SELECT current_user AS user`;
     expect(who[0].user).toBe(role.name);
     await expect(appPrisma.$executeRaw`UPDATE bills SET amount_paise = 1`).rejects.toThrow(/permission denied/i);
-    await expect(appPrisma.$executeRaw`UPDATE complaints SET status = 'CLOSED'`).rejects.toThrow(/permission denied/i);
+    await expect(appPrisma.$executeRaw`UPDATE complaints SET body = 'changed'`).rejects.toThrow(/permission denied/i);
     await expect(appPrisma.$executeRaw`DELETE FROM ledger_entries`).rejects.toThrow(/permission denied/i);
   });
 });

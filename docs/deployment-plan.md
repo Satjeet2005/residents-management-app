@@ -288,7 +288,7 @@ that writes those columns is built. No table gets DELETE.
 | `payment_attempts` | S, I, U(`status`, `debit_status`, `resolved_at`); more U later (`hold_*`, `escalated_at`, `resolved_by_id`, `release_reason`) | The signed webhook moves an attempt from INITIATED to SUCCEEDED or FAILED. The amount, bill, flat and gateway reference can never be changed by the app. |
 | `bank_rows` | S, I, U(`state`, `flat_id`, `ledger_entry_id`, `version`) | A row is inserted QUEUED and moved to AUTO_MATCHED when it is posted. The narration, amounts, dates and dedupe key can never be changed by the app. |
 | `accounts_queue_items` | S, I, U(`status`, `resolved_at`, `resolved_by_id`, `note`) | Staff resolve a bank-row item by a manual match or an ignore. The row it points at, its type and its opening time can never be changed by the app. |
-| `complaints` | S, I; U later (`status`, `assignee_id`, `urgency`, `first_response_at`, `closed_at`, `close_kind`, `rating`, `reopen_count`, `needs_review`, `version`, ...) | A complaint has a life cycle. |
+| `complaints` | S, I; U on 13 columns (`status`, `assignee_id`, `category_id`, `urgency`, `response_due_at`, `first_response_at`, `pending_confirmation_at`, `closed_at`, `close_kind`, `rating`, `reopen_count`, `needs_review`, `version`); never the text, flat, raiser, language or safety flag | A complaint has a life cycle. |
 | `outbox_jobs` | S, I; U later (`status`, `attempts`, `run_after`, `last_error`, `finished_at`) | The processor records progress. |
 | `notifications` | S, I; U later (`status`, `sent_at`, `read_at`) | Delivery and read state. |
 | `visitor_passes` | S, I; U later (`status`) | A pass is used or expires. |

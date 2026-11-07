@@ -25,8 +25,8 @@ export const APPEND_ONLY_TABLES = ["ledger_entries", "payment_matches", "complai
 
 /**
  * Every table in the public schema and what the app may do with it. No table gets DELETE, TRUNCATE, REFERENCES or
- * TRIGGER. UPDATE is granted by column, and today only for sessions, one-time codes, three columns of payment attempts, four of bank rows and four of queue items;
- * the other tables whose rows change (complaints, ...) get SELECT and INSERT now and their UPDATE columns when the feature
+ * TRIGGER. UPDATE is granted by column, and today only for sessions, one-time codes, three columns of payment attempts, four of bank rows, four of queue items and thirteen of complaints;
+ * the other tables whose rows change get SELECT and INSERT now and their UPDATE columns when the feature
  * that writes them ships.
  */
 export const PRIVILEGE_MATRIX: Readonly<Record<string, TableGrant>> = {
@@ -60,8 +60,13 @@ export const PRIVILEGE_MATRIX: Readonly<Record<string, TableGrant>> = {
   bank_rows: { ...SI, updateColumns: ["state", "flat_id", "ledger_entry_id", "version"] },
   // Manual reconciliation: staff resolve a queue item (RESOLVED with who, when and why). What the item points at never changes.
   accounts_queue_items: { ...SI, updateColumns: ["status", "resolved_at", "resolved_by_id", "note"] },
+  // Complaints: raised and classified once, then moved through their life cycle. Only these columns change; the text, flat, raiser, language,
+  // safety flag and creation time of a complaint can never be changed by the app.
+  complaints: {
+    ...SI,
+    updateColumns: ["status", "assignee_id", "category_id", "urgency", "response_due_at", "first_response_at", "pending_confirmation_at", "closed_at", "close_kind", "rating", "reopen_count", "needs_review", "version"],
+  },
   // Feature not built yet: SELECT and INSERT now; UPDATE columns are added with the feature.
-  complaints: SI,
   outbox_jobs: SI,
   notifications: SI,
   visitor_passes: SI,
