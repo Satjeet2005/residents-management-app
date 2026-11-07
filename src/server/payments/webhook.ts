@@ -6,11 +6,9 @@ import { istDateOf } from "@/domain/time/calendar";
 import type { Db } from "@/server/auth/db";
 import { TRANSACTION_RETRIES, withDeadlockRetry } from "@/server/db-retry";
 import { parsePolicy, toDueBill, toDueEntry } from "@/server/home/mapper";
+import { MIN_SECRET_LENGTH, isProductionGradeSecret } from "../secret-rules";
 import { lockBill } from "./bill-lock";
 
-const MIN_SECRET_LENGTH = 32;
-/** The placeholder in .env.example: long enough to pass a length check, so it is named and refused in production. */
-const PLACEHOLDER_PREFIX = "replace-with";
 /** A signed request older or newer than this many seconds is refused, so a captured request cannot be replayed later. */
 export const TIMESTAMP_WINDOW_SECONDS = 300;
 
@@ -23,7 +21,7 @@ export type Env = Readonly<Record<string, string | undefined>>;
 function checkedSecret(secret: string | undefined, env: Env): string {
   const value = secret ?? "";
   if (value === "") throw new Error("PAYMENT_WEBHOOK_SECRET is not set");
-  if (env.NODE_ENV === "production" && (value.length < MIN_SECRET_LENGTH || value.startsWith(PLACEHOLDER_PREFIX))) {
+  if (env.NODE_ENV === "production" && !isProductionGradeSecret(value)) {
     throw new Error(`PAYMENT_WEBHOOK_SECRET must be at least ${MIN_SECRET_LENGTH} characters and not the placeholder in production`);
   }
   return value;

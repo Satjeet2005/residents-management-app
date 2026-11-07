@@ -17,6 +17,9 @@ const API_DIR = path.resolve(process.cwd(), "src/app/api");
 const PUBLIC_ROUTES: Record<string, string[]> = {
   // Health check for the host and the smoke test; it reveals nothing.
   "/api/health": ["GET"],
+  // D112: the readiness report of a deployment. Public because it is the first thing checked after a deploy, before anyone can sign in.
+  // It carries only booleans, fixed words, a Node major number and table names: never a value, a host, a user name or an error message.
+  "/api/health/ready": ["GET"],
   // A person who is not signed in asks for a one-time code. Always the same answer for any valid phone (no account leak).
   "/api/auth/otp/request": ["POST"],
   // The person proves they hold the code; this is how a session starts.
@@ -98,7 +101,7 @@ describe("D81 route inventory", () => {
 
   it("finds the route files", () => {
     expect(files.map(toRoute).sort()).toEqual(
-      ["/api/auth/logout", "/api/auth/logout-all", "/api/auth/otp/request", "/api/auth/otp/verify", "/api/health", "/api/me", "/api/payments", "/api/payments/webhook", "/api/statements", "/api/statements/[id]", "/api/statements/sample", "/api/statements/[id]/rows", "/api/bank-rows/[id]", "/api/bank-rows/[id]/match", "/api/bank-rows/[id]/ignore", "/api/bank-rows/[id]/approve", "/api/bank-rows/[id]/reject", "/api/flats/search", "/api/complaints", "/api/complaints/[id]", "/api/complaints/[id]/confirm", "/api/complaints/[id]/reopen", "/api/staff/complaints", "/api/staff/complaints/[id]", "/api/staff/complaints/[id]/assign", "/api/staff/complaints/[id]/status", "/api/staff/complaints/[id]/comment", "/api/staff/complaints/[id]/category", "/api/staff/complaints/[id]/acknowledge", "/api/staff/complaints/[id]/close", "/api/staff/users"].sort(),
+      ["/api/auth/logout", "/api/auth/logout-all", "/api/auth/otp/request", "/api/auth/otp/verify", "/api/health", "/api/health/ready", "/api/me", "/api/payments", "/api/payments/webhook", "/api/statements", "/api/statements/[id]", "/api/statements/sample", "/api/statements/[id]/rows", "/api/bank-rows/[id]", "/api/bank-rows/[id]/match", "/api/bank-rows/[id]/ignore", "/api/bank-rows/[id]/approve", "/api/bank-rows/[id]/reject", "/api/flats/search", "/api/complaints", "/api/complaints/[id]", "/api/complaints/[id]/confirm", "/api/complaints/[id]/reopen", "/api/staff/complaints", "/api/staff/complaints/[id]", "/api/staff/complaints/[id]/assign", "/api/staff/complaints/[id]/status", "/api/staff/complaints/[id]/comment", "/api/staff/complaints/[id]/category", "/api/staff/complaints/[id]/acknowledge", "/api/staff/complaints/[id]/close", "/api/staff/users"].sort(),
     );
   });
 
@@ -116,9 +119,9 @@ describe("D81 route inventory", () => {
     }
   });
 
-  it("the only public routes are the five on the allowlist plus nothing else", () => {
+  it("the only public routes are the six on the allowlist plus nothing else", () => {
     const publicOnes = files.flatMap((file) => inspectRoute(readFileSync(file, "utf8")).exports.filter((e) => e.wrapper === "publicRoute").map((e) => `${e.method} ${toRoute(file)}`));
-    expect(publicOnes.sort()).toEqual(["GET /api/health", "POST /api/auth/logout", "POST /api/auth/otp/request", "POST /api/auth/otp/verify", "POST /api/payments/webhook"]);
+    expect(publicOnes.sort()).toEqual(["GET /api/health", "GET /api/health/ready", "POST /api/auth/logout", "POST /api/auth/otp/request", "POST /api/auth/otp/verify", "POST /api/payments/webhook"]);
   });
 });
 

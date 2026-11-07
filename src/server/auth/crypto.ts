@@ -1,8 +1,5 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-
-const MIN_PEPPER_LENGTH = 32;
-/** The placeholder in .env.example: long enough to pass a length check, so it is named and refused in production. */
-const PLACEHOLDER_PREFIX = "replace-with";
+import { MIN_SECRET_LENGTH, isProductionGradeSecret } from "../secret-rules";
 
 /**
  * The secret mixed into every one-time-code and address hash. It fails closed: in production a missing,
@@ -13,8 +10,8 @@ const PLACEHOLDER_PREFIX = "replace-with";
 function pepper(): string {
   const value = process.env.OTP_PEPPER ?? "";
   if (value === "") throw new Error("OTP_PEPPER is not set");
-  if (process.env.NODE_ENV === "production" && (value.length < MIN_PEPPER_LENGTH || value.startsWith(PLACEHOLDER_PREFIX))) {
-    throw new Error(`OTP_PEPPER must be at least ${MIN_PEPPER_LENGTH} characters and not the placeholder in production`);
+  if (process.env.NODE_ENV === "production" && !isProductionGradeSecret(value)) {
+    throw new Error(`OTP_PEPPER must be at least ${MIN_SECRET_LENGTH} characters and not the placeholder in production`);
   }
   return value;
 }
