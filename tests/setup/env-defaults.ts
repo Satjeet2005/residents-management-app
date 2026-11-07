@@ -12,3 +12,5 @@ const TEST_DEFAULTS: Readonly<Record<string, string>> = {
 for (const [name, value] of Object.entries(TEST_DEFAULTS)) {
   if (process.env[name] === undefined) process.env[name] = value;
 }
+
+export {};
