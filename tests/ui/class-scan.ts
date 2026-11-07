@@ -127,7 +127,7 @@ export const STRUCTURAL: ReadonlySet<string> = new Set([
   "overflow-hidden", "overflow-auto", "overflow-x-auto", "overflow-y-auto",
   "sr-only", "not-sr-only", "tabular-nums", "underline", "no-underline",
   "text-left", "text-center", "text-right", "text-wrap", "break-words",
-  "truncate", "whitespace-nowrap", "list-none", "border-solid", "border-dashed", "border-dotted", "border-none",
+  "truncate", "whitespace-nowrap", "whitespace-pre-line", "list-none", "border-solid", "border-dashed", "border-dotted", "border-none",
   "cursor-pointer", "cursor-not-allowed", "cursor-progress", "cursor-default",
   "pointer-events-none", "select-none", "transition-colors", "content-['']", "align-middle",
   "rounded-full", "rounded-none", "bg-transparent", "text-inherit",

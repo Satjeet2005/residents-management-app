@@ -1,3 +1,4 @@
+import type { CloseKind } from "@/domain/complaints/lifecycle";
 import { type TimelineEntry, residentTimeline } from "@/domain/complaints/timeline";
 import { type ComplaintStatus, complaintStep } from "@/domain/complaints/step";
 import type { Db } from "@/server/auth/db";
@@ -55,6 +56,8 @@ export type OwnComplaint = OwnComplaintLine & {
   flatCode: string;
   safety: boolean;
   rating: number | null;
+  /** How it was closed; null while it is open. */
+  closeKind: CloseKind | null;
   reopenCount: number;
   /** True while the resident may reopen it: waiting for an answer, or closed and within the reopen window. */
   canReopen: boolean;
@@ -74,7 +77,7 @@ export async function getComplaint(input: { db: Db; user: Actor; id: string; now
   const row = await input.db.complaint.findFirst({
     where: { id: input.id, flatId: flat.flatId },
     select: {
-      id: true, body: true, status: true, createdAt: true, responseDueAt: true, firstResponseAt: true, safetyFlag: true, rating: true, reopenCount: true, closedAt: true,
+      id: true, body: true, status: true, createdAt: true, responseDueAt: true, firstResponseAt: true, safetyFlag: true, rating: true, closeKind: true, reopenCount: true, closedAt: true,
       events: { orderBy: { createdAt: "asc" }, select: { eventType: true, createdAt: true, payload: true } },
     },
   });
@@ -90,6 +93,7 @@ export async function getComplaint(input: { db: Db; user: Actor; id: string; now
       flatCode: flat.flatCode,
       safety: row.safetyFlag,
       rating: row.rating,
+      closeKind: row.closeKind,
       reopenCount: row.reopenCount,
       canReopen: row.status === "PENDING_CONFIRMATION" || (row.status === "CLOSED" && withinWindow),
       timeline: residentTimeline(row.events.map((e) => ({ eventType: e.eventType, createdAt: e.createdAt.getTime(), payload: e.payload }))),
