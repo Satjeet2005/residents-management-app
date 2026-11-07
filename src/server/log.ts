@@ -74,7 +74,7 @@ export function redact(text: string, env: Env = process.env): string {
 }
 
 /** Redacts, then cuts: a secret that straddles the cut is removed before it, so no piece of it is kept. */
-const clean = (text: string, max: number, env: Env): string => redact(text, env).slice(0, max);
+export const clean = (text: string, max: number, env: Env = process.env): string => redact(text, env).slice(0, max);
 
 /** A Postgres SQLSTATE (23505) or a Prisma code (P1001): exactly five characters, digits and capitals. */
 const CODE_PATTERN = /^[0-9A-Z]{5}$/;
