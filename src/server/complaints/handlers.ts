@@ -57,7 +57,7 @@ async function readBody(request: Request): Promise<unknown> {
 }
 
 const version = z.number().int().min(1).max(1_000_000);
-const raiseBody = z.strictObject({ body: z.string().max(MAX_BODY_CHARS) });
+const raiseBody = z.strictObject({ body: z.string().max(MAX_BODY_CHARS), declaredDanger: z.boolean().default(false) });
 const confirmBody = z.strictObject({ rating: z.number().int().min(1).max(5).optional() });
 const reopenBody = z.strictObject({ reason: z.string().max(5000) });
 const assignBody = z.strictObject({ assigneeUserId: z.uuid(), expectedVersion: version });
@@ -80,7 +80,7 @@ async function lazyAutoClose(context: Context, now: number): Promise<void> {
 export async function handleCreate(context: Context, options: Options = {}): Promise<Response> {
   const body = raiseBody.safeParse(await readBody(context.request));
   if (!body.success) return invalid();
-  const result = await createComplaint({ db: context.deps.db, user: context.user, body: body.data.body, now: clock(options), classifier: options.classifier ?? NullClassifier });
+  const result = await createComplaint({ db: context.deps.db, user: context.user, body: body.data.body, declaredDanger: body.data.declaredDanger, now: clock(options), classifier: options.classifier ?? NullClassifier });
   return result.status === "ERROR" ? refused(result.error) : json(result.duplicate ? 200 : 201, result);
 }
 

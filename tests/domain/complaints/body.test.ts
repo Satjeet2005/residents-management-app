@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { COMPLAINT_BODY_MAX, prepareComplaintBody, repeatKey, scriptLabel } from "@/domain/complaints/body";
+import { COMPLAINT_BODY_MAX, NO_DESCRIPTION, isBlankBody, prepareComplaintBody, repeatKey, scriptLabel } from "@/domain/complaints/body";
 
 describe("CL2 prepareComplaintBody", () => {
   it("CL2 keeps the words as written, trimmed, with lines and tabs", () => {
@@ -29,5 +29,13 @@ describe("CL2 scriptLabel and repeatKey", () => {
   it("CL8 the repeat key ignores case, spacing and zero-width characters, and nothing else", () => {
     expect(repeatKey("  Water   LEAK\n under the sink ")).toBe(repeatKey("water leak under the sink"));
     expect(repeatKey("water leak")).not.toBe(repeatKey("water leaks"));
+  });
+});
+
+describe("D121 isBlankBody", () => {
+  it("is true for text that is empty after control characters and spaces go, false for words, and false for a value that is not text", () => {
+    for (const blank of ["", "  ", "\n\t ", "\u0000\u0007"]) expect(isBlankBody(blank)).toBe(true);
+    for (const other of ["a", " fire ", 0, null, undefined, {}]) expect(isBlankBody(other)).toBe(false);
+    expect(NO_DESCRIPTION).toBe("(no description)");
   });
 });

@@ -1,5 +1,5 @@
 import type { Decision } from "@/domain/complaints/decision";
-import { prepareComplaintBody, repeatKey, scriptLabel } from "@/domain/complaints/body";
+import { NO_DESCRIPTION, isBlankBody, prepareComplaintBody, repeatKey, scriptLabel } from "@/domain/complaints/body";
 import { responseDueAt } from "@/domain/complaints/lifecycle";
 import type { ComplaintStatus } from "@/domain/complaints/step";
 import type { Urgency } from "@/domain/complaints/taxonomy";
@@ -43,9 +43,10 @@ const toRaised = (row: SummaryRow): RaisedComplaint => ({
 });
 
 /** The person's own complaint of the last 60 seconds with the same text, if any. The clock is the caller's `now`, as everywhere else. */
-async function findRepeat(db: Db | Tx, userId: string, key: string, now: number): Promise<SummaryRow | null> {
+async function findRepeat(db: Db | Tx, userId: string, key: string, now: number, declaredDanger: boolean): Promise<SummaryRow | null> {
   const recent = await db.complaint.findMany({ where: { raisedById: userId, createdAt: { gte: new Date(now - REPEAT_WINDOW_MS) } }, select: SUMMARY });
-  return recent.find((row) => repeatKey(row.body) === key) ?? null;
+  // A declared danger is never swallowed by an earlier copy of the same text that took the normal path.
+  return recent.find((row) => repeatKey(row.body) === key && (!declaredDanger || row.safetyFlag)) ?? null;
 }
 
 /** The decision's source as a classifications row: "NONE" (nothing could classify it) is recorded as FALLBACK with no category (the fallback found nothing). */
@@ -62,27 +63,30 @@ const rowSource = (decision: Decision): "RULE" | "LLM" | "FALLBACK" => (decision
  * A safety hit is CRITICAL, assigned at once to the duty manager (the smallest name among those who hold the permission; none leaves it NEW with an
  * ESCALATED event that says so). A known category goes to the category's default assignee; no category means needs_review, no assignee, NEW.
  */
-export async function createComplaint(input: { db: Db; user: Actor; body: unknown; now: number; classifier: Classifier; budgetMs?: number; clock?: () => number }): Promise<CreateResult> {
+export async function createComplaint(input: { db: Db; user: Actor; body: unknown; now: number; classifier: Classifier; budgetMs?: number; clock?: () => number; declaredDanger?: boolean }): Promise<CreateResult> {
   const { db, user, now } = input;
   if (!isResident(user)) return failure("FORBIDDEN");
-  const body = prepareComplaintBody(input.body);
+  const declaredDanger = input.declaredDanger === true;
+  const written = prepareComplaintBody(input.body);
+  const noDescription = written === null && declaredDanger && isBlankBody(input.body);
+  const body = noDescription ? NO_DESCRIPTION : written;
   if (body === null) return failure("VALIDATION");
   const flat = await currentFlat(db, user.id, now);
   if (flat === null) return failure("NO_FLAT");
 
   const key = repeatKey(body);
-  const earlier = await findRepeat(db, user.id, key, now);
+  const earlier = await findRepeat(db, user.id, key, now, declaredDanger);
   if (earlier !== null) return { status: "OK", complaint: toRaised(earlier), duplicate: true };
 
   const members = await db.flatMember.findMany({ where: { flatId: flat.flatId }, select: { user: { select: { name: true } } } });
-  const { decision, latencyMs } = await classifyComplaint({ rawText: body, knownNames: [user.name, ...members.map((m) => m.user.name)], classifier: input.classifier, budgetMs: input.budgetMs, clock: input.clock });
+  const { decision, latencyMs } = await classifyComplaint({ rawText: body, knownNames: [user.name, ...members.map((m) => m.user.name)], classifier: input.classifier, budgetMs: input.budgetMs, clock: input.clock, declaredDanger });
 
   return withDeadlockRetry(
     () =>
       db.$transaction(
         async (tx): Promise<CreateResult> => {
           await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`complaint-create:${user.id}:${key}`}))`;
-          const again = await findRepeat(tx, user.id, key, now);
+          const again = await findRepeat(tx, user.id, key, now, declaredDanger);
           if (again !== null) return { status: "OK", complaint: toRaised(again), duplicate: true };
 
           const settings = await loadComplaintSettings(tx);
@@ -122,10 +126,13 @@ export async function createComplaint(input: { db: Db; user: Actor; body: unknow
           });
 
           const events: NewEvent[] = [
-            { eventType: "CREATED", actorId: user.id, payload: {} },
+            { eventType: "CREATED", actorId: user.id, payload: declaredDanger ? { declaredDanger: true, ...(noDescription ? { note: "NO_DESCRIPTION" } : {}) } : {} },
             { eventType: "CLASSIFIED", actorId: null, payload: { source: rowSource(decision), category: category?.code ?? null, urgency: decision.urgency, confidence: decision.confidence, reasons: decision.reasons } },
           ];
-          if (decision.safetyFlag) events.push({ eventType: "ESCALATED", actorId: null, payload: dutyManager === null ? { reason: "SAFETY_RULE", to: null, note: "NO_DUTY_MANAGER" } : { reason: "SAFETY_RULE", to: dutyManager.id } });
+          if (decision.safetyFlag) {
+            const reason = decision.safetyHits.length > 0 ? "SAFETY_RULE" : "DECLARED";
+            events.push({ eventType: "ESCALATED", actorId: null, payload: dutyManager === null ? { reason, to: null, note: "NO_DUTY_MANAGER" } : { reason, to: dutyManager.id } });
+          }
           if (assigneeId !== null) events.push({ eventType: "ASSIGNED", actorId: null, payload: { assignee: assigneeId } });
           await appendEvents(tx, created.id, events, now);
 

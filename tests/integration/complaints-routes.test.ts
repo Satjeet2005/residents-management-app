@@ -108,6 +108,17 @@ describe("CL3 who may call what", () => {
 });
 
 describe("CL3 the status mapping and the bodies", () => {
+  it("D121 raising: declaredDanger must be a boolean (zod), true takes the safety path with no text, and a blank text without it is still 422", async () => {
+    for (const bad of [{ body: "x", declaredDanger: "yes" }, { body: "x", declaredDanger: 1 }, { body: "x", declaredDanger: null }]) {
+      const response = await create(residentCookie, bad);
+      expect([response.status, await json(response)]).toEqual([422, { error: "VALIDATION" }]);
+    }
+    expect((await create(residentCookie, { body: "  ", declaredDanger: false })).status).toBe(422);
+    const declared = await create(residentCookie, { body: "", declaredDanger: true });
+    expect(declared.status).toBe(201);
+    expect(await json(declared)).toMatchObject({ complaint: { safetyFlag: true, urgency: "CRITICAL", assigned: true } });
+  });
+
   it("CL3 raising: 201, then 200 for a repeat, 422 VALIDATION for a bad body, 422 NO_FLAT, and the answers hold only what they should", async () => {
     const created = await create(residentCookie, { body: "Water leak under the sink" });
     expect(created.status).toBe(201);

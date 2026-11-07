@@ -11,8 +11,8 @@ afterAll(async () => {
   await world?.close();
 }, 60_000);
 
-const raise = (user: Awaited<ReturnType<typeof makeResident>>["user"], body: unknown, classifier: Classifier = new FakeClassifier(), options: { now?: number; budgetMs?: number } = {}) =>
-  createComplaint({ db: world.appPrisma, user, body, now: options.now ?? NOW, classifier, budgetMs: options.budgetMs });
+const raise = (user: Awaited<ReturnType<typeof makeResident>>["user"], body: unknown, classifier: Classifier = new FakeClassifier(), options: { now?: number; budgetMs?: number; declaredDanger?: boolean } = {}) =>
+  createComplaint({ db: world.appPrisma, user, body, now: options.now ?? NOW, classifier, budgetMs: options.budgetMs, declaredDanger: options.declaredDanger });
 const ok = (result: CreateResult) => {
   if (result.status !== "OK") throw new Error(`expected OK, got ${result.error}`);
   return result;
@@ -112,6 +112,57 @@ describe("CL2 the safety path (D9, D73, D119)", () => {
     const first = ok(await raise(user, "fire in the basement")).complaint;
     expect((await loadComplaint(world, first.id)).assigneeId).toBe(aarav.id);
     await world.ownerPrisma.user.update({ where: { id: aarav.id }, data: { active: false } });
+  });
+});
+
+describe("CL2 declared danger (D121)", () => {
+  it("D121 declared danger with innocuous text escalates like a safety word: no classifier call, CRITICAL, duty manager, DECLARED, K1 to K4 hold", async () => {
+    const { user } = await makeResident(world);
+    const classifier = new FakeClassifier({ result: arm("OTHER", 0.95, "LOW", 0.95) });
+    const { complaint } = ok(await raise(user, "The garden bench needs paint", classifier, { declaredDanger: true }));
+    expect(classifier.calls).toBe(0);
+    expect(complaint).toMatchObject({ status: "ASSIGNED", urgency: "CRITICAL", safetyFlag: true, assigned: true });
+    const saved = await loadComplaint(world, complaint.id);
+    expect(saved).toMatchObject({ assigneeId: world.staff.sanjay.id, urgency: "CRITICAL", safetyFlag: true, closeKind: null, rating: null });
+    expect(saved.events.map((e) => e.eventType)).toEqual(["CREATED", "CLASSIFIED", "ESCALATED", "ASSIGNED"]);
+    expect(saved.events[0].payload).toEqual({ declaredDanger: true });
+    expect(saved.events[2].payload).toEqual({ reason: "DECLARED", to: world.staff.sanjay.id });
+    expect(saved.classifications[0]).toMatchObject({ source: "RULE", urgency: "CRITICAL", latencyMs: 0 });
+    expect(await world.ownerPrisma.notification.count({ where: { idempotencyKey: `safety-alert:${complaint.id}`, kind: "SAFETY_ALERT" } })).toBe(1);
+  });
+
+  it("D121 a safety word with declaredDanger false escalates as before, with the reason SAFETY_RULE and no declaredDanger in CREATED", async () => {
+    const { user } = await makeResident(world);
+    const classifier = new FakeClassifier();
+    const { complaint } = ok(await raise(user, "gas leak near the lift", classifier, { declaredDanger: false }));
+    expect(classifier.calls).toBe(0);
+    const saved = await loadComplaint(world, complaint.id);
+    expect(saved.events[0].payload).toEqual({});
+    expect(saved.events[2].payload).toMatchObject({ reason: "SAFETY_RULE" });
+  });
+
+  it("D121 an empty text is accepted only with declaredDanger: it is stored as a fixed text with a note, and nothing is invented", async () => {
+    const { user } = await makeResident(world);
+    for (const blank of ["", "   \n "]) expect(await raise(user, blank, new FakeClassifier(), { declaredDanger: false })).toEqual({ status: "ERROR", error: "VALIDATION" });
+    expect(await raise(user, "x".repeat(2001), new FakeClassifier(), { declaredDanger: true })).toEqual({ status: "ERROR", error: "VALIDATION" });
+    expect(await raise(user, 42, new FakeClassifier(), { declaredDanger: true })).toEqual({ status: "ERROR", error: "VALIDATION" });
+    const { complaint } = ok(await raise(user, "  ", new FakeClassifier(), { declaredDanger: true }));
+    const saved = await loadComplaint(world, complaint.id);
+    expect(saved.body).toBe("(no description)");
+    expect(saved.events[0].payload).toEqual({ declaredDanger: true, note: "NO_DESCRIPTION" });
+    expect(saved).toMatchObject({ safetyFlag: true, urgency: "CRITICAL" });
+  });
+
+  it("D121 a declared danger is not swallowed by a normal complaint with the same text raised a moment ago", async () => {
+    const { user } = await makeResident(world);
+    const first = ok(await raise(user, "The garden bench needs paint")).complaint;
+    expect(first.safetyFlag).toBe(false);
+    const second = ok(await raise(user, "The garden bench needs paint", new FakeClassifier(), { declaredDanger: true }));
+    expect(second.duplicate).toBe(false);
+    expect(second.complaint).toMatchObject({ safetyFlag: true, urgency: "CRITICAL" });
+    const again = ok(await raise(user, "The garden bench needs paint", new FakeClassifier(), { declaredDanger: true }));
+    expect(again.duplicate).toBe(true);
+    expect(again.complaint.id).toBe(second.complaint.id);
   });
 });
 
