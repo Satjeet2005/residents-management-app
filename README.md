@@ -20,9 +20,17 @@ npm run dev                 # http://localhost:3000, health at /api/health
 ```bash
 npm run check               # lint + typecheck + unit tests
 npm run test:integration    # needs the database running
+npm run test:ci-parity      # unit and integration tests as CI runs them: no .env, only DATABASE_URL
 npm run build
 npm run scan:secrets
 ```
+
+## Before you push
+
+Run `npm run test:ci-parity`. CI has no `.env` and only `DATABASE_URL` in its environment, and a test that passes only with your `.env` is a bug (D128).
+The script runs `npm run test:unit` and `npm run test:integration` under `env -i` with `IGNORE_DOTENV=true` and nothing else but `PATH`, `HOME`,
+`NODE_OPTIONS` and `DATABASE_URL` (yours if set, else the local value of `.env.example`). Test-only defaults for `OTP_PEPPER` and `PAYMENT_WEBHOOK_SECRET`
+live in one file, `tests/setup/env-defaults.ts`, and apply only when the variable is unset; a test about a missing secret removes it itself.
 
 ## Demo data
 
