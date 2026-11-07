@@ -113,13 +113,17 @@ describe("HM5 staff landing page", () => {
     expect(out).not.toContain("Sign out of all devices");
   });
 
-  it("lists the tools the person may use: Bank reconciliation for payments:match, and nothing for a person without a tool", () => {
+  it("lists the tools the person may use: Bank reconciliation for payments:match, the Committee report for reports:view, and nothing for a person without a tool", () => {
     expect(out).toMatch(/<a [^>]*href="\/staff\/reconciliation"[^>]*>Bank reconciliation<\/a>/);
-    expect(count(out, /<a /g)).toBe(1);
+    expect(out).toMatch(/<a [^>]*href="\/staff\/reports"[^>]*>Committee report<\/a>/);
+    expect(count(out, /<a /g)).toBe(2);
     const reports = html(h(StaffView, { name: "Meera Kapoor", permissions: ["reports:view"] }));
     expect(reports).not.toContain("Bank reconciliation");
-    expect(reports).toContain("No tool is available for your permissions yet.");
-    expect(reports).not.toContain("<a ");
+    expect(reports).toMatch(/<a [^>]*href="\/staff\/reports"[^>]*>Committee report<\/a>/);
+    expect(count(reports, /<a /g)).toBe(1);
+    const approver = html(h(StaffView, { name: "Rahul Menon", permissions: ["payments:approve"] }));
+    expect(approver).toContain("No tool is available for your permissions yet.");
+    expect(approver).not.toContain("<a ");
   });
 
   it("says so when there are no permissions, and shows an unknown permission as stored", () => {

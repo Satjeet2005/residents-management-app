@@ -7,7 +7,7 @@ describe("SC15 the Complaints tool", () => {
   it("is offered to complaints:manage and to nobody else", () => {
     expect(staffToolsFor(staff(["complaints:manage"])).map((tool) => tool.href)).toEqual(["/staff/complaints"]);
     expect(staffToolsFor(staff(["complaints:duty_manager"]))).toEqual([]);
-    expect(staffToolsFor(staff(["payments:match", "payments:approve", "reports:view"])).map((tool) => tool.key)).toEqual(["reconciliation"]);
+    expect(staffToolsFor(staff(["payments:match", "payments:approve"])).map((tool) => tool.key)).toEqual(["reconciliation"]);
     expect(staffToolsFor(staff(["complaints:manage"], false))).toEqual([]);
     expect(staffToolsFor({ role: "RESIDENT", active: true, permissions: ["complaints:manage"] })).toEqual([]);
   });

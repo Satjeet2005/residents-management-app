@@ -27,6 +27,8 @@ const toolLabel = (tool: StaffTool): string => {
       return t("staff.tool.reconciliation");
     case "complaints":
       return t("staff.tool.complaints");
+    case "reports":
+      return t("staff.tool.reports");
   }
 };
 const toolHint = (tool: StaffTool): string => {
@@ -35,6 +37,8 @@ const toolHint = (tool: StaffTool): string => {
       return t("staff.tool.reconciliation.hint");
     case "complaints":
       return t("staff.tool.complaints.hint");
+    case "reports":
+      return t("staff.tool.reports.hint");
   }
 };
 

@@ -1,4 +1,5 @@
-import type { CalendarDate } from "@/domain/time/calendar";
+import { type CalendarDate, parseDate } from "@/domain/time/calendar";
+import { monthName } from "@/lib/format-date";
 
 /** The first day of the month of a date: "2026-10-27" gives "2026-10-01". */
 export const monthStart = (date: CalendarDate): CalendarDate => `${date.slice(0, 7)}-01`;
@@ -36,3 +37,9 @@ export function reportHref(input: { period: CalendarDate; bucket?: string | null
   if (input.bucket !== undefined && input.bucket !== null) params.set("bucket", input.bucket);
   return `/staff/reports?${params.toString()}`;
 }
+
+/** "October 2026": a period as the page names it. */
+export const periodLabel = (period: CalendarDate): string => `${monthName(period)} ${parseDate(period).year}`;
+
+/** "27 October 2026": a date in words, for the "as of" line. */
+export const dateWords = (date: CalendarDate): string => `${parseDate(date).day} ${monthName(date)} ${parseDate(date).year}`;

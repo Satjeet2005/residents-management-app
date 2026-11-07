@@ -66,6 +66,15 @@ describe("D81 page inventory", () => {
     for (const page of reconciliation) expect(need(page.address), page.address).toBe("payments:match");
   });
 
+  it("T14 the committee report page asks for reports:view and calls requireUser itself (the loaders check it again)", () => {
+    const reports = pages.filter((p) => p.address.startsWith("/staff/reports"));
+    expect(reports.map((p) => p.address)).toEqual(["/staff/reports"]);
+    for (const page of reports) {
+      expect(page.calls.has("requireUser"), page.address).toBe(true);
+      expect(/need:\s*"reports:view"/.test(readFileSync(page.file, "utf8")), page.address).toBe(true);
+    }
+  });
+
   it("T13c the staff complaints pages ask for complaints:manage and call requireUser themselves (the loaders check it again)", () => {
     const staffComplaints = pages.filter((p) => p.address.startsWith("/staff/complaints"));
     expect(staffComplaints.map((p) => p.address).sort()).toEqual(["/staff/complaints", "/staff/complaints/[id]"]);
