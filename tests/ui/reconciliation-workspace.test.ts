@@ -89,11 +89,11 @@ describe("WS2 the workspace header (D189)", () => {
 describe("WS4 the lane selector (D190)", () => {
   const out = html(h(LaneSelector, { importId: IMPORT, lane: "AWAITING_APPROVAL", laneCounts, manuallyPosted: 0 }));
 
-  it("is a tablist of four cards in the order Needs you, Awaiting approval, Posted, Not maintenance, each a link to its lane named with its count", () => {
+  it("is a tablist of four cards in the order Needs you, Awaiting approval, Posted, Not maintenance, each a link to its lane whose name is its words and its count", () => {
     expect(out).toContain('role="tablist"');
     expect(count(out, /role="tab"/g)).toBe(4);
-    const names = [...out.matchAll(/aria-label="([^"]+)"/g)].map((m) => m[1]).filter((n) => n.includes("row"));
-    expect(names).toEqual(["Needs you, 43 rows", "Awaiting approval, 0 rows", "Posted, 25 rows", "Not maintenance, 38 rows"]);
+    const names = [...out.matchAll(/<a [^>]*role="tab"[^>]*>(.*?)<\/a>/g)].map((m) => m[1].replace(/<[^>]*>/g, ""));
+    expect(names).toEqual(["Needs you43 rows", "Awaiting approval0 rows", "Posted25 rows", "Not maintenance38 rows"]);
     expect(out).toContain(`href="/staff/reconciliation/${IMPORT}"`);
     expect(out).toContain(`href="/staff/reconciliation/${IMPORT}?lane=awaiting-approval"`);
     expect(out).toContain(`href="/staff/reconciliation/${IMPORT}?lane=posted"`);
@@ -101,11 +101,12 @@ describe("WS4 the lane selector (D190)", () => {
   });
 
   it("a lane with one row says '1 row'", () => {
-    expect(html(h(LaneSelector, { importId: IMPORT, lane: "NEEDS_YOU", laneCounts: { ...laneCounts, NEEDS_YOU: 1 }, manuallyPosted: 0 }))).toContain('aria-label="Needs you, 1 row"');
+    expect(html(h(LaneSelector, { importId: IMPORT, lane: "NEEDS_YOU", laneCounts: { ...laneCounts, NEEDS_YOU: 1 }, manuallyPosted: 0 }))).toContain('1</span><span class="sr-only"> row</span>');
   });
 
   it("each card shows the count in 24px semibold tabular figures above the label in 14px secondary ink, and a zero stays visible", () => {
-    expect(out).toMatch(/<span[^>]*class="tnum text-heading font-semibold">0<\/span><span[^>]*class="text-caption text-ink-2">Awaiting approval<\/span>/);
+    expect(out).toMatch(/<span[^>]*class="text-caption text-ink-2">Awaiting approval<\/span><span[^>]*class="tnum text-heading font-semibold">0<\/span>/);
+    expect(out).toContain("flex-col-reverse");
     expect(out).toMatch(/class="tnum text-heading font-semibold">43<\/span>/);
   });
 
@@ -133,11 +134,12 @@ describe("WS4 the lane selector (D190)", () => {
     expect(out).not.toMatch(/Need you\b/);
   });
 
-  it("the Posted card splits automatic from by hand only when something was posted by hand", () => {
+  it("one line about Posted, under the cards, splits automatic from by hand only when something was posted by hand", () => {
     expect(out).not.toContain("by hand");
     const split = html(h(LaneSelector, { importId: IMPORT, lane: "NEEDS_YOU", laneCounts, manuallyPosted: 3 }));
-    expect(split).toContain("22 automatic · 3 by hand");
+    expect(split).toContain("Posted: 22 automatic · 3 by hand");
     expect(count(split, /by hand/g)).toBe(1);
+    expect(split.indexOf("by hand")).toBeGreaterThan(split.lastIndexOf("</a>"));
   });
 });
 
@@ -159,14 +161,15 @@ describe("WS5 the rows (D191)", () => {
     expect(link).toContain("27 Oct");
     expect(link).toContain("UPI/710000000003/T21-1601 Aamir Shaikh/maintenance");
     expect(link).toContain("Best match T21-1601 · Medium");
-    expect(link).toContain('aria-label="Review 5,660 rupees from 27 October"');
+    expect(link).toContain('<span class="sr-only">Review</span>');
+    expect(link).not.toContain("aria-label");
     expect(link).toContain(`href="/staff/reconciliation/${IMPORT}?row=a0000000-0000-0000-0000-000000000001"`);
-    expect(out).not.toMatch(/>Review<|>Reviewing</);
+    expect(out).not.toMatch(/underline/);
   });
 
   it("line 1 is the amount in bold tabular figures then the date; line 2 the narration clamped to two lines; line 3 the reason", () => {
     expect(out).toContain('<span class="tnum text-body font-semibold">₹5,660</span>');
-    expect(out).toMatch(/<span class="line-clamp-2 break-words text-body">UPI\/710000000003/);
+    expect(out).toMatch(/<span class="line-clamp-2 break-words text-caption">UPI\/710000000003/);
     expect(out.indexOf(">₹5,660<")).toBeLessThan(out.indexOf(">27 Oct<"));
     expect(out.indexOf(">27 Oct<")).toBeLessThan(out.indexOf(">UPI/710000000003"));
     expect(out.indexOf(">UPI/710000000003")).toBeLessThan(out.indexOf("Best match"));
@@ -196,7 +199,7 @@ describe("WS5 the rows (D191)", () => {
   it("the selected row has a 2px border and says Reviewing; the others a 1px hairline border", () => {
     const selected = render("a0000000-0000-0000-0000-000000000001");
     expect(selected).toContain('aria-current="true"');
-    expect(selected).toContain('aria-label="Reviewing 5,660 rupees from 27 October"');
+    expect(selected).toContain('<span class="sr-only">Reviewing</span>');
     expect(selected).toMatch(/aria-current="true"[^>]*class="[^"]*border-2 border-ink/);
     expect(count(selected, /border-2 border-ink/g)).toBe(1);
   });

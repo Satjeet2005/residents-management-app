@@ -119,7 +119,7 @@ export function parseTheme(css: string = GLOBALS_CSS): Theme {
  */
 export const STRUCTURAL: ReadonlySet<string> = new Set([
   "block", "inline", "inline-block", "flex", "inline-flex", "grid", "contents", "hidden",
-  "flex-col", "flex-row", "flex-wrap", "flex-nowrap", "flex-1", "grow", "shrink-0",
+  "flex-col", "flex-col-reverse", "flex-row", "flex-wrap", "flex-nowrap", "flex-1", "grow", "shrink-0",
   "items-start", "items-center", "items-end", "items-baseline", "items-stretch",
   "justify-start", "justify-center", "justify-end", "justify-between",
   "self-start", "self-center", "self-end",

@@ -1,8 +1,7 @@
 import { ChevronIcon, WarningIcon } from "@/components/icons";
 import { Money } from "@/components/ui/money";
 import { cx } from "@/components/ui/cx";
-import { formatRupees } from "@/domain/money/money";
-import { formatDay, formatDayLong } from "@/lib/format-date";
+import { formatDay } from "@/lib/format-date";
 import { t } from "@/lib/messages";
 import { narrationPreview, reasonLine } from "@/lib/reconciliation/labels";
 import { workspaceHref } from "@/lib/reconciliation/lanes";
@@ -47,23 +46,17 @@ function Anatomy({ row, lane, viewer, thresholdPaise }: { row: RowCard; lane: La
         <Money amount={BigInt(row.amountPaise)} size="strong" />
         <span className="tnum text-caption text-ink-2">{formatDay(row.txnDate)}</span>
       </span>
-      <span className="line-clamp-2 break-words text-body">{narrationPreview(row.narration)}</span>
+      <span className="line-clamp-2 break-words text-caption">{narrationPreview(row.narration)}</span>
       <LastLine row={row} lane={lane} viewer={viewer} thresholdPaise={thresholdPaise} />
     </span>
   );
-}
-
-/** "Review 46,445 rupees from 21 October": what a screen reader says for the card that opens the review. */
-function reviewName(row: RowCard, selected: boolean): string {
-  const values = { amount: formatRupees(BigInt(row.amountPaise)).slice(1), date: formatDayLong(row.txnDate) };
-  return selected ? t("recon.row.reviewingLabel", values) : t("recon.row.reviewLabel", values);
 }
 
 const CARD = "flex w-full items-center gap-2 rounded-control";
 
 /**
  * The rows of a lane (D191): one card for each row. In Needs you the WHOLE card is the one control that opens the review (the row is in the URL as ?row=); the selected
- * card has a 2px border. The other lanes have no review to open, so their cards are plain, and Awaiting approval keeps its Approve and Reject buttons inside the card.
+ * card has a 2px border. Its name is the card's own words behind "Review" (or "Reviewing"), so the name always contains what is seen (WCAG 2.5.3). The other lanes have no review to open, so their cards are plain, and Awaiting approval keeps its Approve and Reject buttons inside the card.
  */
 export function RowsView({ rows, caption, importId, lane, selectedId, viewer, thresholdPaise }: { rows: readonly RowCard[]; caption: string; importId: string; lane: Lane; selectedId: string | null; viewer: Viewer; thresholdPaise: string }) {
   return (
@@ -77,14 +70,14 @@ export function RowsView({ rows, caption, importId, lane, selectedId, viewer, th
                 id={rowLinkId(row.id)}
                 href={workspaceHref({ importId, lane, row: row.id })}
                 aria-current={selected ? "true" : undefined}
-                aria-label={reviewName(row, selected)}
-                className={cx(CARD, "bg-paper", selected ? "border-2 border-ink px-[10px] py-[6px]" : "border border-hairline px-[11px] py-[7px]")}
+                className={cx(CARD, "bg-paper", selected ? "border-2 border-ink px-[10px] py-[3px]" : "border border-hairline px-[11px] py-[4px]")}
               >
+                <span className="sr-only">{selected ? t("recon.row.reviewing") : t("recon.row.review")}</span>
                 <Anatomy row={row} lane={lane} viewer={viewer} thresholdPaise={thresholdPaise} />
                 <ChevronIcon />
               </RowLink>
             ) : (
-              <div className={cx(CARD, "border border-hairline px-[11px] py-[7px]")}>
+              <div className={cx(CARD, "border border-hairline px-[11px] py-[4px]")}>
                 <Anatomy row={row} lane={lane} viewer={viewer} thresholdPaise={thresholdPaise} />
               </div>
             )}

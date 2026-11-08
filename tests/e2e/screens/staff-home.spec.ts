@@ -1,8 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
-import { Client } from "pg";
 import { DEMO_NOW } from "../../../src/domain/seed/types";
 import { checkScreen, watchPage } from "../helpers/checks";
 import { type Person, authFile } from "../helpers/people";
+import { sql } from "../helpers/sql";
 
 /**
  * The staff home (D186 to D188) in a browser, for the five seeded staff accounts. At 360 x 800 the first screen shows the h1 role title, the "Signed in as" line and the
@@ -21,18 +21,6 @@ const ACCOUNTS: { person: Person; name: string; title: string; maxControls: numb
   { person: "kavita", name: "Kavita Rao", title: "Complaints manager", maxControls: 4 },
   { person: "sanjay", name: "Sanjay Pawar", title: "Duty manager", maxControls: 5 },
 ];
-
-async function sql<T>(text: string, params: unknown[] = []): Promise<T> {
-  const url = new URL(process.env.DATABASE_URL ?? "");
-  url.pathname = "/township_seed_scratch";
-  const client = new Client({ connectionString: url.toString() });
-  await client.connect();
-  try {
-    return (await client.query(text, params)).rows[0] as T;
-  } finally {
-    await client.end();
-  }
-}
 
 const idOf = (phone: string) => sql<{ id: string }>("SELECT id::text FROM users WHERE phone = $1", [phone]);
 const PHONES: Record<Person, string> = { priya: "5000000001", rahul: "5000000002", meera: "5000000003", kavita: "5000000004", sanjay: "5000000005" } as Record<Person, string>;

@@ -39,11 +39,6 @@ export function laneLabel(lane: Lane): string {
   }
 }
 
-/** The accessible name of a lane card: its words and its count ("Needs you, 43 rows"). */
-export function laneNameWithCount(lane: Lane, count: number): string {
-  return count === 1 ? t("recon.lane.rowsOne", { lane: laneLabel(lane) }) : t("recon.lane.rowsMany", { lane: laneLabel(lane), n: count });
-}
-
 /** The tab to move to for an arrow, Home or End key from tab `index` of `count`; null for any other key. Wraps round. */
 export function nextTabIndex(key: string, index: number, count: number): number | null {
   switch (key) {
