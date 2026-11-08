@@ -1,0 +1,1675 @@
+{
+ "note": "Pooled counts (k detected or falsely alarmed, n total) of the same generated texts at three detector states. The texts, digests and generator version never changed. Stage 0 is the detector at commit 98edfaf (the measured baseline, unchanged since 7ddf60a); stage 1 is commit e16ee78 (D169: a bare current needs a shock context); stage 2 is commit fe89698 (D168: Stage 1 normalisation).",
+ "stages": [
+  "0 baseline",
+  "1 after the precision fix (D169)",
+  "2 after normalisation (D168)"
+ ],
+ "sets": {
+  "dev": [
+   {
+    "digests": {
+     "301": "6f7e934ab99432ac8ded7f9657e8222e7ed5a683f9d8bf3b9fe5989c50bdbf4b",
+     "302": "05c07f9a8038d6c6bc54b4052aa034de888a9f66b5f60c531001e7bf6532646a",
+     "303": "5ece98340217b77f3f77fe5a535acc4f2aa6929494ef87cdcd364d4af028ef74",
+     "304": "b712def57666bc85d2344e81f261bccc5965ecbf66d5cb761c5f0ae25ff20b70",
+     "305": "0e08cbe88e9a99f3c5cb659b546e60530ecbc63fae2823a2ecc63ae3acb4c295"
+    },
+    "setDigest": "23a242df3210780947c78942a935f5416df9c1e0fc5831d8b8a8ca6946508164",
+    "generatorVersion": "safety-perturb-1",
+    "headline": {
+     "single": {
+      "k": 1844,
+      "n": 5000
+     },
+     "double": {
+      "k": 414,
+      "n": 2500
+     },
+     "falseAlarm": {
+      "k": 62,
+      "n": 1608
+     }
+    },
+    "byOperation": {
+     "single": {
+      "SWAP_ADJACENT": {
+       "k": 40,
+       "n": 280
+      },
+      "RANDOM_CASE": {
+       "k": 297,
+       "n": 297
+      },
+      "INSERT_SEPARATOR": {
+       "k": 38,
+       "n": 292
+      },
+      "SUBSTITUTE_NEIGHBOUR": {
+       "k": 51,
+       "n": 298
+      },
+      "INSERT_JOINER": {
+       "k": 462,
+       "n": 462
+      },
+      "DOUBLE_LETTER": {
+       "k": 51,
+       "n": 294
+      },
+      "DOUBLE_CONSONANT": {
+       "k": 151,
+       "n": 469
+      },
+      "INSERT_NEIGHBOUR": {
+       "k": 46,
+       "n": 274
+      },
+      "DROP_LETTER": {
+       "k": 37,
+       "n": 274
+      },
+      "ROMANISATION_VARIANT": {
+       "k": 43,
+       "n": 173
+      },
+      "ELONGATE_VOWEL": {
+       "k": 51,
+       "n": 297
+      },
+      "SWAP_VOWEL_LENGTH": {
+       "k": 61,
+       "n": 255
+      },
+      "LEET": {
+       "k": 8,
+       "n": 299
+      },
+      "DROP_VOWEL_SIGN": {
+       "k": 67,
+       "n": 396
+      },
+      "NUKTA_TOGGLE": {
+       "k": 331,
+       "n": 331
+      },
+      "REMOVE_SPACES": {
+       "k": 1,
+       "n": 200
+      },
+      "CHANDRABINDU_ANUSVARA": {
+       "k": 109,
+       "n": 109
+      }
+     },
+     "double": {
+      "DOUBLE_CONSONANT": {
+       "k": 112,
+       "n": 447
+      },
+      "SWAP_VOWEL_LENGTH": {
+       "k": 47,
+       "n": 234
+      },
+      "ROMANISATION_VARIANT": {
+       "k": 33,
+       "n": 213
+      },
+      "DOUBLE_LETTER": {
+       "k": 22,
+       "n": 302
+      },
+      "SUBSTITUTE_NEIGHBOUR": {
+       "k": 22,
+       "n": 282
+      },
+      "INSERT_JOINER": {
+       "k": 184,
+       "n": 427
+      },
+      "DROP_LETTER": {
+       "k": 15,
+       "n": 287
+      },
+      "RANDOM_CASE": {
+       "k": 35,
+       "n": 306
+      },
+      "SWAP_ADJACENT": {
+       "k": 26,
+       "n": 303
+      },
+      "ELONGATE_VOWEL": {
+       "k": 16,
+       "n": 320
+      },
+      "INSERT_NEIGHBOUR": {
+       "k": 21,
+       "n": 307
+      },
+      "LEET": {
+       "k": 7,
+       "n": 293
+      },
+      "INSERT_SEPARATOR": {
+       "k": 23,
+       "n": 263
+      },
+      "DROP_VOWEL_SIGN": {
+       "k": 63,
+       "n": 416
+      },
+      "REMOVE_SPACES": {
+       "k": 0,
+       "n": 212
+      },
+      "NUKTA_TOGGLE": {
+       "k": 168,
+       "n": 307
+      },
+      "CHANDRABINDU_ANUSVARA": {
+       "k": 34,
+       "n": 81
+      }
+     }
+    },
+    "byForm": {
+     "single": {
+      "ROMANISED_HINDI": {
+       "k": 245,
+       "n": 999
+      },
+      "ENGLISH": {
+       "k": 187,
+       "n": 996
+      },
+      "HINDI_DEVANAGARI": {
+       "k": 609,
+       "n": 1054
+      },
+      "MARATHI_DEVANAGARI": {
+       "k": 572,
+       "n": 968
+      },
+      "ROMANISED_MARATHI": {
+       "k": 231,
+       "n": 983
+      }
+     },
+     "double": {
+      "MARATHI_DEVANAGARI": {
+       "k": 158,
+       "n": 460
+      },
+      "ROMANISED_MARATHI": {
+       "k": 52,
+       "n": 513
+      },
+      "ROMANISED_HINDI": {
+       "k": 45,
+       "n": 524
+      },
+      "ENGLISH": {
+       "k": 13,
+       "n": 507
+      },
+      "HINDI_DEVANAGARI": {
+       "k": 146,
+       "n": 496
+      }
+     }
+    },
+    "byCategory": {
+     "single": {
+      "FIRE": {
+       "k": 300,
+       "n": 634
+      },
+      "MEDICAL_VIOLENCE": {
+       "k": 677,
+       "n": 2382
+      },
+      "GAS": {
+       "k": 361,
+       "n": 550
+      },
+      "LIFT_STUCK": {
+       "k": 203,
+       "n": 714
+      },
+      "SHOCK": {
+       "k": 303,
+       "n": 720
+      }
+     },
+     "double": {
+      "SHOCK": {
+       "k": 78,
+       "n": 344
+      },
+      "MEDICAL_VIOLENCE": {
+       "k": 116,
+       "n": 1200
+      },
+      "GAS": {
+       "k": 118,
+       "n": 296
+      },
+      "FIRE": {
+       "k": 73,
+       "n": 298
+      },
+      "LIFT_STUCK": {
+       "k": 29,
+       "n": 362
+      }
+     }
+    },
+    "falseAlarmsByGroup": {
+     "GENERATED": {
+      "k": 0,
+      "n": 1262
+     },
+     "NEAR_MISS": {
+      "k": 62,
+      "n": 249
+     },
+     "EXISTING": {
+      "k": 0,
+      "n": 97
+     }
+    }
+   },
+   {
+    "digests": {
+     "301": "6f7e934ab99432ac8ded7f9657e8222e7ed5a683f9d8bf3b9fe5989c50bdbf4b",
+     "302": "05c07f9a8038d6c6bc54b4052aa034de888a9f66b5f60c531001e7bf6532646a",
+     "303": "5ece98340217b77f3f77fe5a535acc4f2aa6929494ef87cdcd364d4af028ef74",
+     "304": "b712def57666bc85d2344e81f261bccc5965ecbf66d5cb761c5f0ae25ff20b70",
+     "305": "0e08cbe88e9a99f3c5cb659b546e60530ecbc63fae2823a2ecc63ae3acb4c295"
+    },
+    "setDigest": "23a242df3210780947c78942a935f5416df9c1e0fc5831d8b8a8ca6946508164",
+    "generatorVersion": "safety-perturb-1",
+    "headline": {
+     "single": {
+      "k": 1796,
+      "n": 5000
+     },
+     "double": {
+      "k": 390,
+      "n": 2500
+     },
+     "falseAlarm": {
+      "k": 52,
+      "n": 1608
+     }
+    },
+    "byOperation": {
+     "single": {
+      "SWAP_ADJACENT": {
+       "k": 40,
+       "n": 280
+      },
+      "RANDOM_CASE": {
+       "k": 295,
+       "n": 297
+      },
+      "INSERT_SEPARATOR": {
+       "k": 38,
+       "n": 292
+      },
+      "SUBSTITUTE_NEIGHBOUR": {
+       "k": 51,
+       "n": 298
+      },
+      "INSERT_JOINER": {
+       "k": 453,
+       "n": 462
+      },
+      "DOUBLE_LETTER": {
+       "k": 51,
+       "n": 294
+      },
+      "DOUBLE_CONSONANT": {
+       "k": 137,
+       "n": 469
+      },
+      "INSERT_NEIGHBOUR": {
+       "k": 46,
+       "n": 274
+      },
+      "DROP_LETTER": {
+       "k": 37,
+       "n": 274
+      },
+      "ROMANISATION_VARIANT": {
+       "k": 43,
+       "n": 173
+      },
+      "ELONGATE_VOWEL": {
+       "k": 51,
+       "n": 297
+      },
+      "SWAP_VOWEL_LENGTH": {
+       "k": 61,
+       "n": 255
+      },
+      "LEET": {
+       "k": 8,
+       "n": 299
+      },
+      "DROP_VOWEL_SIGN": {
+       "k": 60,
+       "n": 396
+      },
+      "NUKTA_TOGGLE": {
+       "k": 325,
+       "n": 331
+      },
+      "REMOVE_SPACES": {
+       "k": 1,
+       "n": 200
+      },
+      "CHANDRABINDU_ANUSVARA": {
+       "k": 99,
+       "n": 109
+      }
+     },
+     "double": {
+      "DOUBLE_CONSONANT": {
+       "k": 102,
+       "n": 447
+      },
+      "SWAP_VOWEL_LENGTH": {
+       "k": 39,
+       "n": 234
+      },
+      "ROMANISATION_VARIANT": {
+       "k": 33,
+       "n": 213
+      },
+      "DOUBLE_LETTER": {
+       "k": 22,
+       "n": 302
+      },
+      "SUBSTITUTE_NEIGHBOUR": {
+       "k": 22,
+       "n": 282
+      },
+      "INSERT_JOINER": {
+       "k": 176,
+       "n": 427
+      },
+      "DROP_LETTER": {
+       "k": 15,
+       "n": 287
+      },
+      "RANDOM_CASE": {
+       "k": 35,
+       "n": 306
+      },
+      "SWAP_ADJACENT": {
+       "k": 26,
+       "n": 303
+      },
+      "ELONGATE_VOWEL": {
+       "k": 16,
+       "n": 320
+      },
+      "INSERT_NEIGHBOUR": {
+       "k": 21,
+       "n": 307
+      },
+      "LEET": {
+       "k": 7,
+       "n": 293
+      },
+      "INSERT_SEPARATOR": {
+       "k": 23,
+       "n": 263
+      },
+      "DROP_VOWEL_SIGN": {
+       "k": 57,
+       "n": 416
+      },
+      "REMOVE_SPACES": {
+       "k": 0,
+       "n": 212
+      },
+      "NUKTA_TOGGLE": {
+       "k": 162,
+       "n": 307
+      },
+      "CHANDRABINDU_ANUSVARA": {
+       "k": 24,
+       "n": 81
+      }
+     }
+    },
+    "byForm": {
+     "single": {
+      "ROMANISED_HINDI": {
+       "k": 243,
+       "n": 999
+      },
+      "ENGLISH": {
+       "k": 187,
+       "n": 996
+      },
+      "HINDI_DEVANAGARI": {
+       "k": 573,
+       "n": 1054
+      },
+      "MARATHI_DEVANAGARI": {
+       "k": 562,
+       "n": 968
+      },
+      "ROMANISED_MARATHI": {
+       "k": 231,
+       "n": 983
+      }
+     },
+     "double": {
+      "MARATHI_DEVANAGARI": {
+       "k": 154,
+       "n": 460
+      },
+      "ROMANISED_MARATHI": {
+       "k": 52,
+       "n": 513
+      },
+      "ROMANISED_HINDI": {
+       "k": 45,
+       "n": 524
+      },
+      "ENGLISH": {
+       "k": 13,
+       "n": 507
+      },
+      "HINDI_DEVANAGARI": {
+       "k": 126,
+       "n": 496
+      }
+     }
+    },
+    "byCategory": {
+     "single": {
+      "FIRE": {
+       "k": 300,
+       "n": 634
+      },
+      "MEDICAL_VIOLENCE": {
+       "k": 677,
+       "n": 2382
+      },
+      "GAS": {
+       "k": 361,
+       "n": 550
+      },
+      "LIFT_STUCK": {
+       "k": 203,
+       "n": 714
+      },
+      "SHOCK": {
+       "k": 255,
+       "n": 720
+      }
+     },
+     "double": {
+      "SHOCK": {
+       "k": 54,
+       "n": 344
+      },
+      "MEDICAL_VIOLENCE": {
+       "k": 116,
+       "n": 1200
+      },
+      "GAS": {
+       "k": 118,
+       "n": 296
+      },
+      "FIRE": {
+       "k": 73,
+       "n": 298
+      },
+      "LIFT_STUCK": {
+       "k": 29,
+       "n": 362
+      }
+     }
+    },
+    "falseAlarmsByGroup": {
+     "GENERATED": {
+      "k": 0,
+      "n": 1262
+     },
+     "NEAR_MISS": {
+      "k": 52,
+      "n": 249
+     },
+     "EXISTING": {
+      "k": 0,
+      "n": 97
+     }
+    }
+   },
+   {
+    "digests": {
+     "301": "6f7e934ab99432ac8ded7f9657e8222e7ed5a683f9d8bf3b9fe5989c50bdbf4b",
+     "302": "05c07f9a8038d6c6bc54b4052aa034de888a9f66b5f60c531001e7bf6532646a",
+     "303": "5ece98340217b77f3f77fe5a535acc4f2aa6929494ef87cdcd364d4af028ef74",
+     "304": "b712def57666bc85d2344e81f261bccc5965ecbf66d5cb761c5f0ae25ff20b70",
+     "305": "0e08cbe88e9a99f3c5cb659b546e60530ecbc63fae2823a2ecc63ae3acb4c295"
+    },
+    "setDigest": "23a242df3210780947c78942a935f5416df9c1e0fc5831d8b8a8ca6946508164",
+    "generatorVersion": "safety-perturb-1",
+    "headline": {
+     "single": {
+      "k": 2350,
+      "n": 5000
+     },
+     "double": {
+      "k": 520,
+      "n": 2500
+     },
+     "falseAlarm": {
+      "k": 52,
+      "n": 1608
+     }
+    },
+    "byOperation": {
+     "single": {
+      "SWAP_ADJACENT": {
+       "k": 40,
+       "n": 280
+      },
+      "RANDOM_CASE": {
+       "k": 295,
+       "n": 297
+      },
+      "INSERT_SEPARATOR": {
+       "k": 38,
+       "n": 292
+      },
+      "SUBSTITUTE_NEIGHBOUR": {
+       "k": 51,
+       "n": 298
+      },
+      "INSERT_JOINER": {
+       "k": 453,
+       "n": 462
+      },
+      "DOUBLE_LETTER": {
+       "k": 72,
+       "n": 294
+      },
+      "DOUBLE_CONSONANT": {
+       "k": 137,
+       "n": 469
+      },
+      "INSERT_NEIGHBOUR": {
+       "k": 46,
+       "n": 274
+      },
+      "DROP_LETTER": {
+       "k": 37,
+       "n": 274
+      },
+      "ROMANISATION_VARIANT": {
+       "k": 47,
+       "n": 173
+      },
+      "ELONGATE_VOWEL": {
+       "k": 295,
+       "n": 297
+      },
+      "SWAP_VOWEL_LENGTH": {
+       "k": 61,
+       "n": 255
+      },
+      "LEET": {
+       "k": 293,
+       "n": 299
+      },
+      "DROP_VOWEL_SIGN": {
+       "k": 60,
+       "n": 396
+      },
+      "NUKTA_TOGGLE": {
+       "k": 325,
+       "n": 331
+      },
+      "REMOVE_SPACES": {
+       "k": 1,
+       "n": 200
+      },
+      "CHANDRABINDU_ANUSVARA": {
+       "k": 99,
+       "n": 109
+      }
+     },
+     "double": {
+      "DOUBLE_CONSONANT": {
+       "k": 102,
+       "n": 447
+      },
+      "SWAP_VOWEL_LENGTH": {
+       "k": 39,
+       "n": 234
+      },
+      "ROMANISATION_VARIANT": {
+       "k": 48,
+       "n": 213
+      },
+      "DOUBLE_LETTER": {
+       "k": 37,
+       "n": 302
+      },
+      "SUBSTITUTE_NEIGHBOUR": {
+       "k": 28,
+       "n": 282
+      },
+      "INSERT_JOINER": {
+       "k": 176,
+       "n": 427
+      },
+      "DROP_LETTER": {
+       "k": 25,
+       "n": 287
+      },
+      "RANDOM_CASE": {
+       "k": 103,
+       "n": 306
+      },
+      "SWAP_ADJACENT": {
+       "k": 31,
+       "n": 303
+      },
+      "ELONGATE_VOWEL": {
+       "k": 74,
+       "n": 320
+      },
+      "INSERT_NEIGHBOUR": {
+       "k": 29,
+       "n": 307
+      },
+      "LEET": {
+       "k": 74,
+       "n": 293
+      },
+      "INSERT_SEPARATOR": {
+       "k": 30,
+       "n": 263
+      },
+      "DROP_VOWEL_SIGN": {
+       "k": 57,
+       "n": 416
+      },
+      "REMOVE_SPACES": {
+       "k": 1,
+       "n": 212
+      },
+      "NUKTA_TOGGLE": {
+       "k": 162,
+       "n": 307
+      },
+      "CHANDRABINDU_ANUSVARA": {
+       "k": 24,
+       "n": 81
+      }
+     }
+    },
+    "byForm": {
+     "single": {
+      "ROMANISED_HINDI": {
+       "k": 420,
+       "n": 999
+      },
+      "ENGLISH": {
+       "k": 385,
+       "n": 996
+      },
+      "HINDI_DEVANAGARI": {
+       "k": 573,
+       "n": 1054
+      },
+      "MARATHI_DEVANAGARI": {
+       "k": 562,
+       "n": 968
+      },
+      "ROMANISED_MARATHI": {
+       "k": 410,
+       "n": 983
+      }
+     },
+     "double": {
+      "MARATHI_DEVANAGARI": {
+       "k": 154,
+       "n": 460
+      },
+      "ROMANISED_MARATHI": {
+       "k": 100,
+       "n": 513
+      },
+      "ROMANISED_HINDI": {
+       "k": 89,
+       "n": 524
+      },
+      "ENGLISH": {
+       "k": 51,
+       "n": 507
+      },
+      "HINDI_DEVANAGARI": {
+       "k": 126,
+       "n": 496
+      }
+     }
+    },
+    "byCategory": {
+     "single": {
+      "FIRE": {
+       "k": 366,
+       "n": 634
+      },
+      "MEDICAL_VIOLENCE": {
+       "k": 980,
+       "n": 2382
+      },
+      "GAS": {
+       "k": 394,
+       "n": 550
+      },
+      "LIFT_STUCK": {
+       "k": 283,
+       "n": 714
+      },
+      "SHOCK": {
+       "k": 327,
+       "n": 720
+      }
+     },
+     "double": {
+      "SHOCK": {
+       "k": 64,
+       "n": 344
+      },
+      "MEDICAL_VIOLENCE": {
+       "k": 175,
+       "n": 1200
+      },
+      "GAS": {
+       "k": 145,
+       "n": 296
+      },
+      "FIRE": {
+       "k": 93,
+       "n": 298
+      },
+      "LIFT_STUCK": {
+       "k": 43,
+       "n": 362
+      }
+     }
+    },
+    "falseAlarmsByGroup": {
+     "GENERATED": {
+      "k": 0,
+      "n": 1262
+     },
+     "NEAR_MISS": {
+      "k": 52,
+      "n": 249
+     },
+     "EXISTING": {
+      "k": 0,
+      "n": 97
+     }
+    }
+   }
+  ],
+  "holdout": [
+   {
+    "digests": {
+     "9301": "90c3f1552f7855b66e3707cca0e8a7c891dd47baa9c75178c793789e3fd5f3df",
+     "9302": "bed50911e8d3a9166ef9a6a7ee8d654c34888c7124616bd0b7cd181e713166ec",
+     "9303": "fc9992fc99276bd5593da141c23fca414570faee4d00e66122a495363e27f3c9",
+     "9304": "ce44247ddf937cbaad1d8fecfc6ba66d8a0199965ca4a2b5d00274582d5ebe90",
+     "9305": "5a7bc31af8e781234158244b63a93226a69d6fd10b14e61b6abe9e42b47711c0"
+    },
+    "setDigest": "117541b051e1a4b1fd82c1f593b3e24a156c9a5413cc7d900e56587551937f9f",
+    "generatorVersion": "safety-perturb-1",
+    "headline": {
+     "single": {
+      "k": 1799,
+      "n": 5000
+     },
+     "double": {
+      "k": 438,
+      "n": 2500
+     },
+     "falseAlarm": {
+      "k": 55,
+      "n": 1595
+     }
+    },
+    "byOperation": {
+     "single": {
+      "SUBSTITUTE_NEIGHBOUR": {
+       "k": 28,
+       "n": 299
+      },
+      "DOUBLE_CONSONANT": {
+       "k": 143,
+       "n": 468
+      },
+      "SWAP_ADJACENT": {
+       "k": 34,
+       "n": 285
+      },
+      "ELONGATE_VOWEL": {
+       "k": 54,
+       "n": 301
+      },
+      "CHANDRABINDU_ANUSVARA": {
+       "k": 76,
+       "n": 76
+      },
+      "RANDOM_CASE": {
+       "k": 278,
+       "n": 278
+      },
+      "SWAP_VOWEL_LENGTH": {
+       "k": 61,
+       "n": 228
+      },
+      "DROP_LETTER": {
+       "k": 51,
+       "n": 300
+      },
+      "NUKTA_TOGGLE": {
+       "k": 344,
+       "n": 344
+      },
+      "INSERT_JOINER": {
+       "k": 463,
+       "n": 463
+      },
+      "DROP_VOWEL_SIGN": {
+       "k": 60,
+       "n": 391
+      },
+      "INSERT_SEPARATOR": {
+       "k": 51,
+       "n": 322
+      },
+      "LEET": {
+       "k": 18,
+       "n": 285
+      },
+      "REMOVE_SPACES": {
+       "k": 2,
+       "n": 196
+      },
+      "INSERT_NEIGHBOUR": {
+       "k": 31,
+       "n": 282
+      },
+      "DOUBLE_LETTER": {
+       "k": 54,
+       "n": 292
+      },
+      "ROMANISATION_VARIANT": {
+       "k": 51,
+       "n": 190
+      }
+     },
+     "double": {
+      "SWAP_VOWEL_LENGTH": {
+       "k": 39,
+       "n": 230
+      },
+      "DROP_VOWEL_SIGN": {
+       "k": 67,
+       "n": 410
+      },
+      "LEET": {
+       "k": 4,
+       "n": 296
+      },
+      "SUBSTITUTE_NEIGHBOUR": {
+       "k": 18,
+       "n": 295
+      },
+      "DROP_LETTER": {
+       "k": 23,
+       "n": 303
+      },
+      "SWAP_ADJACENT": {
+       "k": 22,
+       "n": 291
+      },
+      "INSERT_NEIGHBOUR": {
+       "k": 16,
+       "n": 314
+      },
+      "RANDOM_CASE": {
+       "k": 38,
+       "n": 288
+      },
+      "INSERT_JOINER": {
+       "k": 205,
+       "n": 468
+      },
+      "NUKTA_TOGGLE": {
+       "k": 189,
+       "n": 332
+      },
+      "DOUBLE_CONSONANT": {
+       "k": 117,
+       "n": 462
+      },
+      "REMOVE_SPACES": {
+       "k": 1,
+       "n": 183
+      },
+      "INSERT_SEPARATOR": {
+       "k": 33,
+       "n": 298
+      },
+      "DOUBLE_LETTER": {
+       "k": 22,
+       "n": 294
+      },
+      "CHANDRABINDU_ANUSVARA": {
+       "k": 45,
+       "n": 82
+      },
+      "ROMANISATION_VARIANT": {
+       "k": 17,
+       "n": 194
+      },
+      "ELONGATE_VOWEL": {
+       "k": 20,
+       "n": 260
+      }
+     }
+    },
+    "byForm": {
+     "single": {
+      "ROMANISED_MARATHI": {
+       "k": 225,
+       "n": 985
+      },
+      "HINDI_DEVANAGARI": {
+       "k": 556,
+       "n": 967
+      },
+      "MARATHI_DEVANAGARI": {
+       "k": 591,
+       "n": 1003
+      },
+      "ENGLISH": {
+       "k": 216,
+       "n": 1061
+      },
+      "ROMANISED_HINDI": {
+       "k": 211,
+       "n": 984
+      }
+     },
+     "double": {
+      "HINDI_DEVANAGARI": {
+       "k": 145,
+       "n": 473
+      },
+      "ROMANISED_HINDI": {
+       "k": 38,
+       "n": 502
+      },
+      "ENGLISH": {
+       "k": 37,
+       "n": 501
+      },
+      "MARATHI_DEVANAGARI": {
+       "k": 186,
+       "n": 519
+      },
+      "ROMANISED_MARATHI": {
+       "k": 32,
+       "n": 505
+      }
+     }
+    },
+    "byCategory": {
+     "single": {
+      "MEDICAL_VIOLENCE": {
+       "k": 650,
+       "n": 2318
+      },
+      "FIRE": {
+       "k": 287,
+       "n": 643
+      },
+      "GAS": {
+       "k": 403,
+       "n": 606
+      },
+      "LIFT_STUCK": {
+       "k": 192,
+       "n": 702
+      },
+      "SHOCK": {
+       "k": 267,
+       "n": 731
+      }
+     },
+     "double": {
+      "LIFT_STUCK": {
+       "k": 30,
+       "n": 338
+      },
+      "MEDICAL_VIOLENCE": {
+       "k": 119,
+       "n": 1194
+      },
+      "GAS": {
+       "k": 121,
+       "n": 296
+      },
+      "SHOCK": {
+       "k": 103,
+       "n": 394
+      },
+      "FIRE": {
+       "k": 65,
+       "n": 278
+      }
+     }
+    },
+    "falseAlarmsByGroup": {
+     "GENERATED": {
+      "k": 0,
+      "n": 1250
+     },
+     "NEAR_MISS": {
+      "k": 55,
+      "n": 248
+     },
+     "EXISTING": {
+      "k": 0,
+      "n": 97
+     }
+    }
+   },
+   {
+    "digests": {
+     "9301": "90c3f1552f7855b66e3707cca0e8a7c891dd47baa9c75178c793789e3fd5f3df",
+     "9302": "bed50911e8d3a9166ef9a6a7ee8d654c34888c7124616bd0b7cd181e713166ec",
+     "9303": "fc9992fc99276bd5593da141c23fca414570faee4d00e66122a495363e27f3c9",
+     "9304": "ce44247ddf937cbaad1d8fecfc6ba66d8a0199965ca4a2b5d00274582d5ebe90",
+     "9305": "5a7bc31af8e781234158244b63a93226a69d6fd10b14e61b6abe9e42b47711c0"
+    },
+    "setDigest": "117541b051e1a4b1fd82c1f593b3e24a156c9a5413cc7d900e56587551937f9f",
+    "generatorVersion": "safety-perturb-1",
+    "headline": {
+     "single": {
+      "k": 1761,
+      "n": 5000
+     },
+     "double": {
+      "k": 404,
+      "n": 2500
+     },
+     "falseAlarm": {
+      "k": 48,
+      "n": 1595
+     }
+    },
+    "byOperation": {
+     "single": {
+      "SUBSTITUTE_NEIGHBOUR": {
+       "k": 28,
+       "n": 299
+      },
+      "DOUBLE_CONSONANT": {
+       "k": 133,
+       "n": 468
+      },
+      "SWAP_ADJACENT": {
+       "k": 34,
+       "n": 285
+      },
+      "ELONGATE_VOWEL": {
+       "k": 54,
+       "n": 301
+      },
+      "CHANDRABINDU_ANUSVARA": {
+       "k": 70,
+       "n": 76
+      },
+      "RANDOM_CASE": {
+       "k": 277,
+       "n": 278
+      },
+      "SWAP_VOWEL_LENGTH": {
+       "k": 59,
+       "n": 228
+      },
+      "DROP_LETTER": {
+       "k": 51,
+       "n": 300
+      },
+      "NUKTA_TOGGLE": {
+       "k": 338,
+       "n": 344
+      },
+      "INSERT_JOINER": {
+       "k": 455,
+       "n": 463
+      },
+      "DROP_VOWEL_SIGN": {
+       "k": 55,
+       "n": 391
+      },
+      "INSERT_SEPARATOR": {
+       "k": 51,
+       "n": 322
+      },
+      "LEET": {
+       "k": 18,
+       "n": 285
+      },
+      "REMOVE_SPACES": {
+       "k": 2,
+       "n": 196
+      },
+      "INSERT_NEIGHBOUR": {
+       "k": 31,
+       "n": 282
+      },
+      "DOUBLE_LETTER": {
+       "k": 54,
+       "n": 292
+      },
+      "ROMANISATION_VARIANT": {
+       "k": 51,
+       "n": 190
+      }
+     },
+     "double": {
+      "SWAP_VOWEL_LENGTH": {
+       "k": 36,
+       "n": 230
+      },
+      "DROP_VOWEL_SIGN": {
+       "k": 55,
+       "n": 410
+      },
+      "LEET": {
+       "k": 4,
+       "n": 296
+      },
+      "SUBSTITUTE_NEIGHBOUR": {
+       "k": 18,
+       "n": 295
+      },
+      "DROP_LETTER": {
+       "k": 23,
+       "n": 303
+      },
+      "SWAP_ADJACENT": {
+       "k": 22,
+       "n": 291
+      },
+      "INSERT_NEIGHBOUR": {
+       "k": 16,
+       "n": 314
+      },
+      "RANDOM_CASE": {
+       "k": 38,
+       "n": 288
+      },
+      "INSERT_JOINER": {
+       "k": 191,
+       "n": 468
+      },
+      "NUKTA_TOGGLE": {
+       "k": 179,
+       "n": 332
+      },
+      "DOUBLE_CONSONANT": {
+       "k": 105,
+       "n": 462
+      },
+      "REMOVE_SPACES": {
+       "k": 1,
+       "n": 183
+      },
+      "INSERT_SEPARATOR": {
+       "k": 33,
+       "n": 298
+      },
+      "DOUBLE_LETTER": {
+       "k": 22,
+       "n": 294
+      },
+      "CHANDRABINDU_ANUSVARA": {
+       "k": 28,
+       "n": 82
+      },
+      "ROMANISATION_VARIANT": {
+       "k": 17,
+       "n": 194
+      },
+      "ELONGATE_VOWEL": {
+       "k": 20,
+       "n": 260
+      }
+     }
+    },
+    "byForm": {
+     "single": {
+      "ROMANISED_MARATHI": {
+       "k": 225,
+       "n": 985
+      },
+      "HINDI_DEVANAGARI": {
+       "k": 527,
+       "n": 967
+      },
+      "MARATHI_DEVANAGARI": {
+       "k": 583,
+       "n": 1003
+      },
+      "ENGLISH": {
+       "k": 216,
+       "n": 1061
+      },
+      "ROMANISED_HINDI": {
+       "k": 210,
+       "n": 984
+      }
+     },
+     "double": {
+      "HINDI_DEVANAGARI": {
+       "k": 123,
+       "n": 473
+      },
+      "ROMANISED_HINDI": {
+       "k": 38,
+       "n": 502
+      },
+      "ENGLISH": {
+       "k": 37,
+       "n": 501
+      },
+      "MARATHI_DEVANAGARI": {
+       "k": 174,
+       "n": 519
+      },
+      "ROMANISED_MARATHI": {
+       "k": 32,
+       "n": 505
+      }
+     }
+    },
+    "byCategory": {
+     "single": {
+      "MEDICAL_VIOLENCE": {
+       "k": 650,
+       "n": 2318
+      },
+      "FIRE": {
+       "k": 287,
+       "n": 643
+      },
+      "GAS": {
+       "k": 403,
+       "n": 606
+      },
+      "LIFT_STUCK": {
+       "k": 192,
+       "n": 702
+      },
+      "SHOCK": {
+       "k": 229,
+       "n": 731
+      }
+     },
+     "double": {
+      "LIFT_STUCK": {
+       "k": 30,
+       "n": 338
+      },
+      "MEDICAL_VIOLENCE": {
+       "k": 119,
+       "n": 1194
+      },
+      "GAS": {
+       "k": 121,
+       "n": 296
+      },
+      "SHOCK": {
+       "k": 69,
+       "n": 394
+      },
+      "FIRE": {
+       "k": 65,
+       "n": 278
+      }
+     }
+    },
+    "falseAlarmsByGroup": {
+     "GENERATED": {
+      "k": 0,
+      "n": 1250
+     },
+     "NEAR_MISS": {
+      "k": 48,
+      "n": 248
+     },
+     "EXISTING": {
+      "k": 0,
+      "n": 97
+     }
+    }
+   },
+   {
+    "digests": {
+     "9301": "90c3f1552f7855b66e3707cca0e8a7c891dd47baa9c75178c793789e3fd5f3df",
+     "9302": "bed50911e8d3a9166ef9a6a7ee8d654c34888c7124616bd0b7cd181e713166ec",
+     "9303": "fc9992fc99276bd5593da141c23fca414570faee4d00e66122a495363e27f3c9",
+     "9304": "ce44247ddf937cbaad1d8fecfc6ba66d8a0199965ca4a2b5d00274582d5ebe90",
+     "9305": "5a7bc31af8e781234158244b63a93226a69d6fd10b14e61b6abe9e42b47711c0"
+    },
+    "setDigest": "117541b051e1a4b1fd82c1f593b3e24a156c9a5413cc7d900e56587551937f9f",
+    "generatorVersion": "safety-perturb-1",
+    "headline": {
+     "single": {
+      "k": 2292,
+      "n": 5000
+     },
+     "double": {
+      "k": 503,
+      "n": 2500
+     },
+     "falseAlarm": {
+      "k": 48,
+      "n": 1595
+     }
+    },
+    "byOperation": {
+     "single": {
+      "SUBSTITUTE_NEIGHBOUR": {
+       "k": 28,
+       "n": 299
+      },
+      "DOUBLE_CONSONANT": {
+       "k": 133,
+       "n": 468
+      },
+      "SWAP_ADJACENT": {
+       "k": 34,
+       "n": 285
+      },
+      "ELONGATE_VOWEL": {
+       "k": 301,
+       "n": 301
+      },
+      "CHANDRABINDU_ANUSVARA": {
+       "k": 70,
+       "n": 76
+      },
+      "RANDOM_CASE": {
+       "k": 277,
+       "n": 278
+      },
+      "SWAP_VOWEL_LENGTH": {
+       "k": 59,
+       "n": 228
+      },
+      "DROP_LETTER": {
+       "k": 51,
+       "n": 300
+      },
+      "NUKTA_TOGGLE": {
+       "k": 338,
+       "n": 344
+      },
+      "INSERT_JOINER": {
+       "k": 455,
+       "n": 463
+      },
+      "DROP_VOWEL_SIGN": {
+       "k": 55,
+       "n": 391
+      },
+      "INSERT_SEPARATOR": {
+       "k": 51,
+       "n": 322
+      },
+      "LEET": {
+       "k": 270,
+       "n": 285
+      },
+      "REMOVE_SPACES": {
+       "k": 2,
+       "n": 196
+      },
+      "INSERT_NEIGHBOUR": {
+       "k": 32,
+       "n": 282
+      },
+      "DOUBLE_LETTER": {
+       "k": 81,
+       "n": 292
+      },
+      "ROMANISATION_VARIANT": {
+       "k": 55,
+       "n": 190
+      }
+     },
+     "double": {
+      "SWAP_VOWEL_LENGTH": {
+       "k": 36,
+       "n": 230
+      },
+      "DROP_VOWEL_SIGN": {
+       "k": 55,
+       "n": 410
+      },
+      "LEET": {
+       "k": 60,
+       "n": 296
+      },
+      "SUBSTITUTE_NEIGHBOUR": {
+       "k": 27,
+       "n": 295
+      },
+      "DROP_LETTER": {
+       "k": 34,
+       "n": 303
+      },
+      "SWAP_ADJACENT": {
+       "k": 28,
+       "n": 291
+      },
+      "INSERT_NEIGHBOUR": {
+       "k": 20,
+       "n": 314
+      },
+      "RANDOM_CASE": {
+       "k": 80,
+       "n": 288
+      },
+      "INSERT_JOINER": {
+       "k": 191,
+       "n": 468
+      },
+      "NUKTA_TOGGLE": {
+       "k": 179,
+       "n": 332
+      },
+      "DOUBLE_CONSONANT": {
+       "k": 105,
+       "n": 462
+      },
+      "REMOVE_SPACES": {
+       "k": 1,
+       "n": 183
+      },
+      "INSERT_SEPARATOR": {
+       "k": 36,
+       "n": 298
+      },
+      "DOUBLE_LETTER": {
+       "k": 34,
+       "n": 294
+      },
+      "CHANDRABINDU_ANUSVARA": {
+       "k": 28,
+       "n": 82
+      },
+      "ROMANISATION_VARIANT": {
+       "k": 30,
+       "n": 194
+      },
+      "ELONGATE_VOWEL": {
+       "k": 62,
+       "n": 260
+      }
+     }
+    },
+    "byForm": {
+     "single": {
+      "ROMANISED_MARATHI": {
+       "k": 383,
+       "n": 985
+      },
+      "HINDI_DEVANAGARI": {
+       "k": 527,
+       "n": 967
+      },
+      "MARATHI_DEVANAGARI": {
+       "k": 583,
+       "n": 1003
+      },
+      "ENGLISH": {
+       "k": 417,
+       "n": 1061
+      },
+      "ROMANISED_HINDI": {
+       "k": 382,
+       "n": 984
+      }
+     },
+     "double": {
+      "HINDI_DEVANAGARI": {
+       "k": 123,
+       "n": 473
+      },
+      "ROMANISED_HINDI": {
+       "k": 73,
+       "n": 502
+      },
+      "ENGLISH": {
+       "k": 61,
+       "n": 501
+      },
+      "MARATHI_DEVANAGARI": {
+       "k": 174,
+       "n": 519
+      },
+      "ROMANISED_MARATHI": {
+       "k": 72,
+       "n": 505
+      }
+     }
+    },
+    "byCategory": {
+     "single": {
+      "MEDICAL_VIOLENCE": {
+       "k": 937,
+       "n": 2318
+      },
+      "FIRE": {
+       "k": 350,
+       "n": 643
+      },
+      "GAS": {
+       "k": 442,
+       "n": 606
+      },
+      "LIFT_STUCK": {
+       "k": 274,
+       "n": 702
+      },
+      "SHOCK": {
+       "k": 289,
+       "n": 731
+      }
+     },
+     "double": {
+      "LIFT_STUCK": {
+       "k": 36,
+       "n": 338
+      },
+      "MEDICAL_VIOLENCE": {
+       "k": 163,
+       "n": 1194
+      },
+      "GAS": {
+       "k": 140,
+       "n": 296
+      },
+      "SHOCK": {
+       "k": 84,
+       "n": 394
+      },
+      "FIRE": {
+       "k": 80,
+       "n": 278
+      }
+     }
+    },
+    "falseAlarmsByGroup": {
+     "GENERATED": {
+      "k": 0,
+      "n": 1250
+     },
+     "NEAR_MISS": {
+      "k": 48,
+      "n": 248
+     },
+     "EXISTING": {
+      "k": 0,
+      "n": 97
+     }
+    }
+   }
+  ]
+ },
+ "everyday": {
+  "groupSize": {
+   "everyday": 302,
+   "ambiguous": 12
+  },
+  "hits": {
+   "everyday": [
+    88,
+    71,
+    71
+   ],
+   "ambiguous": [
+    9,
+    9,
+    9
+   ]
+  },
+  "hitsThroughABareCurrentRule": [
+   17,
+   0,
+   0
+  ]
+ }
+}

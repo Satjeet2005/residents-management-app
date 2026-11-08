@@ -4,6 +4,10 @@ Seeds 301 to 305. Each seed makes 1,000 single-operation items, 500 double-opera
 synthetic and fictional, by `src/domain/complaints/safety-benchmark` (generator version `safety-perturb-1`). The detector is measured as it is;
 nothing here changes it (D162).
 
+**Re-baselined in T10c.** The detector was then changed twice on purpose (D169 in commit `e16ee78`, D168 in commit `fe89698`), so this folder's `expected.json` was rewritten
+with the new detector's numbers each time. The texts, digests and generator version did not change. The numbers at the three states (baseline, after D169, after D168)
+are in `../history.json`, checked by `safety-benchmark/history.test.ts`.
+
 | File | What it is |
 |---|---|
 | `expected.json` | The seeds, sizes and generator version; a SHA-256 digest of every seed's generated texts and truths; the integer tallies of every seed and of the existing safety-test negatives; the pooled numbers (recall with 95 percent Wilson intervals by category, language form, operation, rule and base phrase, the false-alarm rate, the 25 most fragile rules) |

@@ -8,3 +8,7 @@ generator, the base phrases, the contexts, the negatives or the detector (D163).
 `tests/domain/complaints/safety-benchmark/holdout.test.ts` regenerates the set and fails on any difference in digest, counts, sample or
 metric (recomputed with the current detector). Do not regenerate this set to "improve" a number: a set that has been tuned against is no longer a holdout.
 The method and results are in `docs/safety-benchmark.md`.
+
+**Reused since T10c (D168, D169).** This holdout was visible before the detector was improved, so after the change it is NOT independent evidence of the improvement. Its
+`expected.json` was rewritten with the new detector's numbers (the texts and digests are unchanged) so the drift test stays green; the three states are in `../history.json`.
+The independent run is the new holdout in `../holdout2/` (seeds 9401 to 9405).
