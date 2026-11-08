@@ -816,6 +816,7 @@ export const en = {
   "committee.headline.complaintsNone": "None raised this month",
   "committee.headline.bank": "{n} of {d} rows posted automatically",
   "committee.headline.bankNone": "No bank statement in the last 30 days",
+  "committee.chart.table": "Show as a table",
   "committee.loading": "Loading the committee report",
   "committee.errorPage.message": "We could not load the report.",
   "committee.errorPage.consequence": "Nothing was changed: the report only reads. You can try again.",
