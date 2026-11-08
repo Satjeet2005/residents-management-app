@@ -33,7 +33,9 @@ export function buildBase(): BaseList {
     if (seen.has(key)) continue;
     seen.add(key);
     const rule = ruleById.get(ruleId);
-    if (rule === undefined || !detectSafetyWords(text).some((h) => h.rule === ruleId)) {
+    // A bare current term hits only with a shock word (D169), but it stays a base phrase: the base list does not change with the detector.
+    const needsContext = rule?.needsShockContext?.includes(text) === true;
+    if (rule === undefined || (!needsContext && !detectSafetyWords(text).some((h) => h.rule === ruleId))) {
       dropped.push({ text, ruleId, source });
       continue;
     }

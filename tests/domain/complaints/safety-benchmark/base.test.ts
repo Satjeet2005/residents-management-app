@@ -19,7 +19,9 @@ describe("SB1 base phrases", () => {
 
   it("every base phrase is detected unperturbed, by the rule it names, with that rule's category", () => {
     for (const phrase of base.phrases) {
-      const hit = detectSafetyWords(phrase.text).find((h) => h.rule === phrase.ruleId);
+      // A bare current term (D169) is detected with a shock word beside it, so the check gives it one.
+      const bare = SAFETY_RULES.find((r) => r.id === phrase.ruleId)?.needsShockContext?.includes(phrase.text) === true;
+      const hit = detectSafetyWords(bare ? `${phrase.text} laga` : phrase.text).find((h) => h.rule === phrase.ruleId);
       expect(hit, `${phrase.ruleId} ${phrase.text}`).toBeDefined();
       expect(hit?.category).toBe(phrase.category);
     }

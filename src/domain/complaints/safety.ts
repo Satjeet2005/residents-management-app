@@ -11,9 +11,26 @@ export type SafetyHit = { rule: string; category: SafetyCategory; language: Safe
  * STEM: only the start must be a word start; the word may go on: a Devanagari stem covers its inflections (अडकल covers अडकली, अडकलो, अडकले).
  */
 type Kind = MatchKind;
-type Rule = { id: string; category: SafetyCategory; language: SafetyLanguage; kind: Kind; terms: readonly string[]; except?: RegExp };
+type Rule = {
+  id: string;
+  category: SafetyCategory;
+  language: SafetyLanguage;
+  kind: Kind;
+  terms: readonly string[];
+  except?: RegExp;
+  /** Terms of `terms` that name only the electricity "current" (a bare करंट or "current"): they hit only when the same text has a shock word (D169). */
+  needsShockContext?: readonly string[];
+};
 
-const rule = (id: string, category: SafetyCategory, language: SafetyLanguage, kind: Kind, terms: readonly string[], except?: RegExp): Rule => ({ id, category, language, kind, terms, except });
+const rule = (id: string, category: SafetyCategory, language: SafetyLanguage, kind: Kind, terms: readonly string[], except?: RegExp, needsShockContext?: readonly string[]): Rule => ({
+  id,
+  category,
+  language,
+  kind,
+  terms,
+  except,
+  needsShockContext,
+});
 
 /**
  * THE RULES. HIGH RECALL over precision: a missed fire is worse than a false alarm, so a rule may also hit a sentence that is not an incident
@@ -93,19 +110,19 @@ export const SAFETY_RULES: readonly Rule[] = [
   rule("SHOCK_EN_CURRENT", "SHOCK", "en", "WORD", ["live wire", "live wires", "exposed wire", "exposed wires", "naked wire", "current passing", "wire sparking", "open wire"]),
   rule("SHOCK_EN_TOUCH", "SHOCK", "en", "WORD", ["get shock", "getting shock", "giving shock", "gives shock", "giving current", "gives current", "wall is giving current", "body is getting current"]),
   rule("SHOCK_EN_EARTH", "SHOCK", "en", "WORD", ["no earthing", "earthing problem", "earth leakage", "current in the tap", "current in the wall", "current in the railing"]),
-  rule("SHOCK_HI_KARANT", "SHOCK", "hi", "STEM", ["करंट", "करेंट", "करंट लगा", "करंट लग", "करेंट लग", "करंट आ रहा"]),
+  rule("SHOCK_HI_KARANT", "SHOCK", "hi", "STEM", ["करंट", "करेंट", "करंट लगा", "करंट लग", "करेंट लग", "करंट आ रहा"], undefined, ["करंट", "करेंट", "करंट आ रहा"]),
   rule("SHOCK_HI_JHATKA", "SHOCK", "hi", "STEM", ["बिजली का झटका", "बिजली के झटके", "बिजली झटका", "बिजली का झटका लगा", "बिजली का शॉक"]),
   rule("SHOCK_HI_SHOCK", "SHOCK", "hi", "STEM", ["शॉक", "शाक लग", "शॉक लगा", "इलेक्ट्रिक शॉक", "शौक लगा"]),
   rule("SHOCK_HI_TAR", "SHOCK", "hi", "STEM", ["नंगा तार", "खुला तार", "टूटा तार", "तार टूट", "बिजली का नंगा", "खुले तार"]),
-  rule("SHOCK_HI_LAG", "SHOCK", "hi", "STEM", ["बिजली लग", "बिजली का करंट", "करंट आ", "दीवार में करंट", "नल में करंट", "पानी में करंट"]),
+  rule("SHOCK_HI_LAG", "SHOCK", "hi", "STEM", ["बिजली लग", "बिजली का करंट", "करंट आ", "दीवार में करंट", "नल में करंट", "पानी में करंट"], undefined, ["बिजली का करंट", "करंट आ"]),
   rule("SHOCK_MR_DHAKKA", "SHOCK", "mr", "STEM", ["विजेचा धक्का", "विजेचा झटका", "विजेचा शॉक", "वीज धक्का", "वीजेचा धक्का", "विजेचे धक्के"]),
-  rule("SHOCK_MR_KARANT", "SHOCK", "mr", "STEM", ["करंट", "करंट लागला", "करंट लागत", "करंट आला", "करेंट लागला"]),
+  rule("SHOCK_MR_KARANT", "SHOCK", "mr", "STEM", ["करंट", "करंट लागला", "करंट लागत", "करंट आला", "करेंट लागला"], undefined, ["करंट", "करंट आला"]),
   rule("SHOCK_MR_SHOCK", "SHOCK", "mr", "STEM", ["शॉक", "शॉक लागला", "शॉक बसला", "शॉक बसत", "शॉक लागत"]),
   rule("SHOCK_MR_BASLA", "SHOCK", "mr", "STEM", ["वीज लागली", "वीज लागल", "विजेचा झटका बसला", "धक्का बसला विजे"]),
   rule("SHOCK_MR_WIRE", "SHOCK", "mr", "STEM", ["उघडी वायर", "उघड्या वायर", "वायर तुटली", "तार तुटली", "उघडी तार", "उघडा तार"]),
   rule("SHOCK_HI_LATN_SHOCK", "SHOCK", "hi-Latn", "WORD", ["shock laga", "shock lag", "shock lagi", "shock lagta", "shock mara", "shock lag gaya"]),
-  rule("SHOCK_HI_LATN_CURRENT", "SHOCK", "hi-Latn", "WORD", ["current laga", "current lag", "current lagta", "current aa raha", "current aata", "karant laga", "karant lag", "karent laga", "current maar"]),
-  rule("SHOCK_HI_LATN_JHATKA", "SHOCK", "hi-Latn", "WORD", ["bijli ka jhatka", "bijli ka jhatke", "bijli ka jhatka laga", "bijli lag", "bijli lag gayi", "bijli ka current"]),
+  rule("SHOCK_HI_LATN_CURRENT", "SHOCK", "hi-Latn", "WORD", ["current laga", "current lag", "current lagta", "current aa raha", "current aata", "karant laga", "karant lag", "karent laga", "current maar"], undefined, ["current aa raha", "current aata"]),
+  rule("SHOCK_HI_LATN_JHATKA", "SHOCK", "hi-Latn", "WORD", ["bijli ka jhatka", "bijli ka jhatke", "bijli ka jhatka laga", "bijli lag", "bijli lag gayi", "bijli ka current"], undefined, ["bijli ka current"]),
   rule("SHOCK_HI_LATN_TAAR", "SHOCK", "hi-Latn", "WORD", ["nanga taar", "nange taar", "khula taar", "khule taar", "taar toot", "taar tuta"]),
   rule("SHOCK_MR_LATN_DHAKKA", "SHOCK", "mr-Latn", "WORD", ["vijecha dhakka", "viji cha dhakka", "vijecha shock", "current laagla", "current lagla", "shock laagla", "shock baisla", "karant laagla"]),
   rule("SHOCK_MR_LATN_WIRE", "SHOCK", "mr-Latn", "WORD", ["ughadi tar", "ughadi wire", "wire tutli", "tar tutli", "ughdi wire"]),
@@ -164,37 +181,64 @@ export const SAFETY_RULES: readonly Rule[] = [
 
 const LETTER_OR_MARK_OR_DIGIT = /[\p{L}\p{M}\p{N}]/u;
 
-type Compiled = Rule & { pattern: RegExp };
+/**
+ * The words that make a bare "current" a shock (D169): the text must also hold one of them. Latin (Hindi and Marathi typed in English letters
+ * included) and Devanagari, whole words only ("लगातार" is not "लगा"). Every term that already names the shock itself ("current laga") needs no help.
+ */
+export const SHOCK_CONTEXT = compileTerms(
+  [
+    "laga", "lagla", "laagla", "lage", "lagta", "shock", "shocks", "jhatka", "jhatke", "zatka", "dhakka", "dhakke", "basla", "touched", "touching", "electrocuted", "chhune", "chhoone",
+    "लगा", "लागला", "झटका", "झटके", "धक्का", "धक्के", "स्पर्श", "शॉक", "छूने", "छूते", "छुआ",
+  ],
+  "WORD",
+);
 
-const COMPILED: readonly Compiled[] = SAFETY_RULES.map((r) => ({
-  ...r,
-  pattern: compileTerms(r.terms, r.kind),
-}));
+type Compiled = Rule & { pattern: RegExp; barePattern: RegExp | null };
+
+const COMPILED: readonly Compiled[] = SAFETY_RULES.map((r) => {
+  const bare = r.needsShockContext ?? [];
+  return {
+    ...r,
+    pattern: compileTerms(r.terms.filter((t) => !bare.includes(t)), r.kind),
+    barePattern: bare.length === 0 ? null : compileTerms(bare, r.kind),
+  };
+});
+
+/** The first match of a pattern in the text that the rule's exception does not cancel, or null. */
+function firstMatch(pattern: RegExp, except: RegExp | undefined, text: string): string | null {
+  pattern.lastIndex = 0;
+  for (const match of text.matchAll(pattern)) {
+    if (except !== undefined) {
+      const start = match.index ?? 0;
+      let end = start + match[0].length;
+      while (end < text.length && LETTER_OR_MARK_OR_DIGIT.test(text[end])) end += 1;
+      if (except.test(text.slice(start, end))) continue;
+    }
+    return match[0];
+  }
+  return null;
+}
 
 /**
  * Safety words in a complaint, as one hit per rule that matches (never more). The text is normalised first (NFC, zero-width characters out,
  * Devanagari digits to ASCII, 2,000 characters), lower-cased for Latin letters and folded for Devanagari, and the ORIGINAL words are what is
  * read: a translation is never used. `matched` is the matched text after that folding.
  *
- * It never throws and has no state. It has NO negation handling, so "no fire" and "fire exit" hit: for a safety rule a false alarm is cheaper than
+ * A bare "current" or करंट (the electricity of a bill or a power cut) hits only when the text also has a shock word (D169). It never throws and has no state. It has NO negation handling, so "no fire" and "fire exit" hit: for a safety rule a false alarm is cheaper than
  * a missed fire. Known accepted false positives are listed in tests/domain/complaints/safety.test.ts and docs/complaint-classification.md.
  */
 export function detectSafetyWords(raw: string): SafetyHit[] {
   const text = foldForMatching(normalizeComplaintText(raw));
   if (text === "") return [];
   const hits: SafetyHit[] = [];
+  let shockContext: boolean | undefined;
   for (const compiled of COMPILED) {
-    compiled.pattern.lastIndex = 0;
-    for (const match of text.matchAll(compiled.pattern)) {
-      const start = match.index ?? 0;
-      if (compiled.except !== undefined) {
-        let end = start + match[0].length;
-        while (end < text.length && LETTER_OR_MARK_OR_DIGIT.test(text[end])) end += 1;
-        if (compiled.except.test(text.slice(start, end))) continue;
-      }
-      hits.push({ rule: compiled.id, category: compiled.category, language: compiled.language, matched: match[0] });
-      break;
+    let matched = firstMatch(compiled.pattern, compiled.except, text);
+    if (matched === null && compiled.barePattern !== null) {
+      shockContext ??= firstMatch(SHOCK_CONTEXT, undefined, text) !== null;
+      if (shockContext) matched = firstMatch(compiled.barePattern, compiled.except, text);
     }
+    if (matched !== null) hits.push({ rule: compiled.id, category: compiled.category, language: compiled.language, matched });
   }
   return hits;
 }

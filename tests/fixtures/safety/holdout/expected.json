@@ -57,11 +57,11 @@
   "9301": {
    "overall": {
     "single": {
-     "k": 343,
+     "k": 327,
      "n": 1000
     },
     "double": {
-     "k": 96,
+     "k": 86,
      "n": 500
     }
    },
@@ -84,7 +84,7 @@
       "n": 140
      },
      "SHOCK": {
-      "k": 56,
+      "k": 40,
       "n": 151
      }
     },
@@ -102,7 +102,7 @@
       "n": 68
      },
      "SHOCK": {
-      "k": 25,
+      "k": 15,
       "n": 87
      },
      "FIRE": {
@@ -118,11 +118,11 @@
       "n": 218
      },
      "HINDI_DEVANAGARI": {
-      "k": 118,
+      "k": 105,
       "n": 203
      },
      "MARATHI_DEVANAGARI": {
-      "k": 84,
+      "k": 81,
       "n": 168
      },
      "ENGLISH": {
@@ -136,7 +136,7 @@
     },
     "double": {
      "HINDI_DEVANAGARI": {
-      "k": 33,
+      "k": 26,
       "n": 105
      },
      "ROMANISED_HINDI": {
@@ -148,7 +148,7 @@
       "n": 108
      },
      "MARATHI_DEVANAGARI": {
-      "k": 36,
+      "k": 33,
       "n": 107
      },
      "ROMANISED_MARATHI": {
@@ -164,7 +164,7 @@
       "n": 68
      },
      "DOUBLE_CONSONANT": {
-      "k": 25,
+      "k": 20,
       "n": 99
      },
      "SWAP_ADJACENT": {
@@ -176,7 +176,7 @@
       "n": 56
      },
      "CHANDRABINDU_ANUSVARA": {
-      "k": 10,
+      "k": 9,
       "n": 10
      },
      "RANDOM_CASE": {
@@ -184,7 +184,7 @@
       "n": 54
      },
      "SWAP_VOWEL_LENGTH": {
-      "k": 13,
+      "k": 11,
       "n": 46
      },
      "DROP_LETTER": {
@@ -192,15 +192,15 @@
       "n": 55
      },
      "NUKTA_TOGGLE": {
-      "k": 65,
+      "k": 61,
       "n": 65
      },
      "INSERT_JOINER": {
-      "k": 79,
+      "k": 77,
       "n": 79
      },
      "DROP_VOWEL_SIGN": {
-      "k": 10,
+      "k": 8,
       "n": 72
      },
      "INSERT_SEPARATOR": {
@@ -234,7 +234,7 @@
       "n": 55
      },
      "DROP_VOWEL_SIGN": {
-      "k": 18,
+      "k": 14,
       "n": 89
      },
      "LEET": {
@@ -262,15 +262,15 @@
       "n": 60
      },
      "INSERT_JOINER": {
-      "k": 36,
+      "k": 33,
       "n": 96
      },
      "NUKTA_TOGGLE": {
-      "k": 35,
+      "k": 31,
       "n": 63
      },
      "DOUBLE_CONSONANT": {
-      "k": 32,
+      "k": 28,
       "n": 103
      },
      "REMOVE_SPACES": {
@@ -286,7 +286,7 @@
       "n": 56
      },
      "CHANDRABINDU_ANUSVARA": {
-      "k": 10,
+      "k": 5,
       "n": 18
      },
      "ROMANISATION_VARIANT": {
@@ -329,7 +329,7 @@
      "n": 8
     },
     "SHOCK_HI_LAG": {
-     "k": 9,
+     "k": 3,
      "n": 10
     },
     "GAS_MR_LATN_LEAK": {
@@ -345,7 +345,7 @@
      "n": 17
     },
     "SHOCK_HI_KARANT": {
-     "k": 16,
+     "k": 2,
      "n": 18
     },
     "MV_HI_KHOON": {
@@ -597,7 +597,7 @@
      "n": 17
     },
     "SHOCK_MR_KARANT": {
-     "k": 8,
+     "k": 2,
      "n": 8
     },
     "MV_MR_JAKHMI": {
@@ -851,7 +851,7 @@
      "n": 2
     },
     "SHOCK_HI_LAG|दीवार में करंट": {
-     "k": 2,
+     "k": 1,
      "n": 2
     },
     "GAS_MR_LATN_LEAK|gas gal": {
@@ -867,11 +867,11 @@
      "n": 2
     },
     "SHOCK_HI_KARANT|करंट": {
-     "k": 4,
+     "k": 0,
      "n": 4
     },
     "SHOCK_HI_KARANT|करेंट": {
-     "k": 5,
+     "k": 0,
      "n": 5
     },
     "MV_HI_KHOON|लहूलुहान": {
@@ -931,7 +931,7 @@
      "n": 1
     },
     "SHOCK_HI_LAG|बिजली का करंट": {
-     "k": 2,
+     "k": 0,
      "n": 2
     },
     "MV_HI_LATN_GHAYAL|sar mein chot": {
@@ -1099,7 +1099,7 @@
      "n": 1
     },
     "SHOCK_HI_KARANT|करंट लगा": {
-     "k": 2,
+     "k": 1,
      "n": 2
     },
     "FIRE_MR_AGNI|अग्नी": {
@@ -1339,7 +1339,7 @@
      "n": 2
     },
     "SHOCK_MR_KARANT|करंट": {
-     "k": 2,
+     "k": 0,
      "n": 2
     },
     "FIRE_HI_LATN_DHUAN|dhuwan": {
@@ -1875,7 +1875,7 @@
      "n": 2
     },
     "SHOCK_MR_KARANT|करेंट लागला": {
-     "k": 3,
+     "k": 1,
      "n": 3
     },
     "MV_MR_LATN_DROWN_KIDNAP|budali": {
@@ -2111,7 +2111,7 @@
      "n": 1
     },
     "SHOCK_HI_LAG|करंट आ": {
-     "k": 2,
+     "k": 0,
      "n": 2
     },
     "GAS_HI_CYLINDER|पीएनजी": {
@@ -2559,7 +2559,7 @@
      "n": 2
     },
     "SHOCK_HI_KARANT|करंट आ रहा": {
-     "k": 4,
+     "k": 0,
      "n": 5
     },
     "MV_HI_LATN_WEAPON|talwar": {
@@ -3071,7 +3071,7 @@
      "n": 1
     },
     "SHOCK_HI_LAG|पानी में करंट": {
-     "k": 2,
+     "k": 1,
      "n": 3
     },
     "GAS_HI_LATN_SMELL|gas ka smell": {
@@ -3503,7 +3503,7 @@
      "n": 1
     },
     "SHOCK_MR_KARANT|करंट आला": {
-     "k": 1,
+     "k": 0,
      "n": 1
     },
     "MV_MR_DROWN_KIDNAP|बुडाली": {
@@ -3567,7 +3567,7 @@
      "n": 1
     },
     "SHOCK_MR_KARANT|करंट लागला": {
-     "k": 1,
+     "k": 0,
      "n": 1
     },
     "FIRE_HI_LATN_DHUAN|dhuaan": {
@@ -3689,7 +3689,7 @@
      ]
     },
     "single|HINDI_DEVANAGARI|DOUBLE_CONSONANT": {
-     "n": 35,
+     "n": 39,
      "examples": [
       "सर, जजलने आज सुबह से।",
       "सूचना: धधुंआ आज सुबह से।",
@@ -3713,11 +3713,19 @@
      ]
     },
     "single|MARATHI_DEVANAGARI|DOUBLE_CONSONANT": {
-     "n": 39,
+     "n": 40,
      "examples": [
       "कृपया लवकर या, फाययर बेसमेंटमध्ये.",
       "साहेब, कोयतता ब्लॉक सी जवळ.",
       "फ्लॅट 502 कडून निरोप: धक्का बसला वविजे बेसमेंटमध्ये."
+     ]
+    },
+    "single|HINDI_DEVANAGARI|SWAP_VOWEL_LENGTH": {
+     "n": 22,
+     "examples": [
+      "ज़रूरी: दिवार में करंट पाँचवीं मंज़िल पर।",
+      "सुप्रभात, यहाँ सिने में दर्द पाँचवीं मंज़िल पर।",
+      "कृपया जल्दी आइए, बीजली का करंट ब्लॉक सी के पास।"
      ]
     },
     "single|ENGLISH|DROP_LETTER": {
@@ -3728,12 +3736,12 @@
       "Message from flat 502: eapons near block C."
      ]
     },
-    "single|HINDI_DEVANAGARI|SWAP_VOWEL_LENGTH": {
-     "n": 20,
+    "single|HINDI_DEVANAGARI|NUKTA_TOGGLE": {
+     "n": 4,
      "examples": [
-      "सुप्रभात, यहाँ सिने में दर्द पाँचवीं मंज़िल पर।",
-      "सूचना: जल रहि बेसमेंट में।",
-      "ज़रूरी: शॉर्ट सर्कीट मेरे फ्लैट के बाहर, मदद कीजिए।"
+      "फ्लैट 502 से संदेश: क़रंट आज सुबह से।",
+      "नमस्ते, क़रेंट ब्लॉक सी के पास।",
+      "कृपया जल्दी आइए, क़रंट आ आज सुबह से।"
      ]
     },
     "single|ENGLISH|SWAP_ADJACENT": {
@@ -3745,7 +3753,7 @@
      ]
     },
     "single|HINDI_DEVANAGARI|DROP_VOWEL_SIGN": {
-     "n": 30,
+     "n": 32,
      "examples": [
       "फ्लैट 502 से संदेश: धँआ आज सुबह से।",
       "कृपया जल्दी आइए, छुर मेरे फ्लैट के बाहर, मदद कीजिए।",
@@ -3952,12 +3960,30 @@
       "namaste, dhuwana block C ke paas."
      ]
     },
+    "single|MARATHI_DEVANAGARI|CHANDRABINDU_ANUSVARA": {
+     "n": 1,
+     "examples": [
+      "कृपया लवकर या, करँट पाचव्या मजल्यावर."
+     ]
+    },
     "single|ROMANISED_HINDI|ELONGATE_VOWEL": {
      "n": 12,
      "examples": [
       "mera naam Ravi hai, liiift mein band aaj subah se.",
       "Hello, hatyaaa block C ke paas.",
       "namaste, chhaaati mein dard aaj subah se."
+     ]
+    },
+    "single|HINDI_DEVANAGARI|INSERT_JOINER": {
+     "n": 1,
+     "examples": [
+      "सर, करंट आ र‌हा ब्लॉक सी के पास।"
+     ]
+    },
+    "single|MARATHI_DEVANAGARI|INSERT_JOINER": {
+     "n": 1,
+     "examples": [
+      "नमस्कार, करं‍ट टॉवर 3 मध्ये."
      ]
     },
     "double|HINDI_DEVANAGARI|SWAP_VOWEL_LENGTH": {
@@ -3969,7 +3995,7 @@
      ]
     },
     "double|HINDI_DEVANAGARI|DROP_VOWEL_SIGN": {
-     "n": 38,
+     "n": 41,
      "examples": [
       "कृपया जल्दी आइए, लफ्ट रूक गई ब्लॉक सी के पास।",
       "फ्लैट 502 से संदेश: गंभरर चोट ब्लॉक सी के पास।",
@@ -4041,11 +4067,11 @@
      ]
     },
     "double|HINDI_DEVANAGARI|DOUBLE_CONSONANT": {
-     "n": 39,
+     "n": 42,
      "examples": [
       "फ्लैट 502 से संदेश: गंभरर चोट ब्लॉक सी के पास।",
       "सुप्रभात, यहाँ हहार्टअटैक़ बेसमेंट में।",
-      "कृपया जल्दी आइए, एम्बूलेनन्स आज सुबह से।"
+      "ज़रूरी: करँटट आ रहा आज सुबह से।"
      ]
     },
     "double|ROMANISED_HINDI|REMOVE_SPACES": {
@@ -4097,15 +4123,15 @@
      ]
     },
     "double|HINDI_DEVANAGARI|NUKTA_TOGGLE": {
-     "n": 9,
+     "n": 12,
      "examples": [
       "सुप्रभात, यहाँ हहार्टअटैक़ बेसमेंट में।",
       "ज़रूरी: ज़ल गगई आज सुबह से।",
-      "नमस्ते, दौर पड बेसमेंट में।"
+      "सुप्रभात, यहाँ क़‌रंट पाँचवीं मंज़िल पर।"
      ]
     },
     "double|MARATHI_DEVANAGARI|DROP_VOWEL_SIGN": {
-     "n": 33,
+     "n": 34,
      "examples": [
       "कृपया लवकर या, गस नीघत टॉवर 3 मध्ये.",
       "सूचना: लीफ्ट मध्यच अडक माझ्या फ्लॅटबाहेर, मदत करा.",
@@ -4144,8 +4170,16 @@
       "Message from flat 502: blpood y in tower 3."
      ]
     },
+    "double|HINDI_DEVANAGARI|CHANDRABINDU_ANUSVARA": {
+     "n": 6,
+     "examples": [
+      "ज़रूरी: करँटट आ रहा आज सुबह से।",
+      "सूचना: साँस नहिं मेरे फ्लैट के बाहर, मदद कीजिए।",
+      "टीम को बताना है कि पानी मेँ ककरंट टावर 3 में।"
+     ]
+    },
     "double|MARATHI_DEVANAGARI|NUKTA_TOGGLE": {
-     "n": 19,
+     "n": 20,
      "examples": [
       "फ्लॅट 502 कडून निरोप: लिफ्ट खली पड़ल माझ्या फ्लॅटबाहेर, मदत करा.",
       "सूचना: डोक़्याला लागल टॉवर 3 मध्ये.",
@@ -4177,7 +4211,7 @@
      ]
     },
     "double|HINDI_DEVANAGARI|INSERT_JOINER": {
-     "n": 33,
+     "n": 35,
      "examples": [
       "कृपया जल्दी आइए, दम घ‍ूट ब्लॉक सी के पास।",
       "सूचना: ककरंट आ रह‌ा टावर 3 में।",
@@ -4225,7 +4259,7 @@
      ]
     },
     "double|MARATHI_DEVANAGARI|DOUBLE_CONSONANT": {
-     "n": 32,
+     "n": 33,
      "examples": [
       "नमस्कार, बबु‌डून आज सकाळपासून.",
       "नमस्कार, बबँदुक बेसमेंटमध्ये.",
@@ -4233,7 +4267,7 @@
      ]
     },
     "double|MARATHI_DEVANAGARI|INSERT_JOINER": {
-     "n": 27,
+     "n": 28,
      "examples": [
       "नमस्कार, बबु‌डून आज सकाळपासून.",
       "साहेब, अम्ब्युलन‍्स टॉवर 3 मध्ये.",
@@ -4265,11 +4299,11 @@
      ]
     },
     "double|MARATHI_DEVANAGARI|CHANDRABINDU_ANUSVARA": {
-     "n": 5,
+     "n": 7,
      "examples": [
       "नमस्कार, बबँदुक बेसमेंटमध्ये.",
       "साहेब, लीफ्टमध्ये कोँडल बेसमेंटमध्ये.",
-      "कृपया लवकर या, सीलिँडरचा स्फोट आज सकाळपासून."
+      "साहेब, क़रँट आला पाचव्या मजल्यावर."
      ]
     },
     "double|ROMANISED_HINDI|ROMANISATION_VARIANT": {
@@ -4303,18 +4337,10 @@
       "krupaya lavkar ya, v1j3cha $hockk majhya flat baher, madat kara.",
       "krupaya lavkar ya, g4sch4dur block C javal."
      ]
-    },
-    "double|HINDI_DEVANAGARI|CHANDRABINDU_ANUSVARA": {
-     "n": 3,
-     "examples": [
-      "सूचना: साँस नहिं मेरे फ्लैट के बाहर, मदद कीजिए।",
-      "टीम को बताना है कि पानी मेँ ककरंट टावर 3 में।",
-      "सुप्रभात, यहाँ छात मेँ दर्द ब्लॉक सी के पास।"
-     ]
     }
    },
    "negatives": {
-    "k": 10,
+    "k": 9,
     "n": 301
    },
    "negativesByGroup": {
@@ -4323,7 +4349,7 @@
      "n": 251
     },
     "NEAR_MISS": {
-     "k": 10,
+     "k": 9,
      "n": 50
     }
    },
@@ -4335,8 +4361,6 @@
     "GAS_EN_WORD": 1,
     "MV_EN_BLOOD": 1,
     "MV_MR_JAKHMI": 1,
-    "SHOCK_HI_KARANT": 1,
-    "SHOCK_MR_KARANT": 1,
     "MV_HI_DEATH": 1
    },
    "falseAlarms": [
@@ -4400,14 +4424,6 @@
      ]
     },
     {
-     "text": "फ्लॅट 502 कडून निरोप: करंट अकाउंट आज सकाळपासून.",
-     "group": "NEAR_MISS",
-     "rules": [
-      "SHOCK_HI_KARANT",
-      "SHOCK_MR_KARANT"
-     ]
-    },
-    {
      "text": "नमस्ते, मौत का कुआँ फिल्म ब्लॉक सी के पास।",
      "group": "NEAR_MISS",
      "rules": [
@@ -4419,11 +4435,11 @@
   "9302": {
    "overall": {
     "single": {
-     "k": 375,
+     "k": 369,
      "n": 1000
     },
     "double": {
-     "k": 91,
+     "k": 85,
      "n": 500
     }
    },
@@ -4438,7 +4454,7 @@
       "n": 467
      },
      "SHOCK": {
-      "k": 53,
+      "k": 47,
       "n": 142
      },
      "FIRE": {
@@ -4456,7 +4472,7 @@
       "n": 246
      },
      "SHOCK": {
-      "k": 23,
+      "k": 17,
       "n": 81
      },
      "LIFT_STUCK": {
@@ -4484,15 +4500,15 @@
       "n": 195
      },
      "MARATHI_DEVANAGARI": {
-      "k": 123,
+      "k": 120,
       "n": 205
      },
      "HINDI_DEVANAGARI": {
-      "k": 109,
+      "k": 107,
       "n": 198
      },
      "ROMANISED_HINDI": {
-      "k": 38,
+      "k": 37,
       "n": 194
      }
     },
@@ -4502,11 +4518,11 @@
       "n": 100
      },
      "HINDI_DEVANAGARI": {
-      "k": 31,
+      "k": 27,
       "n": 93
      },
      "MARATHI_DEVANAGARI": {
-      "k": 35,
+      "k": 33,
       "n": 100
      },
      "ENGLISH": {
@@ -4534,7 +4550,7 @@
       "n": 31
      },
      "INSERT_JOINER": {
-      "k": 95,
+      "k": 94,
       "n": 95
      },
      "DROP_VOWEL_SIGN": {
@@ -4546,7 +4562,7 @@
       "n": 49
      },
      "DOUBLE_CONSONANT": {
-      "k": 31,
+      "k": 29,
       "n": 96
      },
      "ELONGATE_VOWEL": {
@@ -4562,15 +4578,15 @@
       "n": 41
      },
      "CHANDRABINDU_ANUSVARA": {
-      "k": 10,
+      "k": 9,
       "n": 10
      },
      "NUKTA_TOGGLE": {
-      "k": 73,
+      "k": 72,
       "n": 73
      },
      "RANDOM_CASE": {
-      "k": 67,
+      "k": 66,
       "n": 67
      },
      "DOUBLE_LETTER": {
@@ -4604,11 +4620,11 @@
       "n": 67
      },
      "DROP_VOWEL_SIGN": {
-      "k": 16,
+      "k": 13,
       "n": 76
      },
      "DOUBLE_CONSONANT": {
-      "k": 22,
+      "k": 20,
       "n": 90
      },
      "ELONGATE_VOWEL": {
@@ -4624,7 +4640,7 @@
       "n": 31
      },
      "SWAP_VOWEL_LENGTH": {
-      "k": 8,
+      "k": 6,
       "n": 46
      },
      "INSERT_NEIGHBOUR": {
@@ -4640,7 +4656,7 @@
       "n": 61
      },
      "INSERT_JOINER": {
-      "k": 37,
+      "k": 36,
       "n": 85
      },
      "LEET": {
@@ -4656,7 +4672,7 @@
       "n": 63
      },
      "CHANDRABINDU_ANUSVARA": {
-      "k": 12,
+      "k": 8,
       "n": 22
      }
     }
@@ -4847,7 +4863,7 @@
      "n": 11
     },
     "SHOCK_HI_KARANT": {
-     "k": 7,
+     "k": 3,
      "n": 7
     },
     "MV_EN_BLOOD": {
@@ -4923,7 +4939,7 @@
      "n": 11
     },
     "SHOCK_MR_KARANT": {
-     "k": 6,
+     "k": 1,
      "n": 7
     },
     "SHOCK_HI_LATN_SHOCK": {
@@ -4939,7 +4955,7 @@
      "n": 7
     },
     "SHOCK_HI_LATN_CURRENT": {
-     "k": 3,
+     "k": 2,
      "n": 16
     },
     "FIRE_EN_WORD": {
@@ -5155,7 +5171,7 @@
      "n": 11
     },
     "SHOCK_HI_LAG": {
-     "k": 8,
+     "k": 6,
      "n": 11
     },
     "MV_EN_AMBULANCE": {
@@ -5429,7 +5445,7 @@
      "n": 6
     },
     "SHOCK_HI_KARANT|करंट लग": {
-     "k": 1,
+     "k": 0,
      "n": 1
     },
     "MV_EN_BLOOD|bleed": {
@@ -5465,7 +5481,7 @@
      "n": 1
     },
     "SHOCK_HI_KARANT|करंट": {
-     "k": 1,
+     "k": 0,
      "n": 1
     },
     "MV_MR_LATN_CARDIAC|fit aala": {
@@ -5741,7 +5757,7 @@
      "n": 3
     },
     "SHOCK_MR_KARANT|करंट": {
-     "k": 2,
+     "k": 0,
      "n": 2
     },
     "LIFT_MR_BAND|लिफ्ट मध्ये बंद": {
@@ -5765,7 +5781,7 @@
      "n": 1
     },
     "SHOCK_HI_LATN_CURRENT|current aata": {
-     "k": 1,
+     "k": 0,
      "n": 3
     },
     "MV_MR_ATTACK|मारहाण": {
@@ -6941,7 +6957,7 @@
      "n": 2
     },
     "SHOCK_HI_LAG|बिजली का करंट": {
-     "k": 2,
+     "k": 0,
      "n": 3
     },
     "MV_HI_LATN_AMBULANCE|ambulance bula do": {
@@ -7297,7 +7313,7 @@
      "n": 2
     },
     "SHOCK_MR_KARANT|करेंट लागला": {
-     "k": 2,
+     "k": 0,
      "n": 2
     },
     "SHOCK_EN_ELECTRIC|electrocut": {
@@ -7877,7 +7893,7 @@
      "n": 1
     },
     "SHOCK_HI_KARANT|करेंट": {
-     "k": 2,
+     "k": 0,
      "n": 2
     },
     "GAS_HI_LATN_SMELL|gas ki smell": {
@@ -8001,7 +8017,7 @@
      "n": 1
     },
     "SHOCK_MR_KARANT|करंट आला": {
-     "k": 1,
+     "k": 0,
      "n": 1
     },
     "GAS_EN_SMELL|gas smells": {
@@ -8163,7 +8179,7 @@
      ]
     },
     "single|HINDI_DEVANAGARI|DOUBLE_CONSONANT": {
-     "n": 36,
+     "n": 37,
      "examples": [
       "टीम को बताना है कि ललिफ्ट का दरवाजा नही खुल टावर 3 में।",
       "सूचना: ललपट पाँचवीं मंज़िल पर।",
@@ -8211,7 +8227,7 @@
      ]
     },
     "single|MARATHI_DEVANAGARI|DOUBLE_CONSONANT": {
-     "n": 29,
+     "n": 30,
      "examples": [
       "शुभ प्रभात, इथे कोयतता टॉवर 3 मध्ये.",
       "टीमला कळवायचे आहे की लिफ्ट मधध्ये अडकल बेसमेंटमध्ये.",
@@ -8314,6 +8330,12 @@
       "Hi team, el3ctrocut10n in the basement area."
      ]
     },
+    "single|HINDI_DEVANAGARI|NUKTA_TOGGLE": {
+     "n": 1,
+     "examples": [
+      "कृपया जल्दी आइए, क़रंट बेसमेंट में।"
+     ]
+    },
     "single|ENGLISH|DOUBLE_LETTER": {
      "n": 18,
      "examples": [
@@ -8370,6 +8392,18 @@
       "namaste, hhatya aaj subah se."
      ]
     },
+    "single|MARATHI_DEVANAGARI|INSERT_JOINER": {
+     "n": 1,
+     "examples": [
+      "शुभ प्रभात, इथे कर‌ंट पाचव्या मजल्यावर."
+     ]
+    },
+    "single|MARATHI_DEVANAGARI|CHANDRABINDU_ANUSVARA": {
+     "n": 1,
+     "examples": [
+      "फ्लॅट 502 कडून निरोप: करँट माझ्या फ्लॅटबाहेर, मदत करा."
+     ]
+    },
     "single|ROMANISED_HINDI|LEET": {
      "n": 18,
      "examples": [
@@ -8384,6 +8418,12 @@
       "flat 502 kadun nirop: maruntaka basement madhe.",
       "flat 502 kadun nirop: liftmadhechband tower 3 madhe.",
       "saheb, golizadli majhya flat baher, madat kara."
+     ]
+    },
+    "single|ROMANISED_HINDI|RANDOM_CASE": {
+     "n": 1,
+     "examples": [
+      "mera naam Ravi hai, cUrreNt AAta basement mein."
      ]
     },
     "double|ROMANISED_HINDI|DOUBLE_LETTER": {
@@ -8403,7 +8443,7 @@
      ]
     },
     "double|HINDI_DEVANAGARI|DOUBLE_CONSONANT": {
-     "n": 39,
+     "n": 40,
      "examples": [
       "सर, लिफफ्ट नीच गिर बेसमेंट में।",
       "सर, बिज़ली का ननंगा मेरे फ्लैट के बाहर, मदद कीजिए।",
@@ -8411,7 +8451,7 @@
      ]
     },
     "double|HINDI_DEVANAGARI|DROP_VOWEL_SIGN": {
-     "n": 27,
+     "n": 28,
      "examples": [
       "सर, लिफफ्ट नीच गिर बेसमेंट में।",
       "ज़रूरी: शक ललग ब्लॉक सी के पास।",
@@ -8419,7 +8459,7 @@
      ]
     },
     "double|MARATHI_DEVANAGARI|DOUBLE_CONSONANT": {
-     "n": 29,
+     "n": 30,
      "examples": [
       "सूचना: हल्ललेखर ब्लॉक सी जवळ.",
       "फ्लॅट 502 कडून निरोप: लिफ्ट क‍कोसळ पाचव्या मजल्यावर.",
@@ -8427,7 +8467,7 @@
      ]
     },
     "double|MARATHI_DEVANAGARI|DROP_VOWEL_SIGN": {
-     "n": 33,
+     "n": 35,
      "examples": [
       "सूचना: हल्ललेखर ब्लॉक सी जवळ.",
       "कृपया लवकर या, एम‍्बुलन्स बेसमेंटमध्ये.",
@@ -8499,7 +8539,7 @@
      ]
     },
     "double|HINDI_DEVANAGARI|INSERT_JOINER": {
-     "n": 19,
+     "n": 20,
      "examples": [
       "नमस्ते, ल‍िफ्टट गिरी पाँचवीं मंज़िल पर।",
       "सर, लि‍फ्टट गिरी बेसमेंट में।",
@@ -8659,7 +8699,7 @@
      ]
     },
     "double|HINDI_DEVANAGARI|SWAP_VOWEL_LENGTH": {
-     "n": 15,
+     "n": 17,
      "examples": [
       "फ्लैट 502 से संदेश: म‌ारपिट आज सुबह से।",
       "ज़रूरी: लिफ्ट रुक़ि मेरे फ्लैट के बाहर, मदद कीजिए।",
@@ -8683,7 +8723,7 @@
      ]
     },
     "double|HINDI_DEVANAGARI|CHANDRABINDU_ANUSVARA": {
-     "n": 6,
+     "n": 9,
      "examples": [
       "सूचना: धूँआ टावर 3 में।",
       "टीम को बताना है कि ललिफ्ट में लोग फँस बेसमेंट में।",
@@ -8731,16 +8771,16 @@
      ]
     },
     "double|MARATHI_DEVANAGARI|CHANDRABINDU_ANUSVARA": {
-     "n": 4,
+     "n": 5,
      "examples": [
       "कृपया लवकर या, दम कोँडलला बेसमेंटमध्ये.",
       "साहेब, दम कँडला ब्लॉक सी जवळ.",
-      "कृपया लवकर या, लफ्टमध्येच थाँबल टॉवर 3 मध्ये."
+      "कृपया लवकर या, करँट आल आज सकाळपासून."
      ]
     }
    },
    "negatives": {
-    "k": 8,
+    "k": 7,
     "n": 292
    },
    "negativesByGroup": {
@@ -8749,14 +8789,12 @@
      "n": 242
     },
     "NEAR_MISS": {
-     "k": 8,
+     "k": 7,
      "n": 50
     }
    },
    "falseAlarmsByRule": {
     "MV_EN_ATTACK": 1,
-    "SHOCK_HI_KARANT": 1,
-    "SHOCK_MR_KARANT": 1,
     "GAS_EN_WORD": 2,
     "MV_EN_CARDIAC": 1,
     "MV_HI_DEATH": 1,
@@ -8769,14 +8807,6 @@
      "group": "NEAR_MISS",
      "rules": [
       "MV_EN_ATTACK"
-     ]
-    },
-    {
-     "text": "नमस्ते, करंट अकाउंट आज सुबह से।",
-     "group": "NEAR_MISS",
-     "rules": [
-      "SHOCK_HI_KARANT",
-      "SHOCK_MR_KARANT"
      ]
     },
     {
@@ -8826,11 +8856,11 @@
   "9303": {
    "overall": {
     "single": {
-     "k": 339,
+     "k": 335,
      "n": 1000
     },
     "double": {
-     "k": 74,
+     "k": 67,
      "n": 500
     }
    },
@@ -8841,7 +8871,7 @@
       "n": 482
      },
      "SHOCK": {
-      "k": 48,
+      "k": 44,
       "n": 144
      },
      "LIFT_STUCK": {
@@ -8871,7 +8901,7 @@
       "n": 51
      },
      "SHOCK": {
-      "k": 20,
+      "k": 13,
       "n": 65
      },
      "FIRE": {
@@ -8883,7 +8913,7 @@
    "byForm": {
     "single": {
      "HINDI_DEVANAGARI": {
-      "k": 97,
+      "k": 94,
       "n": 181
      },
      "ROMANISED_MARATHI": {
@@ -8895,7 +8925,7 @@
       "n": 212
      },
      "MARATHI_DEVANAGARI": {
-      "k": 124,
+      "k": 123,
       "n": 204
      },
      "ENGLISH": {
@@ -8905,11 +8935,11 @@
     },
     "double": {
      "MARATHI_DEVANAGARI": {
-      "k": 28,
+      "k": 26,
       "n": 96
      },
      "HINDI_DEVANAGARI": {
-      "k": 29,
+      "k": 24,
       "n": 90
      },
      "ROMANISED_HINDI": {
@@ -8929,7 +8959,7 @@
    "byOperation": {
     "single": {
      "DOUBLE_CONSONANT": {
-      "k": 34,
+      "k": 32,
       "n": 98
      },
      "INSERT_JOINER": {
@@ -8957,7 +8987,7 @@
       "n": 59
      },
      "CHANDRABINDU_ANUSVARA": {
-      "k": 13,
+      "k": 12,
       "n": 13
      },
      "REMOVE_SPACES": {
@@ -8969,7 +8999,7 @@
       "n": 52
      },
      "DROP_VOWEL_SIGN": {
-      "k": 10,
+      "k": 9,
       "n": 77
      },
      "SUBSTITUTE_NEIGHBOUR": {
@@ -8999,11 +9029,11 @@
     },
     "double": {
      "INSERT_JOINER": {
-      "k": 36,
+      "k": 35,
       "n": 86
      },
      "SWAP_VOWEL_LENGTH": {
-      "k": 11,
+      "k": 10,
       "n": 42
      },
      "LEET": {
@@ -9015,11 +9045,11 @@
       "n": 44
      },
      "DOUBLE_CONSONANT": {
-      "k": 17,
+      "k": 14,
       "n": 96
      },
      "DROP_VOWEL_SIGN": {
-      "k": 9,
+      "k": 6,
       "n": 76
      },
      "INSERT_NEIGHBOUR": {
@@ -9047,7 +9077,7 @@
       "n": 76
      },
      "NUKTA_TOGGLE": {
-      "k": 33,
+      "k": 31,
       "n": 60
      },
      "DOUBLE_LETTER": {
@@ -9055,7 +9085,7 @@
       "n": 59
      },
      "CHANDRABINDU_ANUSVARA": {
-      "k": 8,
+      "k": 4,
       "n": 12
      },
      "DROP_LETTER": {
@@ -9414,7 +9444,7 @@
      "n": 12
     },
     "SHOCK_HI_LAG": {
-     "k": 7,
+     "k": 1,
      "n": 12
     },
     "LIFT_HI_GIR": {
@@ -9434,7 +9464,7 @@
      "n": 14
     },
     "SHOCK_MR_KARANT": {
-     "k": 6,
+     "k": 3,
      "n": 6
     },
     "SHOCK_MR_LATN_DHAKKA": {
@@ -9498,7 +9528,7 @@
      "n": 5
     },
     "SHOCK_HI_KARANT": {
-     "k": 8,
+     "k": 6,
      "n": 10
     },
     "FIRE_HI_LATN_JAL": {
@@ -10152,7 +10182,7 @@
      "n": 3
     },
     "SHOCK_HI_LAG|करंट आ": {
-     "k": 3,
+     "k": 0,
      "n": 4
     },
     "MV_MR_AMBULANCE|अम्बुलन्स": {
@@ -11432,7 +11462,7 @@
      "n": 3
     },
     "SHOCK_HI_LAG|दीवार में करंट": {
-     "k": 2,
+     "k": 0,
      "n": 2
     },
     "FIRE_MR_DHUR|धुर": {
@@ -11492,7 +11522,7 @@
      "n": 2
     },
     "SHOCK_MR_KARANT|करंट आला": {
-     "k": 3,
+     "k": 0,
      "n": 3
     },
     "GAS_EN_LEAK|gas leakage": {
@@ -12032,7 +12062,7 @@
      "n": 1
     },
     "SHOCK_HI_KARANT|करंट आ रहा": {
-     "k": 1,
+     "k": 0,
      "n": 1
     },
     "GAS_HI_LEAK|गैस लीक": {
@@ -12272,7 +12302,7 @@
      "n": 1
     },
     "SHOCK_HI_KARANT|करेंट": {
-     "k": 1,
+     "k": 0,
      "n": 1
     },
     "LIFT_EN_BETWEEN|lift free fall": {
@@ -12352,7 +12382,7 @@
      "n": 1
     },
     "SHOCK_HI_LAG|पानी में करंट": {
-     "k": 1,
+     "k": 0,
      "n": 1
     },
     "FIRE_MR_AAGI|आगीत": {
@@ -12394,7 +12424,7 @@
    },
    "misses": {
     "single|HINDI_DEVANAGARI|DOUBLE_CONSONANT": {
-     "n": 32,
+     "n": 34,
      "examples": [
       "टीम को बताना है कि हहोश नहीं बेसमेंट में।",
       "ज़रूरी: जजल रहे आज सुबह से।",
@@ -12474,7 +12504,7 @@
      ]
     },
     "single|MARATHI_DEVANAGARI|DROP_VOWEL_SIGN": {
-     "n": 29,
+     "n": 30,
      "examples": [
       "फ्लॅट 502 कडून निरोप: अॅम्ब्यलन्स टॉवर 3 मध्ये.",
       "नमस्कार, जीव गली टॉवर 3 मध्ये.",
@@ -12673,8 +12703,14 @@
       "namaste, idl ka dora tower 3 mein."
      ]
     },
+    "single|HINDI_DEVANAGARI|CHANDRABINDU_ANUSVARA": {
+     "n": 1,
+     "examples": [
+      "कृपया जल्दी आइए, करँट आ आज सुबह से।"
+     ]
+    },
     "double|HINDI_DEVANAGARI|INSERT_JOINER": {
-     "n": 20,
+     "n": 21,
      "examples": [
       "नमस्ते, च‍ाकु टावर 3 में।",
       "ज़रूरी: गो‍लली मेरे फ्लैट के बाहर, मदद कीजिए।",
@@ -12682,7 +12718,7 @@
      ]
     },
     "double|HINDI_DEVANAGARI|SWAP_VOWEL_LENGTH": {
-     "n": 18,
+     "n": 19,
      "examples": [
       "नमस्ते, च‍ाकु टावर 3 में।",
       "सूचना: बिजलि का नंग पाँचवीं मंज़िल पर।",
@@ -12714,11 +12750,11 @@
      ]
     },
     "double|MARATHI_DEVANAGARI|DOUBLE_CONSONANT": {
-     "n": 44,
+     "n": 45,
      "examples": [
       "सूचना: लीफ्टटचा दरवाजा उघडत नाही पाचव्या मजल्यावर.",
       "टीमला कळवायचे आहे की फ़िट आलला टॉवर 3 मध्ये.",
-      "फ्लॅट 502 कडून निरोप: प‌्ररेत आज सकाळपासून."
+      "कृपया लवकर या, करँटट आला ब्लॉक सी जवळ."
      ]
     },
     "double|MARATHI_DEVANAGARI|DROP_VOWEL_SIGN": {
@@ -12770,7 +12806,7 @@
      ]
     },
     "double|HINDI_DEVANAGARI|DOUBLE_CONSONANT": {
-     "n": 35,
+     "n": 37,
      "examples": [
       "ज़रूरी: गो‍लली मेरे फ्लैट के बाहर, मदद कीजिए।",
       "सर, डब गगई आज सुबह से।",
@@ -12778,7 +12814,7 @@
      ]
     },
     "double|HINDI_DEVANAGARI|DROP_VOWEL_SIGN": {
-     "n": 31,
+     "n": 34,
      "examples": [
       "सूचना: बिजलि का नंग पाँचवीं मंज़िल पर।",
       "सुप्रभात, यहाँ सने में दर्द मेरे फ्लैट के बाहर, मदद कीजिए।",
@@ -12842,7 +12878,7 @@
      ]
     },
     "double|MARATHI_DEVANAGARI|NUKTA_TOGGLE": {
-     "n": 11,
+     "n": 12,
      "examples": [
       "टीमला कळवायचे आहे की फ़िट आलला टॉवर 3 मध्ये.",
       "शुभ प्रभात, इथे लिफ्ट क़ोससळ बेसमेंटमध्ये.",
@@ -12863,6 +12899,14 @@
       "namaskar, b3ho$h z@l5 block C javal.",
       "tatkal: a@44g1t majhya flat baher, madat kara.",
       "suprabhat, ithe h@ty@ zla1 majhya flat baher, madat kara."
+     ]
+    },
+    "double|MARATHI_DEVANAGARI|CHANDRABINDU_ANUSVARA": {
+     "n": 4,
+     "examples": [
+      "कृपया लवकर या, करँटट आला ब्लॉक सी जवळ.",
+      "टीमला कळवायचे आहे की अर्धाँगवाय बेसमेंटमध्ये.",
+      "तातडीचे: श्वासस थाँबला माझ्या फ्लॅटबाहेर, मदत करा."
      ]
     },
     "double|ENGLISH|DROP_LETTER": {
@@ -13001,15 +13045,8 @@
       "suprabhat, ithe raktARSAv basement madhe."
      ]
     },
-    "double|MARATHI_DEVANAGARI|CHANDRABINDU_ANUSVARA": {
-     "n": 2,
-     "examples": [
-      "टीमला कळवायचे आहे की अर्धाँगवाय बेसमेंटमध्ये.",
-      "तातडीचे: श्वासस थाँबला माझ्या फ्लॅटबाहेर, मदत करा."
-     ]
-    },
     "double|HINDI_DEVANAGARI|NUKTA_TOGGLE": {
-     "n": 16,
+     "n": 17,
      "examples": [
       "ज़रूरी: मर ड़ाला ब्लॉक सी के पास।",
       "कृपया जल्दी आइए, लफ़्ट गिर मेरे फ्लैट के बाहर, मदद कीजिए।",
@@ -13017,8 +13054,9 @@
      ]
     },
     "double|HINDI_DEVANAGARI|CHANDRABINDU_ANUSVARA": {
-     "n": 2,
+     "n": 4,
      "examples": [
+      "फ्लैट 502 से संदेश: दिवार मेँ करंट आज सुबह से।",
       "टीम को बताना है कि एम्बूलेँस टावर 3 में।",
       "टीम को बताना है कि सांस लेने ममेँ टावर 3 में।"
      ]
@@ -13142,11 +13180,11 @@
   "9304": {
    "overall": {
     "single": {
-     "k": 354,
+     "k": 346,
      "n": 1000
     },
     "double": {
-     "k": 93,
+     "k": 89,
      "n": 500
     }
    },
@@ -13169,7 +13207,7 @@
       "n": 121
      },
      "SHOCK": {
-      "k": 65,
+      "k": 57,
       "n": 156
      }
     },
@@ -13179,7 +13217,7 @@
       "n": 246
      },
      "SHOCK": {
-      "k": 17,
+      "k": 13,
       "n": 73
      },
      "LIFT_STUCK": {
@@ -13211,11 +13249,11 @@
       "n": 228
      },
      "HINDI_DEVANAGARI": {
-      "k": 116,
+      "k": 109,
       "n": 203
      },
      "MARATHI_DEVANAGARI": {
-      "k": 120,
+      "k": 119,
       "n": 205
      }
     },
@@ -13225,7 +13263,7 @@
       "n": 106
      },
      "MARATHI_DEVANAGARI": {
-      "k": 46,
+      "k": 45,
       "n": 103
      },
      "ROMANISED_MARATHI": {
@@ -13237,7 +13275,7 @@
       "n": 83
      },
      "HINDI_DEVANAGARI": {
-      "k": 26,
+      "k": 23,
       "n": 96
      }
     }
@@ -13265,7 +13303,7 @@
       "n": 66
      },
      "NUKTA_TOGGLE": {
-      "k": 71,
+      "k": 70,
       "n": 71
      },
      "INSERT_NEIGHBOUR": {
@@ -13273,7 +13311,7 @@
       "n": 54
      },
      "CHANDRABINDU_ANUSVARA": {
-      "k": 26,
+      "k": 24,
       "n": 26
      },
      "REMOVE_SPACES": {
@@ -13281,11 +13319,11 @@
       "n": 36
      },
      "DROP_VOWEL_SIGN": {
-      "k": 12,
+      "k": 10,
       "n": 74
      },
      "INSERT_JOINER": {
-      "k": 93,
+      "k": 91,
       "n": 93
      },
      "RANDOM_CASE": {
@@ -13293,7 +13331,7 @@
       "n": 46
      },
      "DOUBLE_CONSONANT": {
-      "k": 21,
+      "k": 20,
       "n": 100
      },
      "SWAP_VOWEL_LENGTH": {
@@ -13343,7 +13381,7 @@
       "n": 80
      },
      "DROP_VOWEL_SIGN": {
-      "k": 13,
+      "k": 12,
       "n": 86
      },
      "SUBSTITUTE_NEIGHBOUR": {
@@ -13355,11 +13393,11 @@
       "n": 60
      },
      "NUKTA_TOGGLE": {
-      "k": 46,
+      "k": 45,
       "n": 70
      },
      "INSERT_JOINER": {
-      "k": 54,
+      "k": 51,
       "n": 106
      },
      "LEET": {
@@ -13371,7 +13409,7 @@
       "n": 53
      },
      "CHANDRABINDU_ANUSVARA": {
-      "k": 8,
+      "k": 5,
       "n": 16
      },
      "INSERT_SEPARATOR": {
@@ -13494,7 +13532,7 @@
      "n": 21
     },
     "SHOCK_MR_KARANT": {
-     "k": 8,
+     "k": 6,
      "n": 9
     },
     "MV_MR_AMBULANCE": {
@@ -13686,11 +13724,11 @@
      "n": 20
     },
     "SHOCK_HI_LAG": {
-     "k": 9,
+     "k": 2,
      "n": 11
     },
     "SHOCK_HI_KARANT": {
-     "k": 4,
+     "k": 1,
      "n": 6
     },
     "SHOCK_HI_LATN_CURRENT": {
@@ -14352,7 +14390,7 @@
      "n": 3
     },
     "SHOCK_HI_KARANT|करेंट लग": {
-     "k": 1,
+     "k": 0,
      "n": 1
     },
     "LIFT_HI_LATN_ATAK|lift atak gaya": {
@@ -14568,7 +14606,7 @@
      "n": 2
     },
     "SHOCK_HI_LAG|बिजली का करंट": {
-     "k": 2,
+     "k": 0,
      "n": 2
     },
     "GAS_EN_CYLINDER|gas cylinder": {
@@ -14916,11 +14954,11 @@
      "n": 3
     },
     "SHOCK_HI_LAG|करंट आ": {
-     "k": 2,
+     "k": 0,
      "n": 2
     },
     "SHOCK_MR_KARANT|करंट आला": {
-     "k": 1,
+     "k": 0,
      "n": 2
     },
     "MV_MR_LATN_CARDIAC|chatit dukhtay": {
@@ -15040,7 +15078,7 @@
      "n": 4
     },
     "SHOCK_HI_KARANT|करंट": {
-     "k": 2,
+     "k": 0,
      "n": 3
     },
     "MV_HI_BREATH|दम घुट": {
@@ -15600,7 +15638,7 @@
      "n": 1
     },
     "SHOCK_HI_LAG|दीवार में करंट": {
-     "k": 1,
+     "k": 0,
      "n": 1
     },
     "SHOCK_HI_LATN_TAAR|nange taar": {
@@ -15756,7 +15794,7 @@
      "n": 1
     },
     "SHOCK_HI_LAG|नल में करंट": {
-     "k": 3,
+     "k": 1,
      "n": 3
     },
     "MV_HI_CARDIAC|दौरा पड़": {
@@ -16652,7 +16690,7 @@
      "n": 2
     },
     "SHOCK_MR_KARANT|करंट": {
-     "k": 1,
+     "k": 0,
      "n": 1
     },
     "FIRE_HI_JAL|जल रहा": {
@@ -16778,7 +16816,7 @@
      ]
     },
     "single|HINDI_DEVANAGARI|DROP_VOWEL_SIGN": {
-     "n": 33,
+     "n": 35,
      "examples": [
       "सर, छरा टावर 3 में।",
       "टीम को बताना है कि बसुध बेसमेंट में।",
@@ -16874,7 +16912,7 @@
      ]
     },
     "single|HINDI_DEVANAGARI|DOUBLE_CONSONANT": {
-     "n": 37,
+     "n": 38,
      "examples": [
       "नमस्ते, जलल रहे पाँचवीं मंज़िल पर।",
       "टीम को बताना है कि हतत्या ब्लॉक सी के पास।",
@@ -16985,12 +17023,32 @@
       "flat 502 se message: jakhmmi block C ke paas."
      ]
     },
+    "single|HINDI_DEVANAGARI|INSERT_JOINER": {
+     "n": 2,
+     "examples": [
+      "ज़रूरी: बिज‌ली का करंट मेरे फ्लैट के बाहर, मदद कीजिए।",
+      "कृपया जल्दी आइए, कर‌ंट आ आज सुबह से।"
+     ]
+    },
     "single|ROMANISED_HINDI|INSERT_SEPARATOR": {
      "n": 9,
      "examples": [
       "mera naam Ravi hai, m aut aaj subah se.",
       "bhai please urgent cha.koo paanchvi manzil par.",
       "team ko batana hai ki be.hosh block C ke paas."
+     ]
+    },
+    "single|HINDI_DEVANAGARI|CHANDRABINDU_ANUSVARA": {
+     "n": 2,
+     "examples": [
+      "टीम को बताना है कि करँट आ बेसमेंट में।",
+      "सर, बिजली का करँट टावर 3 में।"
+     ]
+    },
+    "single|MARATHI_DEVANAGARI|NUKTA_TOGGLE": {
+     "n": 1,
+     "examples": [
+      "नमस्कार, क़रंट आला माझ्या फ्लॅटबाहेर, मदत करा."
      ]
     },
     "double|ROMANISED_HINDI|RANDOM_CASE": {
@@ -17146,7 +17204,7 @@
      ]
     },
     "double|HINDI_DEVANAGARI|DROP_VOWEL_SIGN": {
-     "n": 41,
+     "n": 42,
      "examples": [
       "सुप्रभात, यहाँ लीफ्ट म फंस ब्लॉक सी के पास।",
       "सुप्रभात, यहाँ गगैस की बदब मेरे फ्लैट के बाहर, मदद कीजिए।",
@@ -17194,7 +17252,7 @@
      ]
     },
     "double|HINDI_DEVANAGARI|CHANDRABINDU_ANUSVARA": {
-     "n": 7,
+     "n": 9,
      "examples": [
       "कृपया जल्दी आइए, लफ्ट मेँ फस बेसमेंट में।",
       "फ्लैट 502 से संदेश: एम्बलेँस बेसमेंट में।",
@@ -17218,7 +17276,7 @@
      ]
     },
     "double|HINDI_DEVANAGARI|INSERT_JOINER": {
-     "n": 29,
+     "n": 31,
      "examples": [
       "सूचना: पपिटा‍ई आज सुबह से।",
       "सूचना: हश म‍ें नहीं आज सुबह से।",
@@ -17258,7 +17316,7 @@
      ]
     },
     "double|MARATHI_DEVANAGARI|INSERT_JOINER": {
-     "n": 23,
+     "n": 24,
      "examples": [
       "सूचना: लिफ्टमधे अड‌ककल ब्लॉक सी जवळ.",
       "साहेब, फेफ‍ररे माझ्या फ्लॅटबाहेर, मदत करा.",
@@ -17306,7 +17364,7 @@
      ]
     },
     "double|HINDI_DEVANAGARI|NUKTA_TOGGLE": {
-     "n": 13,
+     "n": 14,
      "examples": [
       "कृपया जल्दी आइए, शार्ट सर्क़ीट आज सुबह से।",
       "सर, सलेंड़र बेसमेंट में।",
@@ -17338,14 +17396,15 @@
      ]
     },
     "double|MARATHI_DEVANAGARI|CHANDRABINDU_ANUSVARA": {
-     "n": 1,
+     "n": 2,
      "examples": [
-      "शुभ प्रभात, इथे ललिफ्टमध्येच थाँबल माझ्या फ्लॅटबाहेर, मदत करा."
+      "शुभ प्रभात, इथे ललिफ्टमध्येच थाँबल माझ्या फ्लॅटबाहेर, मदत करा.",
+      "तातडीचे: क‍रँट पाचव्या मजल्यावर."
      ]
     }
    },
    "negatives": {
-    "k": 8,
+    "k": 6,
     "n": 299
    },
    "negativesByGroup": {
@@ -17354,15 +17413,13 @@
      "n": 251
     },
     "NEAR_MISS": {
-     "k": 8,
+     "k": 6,
      "n": 48
     }
    },
    "falseAlarmsByRule": {
     "GAS_HI_WORD": 1,
     "MV_HI_DEATH": 2,
-    "SHOCK_HI_KARANT": 2,
-    "SHOCK_MR_KARANT": 2,
     "MV_MR_LATN_RAKTA": 1,
     "GAS_MR_WORD": 1,
     "MV_EN_ATTACK": 1
@@ -17380,14 +17437,6 @@
      "group": "NEAR_MISS",
      "rules": [
       "MV_HI_DEATH"
-     ]
-    },
-    {
-     "text": "साहेब, करंट अकाउंट ब्लॉक सी जवळ.",
-     "group": "NEAR_MISS",
-     "rules": [
-      "SHOCK_HI_KARANT",
-      "SHOCK_MR_KARANT"
      ]
     },
     {
@@ -17417,32 +17466,24 @@
      "rules": [
       "MV_EN_ATTACK"
      ]
-    },
-    {
-     "text": "सूचना: करंट अकाउंट आज सकाळपासून.",
-     "group": "NEAR_MISS",
-     "rules": [
-      "SHOCK_HI_KARANT",
-      "SHOCK_MR_KARANT"
-     ]
     }
    ]
   },
   "9305": {
    "overall": {
     "single": {
-     "k": 388,
+     "k": 384,
      "n": 1000
     },
     "double": {
-     "k": 84,
+     "k": 77,
      "n": 500
     }
    },
    "byCategory": {
     "single": {
      "SHOCK": {
-      "k": 45,
+      "k": 41,
       "n": 138
      },
      "LIFT_STUCK": {
@@ -17472,7 +17513,7 @@
       "n": 231
      },
      "SHOCK": {
-      "k": 18,
+      "k": 11,
       "n": 88
      },
      "LIFT_STUCK": {
@@ -17504,13 +17545,13 @@
       "n": 221
      },
      "HINDI_DEVANAGARI": {
-      "k": 116,
+      "k": 112,
       "n": 182
      }
     },
     "double": {
      "MARATHI_DEVANAGARI": {
-      "k": 41,
+      "k": 37,
       "n": 113
      },
      "ROMANISED_MARATHI": {
@@ -17526,7 +17567,7 @@
       "n": 100
      },
      "HINDI_DEVANAGARI": {
-      "k": 26,
+      "k": 23,
       "n": 89
      }
     }
@@ -17558,7 +17599,7 @@
       "n": 75
      },
      "INSERT_JOINER": {
-      "k": 100,
+      "k": 97,
       "n": 100
      },
      "INSERT_NEIGHBOUR": {
@@ -17582,7 +17623,7 @@
       "n": 56
      },
      "CHANDRABINDU_ANUSVARA": {
-      "k": 17,
+      "k": 16,
       "n": 17
      },
      "ELONGATE_VOWEL": {
@@ -17604,11 +17645,11 @@
     },
     "double": {
      "INSERT_JOINER": {
-      "k": 42,
+      "k": 36,
       "n": 95
      },
      "DOUBLE_CONSONANT": {
-      "k": 28,
+      "k": 25,
       "n": 93
      },
      "LEET": {
@@ -17632,11 +17673,11 @@
       "n": 51
      },
      "NUKTA_TOGGLE": {
-      "k": 38,
+      "k": 35,
       "n": 72
      },
      "DROP_VOWEL_SIGN": {
-      "k": 11,
+      "k": 10,
       "n": 83
      },
      "INSERT_NEIGHBOUR": {
@@ -17664,7 +17705,7 @@
       "n": 60
      },
      "CHANDRABINDU_ANUSVARA": {
-      "k": 7,
+      "k": 6,
       "n": 14
      },
      "ROMANISATION_VARIANT": {
@@ -18003,7 +18044,7 @@
      "n": 12
     },
     "SHOCK_HI_KARANT": {
-     "k": 8,
+     "k": 5,
      "n": 10
     },
     "MV_MR_LATN_AMBULANCE": {
@@ -18087,7 +18128,7 @@
      "n": 7
     },
     "SHOCK_MR_KARANT": {
-     "k": 8,
+     "k": 4,
      "n": 8
     },
     "MV_MR_LATN_JAKHMI": {
@@ -18159,7 +18200,7 @@
      "n": 12
     },
     "SHOCK_HI_LAG": {
-     "k": 7,
+     "k": 3,
      "n": 8
     },
     "SHOCK_MR_SHOCK": {
@@ -18725,7 +18766,7 @@
      "n": 3
     },
     "SHOCK_HI_KARANT|करंट": {
-     "k": 1,
+     "k": 0,
      "n": 1
     },
     "MV_MR_LATN_AMBULANCE|ambulance pathva": {
@@ -19425,7 +19466,7 @@
      "n": 3
     },
     "SHOCK_HI_LAG|दीवार में करंट": {
-     "k": 2,
+     "k": 1,
      "n": 2
     },
     "MV_MR_LATN_CARDIAC|chhatit dukhte": {
@@ -19565,7 +19606,7 @@
      "n": 2
     },
     "SHOCK_HI_KARANT|करेंट": {
-     "k": 2,
+     "k": 0,
      "n": 2
     },
     "MV_MR_WEAPON|तलवार": {
@@ -20057,7 +20098,7 @@
      "n": 1
     },
     "SHOCK_HI_LAG|बिजली का करंट": {
-     "k": 2,
+     "k": 0,
      "n": 2
     },
     "SHOCK_HI_LATN_TAAR|nanga taar": {
@@ -20213,7 +20254,7 @@
      "n": 2
     },
     "SHOCK_MR_KARANT|करंट लागत": {
-     "k": 2,
+     "k": 1,
      "n": 2
     },
     "SHOCK_EN_ELECTRIC|got a shock": {
@@ -20561,7 +20602,7 @@
      "n": 1
     },
     "SHOCK_MR_KARANT|करंट": {
-     "k": 2,
+     "k": 0,
      "n": 2
     },
     "MV_HI_LATN_GHAYAL|chot lagi": {
@@ -20957,7 +20998,7 @@
      "n": 1
     },
     "SHOCK_HI_LAG|नल में करंट": {
-     "k": 1,
+     "k": 0,
      "n": 2
     },
     "MV_HI_WEAPON|बन्दूक": {
@@ -20989,7 +21030,7 @@
      "n": 1
     },
     "SHOCK_MR_KARANT|करंट लागला": {
-     "k": 1,
+     "k": 0,
      "n": 1
     },
     "FIRE_EN_HAZARD|sparks": {
@@ -21266,6 +21307,12 @@
       "flat 502 se message: liiift gir gayi paanchvi manzil par."
      ]
     },
+    "single|HINDI_DEVANAGARI|CHANDRABINDU_ANUSVARA": {
+     "n": 1,
+     "examples": [
+      "फ्लैट 502 से संदेश: करँट टावर 3 में।"
+     ]
+    },
     "single|ENGLISH|SWAP_ADJACENT": {
      "n": 20,
      "examples": [
@@ -21296,6 +21343,14 @@
       "mera naam Ravi hai, hmala kiya basement mein.",
       "bhai please urgent doob rhaa paanchvi manzil par.",
       "bhai please urgent khual taar mere flat ke bahar, madad kijiye."
+     ]
+    },
+    "single|HINDI_DEVANAGARI|INSERT_JOINER": {
+     "n": 3,
+     "examples": [
+      "टीम को बताना है कि करें‍ट मेरे फ्लैट के बाहर, मदद कीजिए।",
+      "ज़रूरी: करें‌ट पाँचवीं मंज़िल पर।",
+      "सुप्रभात, यहाँ बिजली का कर‍ंट मेरे फ्लैट के बाहर, मदद कीजिए।"
      ]
     },
     "double|ROMANISED_MARATHI|LEET": {
@@ -21347,7 +21402,7 @@
      ]
     },
     "double|MARATHI_DEVANAGARI|NUKTA_TOGGLE": {
-     "n": 21,
+     "n": 23,
      "examples": [
       "फ्लॅट 502 कडून निरोप: पकक़्षाघात बेसमेंटमध्ये.",
       "तातडीचे: ग़ोळळी माझ्या फ्लॅटबाहेर, मदत करा.",
@@ -21355,7 +21410,7 @@
      ]
     },
     "double|MARATHI_DEVANAGARI|DOUBLE_CONSONANT": {
-     "n": 37,
+     "n": 39,
      "examples": [
       "फ्लॅट 502 कडून निरोप: पकक़्षाघात बेसमेंटमध्ये.",
       "तातडीचे: लिफ्टमध‍े अडडकल बेसमेंटमध्ये.",
@@ -21363,7 +21418,7 @@
      ]
     },
     "double|MARATHI_DEVANAGARI|INSERT_JOINER": {
-     "n": 30,
+     "n": 33,
      "examples": [
       "फ्लॅट 502 कडून निरोप: फ्‍रक्चर ब्लॉक सी जवळ.",
       "तातडीचे: लिफ्टमध‍े अडडकल बेसमेंटमध्ये.",
@@ -21411,7 +21466,7 @@
      ]
     },
     "double|HINDI_DEVANAGARI|NUKTA_TOGGLE": {
-     "n": 13,
+     "n": 14,
      "examples": [
       "टीम को बताना है कि मरर ग़ए ब्लॉक सी के पास।",
       "फ्लैट 502 से संदेश: लिफ्ट टूट क़र गर मेरे फ्लैट के बाहर, मदद कीजिए।",
@@ -21419,7 +21474,7 @@
      ]
     },
     "double|HINDI_DEVANAGARI|DOUBLE_CONSONANT": {
-     "n": 28,
+     "n": 29,
      "examples": [
       "टीम को बताना है कि मरर ग़ए ब्लॉक सी के पास।",
       "नमस्ते, बं‍ददूक ब्लॉक सी के पास।",
@@ -21530,6 +21585,13 @@
       "majha naav Ravi aahe, jakh amh tower 3 madhe."
      ]
     },
+    "double|MARATHI_DEVANAGARI|CHANDRABINDU_ANUSVARA": {
+     "n": 2,
+     "examples": [
+      "सूचना: करँ‌ट आज सकाळपासून.",
+      "तातडीचे: श्वास थाँबबला बेसमेंटमध्ये."
+     ]
+    },
     "double|ROMANISED_HINDI|REMOVE_SPACES": {
      "n": 10,
      "examples": [
@@ -21547,7 +21609,7 @@
      ]
     },
     "double|HINDI_DEVANAGARI|INSERT_JOINER": {
-     "n": 23,
+     "n": 26,
      "examples": [
       "नमस्ते, बं‍ददूक ब्लॉक सी के पास।",
       "सुप्रभात, यहाँ बीजली झट‍का टावर 3 में।",
@@ -21555,7 +21617,7 @@
      ]
     },
     "double|HINDI_DEVANAGARI|DROP_VOWEL_SIGN": {
-     "n": 37,
+     "n": 38,
      "examples": [
       "सर, लहूलहहान बेसमेंट में।",
       "फ्लैट 502 से संदेश: लिफ्ट टूट क़र गर मेरे फ्लैट के बाहर, मदद कीजिए।",
@@ -21641,16 +21703,10 @@
       "टीम को बताना है कि लिफ्टट में लोग फँस टावर 3 में।",
       "सुप्रभात, यहाँ लिफ्ट बिच मेँ बेसमेंट में।"
      ]
-    },
-    "double|MARATHI_DEVANAGARI|CHANDRABINDU_ANUSVARA": {
-     "n": 1,
-     "examples": [
-      "तातडीचे: श्वास थाँबबला बेसमेंटमध्ये."
-     ]
     }
    },
    "negatives": {
-    "k": 17,
+    "k": 14,
     "n": 300
    },
    "negativesByGroup": {
@@ -21659,7 +21715,7 @@
      "n": 250
     },
     "NEAR_MISS": {
-     "k": 17,
+     "k": 14,
      "n": 50
     }
    },
@@ -21669,8 +21725,6 @@
     "MV_MR_LATN_RAKTA": 3,
     "MV_HI_DEATH": 1,
     "MV_EN_ATTACK": 2,
-    "SHOCK_HI_KARANT": 3,
-    "SHOCK_MR_KARANT": 3,
     "MV_MR_JAKHMI": 2,
     "MV_HI_KHOON": 2,
     "MV_MR_RAKTA": 2,
@@ -21713,26 +21767,10 @@
      ]
     },
     {
-     "text": "सूचना: करंट अकाउंट पाचव्या मजल्यावर.",
-     "group": "NEAR_MISS",
-     "rules": [
-      "SHOCK_HI_KARANT",
-      "SHOCK_MR_KARANT"
-     ]
-    },
-    {
      "text": "टीमला कळवायचे आहे की जखमा भरणारे मलम ब्लॉक सी जवळ.",
      "group": "NEAR_MISS",
      "rules": [
       "MV_MR_JAKHMI"
-     ]
-    },
-    {
-     "text": "टीम को बताना है कि करंट अकाउंट पाँचवीं मंज़िल पर।",
-     "group": "NEAR_MISS",
-     "rules": [
-      "SHOCK_HI_KARANT",
-      "SHOCK_MR_KARANT"
      ]
     },
     {
@@ -21792,14 +21830,6 @@
      "rules": [
       "MV_EN_ATTACK"
      ]
-    },
-    {
-     "text": "टीमला कळवायचे आहे की करंट अकाउंट पाचव्या मजल्यावर.",
-     "group": "NEAR_MISS",
-     "rules": [
-      "SHOCK_HI_KARANT",
-      "SHOCK_MR_KARANT"
-     ]
     }
    ]
   },
@@ -21846,25 +21876,25 @@
  "pooled": {
   "headline": {
    "singleOperationRecall": {
-    "k": 1799,
+    "k": 1761,
     "n": 5000,
-    "rate": 0.3598,
-    "lo": 0.346609,
-    "hi": 0.373206
+    "rate": 0.3522,
+    "lo": 0.339078,
+    "hi": 0.365549
    },
    "doubleOperationRecall": {
-    "k": 438,
+    "k": 404,
     "n": 2500,
-    "rate": 0.1752,
-    "lo": 0.1608,
-    "hi": 0.190596
+    "rate": 0.1616,
+    "lo": 0.147692,
+    "hi": 0.176546
    },
    "falseAlarmRate": {
-    "k": 55,
+    "k": 48,
     "n": 1595,
-    "rate": 0.034483,
-    "lo": 0.026588,
-    "hi": 0.044615
+    "rate": 0.030094,
+    "lo": 0.022773,
+    "hi": 0.039673
    }
   },
   "byCategory": {
@@ -21898,11 +21928,11 @@
      "hi": 0.307645
     },
     "SHOCK": {
-     "k": 267,
+     "k": 229,
      "n": 731,
-     "rate": 0.365253,
-     "lo": 0.331137,
-     "hi": 0.400778
+     "rate": 0.313269,
+     "lo": 0.280696,
+     "hi": 0.347795
     }
    },
    "double": {
@@ -21928,11 +21958,11 @@
      "hi": 0.465609
     },
     "SHOCK": {
-     "k": 103,
+     "k": 69,
      "n": 394,
-     "rate": 0.261421,
-     "lo": 0.220486,
-     "hi": 0.306964
+     "rate": 0.175127,
+     "lo": 0.140785,
+     "hi": 0.215743
     },
     "FIRE": {
      "k": 65,
@@ -21953,18 +21983,18 @@
      "hi": 0.255669
     },
     "HINDI_DEVANAGARI": {
-     "k": 556,
+     "k": 527,
      "n": 967,
-     "rate": 0.574974,
-     "lo": 0.54358,
-     "hi": 0.605775
+     "rate": 0.544984,
+     "lo": 0.513482,
+     "hi": 0.576131
     },
     "MARATHI_DEVANAGARI": {
-     "k": 591,
+     "k": 583,
      "n": 1003,
-     "rate": 0.589232,
-     "lo": 0.558501,
-     "hi": 0.619282
+     "rate": 0.581256,
+     "lo": 0.550471,
+     "hi": 0.611422
     },
     "ENGLISH": {
      "k": 216,
@@ -21974,20 +22004,20 @@
      "hi": 0.228859
     },
     "ROMANISED_HINDI": {
-     "k": 211,
+     "k": 210,
      "n": 984,
-     "rate": 0.214431,
-     "lo": 0.189923,
-     "hi": 0.24116
+     "rate": 0.213415,
+     "lo": 0.188955,
+     "hi": 0.240103
     }
    },
    "double": {
     "HINDI_DEVANAGARI": {
-     "k": 145,
+     "k": 123,
      "n": 473,
-     "rate": 0.306554,
-     "lo": 0.2667,
-     "hi": 0.349525
+     "rate": 0.260042,
+     "lo": 0.222556,
+     "hi": 0.301395
     },
     "ROMANISED_HINDI": {
      "k": 38,
@@ -22004,11 +22034,11 @@
      "hi": 0.100138
     },
     "MARATHI_DEVANAGARI": {
-     "k": 186,
+     "k": 174,
      "n": 519,
-     "rate": 0.358382,
-     "lo": 0.318306,
-     "hi": 0.400538
+     "rate": 0.33526,
+     "lo": 0.295987,
+     "hi": 0.376954
     },
     "ROMANISED_MARATHI": {
      "k": 32,
@@ -22029,11 +22059,11 @@
      "hi": 0.132014
     },
     "DOUBLE_CONSONANT": {
-     "k": 143,
+     "k": 133,
      "n": 468,
-     "rate": 0.305556,
-     "lo": 0.265545,
-     "hi": 0.348732
+     "rate": 0.284188,
+     "lo": 0.245211,
+     "hi": 0.326679
     },
     "SWAP_ADJACENT": {
      "k": 34,
@@ -22050,25 +22080,25 @@
      "hi": 0.226703
     },
     "CHANDRABINDU_ANUSVARA": {
-     "k": 76,
+     "k": 70,
      "n": 76,
-     "rate": 1,
-     "lo": 0.951886,
-     "hi": 1
+     "rate": 0.921053,
+     "lo": 0.838273,
+     "hi": 0.963316
     },
     "RANDOM_CASE": {
-     "k": 278,
+     "k": 277,
      "n": 278,
-     "rate": 1,
-     "lo": 0.98637,
-     "hi": 1
+     "rate": 0.996403,
+     "lo": 0.979909,
+     "hi": 0.999365
     },
     "SWAP_VOWEL_LENGTH": {
-     "k": 61,
+     "k": 59,
      "n": 228,
-     "rate": 0.267544,
-     "lo": 0.214283,
-     "hi": 0.328508
+     "rate": 0.258772,
+     "lo": 0.206252,
+     "hi": 0.319285
     },
     "DROP_LETTER": {
      "k": 51,
@@ -22078,25 +22108,25 @@
      "hi": 0.216614
     },
     "NUKTA_TOGGLE": {
-     "k": 344,
+     "k": 338,
      "n": 344,
-     "rate": 1,
-     "lo": 0.988956,
-     "hi": 1
+     "rate": 0.982558,
+     "lo": 0.962475,
+     "hi": 0.991982
     },
     "INSERT_JOINER": {
-     "k": 463,
+     "k": 455,
      "n": 463,
-     "rate": 1,
-     "lo": 0.991771,
-     "hi": 1
+     "rate": 0.982721,
+     "lo": 0.966279,
+     "hi": 0.991219
     },
     "DROP_VOWEL_SIGN": {
-     "k": 60,
+     "k": 55,
      "n": 391,
-     "rate": 0.153453,
-     "lo": 0.121114,
-     "hi": 0.192535
+     "rate": 0.140665,
+     "lo": 0.10969,
+     "hi": 0.178632
     },
     "INSERT_SEPARATOR": {
      "k": 51,
@@ -22143,18 +22173,18 @@
    },
    "double": {
     "SWAP_VOWEL_LENGTH": {
-     "k": 39,
+     "k": 36,
      "n": 230,
-     "rate": 0.169565,
-     "lo": 0.126592,
-     "hi": 0.223395
+     "rate": 0.156522,
+     "lo": 0.115253,
+     "hi": 0.209075
     },
     "DROP_VOWEL_SIGN": {
-     "k": 67,
+     "k": 55,
      "n": 410,
-     "rate": 0.163415,
-     "lo": 0.130779,
-     "hi": 0.202299
+     "rate": 0.134146,
+     "lo": 0.104532,
+     "hi": 0.170553
     },
     "LEET": {
      "k": 4,
@@ -22199,25 +22229,25 @@
      "hi": 0.175918
     },
     "INSERT_JOINER": {
-     "k": 205,
+     "k": 191,
      "n": 468,
-     "rate": 0.438034,
-     "lo": 0.393769,
-     "hi": 0.483309
+     "rate": 0.40812,
+     "lo": 0.364515,
+     "hi": 0.453221
     },
     "NUKTA_TOGGLE": {
-     "k": 189,
+     "k": 179,
      "n": 332,
-     "rate": 0.569277,
-     "lo": 0.51552,
-     "hi": 0.62145
+     "rate": 0.539157,
+     "lo": 0.485396,
+     "hi": 0.592021
     },
     "DOUBLE_CONSONANT": {
-     "k": 117,
+     "k": 105,
      "n": 462,
-     "rate": 0.253247,
-     "lo": 0.215739,
-     "hi": 0.294824
+     "rate": 0.227273,
+     "lo": 0.1914,
+     "hi": 0.267643
     },
     "REMOVE_SPACES": {
      "k": 1,
@@ -22241,11 +22271,11 @@
      "hi": 0.110694
     },
     "CHANDRABINDU_ANUSVARA": {
-     "k": 45,
+     "k": 28,
      "n": 82,
-     "rate": 0.54878,
-     "lo": 0.441308,
-     "hi": 0.651887
+     "rate": 0.341463,
+     "lo": 0.247993,
+     "hi": 0.449123
     },
     "ROMANISATION_VARIANT": {
      "k": 17,
@@ -22337,6 +22367,14 @@
     "hi": 0.121302
    },
    {
+    "key": "SHOCK_HI_LATN_CURRENT",
+    "k": 5,
+    "n": 85,
+    "rate": 0.058824,
+    "lo": 0.025385,
+    "hi": 0.130414
+   },
+   {
     "key": "MV_EN_AMBULANCE",
     "k": 2,
     "n": 34,
@@ -22375,14 +22413,6 @@
     "rate": 0.069767,
     "lo": 0.024012,
     "hi": 0.18609
-   },
-   {
-    "key": "SHOCK_HI_LATN_CURRENT",
-    "k": 6,
-    "n": 85,
-    "rate": 0.070588,
-    "lo": 0.032751,
-    "hi": 0.145561
    },
    {
     "key": "LIFT_EN_LIFT_STUCK",
@@ -22676,11 +22706,11 @@
     "hi": 0.003064
    },
    "NEAR_MISS": {
-    "k": 55,
+    "k": 48,
     "n": 248,
-    "rate": 0.221774,
-    "lo": 0.174534,
-    "hi": 0.277502
+    "rate": 0.193548,
+    "lo": 0.149205,
+    "hi": 0.24724
    },
    "EXISTING": {
     "k": 0,
@@ -22698,8 +22728,6 @@
    "GAS_EN_WORD": 6,
    "MV_EN_BLOOD": 1,
    "MV_MR_JAKHMI": 4,
-   "SHOCK_HI_KARANT": 7,
-   "SHOCK_MR_KARANT": 7,
    "MV_HI_DEATH": 6,
    "MV_EN_ATTACK": 4,
    "MV_EN_CARDIAC": 3,
@@ -22709,6 +22737,6 @@
    "MV_EN_WEAPON": 1,
    "GAS_MR_WORD": 2
   },
-  "missCount": 5263
+  "missCount": 5335
  }
 }

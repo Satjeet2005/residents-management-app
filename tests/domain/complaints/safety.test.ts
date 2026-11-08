@@ -177,6 +177,7 @@ const NEGATIVES: string[] = [
   "bijli gayi hai",
   "kachra nahi uthaya",
   "current bill zyada aaya",
+  "करंट बिल ज्यादा आया है",
   "bijli lagao",
 ];
 
@@ -194,7 +195,6 @@ const ACCEPTED_FALSE_POSITIVES: [string, string][] = [
   ["cigarette smoke in the lobby", "FIRE_EN_SMOKE_BURN"],
   ["burnt food smell in the corridor", "FIRE_EN_SMOKE_BURN"],
   ["कोई आग नहीं लगी", "FIRE_HI_AAG"],
-  ["करंट बिल ज्यादा आया है", "SHOCK_HI_KARANT"],
   ["गैस बिल नहीं मिला", "GAS_HI_WORD"],
 ];
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SAFETY_RULES, detectSafetyWords, type SafetyHit } from "@/domain/complaints/safety";
+import { SAFETY_RULES, SHOCK_CONTEXT, detectSafetyWords, type SafetyHit } from "@/domain/complaints/safety";
 import { compileTerms, foldForMatching } from "@/domain/complaints/match";
 import { normalizeComplaintText } from "@/domain/complaints/text";
 import { generateSeed } from "@/domain/complaints/safety-benchmark/sets";
@@ -10,22 +10,30 @@ type Rule = (typeof SAFETY_RULES)[number];
 
 /** A test double of the detector that reads a COPY of the rule table (the real rules are never changed): the same loop, with the rules given. */
 function detectorOf(rules: readonly Rule[]) {
-  const compiled = rules.map((r) => ({ r, pattern: compileTerms(r.terms, r.kind) }));
+  const compiled = rules.map((r) => {
+    const bare = r.needsShockContext ?? [];
+    return { r, pattern: compileTerms(r.terms.filter((t) => !bare.includes(t)), r.kind), barePattern: bare.length === 0 ? null : compileTerms(bare, r.kind) };
+  });
+  const first = (pattern: RegExp, except: RegExp | undefined, text: string): string | null => {
+    pattern.lastIndex = 0;
+    for (const match of text.matchAll(pattern)) {
+      if (except !== undefined) {
+        const start = match.index ?? 0;
+        let end = start + match[0].length;
+        while (end < text.length && LETTER_OR_MARK_OR_DIGIT.test(text[end])) end += 1;
+        if (except.test(text.slice(start, end))) continue;
+      }
+      return match[0];
+    }
+    return null;
+  };
   return (raw: string): SafetyHit[] => {
     const text = foldForMatching(normalizeComplaintText(raw));
     const hits: SafetyHit[] = [];
-    for (const { r, pattern } of compiled) {
-      pattern.lastIndex = 0;
-      for (const match of text.matchAll(pattern)) {
-        const start = match.index ?? 0;
-        if (r.except !== undefined) {
-          let end = start + match[0].length;
-          while (end < text.length && LETTER_OR_MARK_OR_DIGIT.test(text[end])) end += 1;
-          if (r.except.test(text.slice(start, end))) continue;
-        }
-        hits.push({ rule: r.id, category: r.category, language: r.language, matched: match[0] });
-        break;
-      }
+    for (const { r, pattern, barePattern } of compiled) {
+      let matched = first(pattern, r.except, text);
+      if (matched === null && barePattern !== null && first(SHOCK_CONTEXT, undefined, text) !== null) matched = first(barePattern, r.except, text);
+      if (matched !== null) hits.push({ rule: r.id, category: r.category, language: r.language, matched });
     }
     return hits;
   };

@@ -9,6 +9,32 @@ rules are written to catch too much rather than too little: see `docs/complaint-
 The transliteration column was made by a simple program and is only a help to read the script; it is not a standard scheme and some
 spellings are rough. The English meaning is per rule. English rules are not listed here (they are in `src/domain/complaints/safety.ts`).
 
+## Changes since the first version (T10c, D169): the bare "current" rules are now more specific
+
+**No word was added or removed.** Ten terms of five rules, all of them the bare electricity "current" (the word a resident also writes for a
+bill, a power cut or "current gaya"), now count only when the SAME text also holds one of the shock words below. They are marked in the tables
+further down. A native speaker is asked to check those rows and the shock-word list.
+
+Before: these terms were always a hit. After: a hit only with a shock word.
+
+- `SHOCK_HI_KARANT`: करंट, करेंट, करंट आ रहा
+- `SHOCK_HI_LAG`: बिजली का करंट, करंट आ
+- `SHOCK_MR_KARANT`: करंट, करंट आला
+- `SHOCK_HI_LATN_CURRENT`: current aa raha, current aata
+- `SHOCK_HI_LATN_JHATKA`: bijli ka current
+
+Every other term is unchanged, including the terms that already name the shock (`करंट लगा`, `करंट लागला`, `current laga`, `current lagta`,
+`current maar`, `बिजली लग`, `दीवार में करंट`, `नल में करंट`, `पानी में करंट`, and all English, lift, fire, gas and medical terms).
+
+The shock words (`SHOCK_CONTEXT`, `src/domain/complaints/safety.ts`), whole words only: laga, lagla, laagla, lage, lagta, shock, shocks, jhatka,
+jhatke, zatka, dhakka, dhakke, basla, touched, touching, electrocuted, chhune, chhoone; लगा, लागला, झटका, झटके, धक्का, धक्के, स्पर्श, शॉक, छूने,
+छूते, छुआ. The words of the brief are laga, lagla, lage, lagta, shock, jhatka, jhatke, dhakka, basla, zatka, touched, touching, electrocuted and
+लगा, लागला, झटका, धक्का, स्पर्श, शॉक. The plural and spelling forms (shocks, laagla, dhakke, झटके, धक्के) and the touch forms (छूने, छूते, छुआ,
+chhune, chhoone) were added so that the existing test sentence "नल छूने पर करंट आता है" is still a hit.
+
+What this costs: a resident who writes only "तार में करंट आ रहा है" or "current aa raha hai" with no shock word is no longer caught by these
+terms (a "दीवार में करंट", "नल में करंट" or "पानी में करंट" still is). That is the price of not sending every "करंट नहीं है" to the duty manager as CRITICAL.
+
 ## How to read a row
 
 - **Rule id**: the id in `SAFETY_RULES` (`src/domain/complaints/safety.ts`). One rule has several words and phrases, one row each.
@@ -22,7 +48,8 @@ spellings are rough. The English meaning is per rule. English rules are not list
 1. Is the spelling one a resident would really write? Add a missing common spelling.
 2. Does it mean what the English column says, in that language?
 3. Could it be an ordinary word in a message that is NOT an incident (for example `करंट` also means the electricity "current" on a bill)?
-   That is acceptable if it is common in real incidents; say so, or ask for the rule to be narrowed.
+   That is acceptable if it is common in real incidents; say so, or ask for the rule to be narrowed. (The bare "current" terms were narrowed in
+   T10c: see "Changes since the first version" below.)
 4. Which common phrases are missing for the five categories: fire, gas, someone stuck in a lift, electric shock, medical emergency or violence?
 
 Write your name and the date in the last column, and your corrections under the table or in a note to the developers.
@@ -278,12 +305,12 @@ Write your name and the date in the last column, and your corrections under the 
 
 | Rule id | Language | Script text (as typed) | Transliteration (machine, approximate) | English meaning | Reviewed by / date |
 |---|---|---|---|---|---|
-| `SHOCK_HI_KARANT` | hi | करंट | karnt | 'current' = electric shock (also hits a bill for 'current') | |
-| `SHOCK_HI_KARANT` | hi | करेंट | karent | 'current' = electric shock (also hits a bill for 'current') | |
+| `SHOCK_HI_KARANT` | hi | करंट | karnt | 'current' = electric shock **(counts only when a shock word is in the same text, D169)** | |
+| `SHOCK_HI_KARANT` | hi | करेंट | karent | 'current' = electric shock **(counts only when a shock word is in the same text, D169)** | |
 | `SHOCK_HI_KARANT` | hi | करंट लगा | karnt lagaa | 'current' = electric shock (also hits a bill for 'current') | |
 | `SHOCK_HI_KARANT` | hi | करंट लग | karnt lag | 'current' = electric shock (also hits a bill for 'current') | |
 | `SHOCK_HI_KARANT` | hi | करेंट लग | karent lag | 'current' = electric shock (also hits a bill for 'current') | |
-| `SHOCK_HI_KARANT` | hi | करंट आ रहा | karnt aa rahaa | 'current' = electric shock (also hits a bill for 'current') | |
+| `SHOCK_HI_KARANT` | hi | करंट आ रहा | karnt aa rahaa | 'current' = electric shock **(counts only when a shock word is in the same text, D169)** | |
 | `SHOCK_HI_JHATKA` | hi | बिजली का झटका | bijalee kaa jhatakaa | a jolt of electricity, electric shock | |
 | `SHOCK_HI_JHATKA` | hi | बिजली के झटके | bijalee ke jhatake | a jolt of electricity, electric shock | |
 | `SHOCK_HI_JHATKA` | hi | बिजली झटका | bijalee jhatakaa | a jolt of electricity, electric shock | |
@@ -301,8 +328,8 @@ Write your name and the date in the last column, and your corrections under the 
 | `SHOCK_HI_TAR` | hi | बिजली का नंगा | bijalee kaa nngaa | bare / open / broken wire | |
 | `SHOCK_HI_TAR` | hi | खुले तार | khule taar | bare / open / broken wire | |
 | `SHOCK_HI_LAG` | hi | बिजली लग | bijalee lag | got electrocuted; current in the wall / tap / water | |
-| `SHOCK_HI_LAG` | hi | बिजली का करंट | bijalee kaa karnt | got electrocuted; current in the wall / tap / water | |
-| `SHOCK_HI_LAG` | hi | करंट आ | karnt aa | got electrocuted; current in the wall / tap / water | |
+| `SHOCK_HI_LAG` | hi | बिजली का करंट | bijalee kaa karnt | got electrocuted; current in the wall / tap / water **(counts only when a shock word is in the same text, D169)** | |
+| `SHOCK_HI_LAG` | hi | करंट आ | karnt aa | got electrocuted; current in the wall / tap / water **(counts only when a shock word is in the same text, D169)** | |
 | `SHOCK_HI_LAG` | hi | दीवार में करंट | deevaar men karnt | got electrocuted; current in the wall / tap / water | |
 | `SHOCK_HI_LAG` | hi | नल में करंट | nal men karnt | got electrocuted; current in the wall / tap / water | |
 | `SHOCK_HI_LAG` | hi | पानी में करंट | paanee men karnt | got electrocuted; current in the wall / tap / water | |
@@ -312,10 +339,10 @@ Write your name and the date in the last column, and your corrections under the 
 | `SHOCK_MR_DHAKKA` | mr | वीज धक्का | veej dhakkaa | electric shock (a blow of electricity) | |
 | `SHOCK_MR_DHAKKA` | mr | वीजेचा धक्का | veejechaa dhakkaa | electric shock (a blow of electricity) | |
 | `SHOCK_MR_DHAKKA` | mr | विजेचे धक्के | vijeche dhakke | electric shock (a blow of electricity) | |
-| `SHOCK_MR_KARANT` | mr | करंट | karnt | got a shock of current | |
+| `SHOCK_MR_KARANT` | mr | करंट | karnt | got a shock of current **(counts only when a shock word is in the same text, D169)** | |
 | `SHOCK_MR_KARANT` | mr | करंट लागला | karnt laagalaa | got a shock of current | |
 | `SHOCK_MR_KARANT` | mr | करंट लागत | karnt laagat | got a shock of current | |
-| `SHOCK_MR_KARANT` | mr | करंट आला | karnt aalaa | got a shock of current | |
+| `SHOCK_MR_KARANT` | mr | करंट आला | karnt aalaa | got a shock of current **(counts only when a shock word is in the same text, D169)** | |
 | `SHOCK_MR_KARANT` | mr | करेंट लागला | karent laagalaa | got a shock of current | |
 | `SHOCK_MR_SHOCK` | mr | शॉक | shok | got a shock | |
 | `SHOCK_MR_SHOCK` | mr | शॉक लागला | shok laagalaa | got a shock | |
@@ -341,8 +368,8 @@ Write your name and the date in the last column, and your corrections under the 
 | `SHOCK_HI_LATN_CURRENT` | hi-Latn | current laga | current laga | got a shock of current, typed in Latin letters | |
 | `SHOCK_HI_LATN_CURRENT` | hi-Latn | current lag | current lag | got a shock of current, typed in Latin letters | |
 | `SHOCK_HI_LATN_CURRENT` | hi-Latn | current lagta | current lagta | got a shock of current, typed in Latin letters | |
-| `SHOCK_HI_LATN_CURRENT` | hi-Latn | current aa raha | current aa raha | got a shock of current, typed in Latin letters | |
-| `SHOCK_HI_LATN_CURRENT` | hi-Latn | current aata | current aata | got a shock of current, typed in Latin letters | |
+| `SHOCK_HI_LATN_CURRENT` | hi-Latn | current aa raha | current aa raha | got a shock of current, typed in Latin letters **(counts only when a shock word is in the same text, D169)** | |
+| `SHOCK_HI_LATN_CURRENT` | hi-Latn | current aata | current aata | got a shock of current, typed in Latin letters **(counts only when a shock word is in the same text, D169)** | |
 | `SHOCK_HI_LATN_CURRENT` | hi-Latn | karant laga | karant laga | got a shock of current, typed in Latin letters | |
 | `SHOCK_HI_LATN_CURRENT` | hi-Latn | karant lag | karant lag | got a shock of current, typed in Latin letters | |
 | `SHOCK_HI_LATN_CURRENT` | hi-Latn | karent laga | karent laga | got a shock of current, typed in Latin letters | |
@@ -352,7 +379,7 @@ Write your name and the date in the last column, and your corrections under the 
 | `SHOCK_HI_LATN_JHATKA` | hi-Latn | bijli ka jhatka laga | bijli ka jhatka laga | electric jolt, typed in Latin letters | |
 | `SHOCK_HI_LATN_JHATKA` | hi-Latn | bijli lag | bijli lag | electric jolt, typed in Latin letters | |
 | `SHOCK_HI_LATN_JHATKA` | hi-Latn | bijli lag gayi | bijli lag gayi | electric jolt, typed in Latin letters | |
-| `SHOCK_HI_LATN_JHATKA` | hi-Latn | bijli ka current | bijli ka current | electric jolt, typed in Latin letters | |
+| `SHOCK_HI_LATN_JHATKA` | hi-Latn | bijli ka current | bijli ka current | electric jolt, typed in Latin letters **(counts only when a shock word is in the same text, D169)** | |
 | `SHOCK_HI_LATN_TAAR` | hi-Latn | nanga taar | nanga taar | bare / broken wire, typed in Latin letters | |
 | `SHOCK_HI_LATN_TAAR` | hi-Latn | nange taar | nange taar | bare / broken wire, typed in Latin letters | |
 | `SHOCK_HI_LATN_TAAR` | hi-Latn | khula taar | khula taar | bare / broken wire, typed in Latin letters | |

@@ -44,18 +44,16 @@ describe("T10c everyday Indian phrasing: what the detector does", () => {
 
   it("counts the everyday sentences that hit a rule, by language form (the measurement)", () => {
     const byForm = Object.fromEntries(LANGUAGE_FORMS.map((form) => [form, hitsOf(EVERYDAY_PHRASES[form]).length]));
-    expect(byForm).toEqual({ ENGLISH: 36, HINDI_DEVANAGARI: 15, MARATHI_DEVANAGARI: 12, ROMANISED_HINDI: 19, ROMANISED_MARATHI: 6 });
-    expect(hitsOf(everyday)).toHaveLength(88);
+    expect(byForm).toEqual({ ENGLISH: 36, HINDI_DEVANAGARI: 7, MARATHI_DEVANAGARI: 6, ROMANISED_HINDI: 16, ROMANISED_MARATHI: 6 });
+    expect(hitsOf(everyday)).toHaveLength(71);
   });
 
   it("counts the ambiguous sentences that hit a rule (reported apart; a hit is acceptable)", () => {
     expect(hitsOf(AMBIGUOUS_PHRASES)).toHaveLength(9);
   });
 
-  it("counts the everyday electricity sentences that hit through a bare current rule", () => {
-    const viaCurrent = everyday.filter((t) => detectSafetyWords(t).some((h) => CURRENT_FAMILY.has(h.rule)));
-    expect(viaCurrent).toHaveLength(17);
-    expect(viaCurrent.filter((t) => /[ऀ-ॿ]/.test(t))).toHaveLength(14);
+  it("counts the everyday electricity sentences that hit through a bare current rule (17 before D169, 0 after)", () => {
+    expect(everyday.filter((t) => detectSafetyWords(t).some((h) => CURRENT_FAMILY.has(h.rule)))).toHaveLength(0);
   });
 
   it("makes every hit CRITICAL through the decision path (a strong hit is CRITICAL)", () => {
