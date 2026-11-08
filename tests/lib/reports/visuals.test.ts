@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { AGE_BUCKETS } from "@/domain/reports/age";
 import { paymentCurve } from "@/domain/reports/payment-curve";
 import type { MonthlyPoint } from "@/domain/reports/series";
 import type { WeeklyPoint } from "@/domain/reports/weekly-sla";
-import { ageingVisual, curvePlainNumbers, curveVisual, monthlyVisual, weeklyVisual } from "@/lib/reports/visuals";
+import { curvePlainNumbers, curveVisual, monthlyVisual, weeklyVisual } from "@/lib/reports/visuals";
 
 const point = (period: string, billed: bigint, collected: bigint): MonthlyPoint => ({
   period,
@@ -51,24 +50,6 @@ describe("VZ1 the monthly visual: every month at the same age, one text and one 
     expect(visual.columns.map((c) => c.percentText)).toEqual(["79%", "70% so far"]);
     expect(visual.columns[1]).toMatchObject({ collected: 700_000, outstanding: 300_000, hasData: true, partial: true });
     expect(visual.columns[0]).toMatchObject({ collected: 790_000, outstanding: 210_000 });
-  });
-});
-
-describe("VZ2 the ageing visual", () => {
-  const ageing = {
-    buckets: AGE_BUCKETS.map((bucket, i) => ({ bucket, flats: i + 1, bills: i + 2, unpaidBillsPaise: BigInt(i === 3 ? 50_000_000 : 1_000_000), lateFeesPaise: 0n, amountDuePaise: BigInt(i === 3 ? 50_000_000 : 1_000_000) })),
-    total: { flats: 15, bills: 20, unpaidBillsPaise: 54_000_000n, lateFeesPaise: 0n, amountDuePaise: 54_000_000n },
-  };
-  const visual = ageingVisual(ageing);
-
-  it("has five rows with the oldest hatched, and names the largest group in the takeaway", () => {
-    expect(visual.rows).toHaveLength(5);
-    expect(visual.rows.map((r) => r.emphasis)).toEqual([undefined, undefined, undefined, undefined, "warning"]);
-    expect(visual.text.description).toBe("61 to 90 days holds the most: ₹5.0 lakh of the ₹5.4 lakh owed.");
-  });
-
-  it("the table has the flats, bills and the full amount of every group", () => {
-    expect(visual.text.table.rows[3]).toEqual({ header: "61 to 90 days", cells: ["4", "5", "₹5,00,000"] });
   });
 });
 

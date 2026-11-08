@@ -14,8 +14,8 @@ import { MAX_BYTES } from "../helpers/screenshot";
 const widthOf = (page: Page): number => page.viewportSize()?.width ?? 0;
 const wide = (page: Page): boolean => widthOf(page) >= 768;
 const SECTIONS = ["money", "owed", "quality", "complaints", "bank"] as const;
-const FIGURES_BELOW_768 = ["m1-collected", "m2-on-time", "m2-sla", "monthly-bars", "ageing"];
-const FIGURES_FROM_768 = ["m1-collected", "m2-on-time", "m2-sla", "monthly-columns", "ageing", "curve", "weekly"];
+const FIGURES_BELOW_768 = ["m1-collected", "m2-on-time", "m2-sla", "monthly-bars"];
+const FIGURES_FROM_768 = ["m1-collected", "m2-on-time", "m2-sla", "monthly-columns", "curve", "weekly"];
 
 /** Opens the report and waits for the real page: the first thing the server sends is the loading state, which has no heading. */
 async function openReport(page: Page, query = "?period=2026-10"): Promise<void> {
@@ -95,7 +95,6 @@ test.describe("the committee report at one width", () => {
       await closeUp(page, "m1-collected", "m1-collected");
       await closeUp(page, "m2-on-time", "m2-on-time");
       await closeUp(page, "monthly-bars", "m3-monthly");
-      await closeUp(page, "ageing", "m4-ageing");
     }
     if (widthOf(page) === 1280) {
       await closeUp(page, "monthly-columns", "c1-monthly");
@@ -126,7 +125,9 @@ test.describe("the committee report at one width", () => {
     await openReport(page);
     await openAll(page);
     await page.getByRole("link", { name: /^See the flats: 31 to 60 days/ }).click();
-    await expect(page.getByRole("heading", { name: /Open dues: 31 to 60 days/ })).toBeVisible();
+    const heading = page.getByRole("heading", { name: /\d+ flats owe .* \(31 to 60 days\)/ });
+    await expect(heading).toBeVisible();
+    await expect(heading).toBeFocused();
     await expect(page.locator("#ageing-detail tbody tr:visible, #ageing-detail li:visible").first()).toBeVisible();
     await expect(page.locator("details#owed")).toHaveJSProperty("open", true);
   });

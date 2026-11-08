@@ -7,7 +7,7 @@ import { decideAccess } from "@/server/auth/access";
 import { type SessionUser } from "@/server/auth/session-service";
 import { StaffAccessError } from "@/server/statements/ui-data";
 import { ageingPageOf } from "@/server/reports/ageing-page";
-import { AGE_BUCKETS, ageingRows } from "@/domain/reports/age";
+import { AGE_BUCKETS, ageingFlats } from "@/domain/reports/age";
 import { importStatement } from "@/server/statements/import";
 import { postManualMatch } from "@/server/statements/manual";
 import { getSampleStatement } from "@/server/statements/sample-statement";
@@ -54,8 +54,8 @@ beforeAll(async () => {
     const dues = computeDues({ bills: flatBills.map(toDueBill), entries: (entriesByFlat.get(flatId) ?? []).map(toDueEntry), policy: loaded.policy, today: AS_OF });
     homeSum = { total: homeSum.total + dues.openBills.reduce((sum, b) => sum + b.outstandingPaise + b.feePaise, 0n), open: homeSum.open + dues.openBills.length };
   }
-  firstPage = await loadAgeingPage({ db: fx.app, user: meera, bucket: "DAYS_31_60", now: DEMO_NOW });
-  secondPage = await loadAgeingPage({ db: fx.app, user: meera, bucket: "DAYS_31_60", cursor: firstPage?.nextCursor ?? undefined, now: DEMO_NOW });
+  firstPage = await loadAgeingPage({ db: fx.app, user: meera, bucket: "DAYS_31_60", sort: "LARGEST", now: DEMO_NOW });
+  secondPage = await loadAgeingPage({ db: fx.app, user: meera, bucket: "DAYS_31_60", sort: "LARGEST", cursor: firstPage?.nextCursor ?? undefined, now: DEMO_NOW });
 }, 240_000);
 afterAll(async () => {
   await fx?.close();
@@ -64,6 +64,8 @@ afterAll(async () => {
 const report = (period: string | null = OCTOBER, now = DEMO_NOW) => loadCommitteeReport({ db: fx.app, user: meera, requestedPeriod: period, now });
 
 /** The live payments of a bill as of a date, as raw SQL sees them: PAYMENT entries up to the date that no REVERSAL up to the date cancels. */
+const words = (markup: string) => markup.replace(/<[^>]*>/g, " ").replace(/&#x27;/g, "'").replace(/\s+/g, " ");
+
 const LIVE_PAYMENTS = `
   SELECT e.bill_id, e.amount_paise FROM ledger_entries e
   WHERE e.entry_type = 'PAYMENT' AND e.direction = 'PAYMENT' AND e.effective_date <= $1::date
@@ -175,37 +177,80 @@ describe("RP2 the ageing, checked against raw SQL and against the Home's own sum
     expect(data.ageing.total.flats).toBeGreaterThanOrEqual(Number(rows[0].flats));
   });
 
-  it("the drill-down lists the oldest first with flat code, month, days and amount and no name, and pages with a cursor", () => {
+  it("the drill-down lists the FLATS of the group, largest first by default, 25 at a time with a cursor, with the group's heading numbers and no name", () => {
     const bucket = october.ageing.buckets.find((b) => b.bucket === "DAYS_31_60");
     expect(bucket?.bills).toBeGreaterThan(50);
     expect(firstPage?.rows).toHaveLength(25);
     expect(firstPage?.nextCursor).not.toBeNull();
     expect(secondPage?.rows).toHaveLength(25);
     const both = [...(firstPage?.rows ?? []), ...(secondPage?.rows ?? [])];
-    expect(new Set(both.map((r) => r.billId)).size).toBe(50);
-    expect(both.every((r) => r.daysPastDue >= 31 && r.daysPastDue <= 60)).toBe(true);
-    expect(both.map((r) => r.daysPastDue)).toEqual([...both].map((r) => r.daysPastDue).sort((a, b) => b - a));
-    expect(Object.keys(both[0]).sort()).toEqual(["amountDuePaise", "billId", "daysPastDue", "flatCode", "period"]);
+    expect(new Set(both.map((r) => r.flatCode)).size).toBe(50);
+    const amounts = both.map((r) => BigInt(r.amountDuePaise));
+    expect(amounts).toEqual([...amounts].sort((a, b) => (a < b ? 1 : a > b ? -1 : 0)));
+    expect(both.every((r) => r.oldestDaysPastDue >= 31 && r.oldestDaysPastDue <= 60)).toBe(true);
+    expect(Object.keys(both[0]).sort()).toEqual(["amountDuePaise", "bills", "flatCode", "oldestDaysPastDue"]);
+    expect(firstPage).toMatchObject({ bucket: "DAYS_31_60", sort: "LARGEST", flats: bucket?.flats, amountDuePaise: bucket?.amountDuePaise.toString() });
   });
 
   it("asking for a bucket in the report returns the same first page as the drill-down loader, from the same positions", async () => {
-    const withBucket = await loadCommitteeReport({ db: fx.app, user: meera, requestedPeriod: OCTOBER, bucket: "DAYS_31_60", now: DEMO_NOW });
+    const withBucket = await loadCommitteeReport({ db: fx.app, user: meera, requestedPeriod: OCTOBER, bucket: "DAYS_31_60", sort: "LARGEST", now: DEMO_NOW });
     expect(withBucket.drilldown).toEqual(firstPage);
     expect(withBucket.ageing).toEqual(october.ageing);
     expect(october.drilldown).toBeNull();
   });
 
-  it("a cursor that is not one is refused", async () => {
-    expect(await loadAgeingPage({ db: fx.app, user: meera, bucket: "DAYS_31_60", cursor: "not-a-cursor", now: DEMO_NOW })).toBeNull();
+  it("a cursor that is not one, or that belongs to the other order, is refused", async () => {
+    expect(await loadAgeingPage({ db: fx.app, user: meera, bucket: "DAYS_31_60", sort: "LARGEST", cursor: "not-a-cursor", now: DEMO_NOW })).toBeNull();
+    expect(await loadAgeingPage({ db: fx.app, user: meera, bucket: "DAYS_31_60", sort: "OLDEST", cursor: firstPage?.nextCursor ?? undefined, now: DEMO_NOW })).toBeNull();
   });
 
-  it("every bucket's rows, taken whole from the same positions, add up to the bucket's amount and count", () => {
+  it("oldest first is a different order of the same flats: the first page starts with the oldest bill, and the flats and the total are the same", async () => {
+    const oldest = await loadAgeingPage({ db: fx.app, user: meera, bucket: "DAYS_31_60", sort: "OLDEST", now: DEMO_NOW });
+    expect(oldest?.rows[0].oldestDaysPastDue).toBeGreaterThanOrEqual(oldest?.rows.at(-1)?.oldestDaysPastDue ?? 0);
+    expect(oldest).toMatchObject({ sort: "OLDEST", flats: firstPage?.flats, amountDuePaise: firstPage?.amountDuePaise });
+  });
+
+  it("every group, against an independent SQL: bills, distinct flats, unpaid bills (principal) and the late fees on top, and every flat's bills, oldest age and amount", async () => {
+    const SQL = `WITH paid AS (SELECT bill_id, sum(amount_paise) AS p FROM (${LIVE_PAYMENTS}) l GROUP BY bill_id),
+         fees AS (SELECT bill_id, sum(amount_paise) AS f FROM ledger_entries WHERE entry_type = 'LATE_FEE' AND direction = 'CHARGE' AND effective_date <= $1::date GROUP BY bill_id),
+         open AS (
+           SELECT b.id, b.flat_id, b.due_on, b.amount_paise - COALESCE(p.p, 0) AS principal, 0::bigint AS fee_only
+           FROM bills b LEFT JOIN paid p ON p.bill_id = b.id WHERE b.issued_on <= $1::date AND COALESCE(p.p, 0) < b.amount_paise
+           UNION ALL
+           SELECT b.id, b.flat_id, b.due_on, 0::bigint, f.f - (p.p - b.amount_paise)
+           FROM bills b JOIN paid p ON p.bill_id = b.id JOIN fees f ON f.bill_id = b.id
+           WHERE b.issued_on <= $1::date AND p.p >= b.amount_paise AND f.f - (p.p - b.amount_paise) > 0),
+         aged AS (SELECT o.*, ($1::date - o.due_on) AS days,
+                    CASE WHEN $1::date - o.due_on <= 0 THEN 'NOT_YET_DUE' WHEN $1::date - o.due_on <= 30 THEN 'DAYS_1_30' WHEN $1::date - o.due_on <= 60 THEN 'DAYS_31_60' WHEN $1::date - o.due_on <= 90 THEN 'DAYS_61_90' ELSE 'OVER_90' END AS bucket
+                  FROM open o)`;
+    const groups = await fx.owner.$queryRawUnsafe<{ bucket: string; bills: string; flats: string; principal: string | null; fee_only: string | null }[]>(
+      `${SQL} SELECT bucket, count(*)::text AS bills, count(DISTINCT flat_id)::text AS flats, sum(principal)::text AS principal, sum(fee_only)::text AS fee_only FROM aged GROUP BY bucket`,
+      AS_OF,
+    );
+    const perFlat = await fx.owner.$queryRawUnsafe<{ bucket: string; code: string; bills: string; oldest: number; principal: string | null }[]>(
+      `${SQL} SELECT a.bucket, f.code, count(*)::text AS bills, max(a.days)::int AS oldest, sum(a.principal)::text AS principal FROM aged a JOIN flats f ON f.id = a.flat_id GROUP BY a.bucket, f.code`,
+      AS_OF,
+    );
     for (const bucket of october.ageing.buckets) {
-      const rows = ageingRows(seeded, AS_OF, bucket.bucket);
-      expect(rows.length, bucket.bucket).toBe(bucket.bills);
-      expect(rows.reduce((sum, r) => sum + r.amountDuePaise, 0n), bucket.bucket).toBe(bucket.amountDuePaise);
-      expect(new Set(rows.map((r) => r.flatId)).size, bucket.bucket).toBe(bucket.flats);
+      const sql = groups.find((g) => g.bucket === bucket.bucket);
+      expect([bucket.bills, bucket.flats], bucket.bucket).toEqual([Number(sql?.bills ?? 0), Number(sql?.flats ?? 0)]);
+      expect(bucket.unpaidBillsPaise, bucket.bucket).toBe(BigInt(sql?.principal ?? 0));
+      expect(bucket.lateFeesPaise >= BigInt(sql?.fee_only ?? 0), bucket.bucket).toBe(true);
+      expect(bucket.unpaidBillsPaise + bucket.lateFeesPaise, bucket.bucket).toBe(bucket.amountDuePaise);
+      const flats = ageingFlats(seeded, AS_OF, bucket.bucket, "LARGEST");
+      const mine = new Map(perFlat.filter((r) => r.bucket === bucket.bucket).map((r) => [r.code, r]));
+      expect(flats.length, bucket.bucket).toBe(mine.size);
+      for (const flat of flats) {
+        const expected = mine.get(flat.flatCode);
+        expect([flat.bills, flat.oldestDaysPastDue], `${bucket.bucket} ${flat.flatCode}`).toEqual([Number(expected?.bills), expected?.oldest]);
+        expect(flat.amountDuePaise >= BigInt(expected?.principal ?? 0), `${bucket.bucket} ${flat.flatCode}`).toBe(true);
+      }
+      expect(flats.reduce((sum, f) => sum + f.amountDuePaise, 0n), bucket.bucket).toBe(bucket.amountDuePaise);
     }
+    const totalFlats = await fx.owner.$queryRawUnsafe<{ n: string }[]>(`${SQL} SELECT count(DISTINCT flat_id)::text AS n FROM aged`, AS_OF);
+    expect(october.ageing.total.flats).toBe(Number(totalFlats[0].n));
+    console.log(`D175 SQL    open flats=${totalFlats[0].n} groups: ${groups.map((g) => `${g.bucket}=${g.bills} bills/${g.flats} flats/${g.principal}`).join(" ")}`);
+    console.log(`D175 loader open flats=${october.ageing.total.flats} groups: ${october.ageing.buckets.map((b) => `${b.bucket}=${b.bills} bills/${b.flats} flats/${b.unpaidBillsPaise}`).join(" ")}`);
   });
 });
 
@@ -329,7 +374,7 @@ describe("RP3 positions: a FEE_ONLY bill, a bill settled late and a part payment
     await fx.makeResident({ billAmountPaise: 1_000_000n, dueOn: "2026-04-10", payments: [{ date: "2026-04-05", amountPaise: 400_000n }, { date: "2026-04-08", amountPaise: 600_000n }] });
     await fx.makeResident({ billAmountPaise: 1_000_000n, dueOn: "2026-04-10", payments: [{ date: "2026-04-05", amountPaise: 300_000n }, { date: "2026-04-08", amountPaise: 200_000n }] });
     april = await report("2026-04-01");
-    may = { positions: (await loadReportPositions(fx.app, AS_OF)).positions, over90: await loadAgeingPage({ db: fx.app, user: meera, bucket: "OVER_90", now: DEMO_NOW }), report: await report(MAY) };
+    may = { positions: (await loadReportPositions(fx.app, AS_OF)).positions, over90: await loadAgeingPage({ db: fx.app, user: meera, bucket: "OVER_90", sort: "LARGEST", now: DEMO_NOW }), report: await report(MAY) };
   }, 120_000);
 
   it("the month's money line counts each bill once: Billed, Collected, Outstanding, and the three late-fee figures", () => {
@@ -348,11 +393,12 @@ describe("RP3 positions: a FEE_ONLY bill, a bill settled late and a part payment
     const mine = may.positions.find((p) => p.flatCode === flats.feeOnly.flatCode);
     expect(mine?.position.kind).toBe("FEE_ONLY");
     expect(mine?.position.amountDuePaise).toBe(3_800n);
-    // The May bills are the oldest of all (170 days), so they head the "Over 90 days" rows.
-    const over90 = may.over90?.rows ?? [];
-    const row = over90.find((r) => r.flatCode === flats.feeOnly.flatCode);
-    expect(row).toMatchObject({ period: MAY, daysPastDue: 170, amountDuePaise: "3800" });
+    // The May bills are the oldest of all (170 days). A fee of ₹38 is the smallest amount, so it ends the largest-first list of "Over 90 days"; it is in the whole list.
+    const over90 = ageingFlats(may.positions, AS_OF, "OVER_90", "LARGEST");
+    expect(over90.find((r) => r.flatCode === flats.feeOnly.flatCode)).toMatchObject({ bills: 1, oldestDaysPastDue: 170, amountDuePaise: 3_800n });
+    expect(over90.at(-1)?.flatCode).toBe(flats.feeOnly.flatCode);
     expect(over90.some((r) => r.flatCode === flats.settledLate.flatCode)).toBe(false);
+    expect(may.over90?.flats).toBe(over90.length);
   });
 
   it("the part-paid bill (T21-1601's shape) owes only what is left, once", () => {
@@ -476,7 +522,7 @@ describe("RP6 access: who may read the report, and what the page never shows", (
     const kavita = await asUser("Kavita Rao", "STAFF");
     for (const user of [residentUser, priya, kavita]) {
       await refused(() => loadCommitteeReport({ db: fx.app, user, requestedPeriod: OCTOBER, now: DEMO_NOW }));
-      await refused(() => loadAgeingPage({ db: fx.app, user, bucket: "OVER_90", now: DEMO_NOW }));
+      await refused(() => loadAgeingPage({ db: fx.app, user, bucket: "OVER_90", sort: "LARGEST", now: DEMO_NOW }));
     }
   });
 
@@ -491,7 +537,8 @@ describe("RP6 access: who may read the report, and what the page never shows", (
 
   it("the committee user sees the whole page, from the real data, with every block", async () => {
     const out = renderToStaticMarkup(h(ReportView, { report: { ...october, drilldown: firstPage } }));
-    for (const part of ["Committee report", "As of 27 October 2026 · read only", "Money collected for October", "Billed and collected", "What is owed", "How fast bills are paid", "Complaints", "Bank statement matching", "About these numbers", "Open dues: 31 to 60 days"]) expect(out).toContain(part);
+    for (const part of ["Committee report", "As of 27 October 2026 · read only", "Money collected for October", "Billed and collected", "What is owed", "How fast bills are paid", "Complaints", "Bank statement matching", "About these numbers"]) expect(out).toContain(part);
+    expect(words(out)).toMatch(/\d+ flats owe ₹[\d.]+ (lakh|crore) \(31 to 60 days\)/);
     expect(out).not.toMatch(/<h2[^>]*>Goals<\/h2>/);
     expect(out).toContain("₹1,80,52,190");
     expect(out).not.toMatch(/NaN|undefined/);
@@ -500,7 +547,7 @@ describe("RP6 access: who may read the report, and what the page never shows", (
   it("no resident name or phone number appears anywhere in the page, in any month or any drill-down (every seeded name and phone is searched for)", async () => {
     const people = await fx.owner.user.findMany({ select: { name: true, phone: true } });
     expect(people.length).toBeGreaterThan(2400);
-    const pages = AGE_BUCKETS.map((bucket) => ageingPageOf(seeded, AS_OF, bucket, null));
+    const pages = AGE_BUCKETS.map((bucket) => ageingPageOf(seeded, AS_OF, bucket, "LARGEST", null));
     const outputs = pages.map((drilldown) => renderToStaticMarkup(h(ReportView, { report: { ...october, drilldown } })));
     outputs.push(renderToStaticMarkup(h(ReportView, { report: october })));
     expect(outputs.every((out) => out.includes("See the numbers behind this chart") && (out.match(/<table/g) ?? []).length >= 8)).toBe(true);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AGE_BUCKETS, ageBucket, ageingRows, ageingTable, daysPastDue } from "@/domain/reports/age";
+import { AGE_BUCKETS, ageBucket, ageingFlats, ageingTable, daysPastDue } from "@/domain/reports/age";
 import { createPrng } from "@/domain/seed/prng";
 import { type FlatSpec, bill, lateFee, payment, positionsOf, randomFlat } from "./report-helpers";
 
@@ -82,12 +82,33 @@ describe("RP1 the ageing table", () => {
     expect(ageing.buckets.find((x) => x.bucket === "DAYS_31_60")).toMatchObject({ bills: 1, amountDuePaise: 3_800n });
   });
 
-  it("the rows of a bucket are the oldest first, then by flat code, with flat code, month, days and amount and nothing personal", () => {
-    const flats = [flat("T02-0002", { ...bill("2026-09-01", 100_000n), dueOn: "2026-09-10" }), flat("T01-0001", { ...bill("2026-09-01", 100_000n), dueOn: "2026-09-10" }), flat("T03-0003", { ...bill("2026-09-01", 100_000n), dueOn: "2026-09-20" })];
-    const rows = ageingRows(positionsOf(flats, "2026-10-27"), "2026-10-27", "DAYS_31_60");
-    expect(rows.map((r) => [r.flatCode, r.daysPastDue, r.period])).toEqual([["T01-0001", 47, "2026-09-01"], ["T02-0002", 47, "2026-09-01"], ["T03-0003", 37, "2026-09-01"]]);
-    expect(Object.keys(rows[0]).sort()).toEqual(["amountDuePaise", "billId", "daysPastDue", "flatCode", "flatId", "period"]);
-    expect(ageingRows(positionsOf(flats, "2026-10-27"), "2026-10-27", "OVER_90")).toEqual([]);
+  it("the flats of a group: each flat once with its bills, its oldest age and its total, largest first by default order and oldest first on request; nothing personal", () => {
+    const older = { ...bill("2026-08-01", 200_000n), dueOn: "2026-08-20" };
+    const flats = [
+      flat("T02-0002", { ...bill("2026-09-01", 100_000n), dueOn: "2026-09-10" }),
+      flat("T01-0001", { ...bill("2026-09-01", 100_000n), dueOn: "2026-09-10" }),
+      flat("T03-0003", { ...bill("2026-09-01", 900_000n), dueOn: "2026-09-20" }),
+      flat("T04-0004", { ...bill("2026-09-01", 100_000n), dueOn: "2026-09-12" }, { ...bill("2026-09-02", 100_000n), dueOn: "2026-09-25" }),
+    ];
+    const positions = positionsOf(flats, "2026-10-27");
+    const largest = ageingFlats(positions, "2026-10-27", "DAYS_31_60", "LARGEST");
+    expect(largest.map((r) => r.flatCode)).toEqual(["T03-0003", "T04-0004", "T01-0001", "T02-0002"]);
+    const oldest = ageingFlats(positions, "2026-10-27", "DAYS_31_60", "OLDEST");
+    expect(oldest.map((r) => [r.flatCode, r.oldestDaysPastDue])).toEqual([["T01-0001", 47], ["T02-0002", 47], ["T04-0004", 45], ["T03-0003", 37]]);
+    expect(largest.find((r) => r.flatCode === "T04-0004")).toMatchObject({ bills: 2, oldestDaysPastDue: 45 });
+    expect(Object.keys(largest[0]).sort()).toEqual(["amountDuePaise", "bills", "flatCode", "flatId", "oldestDaysPastDue"]);
+    expect(ageingFlats(positions, "2026-10-27", "OVER_90", "LARGEST")).toEqual([]);
+    expect(older.dueOn).toBe("2026-08-20");
+  });
+
+  it("a flat with bills of two ages is in two groups, each time with only the bills of that group; the groups' flats add up to more than the different flats", () => {
+    const f = flat("T05-0005", { ...bill("2026-07-01", 100_000n), dueOn: "2026-07-10" }, { ...bill("2026-10-01", 100_000n), dueOn: "2026-10-10" });
+    const positions = positionsOf([f], "2026-10-27");
+    expect(ageingFlats(positions, "2026-10-27", "OVER_90", "LARGEST")).toMatchObject([{ flatCode: "T05-0005", bills: 1, oldestDaysPastDue: 109 }]);
+    expect(ageingFlats(positions, "2026-10-27", "DAYS_1_30", "LARGEST")).toMatchObject([{ flatCode: "T05-0005", bills: 1, oldestDaysPastDue: 17 }]);
+    const ageing = ageingTable(positions, "2026-10-27");
+    expect(ageing.total.flats).toBe(1);
+    expect(ageing.buckets.reduce((sum, b) => sum + b.flats, 0)).toBe(2);
   });
 
   it("2,000 random bill sets: the buckets add up to the total, to the sum of the amounts due, and each open position is in exactly one bucket and one set of rows", () => {
@@ -111,10 +132,13 @@ describe("RP1 the ageing table", () => {
       expect(ageing.total.unpaidBillsPaise, label).toBe(open.reduce((sum, p) => sum + p.position.principalOutstandingPaise, 0n));
       expect(ageing.total.flats, label).toBe(new Set(open.map((p) => p.flatId)).size);
       expect(ageing.buckets.reduce((sum, b) => sum + b.flats, 0), label).toBeGreaterThanOrEqual(ageing.total.flats);
-      const rowCount = AGE_BUCKETS.map((bucket) => ageingRows(positions, asOf, bucket));
-      expect(rowCount.map((rows) => rows.length), label).toEqual(ageing.buckets.map((b) => b.bills));
-      expect(rowCount.flat().reduce((sum, row) => sum + row.amountDuePaise, 0n), label).toBe(dueTotal);
-      expect(new Set(rowCount.flat().map((row) => row.billId)).size, label).toBe(open.length);
+      // The flats of each group add up to the group: their number is the group's flats, their bills its bills, their amounts its amount due.
+      for (const sort of ["LARGEST", "OLDEST"] as const) {
+        const perGroup = AGE_BUCKETS.map((bucket) => ageingFlats(positions, asOf, bucket, sort));
+        expect(perGroup.map((rows) => rows.length), label).toEqual(ageing.buckets.map((b) => b.flats));
+        expect(perGroup.map((rows) => rows.reduce((sum, row) => sum + row.bills, 0)), label).toEqual(ageing.buckets.map((b) => b.bills));
+        expect(perGroup.flat().reduce((sum, row) => sum + row.amountDuePaise, 0n), label).toBe(dueTotal);
+      }
     }
   });
 });

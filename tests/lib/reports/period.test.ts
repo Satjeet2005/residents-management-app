@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { AGEING_PAGE_SIZE, decodeCursor, encodeCursor, pageAfter } from "@/lib/reports/cursor";
 import { choosePeriod, monthStart, periodFromQuery, periodOptions, periodQuery, reportHref } from "@/lib/reports/period";
 
 describe("RC1 the period", () => {
@@ -38,33 +37,5 @@ describe("RC1 the period", () => {
     expect(choosePeriod({ requested: "2026-03-01", options: ["2026-10-01"], asOf: "2026-10-27" })).toBe("2026-03-01");
     expect(choosePeriod({ requested: "2026-11-01", options: ["2026-10-01"], asOf: "2026-10-27" })).toBe("2026-10-01");
     expect(choosePeriod({ requested: "2027-01-01", options: [], asOf: "2026-10-27" })).toBe("2026-10-01");
-  });
-});
-
-describe("RC2 the drill-down paging", () => {
-  const rows = Array.from({ length: 60 }, (_, i) => ({ daysPastDue: 100 - Math.floor(i / 4), flatCode: `T01-${String(i % 4).padStart(4, "0")}`, billId: `bill-${String(i).padStart(3, "0")}` }));
-
-  it("a cursor round-trips and a bad one is refused", () => {
-    expect(decodeCursor(encodeCursor(rows[7]))).toEqual({ d: rows[7].daysPastDue, f: rows[7].flatCode, b: rows[7].billId });
-    for (const bad of ["", "abc", "e30", Buffer.from("[]").toString("base64url"), Buffer.from('{"d":"x","f":"a","b":"c"}').toString("base64url"), "x".repeat(400)]) expect(decodeCursor(bad), bad.slice(0, 12)).toBeNull();
-  });
-
-  it("pages of 25 follow each other with no repeat and no gap, to the end", () => {
-    const seen: string[] = [];
-    let cursor: string | null = null;
-    for (let page = 0; page < 5; page++) {
-      const result: ReturnType<typeof pageAfter<(typeof rows)[number]>> = pageAfter(rows, cursor === null ? null : decodeCursor(cursor));
-      seen.push(...result.rows.map((r) => r.billId));
-      if (result.nextCursor === null) break;
-      expect(result.rows).toHaveLength(AGEING_PAGE_SIZE);
-      cursor = result.nextCursor;
-    }
-    expect(seen).toEqual(rows.map((r) => r.billId));
-  });
-
-  it("a short list has one page and no cursor; an empty list has none", () => {
-    expect(pageAfter(rows.slice(0, 25), null).nextCursor).toBeNull();
-    expect(pageAfter(rows.slice(0, 26), null).nextCursor).not.toBeNull();
-    expect(pageAfter([], null)).toEqual({ rows: [], nextCursor: null });
   });
 });

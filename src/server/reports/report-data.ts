@@ -1,4 +1,4 @@
-import { type AgeBucket, type Ageing, ageingTable } from "@/domain/reports/age";
+import { type AgeBucket, type Ageing, type AgeingSort, ageingTable } from "@/domain/reports/age";
 import { type ComplaintMetrics, complaintMetrics } from "@/domain/reports/complaints";
 import { type GoalRow, evaluateGoals, goalsFromSetting } from "@/domain/reports/goals";
 import { type CollectionQuality, type MoneyLine, collectionQuality, moneyLine } from "@/domain/reports/money-line";
@@ -71,7 +71,7 @@ const minDate = (dates: readonly CalendarDate[]): CalendarDate => dates.reduce((
  * there are: the policy, the bills and the ledger entries (three), one window of complaints and its events (two), the bank rows (three), the goals setting
  * and the safety complaints nobody has acknowledged. Every series is cut from those in memory.
  */
-export async function loadCommitteeReport(input: { db: Db; user: Viewer; requestedPeriod: CalendarDate | null; bucket?: AgeBucket | null; now: number }): Promise<CommitteeReport> {
+export async function loadCommitteeReport(input: { db: Db; user: Viewer; requestedPeriod: CalendarDate | null; bucket?: AgeBucket | null; sort?: AgeingSort; now: number }): Promise<CommitteeReport> {
   requirePermission(input.user, "reports:view");
   const asOf = istDateOf(input.now);
   const { positions } = await loadReportPositions(input.db, asOf);
@@ -111,7 +111,7 @@ export async function loadCommitteeReport(input: { db: Db; user: Viewer; request
     periods,
     money,
     ageing,
-    drilldown: input.bucket === undefined || input.bucket === null ? null : ageingPageOf(positions, asOf, input.bucket, null),
+    drilldown: input.bucket === undefined || input.bucket === null ? null : ageingPageOf(positions, asOf, input.bucket, input.sort ?? "LARGEST", null),
     quality,
     complaints: metrics,
     reconciliation,

@@ -4,7 +4,6 @@ import type { LineSeries } from "@/components/charts/line-chart";
 import type { StackColumn } from "@/components/charts/stacked-bars";
 import { formatRupees } from "@/domain/money/money";
 import { formatRupeesShort } from "@/domain/money/short";
-import type { Ageing } from "@/domain/reports/age";
 import type { GoalStatus } from "@/domain/reports/goals";
 import type { MoneyLine } from "@/domain/reports/money-line";
 import { CURVE_DAYS, type PaymentCurve } from "@/domain/reports/payment-curve";
@@ -13,7 +12,6 @@ import type { WeeklyPoint } from "@/domain/reports/weekly-sla";
 import { type CalendarDate, addDays } from "@/domain/time/calendar";
 import { formatDay, monthName } from "@/lib/format-date";
 import { t } from "@/lib/messages";
-import { bucketLabel } from "./ageing";
 import { type GoalMark, type HeadlineCards, type TrendPoint, countText, percentText } from "./cards";
 
 /** The words of the collected bar (M1): the title, the takeaway computed from the money line, and the table of the month's three figures in full Indian grouping. */
@@ -148,28 +146,6 @@ export function monthlyVisual(series: readonly MonthlyPoint[]): MonthlyVisual {
       partial: p.inProgress,
     })),
     notes: [t("committee.monthly.fair"), ...(billed.length < series.length ? [t("committee.monthly.hidden")] : [])],
-  };
-}
-
-/** The ageing chart (M4): the five age groups as bars of amount due (the oldest group hatched), the largest group named in the takeaway, and a table with flats and bills. */
-export function ageingVisual(ageing: Ageing): { text: ChartText; rows: BarRow[] } {
-  const largest = ageing.buckets.reduce((a, b) => (b.amountDuePaise > a.amountDuePaise ? b : a), ageing.buckets[0]);
-  return {
-    text: {
-      id: "ageing",
-      caption: t("committee.ageing.chart.caption"),
-      title: t("committee.ageing.chart.title"),
-      description:
-        ageing.total.bills === 0 || largest === undefined
-          ? t("committee.ageing.chart.none")
-          : t("committee.ageing.chart.desc", { bucket: bucketLabel(largest.bucket), amount: formatRupeesShort(largest.amountDuePaise), total: formatRupeesShort(ageing.total.amountDuePaise) }),
-      table: {
-        caption: t("committee.ageing.chart.caption"),
-        columns: [t("committee.ageing.col.age"), t("committee.ageing.col.flats"), t("committee.ageing.col.bills"), t("committee.ageing.col.amount")],
-        rows: ageing.buckets.map((b) => ({ header: bucketLabel(b.bucket), cells: [countText(b.flats), countText(b.bills), formatRupees(b.amountDuePaise)] })),
-      },
-    },
-    rows: ageing.buckets.map((b) => ({ label: bucketLabel(b.bucket), valueText: formatRupeesShort(b.amountDuePaise), value: Number(b.amountDuePaise), emphasis: b.bucket === "OVER_90" ? ("warning" as const) : undefined })),
   };
 }
 

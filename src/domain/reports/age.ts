@@ -46,16 +46,37 @@ export function ageingTable(positions: readonly ReportPosition[], asOf: Calendar
   return { buckets, total: amountsOf(open) };
 }
 
-export type AgeingRow = { flatId: string; flatCode: string; billId: string; period: CalendarDate; daysPastDue: number; amountDuePaise: Paise };
+/** How the flats of an age group are listed: the largest amount first (the default) or the oldest bill first. */
+export type AgeingSort = "LARGEST" | "OLDEST";
+
+/** One FLAT in an age group: the bills it has in the group, the age of the oldest of them and what it owes in the group (unpaid bills plus late fees). */
+export type AgeingFlatRow = { flatId: string; flatCode: string; bills: number; oldestDaysPastDue: number; amountDuePaise: Paise };
+
+const compareText = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+const compareAmount = (a: Paise, b: Paise): number => (a < b ? -1 : a > b ? 1 : 0);
 
 /**
- * The open positions of one bucket as rows for the drill-down: the oldest first (most days past due), then by flat code, then by bill id, so the order is the
- * same on every read and a cursor can name a place in it. No name and no phone number: only the flat code, the bill's month, the age and the amount.
+ * The order of the drill-down, a TOTAL order so a cursor can name a place in it and a page never repeats or skips a flat (D180). LARGEST: the amount, biggest first.
+ * OLDEST: the age of the oldest bill, oldest first. Both break a tie by flat code and then flat id, which no two flats share. A negative number puts `a` first.
  */
-export function ageingRows(positions: readonly ReportPosition[], asOf: CalendarDate, bucket: AgeBucket): AgeingRow[] {
-  return positions
-    .filter(isOpen)
-    .map((p): AgeingRow => ({ flatId: p.flatId, flatCode: p.flatCode, billId: p.bill.id, period: p.bill.period, daysPastDue: daysPastDue(p.bill.dueOn, asOf), amountDuePaise: p.position.amountDuePaise }))
-    .filter((row) => ageBucket(row.daysPastDue) === bucket)
-    .sort((a, b) => b.daysPastDue - a.daysPastDue || (a.flatCode < b.flatCode ? -1 : a.flatCode > b.flatCode ? 1 : 0) || (a.billId < b.billId ? -1 : a.billId > b.billId ? 1 : 0));
+export const compareFlats = (sort: AgeingSort) => (a: AgeingFlatRow, b: AgeingFlatRow): number =>
+  (sort === "LARGEST" ? compareAmount(b.amountDuePaise, a.amountDuePaise) : b.oldestDaysPastDue - a.oldestDaysPastDue) || compareText(a.flatCode, b.flatCode) || compareText(a.flatId, b.flatId);
+
+/**
+ * The flats of one age group for the drill-down, in the order asked for: each flat once with the number of its open bills in the group, the days overdue of the
+ * oldest of them and the total it owes in the group. No name and no phone number: only the flat code. Their amounts add up to the group's amount due, and their
+ * number is the group's flats, exactly.
+ */
+export function ageingFlats(positions: readonly ReportPosition[], asOf: CalendarDate, bucket: AgeBucket, sort: AgeingSort): AgeingFlatRow[] {
+  const mine = positions.filter((p) => isOpen(p) && ageBucket(daysPastDue(p.bill.dueOn, asOf)) === bucket);
+  const rows = [...Map.groupBy(mine, (p) => p.flatId)].map(
+    ([flatId, own]): AgeingFlatRow => ({
+      flatId,
+      flatCode: own[0].flatCode,
+      bills: own.length,
+      oldestDaysPastDue: Math.max(...own.map((p) => daysPastDue(p.bill.dueOn, asOf))),
+      amountDuePaise: own.reduce((sum, p) => sum + p.position.amountDuePaise, 0n),
+    }),
+  );
+  return rows.sort(compareFlats(sort));
 }

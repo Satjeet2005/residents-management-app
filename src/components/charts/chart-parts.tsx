@@ -9,7 +9,7 @@ export type ChartTable = { caption: string; columns: readonly string[]; rows: re
 export type ChartText = { id: string; caption: string; title: string; description: string; table: ChartTable; /** The caption is read but not shown, when the card around the chart already says it. */ captionHidden?: boolean };
 
 /** "Show as a table": the plotted values as text, at every width (the chart is a picture of this table). Native <details>, so it works without a script. */
-function TableToggle({ table }: { table: ChartTable }) {
+export function TableToggle({ table }: { table: ChartTable }) {
   return (
     <details className="text-body">
       <summary className="flex min-h-12 cursor-pointer items-center font-semibold text-accent underline underline-offset-4">{t("committee.chart.table")}</summary>

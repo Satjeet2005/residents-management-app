@@ -56,7 +56,7 @@ export function ReportView({ report, hidden = [] }: { report: CommitteeReport; h
     money: report.money === null ? <EmptyMonth /> : <MoneyBlock money={report.money} series={report.series.monthly} period={report.period} />,
     owed: (
       <>
-        <AgeingBlock ageing={report.ageing} period={report.period} selected={report.drilldown?.bucket ?? null} />
+        <AgeingBlock ageing={report.ageing} money={report.money} period={report.period} selected={report.drilldown?.bucket ?? null} />
         {report.drilldown !== null && <AgeingDetail page={report.drilldown} period={report.period} />}
       </>
     ),
