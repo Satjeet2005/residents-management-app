@@ -2,9 +2,11 @@ import { t } from "@/lib/messages";
 import { dateWords } from "@/lib/reports/period";
 import type { CommitteeReport } from "@/server/reports/report-data";
 import { AgeingBlock } from "./ageing-block";
+import { AlertStrip } from "./alert-strip";
 import { AgeingDetail } from "./ageing-detail";
 import { ComplaintsBlock } from "./complaints-block";
 import { GoalsBlock } from "./goals-block";
+import { HeadlineCards } from "./headline-cards";
 import { MoneyBlock } from "./money-block";
 import { QualityBlock } from "./quality-block";
 import { ReconciliationBlock } from "./reconciliation-block";
@@ -19,11 +21,13 @@ import { PeriodForm } from "./period-form";
 export function ReportView({ report }: { report: CommitteeReport }) {
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 p-4">
+      <AlertStrip count={report.safetyUnacknowledged} canManageComplaints={report.canManageComplaints} />
       <header className="flex flex-col gap-3">
         <h1 className="text-heading font-semibold">{t("committee.title")}</h1>
         <p className="text-body text-ink-2">{t("committee.asOf", { date: dateWords(report.asOf) })}</p>
         <PeriodForm period={report.period} periods={report.periods} />
       </header>
+      <HeadlineCards report={report} />
       <div className="grid items-start gap-8 lg:grid-cols-2">
         {report.money === null ? (
           <section aria-labelledby="committee-empty" className="flex flex-col gap-2">
