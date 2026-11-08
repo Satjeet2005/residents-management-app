@@ -6,6 +6,7 @@ import { DESKTOP_1280, MOBILE_360, TABLET_768 } from "./tests/e2e/helpers/profil
  * this file any other way needs the app already running at that address. One worker, because the specs share one seeded database, and the projects run as a CHAIN,
  * because the data they read is changed by the ones before:
  *   1 and 2  the resident screens at 360 and at 1280 (they only read: Swati owes, Neeraj does not, Rohit has a danger report);
+ *   2b       the sheet scroll lock at 360 x 500 and 1280 x 500 (D184; read only);
  *   3        the resident flows (real clicks: pay, complaints, the Home alerts; they change data);
  *   4        the reconciliation flow, which imports the sample statement through the page, matches, requests and approves (it changes Swati's bank row, Aamir's late fee);
  *   5 and 6  the staff screens at 360 and at 1280, and the Home of a flat that owes only a late fee (they read what 3 and 4 left);
@@ -15,9 +16,11 @@ import { DESKTOP_1280, MOBILE_360, TABLET_768 } from "./tests/e2e/helpers/profil
  *   9        the other staff flows, the keyboard, the installability and the offline page.
  * The device profiles are a 360 x 800 phone (mobile emulation, touch), a 768 x 1024 tablet and a 1280 x 800 desktop.
  */
-const chain: { name: string; profile: typeof MOBILE_360 | typeof TABLET_768 | typeof DESKTOP_1280; match: RegExp }[] = [
+const chain: { name: string; profile: { viewport: { width: number; height: number } } & Record<string, unknown>; match: RegExp }[] = [
   { name: "resident-screens-360", profile: MOBILE_360, match: /screens[\\/]resident\.spec\.ts$/ },
   { name: "resident-screens-1280", profile: DESKTOP_1280, match: /screens[\\/]resident\.spec\.ts$/ },
+  { name: "sheet-scroll-360x500", profile: { ...MOBILE_360, viewport: { width: 360, height: 500 } }, match: /screens[\\/]sheet-scroll\.spec\.ts$/ },
+  { name: "sheet-scroll-1280x500", profile: { ...DESKTOP_1280, viewport: { width: 1280, height: 500 } }, match: /screens[\\/]sheet-scroll\.spec\.ts$/ },
   { name: "resident-flows", profile: MOBILE_360, match: /flows[\\/]resident-.*\.spec\.ts$/ },
   { name: "reconciliation-flow", profile: DESKTOP_1280, match: /flows[\\/]reconciliation\.spec\.ts$/ },
   { name: "staff-screens-360", profile: MOBILE_360, match: /screens[\\/](staff|after-reconciliation)\.spec\.ts$/ },

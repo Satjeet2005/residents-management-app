@@ -51,7 +51,7 @@ export function Sheet({ open, onClose, title, children, footer, hideClose = fals
 
   const handleClose = () => {
     unlock();
-    if (opener.current instanceof HTMLElement) opener.current.focus();
+    if (opener.current instanceof HTMLElement) opener.current.focus({ preventScroll: true });
     onClose();
   };
 
