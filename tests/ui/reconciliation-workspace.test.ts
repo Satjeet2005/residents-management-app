@@ -1,7 +1,7 @@
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { LaneTabs } from "@/app/(staff)/staff/reconciliation/[importId]/lane-tabs";
+import { LaneSelector } from "@/app/(staff)/staff/reconciliation/[importId]/lane-selector";
 import { RowList, emptyLaneText } from "@/app/(staff)/staff/reconciliation/[importId]/row-list";
 import { RowsView } from "@/app/(staff)/staff/reconciliation/[importId]/rows-view";
 import { ProportionStrip } from "@/app/(staff)/staff/reconciliation/[importId]/proportion-strip";
@@ -86,31 +86,58 @@ describe("WS2 the workspace header (D189)", () => {
   });
 });
 
-describe("WS4 the lane tabs", () => {
-  const out = html(h(LaneTabs, { importId: IMPORT, lane: "AWAITING_APPROVAL", laneCounts }));
+describe("WS4 the lane selector (D190)", () => {
+  const out = html(h(LaneSelector, { importId: IMPORT, lane: "AWAITING_APPROVAL", laneCounts, manuallyPosted: 0 }));
 
-  it("is a tablist with four tabs, named in words with their counts, each a link to its lane", () => {
+  it("is a tablist of four cards in the order Needs you, Awaiting approval, Posted, Not maintenance, each a link to its lane named with its count", () => {
     expect(out).toContain('role="tablist"');
     expect(count(out, /role="tab"/g)).toBe(4);
-    for (const [label, n] of [["Needs you", 43], ["Awaiting approval", 0], ["Posted", 25], ["Not maintenance", 38]] as const) expect(out).toMatch(new RegExp(`${label}<span class="tnum">${n}</span>`));
+    const names = [...out.matchAll(/aria-label="([^"]+)"/g)].map((m) => m[1]).filter((n) => n.includes("row"));
+    expect(names).toEqual(["Needs you, 43 rows", "Awaiting approval, 0 rows", "Posted, 25 rows", "Not maintenance, 38 rows"]);
     expect(out).toContain(`href="/staff/reconciliation/${IMPORT}"`);
     expect(out).toContain(`href="/staff/reconciliation/${IMPORT}?lane=awaiting-approval"`);
     expect(out).toContain(`href="/staff/reconciliation/${IMPORT}?lane=posted"`);
     expect(out).toContain(`href="/staff/reconciliation/${IMPORT}?lane=not-maintenance"`);
   });
 
-  it("only the selected tab is selected and in the tab order; every tab controls the panel and is at least 48px", () => {
+  it("a lane with one row says '1 row'", () => {
+    expect(html(h(LaneSelector, { importId: IMPORT, lane: "NEEDS_YOU", laneCounts: { ...laneCounts, NEEDS_YOU: 1 }, manuallyPosted: 0 }))).toContain('aria-label="Needs you, 1 row"');
+  });
+
+  it("each card shows the count in 24px semibold tabular figures above the label in 14px secondary ink, and a zero stays visible", () => {
+    expect(out).toMatch(/<span[^>]*class="tnum text-heading font-semibold">0<\/span><span[^>]*class="text-caption text-ink-2">Awaiting approval<\/span>/);
+    expect(out).toMatch(/class="tnum text-heading font-semibold">43<\/span>/);
+  });
+
+  it("only the selected card is selected and in the tab order; every card controls the panel and is at least 64px tall", () => {
     expect(count(out, /aria-selected="true"/g)).toBe(1);
     expect(count(out, /aria-selected="false"/g)).toBe(3);
     expect(count(out, /tabindex="0"/g)).toBe(1);
     expect(count(out, /tabindex="-1"/g)).toBe(3);
     expect(count(out, /aria-controls="recon-lane-panel"/g)).toBe(4);
-    expect(count(out, /min-h-12/g)).toBe(4);
+    expect(count(out, /min-h-16/g)).toBe(4);
     expect(out).toMatch(/id="recon-tab-AWAITING_APPROVAL"[^>]*aria-selected="true"|aria-selected="true"[^>]*id="recon-tab-AWAITING_APPROVAL"/);
   });
 
-  it("the selection is not told by colour alone: the selected tab is bold with a thick border", () => {
-    expect(out).toMatch(/<a [^>]*aria-selected="true"[^>]*class="[^"]*border-ink[^"]*font-semibold/);
+  it("is a 2 x 2 grid below 768px and one row from 768px", () => {
+    expect(out).toContain("grid grid-cols-2 gap-2 md:grid-cols-4");
+  });
+
+  it("the selected card has a 2px ink border and the paper-2 tint; the others a 1px hairline border", () => {
+    expect(out).toMatch(/<a [^>]*aria-selected="true"[^>]*class="[^"]*border-2 border-ink bg-paper-2/);
+    expect(count(out, /border border-hairline/g)).toBe(3);
+  });
+
+  it("the legend words no longer exist anywhere: no 'Posted automatically' and no 'Need you'", () => {
+    expect(out).not.toContain("Posted automatically");
+    expect(out).not.toMatch(/Need you\b/);
+  });
+
+  it("the Posted card splits automatic from by hand only when something was posted by hand", () => {
+    expect(out).not.toContain("by hand");
+    const split = html(h(LaneSelector, { importId: IMPORT, lane: "NEEDS_YOU", laneCounts, manuallyPosted: 3 }));
+    expect(split).toContain("22 automatic · 3 by hand");
+    expect(count(split, /by hand/g)).toBe(1);
   });
 });
 

@@ -8,7 +8,7 @@ import { laneLabel } from "@/lib/reconciliation/lanes";
 import type { Viewer } from "@/lib/reconciliation/permission-view";
 import type { Lane, RowCard } from "@/lib/reconciliation/types";
 import { loadMoreRows } from "./actions";
-import { lanePanelId, laneTabId } from "./lane-tabs";
+import { lanePanelId, laneTabId } from "./lane-selector";
 import { RowsView } from "./rows-view";
 
 export function emptyLaneText(lane: Lane): string {
