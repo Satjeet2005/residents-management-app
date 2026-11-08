@@ -1,3 +1,4 @@
+import { DEFAULT_FILTERS, type RowFilters } from "./filters";
 import { LANES, type Lane } from "./types";
 import { t } from "@/lib/messages";
 
@@ -11,10 +12,14 @@ export function laneFromQuery(value: string | string[] | undefined): Lane {
 
 export const laneQuery = (lane: Lane): string => QUERY_OF[lane];
 
-/** The address of the workspace with a lane and, optionally, a selected row. The default lane is left out so the plain address stays plain. */
-export function workspaceHref(input: { importId: string; lane: Lane; row?: string | null }): string {
+/** The address of the workspace with a lane and, optionally, a selected row. The default lane and the default filters are left out so the plain address stays plain. */
+export function workspaceHref(input: { importId: string; lane: Lane; row?: string | null; filters?: RowFilters }): string {
   const params = new URLSearchParams();
   if (input.lane !== "NEEDS_YOU") params.set("lane", QUERY_OF[input.lane]);
+  const filters = input.filters ?? DEFAULT_FILTERS;
+  if (filters.sort !== DEFAULT_FILTERS.sort) params.set("sort", filters.sort);
+  if (filters.amount !== DEFAULT_FILTERS.amount) params.set("amount", filters.amount);
+  if (filters.reason !== DEFAULT_FILTERS.reason) params.set("reason", filters.reason);
   if (input.row !== undefined && input.row !== null) params.set("row", input.row);
   const query = params.toString();
   return `/staff/reconciliation/${input.importId}${query === "" ? "" : `?${query}`}`;
