@@ -70,16 +70,16 @@ test.describe("staff screens: Sanjay Pawar, the duty manager", () => {
 test.describe("staff screens: Meera Kapoor, the committee report", () => {
   test.use({ storageState: authFile("meera") });
 
-  test("the top, an ageing group opened, and a drill-down after Load more", async ({ page }) => {
+  test("the top, an ageing group opened, and a drill-down after Show 25 more", async ({ page }) => {
     const watch = watchPage(page);
     await page.goto("/staff/reports?period=2026-10");
     await expect(page.getByRole("heading", { level: 1, name: "Committee report" })).toBeVisible();
     await checkScreen(page, watch, "report", "top");
     await page.goto("/staff/reports?period=2026-10&bucket=over-90");
-    await expect(page.getByRole("heading", { name: /Open dues: Over 90 days/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /\d+ flats owe .* \(Over 90 days\)/ })).toBeVisible();
     await checkScreen(page, watch, "report", "ageing");
     await page.goto("/staff/reports?period=2026-10&bucket=31-60");
-    await page.getByRole("button", { name: "Load more" }).click();
+    await page.getByRole("button", { name: "Show 25 more" }).click();
     await expect(page.locator("#ageing-detail tbody tr")).toHaveCount(50);
     await checkScreen(page, watch, "report", "drilldown");
   });
