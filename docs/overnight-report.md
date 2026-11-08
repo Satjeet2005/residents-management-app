@@ -7,7 +7,7 @@
 | 0 Preflight | superseded: the earlier run stopped here on a dirty tree (four old screenshots); this run proceeded and left them alone |
 | A Committee report v2 | DONE (this section) |
 | B Documentation package, runbooks and clean-clone script | DONE (the Phase B section below), with the UNVERIFIED items listed there |
-| C Safety detection measurement | NOT STARTED |
+| C Safety detection measurement | DONE (the Phase C section at the end): measured only, the detector is unchanged |
 | D Reconcile documents | NOT STARTED |
 | E Final verification | NOT STARTED |
 
@@ -438,3 +438,91 @@ The rehearsal was NOT run on Neon.
 - `git status --short` after: the same 21 modified screenshots as at the start (never staged), plus nothing else.
 - Not pushed. Phase C not started.
 
+## Phase C: safety detection measurement
+
+**Status: DONE.** Measure only (D162): the detector files and every existing test under `tests/domain/complaints` have an empty `git diff` against the starting commit `f6c55b7`.
+Step 0: the tree held only the 21 modified screenshots (never staged); the fifth category `MEDICAL_VIOLENCE` exists; Phases A and B are present; `npm run check` passed; `df -h .` showed 14 GB free (93% used).
+No earlier Phase C files existed.
+
+### Order followed
+
+1. Base, generator, negatives and evaluator with their unit tests (commits 1 to 3). 2. Dev set seeds 301 to 305 generated and run (baseline). 3. Dev set frozen and committed (commit 4). 4. Mutations run on the dev set. 5. ONLY THEN the holdout (seeds 9301 to 9305) was generated with the unchanged generator (`git diff fe9f75a -- src/domain/complaints/safety-benchmark` empty before the run), run once, and committed (commit 5). Nothing was changed after seeing it. 6. Documents (commits 6 and 7).
+
+### Headline numbers
+
+| | Dev | Holdout |
+|---|---|---|
+| Single-operation recall, combined (THE headline) | 36.88% (95% CI 35.55 to 38.23; 1844/5000) | **35.98% (34.66 to 37.32; 1799/5000)** |
+| Double-operation recall | 16.56% (15.15 to 18.07; 414/2500) | 17.52% (16.08 to 19.06; 438/2500) |
+| False-alarm rate, all negatives | 3.86% (3.02 to 4.91; 62/1608) | 3.45% (2.66 to 4.46; 55/1595) |
+| False alarms, GENERATED benign | 0/1262 | 0/1250 |
+| False alarms, NEAR_MISS | 62/249 | 55/248 |
+
+100% on case, nukta, chandrabindu and zero-width joiners; 0 to 6% on leet and removed spaces. Holdout is below 97%, so the recommendation (three stages, FOR THE HUMAN TO APPROVE, D164) is in `docs/safety-benchmark.md`; nothing is implemented.
+Base list: 873 phrases kept, 0 dropped (the words of the existing test cases add nothing new: they are already rule terms). 129 rules, every one has a base phrase.
+
+### Commits, with the result of the checks (the pre-commit hook runs both; each was also run by hand before)
+
+| Hash | Message | `npm run check` | `npm run scan:secrets` |
+|---|---|---|---|
+| `7b1bfb7` | feat(domain): safety benchmark base phrases and contexts | pass (4,655 tests) | no secrets found |
+| `3b8119a` | feat(domain): safety perturbation generator | pass (4,699) | no secrets found |
+| `2eb816e` | feat(domain): safety benchmark negatives and evaluator | pass (4,718) | no secrets found |
+| `fe9f75a` | test: frozen dev set, digest and drift test | pass (4,738) | no secrets found |
+| `31033c5` | test: holdout run once | pass (4,756) | no secrets found |
+| `a8290cf` | docs: safety benchmark method and results | pass (4,756) | no secrets found |
+| `8d1cf97` | docs: known limitations and benchmark script | pass (4,756) | no secrets found |
+
+The report commit follows. Not pushed. Phase D not started.
+
+### Decision and assumption numbers (next free numbers)
+
+| Used here | Meaning |
+|---|---|
+| D162, D163, D164 | measure only; the procedure and its order; the improvement decision and its trigger (the run's D125 is not in the log) |
+| R90 to R95 | base phrases; sampling; any-rule counts as detection; near-miss homonyms; the EXISTING group; intervals and digests |
+
+### Mutations (each applied, the failing tests listed, restored from a file copy, clean diff confirmed)
+
+| Mutation | Failing tests (names) |
+|---|---|
+| 1 evaluator counts a miss as a hit | 12 failed: "counts overall, per category, per form and per operation…", "lists misses by set, form and operation…", "a double-operation item counts under both…", "a detector that finds nothing gives recall 0 … (a miss is never counted as a hit)", "merging tallies…", "the summary rates every cell…", "dropping one term of one rule in the copy changes the tally…", and "seed 301 to 305: the current detector gives the committed metrics" |
+| 2 PRNG seed derivation changed (`seed + 1` in `mixSeed`) | 11 failed: "seed 301 to 305: regenerating gives the committed digest and counts, and the committed sample", "seed 301 to 305: the current detector gives the committed metrics", and the detector-change test that compares with the committed tally |
+| 3 operation LEET dropped from the generator | 14 failed: "LEET on "fire" gives "f1r3"", "LEET on "xyz" is a no-op…", "keeps every operation: 17 of them…", the same digest and metrics tests for all five seeds |
+| 4 a safety word ("fire") left in an English context | 11 failed: "ENGLISH has at least 40 distinct contexts … and none holds a safety word", and the digest and metrics tests for all five seeds |
+| 5 one rule altered in a COPY of the rule table (test double; the real file untouched) | the permanent test "dropping one term of one rule in the copy changes the tally, so the committed-metrics test would fail" passes; with its assertion turned around in a temporary file it failed with "expected { overall … } to deeply equal { overall … }" (the temporary file was deleted) |
+
+### Tests and time
+
+- 6 new test files, 115 tests (`tests/domain/complaints/safety-benchmark/`); the whole folder runs in about 1.7 s wall time on this 16-CPU machine; the slowest single test is about 0.45 s (limit 3 s). The unit suite went from 4,641 to 4,756 tests; its wall time stayed about 34 to 38 s.
+- Speed: 1,000 detections 70 ms; the evaluator 72 ms per 1,000 items (limits 1 s and 0.5 s on 2 CPUs; NOT run on 2 CPUs, UNVERIFIED there).
+- `npm run safety:benchmark` takes about 2 s, prints the headline numbers, and exits 1 when a committed number differs (checked by changing one count in a copy of the holdout file, then restoring it).
+
+### Phase end commands
+
+- `npm run check`: 203 files passed, **4,756 tests passed, 1 skipped**; `npm run scan:secrets`: `scan:secrets: no secrets found`.
+- `npm run test:ci-parity` (against the development container, no `.env`, only `DATABASE_URL`): unit 203 files, 4,756 passed, 1 skipped; integration 74 files, **1,105 tests passed** (4 min 52 s).
+- Detector and existing tests, against the starting commit:
+
+      git diff --name-status --diff-filter=MDRTC f6c55b7 HEAD -- src/domain/complaints tests/domain/complaints
+      (no output)
+      git diff --stat f6c55b7 HEAD -- src/domain/complaints/{safety,text,match,decision,fallback,deidentify,taxonomy}.ts
+      (no output)
+
+- `git status --short` after: the same 21 modified screenshots as at the start (never staged), nothing else.
+
+### UNVERIFIED items
+
+| Item | Reason |
+|---|---|
+| The speed limits on 2 CPUs | Run only on this 16-CPU machine |
+| That the generated misspellings resemble what residents really write | Synthetic by design; no real complaint corpus exists in the repository |
+| The Hindi and Marathi contexts, near-miss words and the Devanagari perturbations | Written by the agent, not reviewed by a native speaker; some perturbed Devanagari phrases are non-words |
+| That recall on real complaints is higher or lower than the benchmark | The benchmark cannot say (see "Limits" in `docs/safety-benchmark.md`) |
+| Missing phrases and categories | The base list is only what the rules already detect |
+| The improvement stages' upper bounds | Computed from the misses by operation, not by building the stages |
+
+### Notes
+
+- The existing test positives add no new base phrase; the copied lists (`test-positives.ts`, `test-negatives.ts`) are kept equal to the frozen tests by a test that reads them.
+- `CLAUDE.md` says "one idempotent `processOutbox()`" (Phase B finding) and was not edited here.
