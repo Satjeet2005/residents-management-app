@@ -111,6 +111,10 @@ Decision numbers (D4, D14 and so on) refer to `docs/decisions.md`.
 | R105 | The "before" numbers of the new holdout (stages 0 and 1) were computed AFTER its single run, by running the earlier detectors (read from git) on its texts; the reconstruction was checked by reproducing the committed dev baseline exactly (1844/5000, 62/1608). They decided nothing. | `tests/fixtures/safety/history.json`. | Re-derive from commits `98edfaf` and `e16ee78`. |
 | R106 | The chat's decision numbers D164 (Stage 1 only) and D166 (only a genuine safety phrase is CRITICAL) are D168 and D169 in this repository, because D164 and D166 were already used; D125, absent from the log, was added. | `docs/decisions.md`. | None. |
 | R107 | AUTO_CLOSED means the complaint was closed by the system after the resident did not answer a request to confirm (D15), so the page says "closed automatically after no reply". | `src/server/complaints/auto-close.ts`; `docs/decisions.md` D172. | Check the wording with the committee. |
+| R108 | "Typical" with "the middle value" is the lower middle value (RC1), so "Typical first reply" is a value that was observed. | `src/domain/reports/stats.ts`. | Check the words with the committee. |
+| R109 | A month is "younger than 20 days" when its issue date plus 20 days is after the business date; its within-20-days figure is read up to the business date and written "so far". | `collectedByDay`. | None. |
+| R110 | The promise line ("Critical 15 min, High 2 h, Normal 24 h, Low 72 h") is the `sla_minutes` setting, shown in whole hours from 60 minutes. | `src/lib/reports/share.ts`. | None. |
+| R111 | A tower is the flat's `tower` value; "Tower 12" is shown for the code T12. | `src/lib/reports/towers.ts`. | None. |
 
 
 ## Assumptions kept in other documents

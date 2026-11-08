@@ -1,53 +1,56 @@
-# The committee report (T14, v2)
+# The committee report (T14, v3)
 
 A read-only page for the committee, `/staff/reports`: four headline cards, then five collapsible sections (money, what is owed, collection quality, complaints, bank
-reconciliation), computed live from the database when the page opens. Version 2 (Phase A of the final run; D154 to D158) changed how it is laid out and read, not what it
-measures: every number is the same function as before. It shows no resident name and no phone number. Decisions: D131 (computed live from bill positions, the Home's function), D132 (no
+reconciliation), computed live from the database when the page opens. Version 2 (Phase A; D154 to D158) changed how it is laid out and read. Version 3 (T14c; D171 to D183) applies the independent audit (`docs/committee-audit-report.md`, `docs/committee-audit-disposition.md`): some definitions changed (the safety "seen" rule, the same-age month measure, the split of Total owed), the words, the first screen and the age drill-down were reworked, and a tower roll-up was added. It shows no resident name and no phone number. Decisions: D131 (computed live from bill positions, the Home's function), D132 (no
 names) and D133 (the goals are assumptions in a setting), with D5, D6, D13, D26, D35, D107, D110 and D116 behind them (`docs/decisions.md`). The look is Passbook
 (`docs/design-system.md`); the screens follow `docs/staff-ui.md` and `docs/staff-complaints-ui.md`. Every string is in `src/lib/messages/en.ts` (`committee.*`).
 
 There was no wireframe to look at: `docs/design/` holds the Passbook images and no committee dashboard. The page follows the brief's structure.
 
-## Information architecture (v2)
+## Information architecture (v3)
 
-Phones are for CHECKING status and laptops for investigating, and most people never change a setting, so the default is right and the customisation is light.
+Phones are for CHECKING status and laptops for investigating. Top to bottom:
 
-| Part | What it shows | Notes |
-|---|---|---|
-| **Alert strip** | "<n> safety complaint(s) are waiting for the duty manager." | Only when a safety complaint of ANY month is not closed and has no acknowledgement by the duty manager (the fact of D149). A link to `/staff/complaints?view=safety` only for a viewer who holds `complaints:manage`; plain text otherwise. |
-| **Four headline cards** | Collected this month; Total owed; Paid on time; Replies within the SLA | Always shown, never hideable. A label, one large value, a comparison line and, where a goal exists, "Met" or "Not met" in words with an icon. |
-| **Five sections** (`<details>`, ids `money`, `owed`, `quality`, `complaints`, `bank`) | Each `<summary>` is the title and a one-sentence headline computed from the data | Below 768px all closed; from 768px the first two shown are open (a tiny client component, only because the server cannot know the width). All content is in the server-rendered HTML. A drill-down in the address (`?bucket=`) opens "What is owed" on the server. |
-| **About these numbers** | The as-of date and one sentence for every metric | The note that the built-in targets are shown appears only when `committee_goals` is not set. |
-
-There is **no Goals section**: each goal sits next to its metric (the card, the quality row, the first-reply line, the reopened line).
+| Part | What it shows |
+|---|---|
+| **Alert strip** | "<n> safety complaint(s) are open and not yet seen by the duty manager." Only when an open safety complaint of ANY month has no acknowledgement (D171). A link to the safety view only for a viewer with `complaints:manage`. |
+| **Title, "As of <date> · read only", month selector** | Choosing a month applies at once (a Show button exists only inside `<noscript>`). |
+| **Four headline cards** | Money collected for <Month>; Total still owed, all months; Bills paid by the due date, <Month> bills; Complaints answered in time, <Month>. Each says its period. Never hideable. Under them: "What these words mean" (a link to About) and, only while `committee_goals` is unset, "Targets shown are standard starting targets (90%, 90%, 8%). The committee has not set its own." |
+| **Five sections** (`<details>`, ids `money`, `owed`, `quality`, `complaints`, `bank`) | Billed and collected; What is owed; How fast bills are paid; Complaints; Bank statement matching. Each has a period line and a summary that adds NEW information (D179). Below 768px all closed; from 768px the first two open. |
+| **Choose sections** | At the bottom. A sheet of five checkboxes; each choice is saved at once (cookie, D157); one button, Done. |
+| **About these numbers** | The as-of date and one sentence per metric. |
 
 ### The cards
 
-| Card | Value | Comparison line | Visual |
-|---|---|---|---|
-| Collected this month | Collected percent of billed | "₹1.48 crore of ₹1.81 crore" (short form), the exact "₹1,48,42,714 of ₹1,80,52,190" in small text | ProgressBar (M1), no goal marker: no goal exists for this |
-| Total owed | The all-open-dues total (short form) | "<n> flats", "<n> flats are over 90 days" | none |
-| Paid on time | The D134 headline (on-time payments over ALL bills of the month due so far) | "Goal: At least 90%", Met or Not met, "last month <x>%" only when last month has data | Sparkline (M2) of the last six months, last value written, goal tick |
-| Replies within the SLA | MET over MET + MISSED_LATE + MISSED_OPEN (D150) for the month | Goal, Met or Not met, "last month <x>%" when it has data | Sparkline of the last eight ISO weeks, gaps where nothing was due |
+| Card | Value | Lines under it |
+|---|---|---|
+| Money collected for <Month> | Collected percent of billed (today) | "₹1.49 crore of ₹1.81 crore billed"; "<Month> within 20 days: x%" ("so far" for a young month); "<Previous month>, at the same age: y%"; a progress bar |
+| Total still owed, all months | The all-open-dues total | "All months, as of <date>"; the flats; the flats over 90 days |
+| Bills paid by the due date, <Month> bills | The D134 headline | "<n> of every 100 <Month> bills were paid by the due date."; the goal with its gap ("Goal 90% · 20 points short") and Met or Not met; a six-month line on a fixed 0 to 100 scale; "<Previous> 73% → <Month> 70%" |
+| Complaints answered in time, <Month> | MET over MET + MISSED_LATE + MISSED_OPEN (D150) | The goal and gap; a six-MONTH line whose last point IS this figure (D174); "<Previous> 85% → <Month> 87%" |
 
 ### The sections
 
 | Section | Content |
 |---|---|
-| Money | Billed, Collected, Outstanding under the double rule; two sentences ("Late fees: paid, owing, accruing." and "<n> flats billed: <n> paid in full, <n> with principal outstanding."); the monthly collection: horizontal bars (M3) below 768px, stacked columns (C1) from 768px, with one text and one table for both |
-| What is owed | The total with its flats and bills; the five age groups as horizontal bars (M4, at every width, which is also the ageing chart); a "See the flats" link per age group beside the chart; the drill-down |
-| Collection quality | THREE rows: Paid on time (headline, goal, Met or Not met), On time of paid bills (secondary), Median days to pay; no "Paid late" row; the three plain numbers "paid by the due date, by day 20, now"; from 768px the payment curve (C3) |
-| Complaints | SIX lines (raised; first reply with its median, the share in time, the SLA goal and Met or Not met; time to marked resolved; reopened with its goal; closed by the resident and by themselves; open now) and ONE safety line (all acknowledged, or the count not acknowledged in alert styling; the median time to acknowledgement only when it has data); from 768px the weekly SLA chart (C4), drawn only when a week has data |
-| Bank reconciliation | THREE lines (rows posted automatically with their share; waiting for a person and for approval; not maintenance), then the accounted check; the manual interventions table only when a count is above zero, otherwise "No manual decisions in this period." |
+| Billed and collected | Billed, Collected (bill amount without late fee), Still unpaid (<Month> bills); "Billed equals Collected plus Still unpaid"; three late-fee lines (received, charged but unpaid, building up: a calculation); the flats sentence; the monthly collection by day 20 (bars below 768px, columns from 768px), with the table of both measures and the notes "Every month is measured at the same age…" and "Months before billing started are not shown" |
+| What is owed | Total owed with "= unpaid bills + late fees", the different flats, a sentence tying the month's Still unpaid to its age group, ONE list of age groups (bar scaled to the total, amount, bills, share, "See the flats"), the table (Age, Bills, Flats, Unpaid bills, Late fees, Total), the drill-down of flats, and "Towers with the most unpaid" |
+| How fast bills are paid | Paid by the due date (goal), Of bills that were paid, paid on time (ignores the unpaid bills), Typical days to pay; "Share of <Month>'s money collected: by the due date, by day 20, today"; from 768px the payment curve ("How fast October's money came in", "Line stops at today.") |
+| Complaints | "Replies within our promised time" with the promise from the settings; Raised; Typical first reply; Replied in time (goal); Typical time until marked resolved; Reopened after being marked resolved (goal); closed by the resident, automatically, by the duty manager, with "Raised = closed + still open"; the safety lines; from 768px the weekly chart |
+| Bank statement matching | One summary that accounts for every bank entry, "All <n> accounted for" only when the database says so, "Matched by hand (last 30 days): n", the manual decisions table only when a count is above zero |
 
-### The new series (all pure, in `src/domain/reports/`)
+### The series (pure, in `src/domain/reports/`)
 
 | Series | Definition |
 |---|---|
-| Monthly (`monthlySeries`) | For each of the six calendar months ending at the selected one (never a future month): billed, collected, outstanding and the collected percent, each exactly the `moneyLine` of that month alone. A month without bills is a gap ("No data"), not a zero. |
-| On-time by month (`onTimeRateByPeriod`) | The D134 headline and the "of paid bills" rate per month, from `collectionQuality`; null for a month with nothing due. |
-| Payment curve (`paymentCurve`) | For the selected month: the share of billed collected by each day since the issue date, day 0 to the earlier of day 45 and the as-of day. Principal only, capped per bill, so the value at the as-of day equals the Collected percent of the money line. Plain numbers: by the due day (null before it has come), by day 20 (omitted before day 20) and now. **Relationship to Paid on time:** the curve at the due day is weighted by MONEY and counts part payments; Paid on time is weighted by BILLS and counts a bill only when paid in full by its due date. They are the same number when every bill has the same amount and every payment is whole, and otherwise the curve is never below the on-time bills' share of the money (tested over 2,000 inputs). |
-| Weekly SLA (`weeklySla`, `slaShare`) | The last eight ISO weeks (Monday to Sunday, India time) ending with the week of the earlier of the as-of date and the end of the selected month: complaints raised and the share replied within the SLA (D150). A week with nothing due is a gap. The weeks' raised add up to the complaints in the window. |
+| Monthly (`monthlySeries`) | For each of the six months ending at the selected one: billed, collected today, still unpaid, and collected WITHIN 20 DAYS of the issue date (`collectedByDay`, D173: payments dated on or before issue + 20 days, capped per bill so a late fee never counts, a reversed payment never; a month younger than 20 days is read to the as-of date and flagged `inProgress`). |
+| On-time by month (`onTimeRateByPeriod`) | The D134 headline and the "of paid bills" rate per month. |
+| Monthly SLA (`monthlySla`) | The `slaShare` of the complaints raised in each of the six months: the Replies card's line. |
+| Payment curve (`paymentCurve`) | The share of billed collected by each day since issue, day 0 to the earlier of day 45 and the as-of day; principal only. |
+| Weekly SLA (`weeklySla`) | The last eight ISO weeks; the week that is not over is `partial` (a hollow ring, "this week so far"). |
+| Ageing (`ageingTable`) | Per age group and in total: flats, bills, unpaid bills, late fees, amount due (unpaid + fees, exactly; D175). |
+| Flats of a group (`ageingFlats`) | Per flat: bills, days overdue of the oldest, total owed, in a total order (largest or oldest first; ties by flat code and id) for the keyset cursor (D180). |
+| Towers (`towerRollup`) | Per tower: flats owing, bills, unpaid bills, late fees, flats over 90 days; the towers add up to Total owed (D182). |
 
 ## Charts
 
@@ -75,14 +78,14 @@ two from 1280px; charts full width inside their section.
 
 ## Show or hide sections
 
-"Choose sections" (a 48px button) opens a sheet with one checkbox per SECTION (five, plain labels, never the cards), "Show everything" and "Save". Saving calls a server action that needs `reports:view`,
+"Choose sections" (a 48px button at the bottom) opens a sheet with one checkbox per SECTION (five, plain labels, never the cards) and one button, Done. Each choice calls a server action that needs `reports:view`,
 refuses a cross-site request (the D83 check), validates with zod (at most five ids from the allowlist, no repeats) and sets the cookie `committee_view`: the hidden ids joined by commas, `Path=/staff`,
 `SameSite=Lax`, `HttpOnly`, `Secure` over https, one year, at most 80 bytes. The page reads it and OMITS hidden sections from the HTML. An invalid, oversized or unknown-id cookie is ignored as a whole.
-"Show everything" deletes it. It is **per device and browser**; there is no database change and no personal data. A stored per-user layout is a next step.
+Ticking every section again deletes it. It is **per device and browser**, so on a shared tablet one person's choice reaches the next; there is no database change and no personal data.
 
-## What is absent (v2)
+## What is absent (v3)
 
-Per-user layouts, export, print views, tooltips and any hover or tap behaviour inside a chart, a trend longer than six months or eight weeks, a drill-down for blocks other than the ageing.
+Per-user layouts, export, print views, Marathi and Hindi labels, a history of Total owed (so no "30 days ago"), a login that goes straight to the report, tooltips and any hover or tap behaviour inside a chart, a trend longer than six months or eight weeks, a drill-down for blocks other than the ageing.
 
 ## Who and where
 
@@ -111,13 +114,13 @@ All pure functions are in `src/domain/reports/`; the loaders in `src/server/repo
 | **Period** | A month of the bills' `period`. Options: the months that have bills, none after the business month, newest first. Default: the business month if it has bills, else the newest billed month, else the business month. A month in the address wins (a month with no bills says "No bills for this month") unless it is in the future (ignored). | `src/lib/reports/period.ts` |
 | **Billed** | The sum of the amounts of the month's bills (issued on or before the business date). | `moneyLine`, `src/domain/reports/money-line.ts` |
 | **Collected** | Principal paid on those bills as of the business date: the bill minus the principal still owed, summed. A late fee is NOT in it and a payment above the bill is not Collected. | `moneyLine` |
-| **Outstanding** | The principal still owed on those bills. | `moneyLine` |
+| **Still unpaid** | The principal still owed on those bills (the bill amount without late fee). | `moneyLine` |
 | **Flats billed / paid in full / with principal outstanding** | A flat has one bill a month, so these count flats. Paid in full: principal all paid (a late fee may still be owed). With principal outstanding: principal still owed. | `moneyLine` |
 | **Late fees: posted and paid** | What was paid above the bill on bills whose principal is paid (payments above the bill count toward the fee, D107). | `moneyLine` |
 | **Late fees: posted and owing** | The remainder of a posted fee: the FEE_ONLY positions (D107, D110). | `moneyLine` |
 | **Late fees: accruing** | The computed fee on bills whose principal is still open: not yet posted (it is posted when the principal is paid, D110). | `moneyLine` |
 | **Ageing** | ALL open positions of ALL months (PRINCIPAL_OPEN and FEE_ONLY) as of the business date, in five buckets by the days from the bill's due date to the business date: 0 or less "Not yet due", 1 to 30, 31 to 60, 61 to 90, over 90 (boundaries 0/1, 30/31, 60/61, 90/91). Per bucket: flats (each once), bills, amount due = principal outstanding + fee outstanding. The label says "All open dues, all months". | `ageBucket`, `ageingTable`, `src/domain/reports/age.ts` |
-| **Drill-down** | The open positions of one bucket, oldest first, then flat code, then bill id; flat code, bill month, days overdue, amount due; keyset pages of 25 (an opaque cursor over that order). | `ageingRows`; `src/lib/reports/cursor.ts`; `src/server/reports/ageing-page.ts` |
+| **Drill-down** | The FLATS of one age group: code, total owed in the group, bills in it, days overdue of the oldest; largest first (default) or oldest first; keyset pages of 25 over a total order; the group's flats and amount for the heading. | `ageingFlats`, `compareFlats`; `src/lib/reports/cursor.ts`; `src/server/reports/ageing-page.ts` |
 | **On-time rate (headline, D134)** | The bills of the month paid on or before their due date, out of ALL the month's bills that are due as of the business date (due date on or before it), paid or not: an unpaid bill past its due date counts against it, and a bill whose due date has not come is left out. This is the figure the goal compares. | `collectionQuality` (`due`, `dueOnTime`), `money-line.ts` |
 | **On time, of paid bills (secondary)** | Bills paid on or before their due date (whether or not the due date has come), out of the paid bills only. It is shown under the headline and is never the goal's actual. | `collectionQuality` (`paidOnTime`, `paid`) |
 | **Median days to pay** | Over the paid bills, days from the issue date to the day the principal was paid; the median takes the lower middle value. | `collectionQuality`, `medianOf` (`stats.ts`) |
@@ -126,12 +129,12 @@ All pure functions are in `src/domain/reports/`; the loaders in `src/server/repo
 | **First reply median / within SLA** | Median whole minutes from raising to `first_response_at`. Within the SLA (D150): MET divided by (MET + MISSED_LATE + MISSED_OPEN), from `slaOutcome`. A first reply AFTER `response_due_at` is MISSED_LATE and is not within the SLA; an unreplied complaint past its due time is MISSED_OPEN; NOT_DUE (unreplied and not yet due, or no due time) is left out. No complaint in the denominator is "No data". | `complaintMetrics` |
 | **Time to marked resolved** | Median whole minutes from raising to the FIRST time it was marked resolved (the first STATUS_CHANGED event to PENDING_CONFIRMATION: a reopen clears the complaint's own time, so the event is used). | `complaintMetrics`, `loadComplaintsBetween` |
 | **Reopened share** | Of the complaints marked resolved at least once, those with `reopen_count` above zero. | `complaintMetrics` |
-| **Closed by the resident / by itself** | Of the complaints now closed: `close_kind` CONFIRMED, and AUTO_CLOSED (D15, D120). A closure by the duty manager is in neither. | `complaintMetrics` |
+| **Closed by whom** | Of the month's complaints: closed by the resident (CONFIRMED), automatically after no reply (AUTO_CLOSED), by the duty manager, with no kind recorded (`other`), and still open: they add up to raised, always (D172). | `complaintMetrics` |
 | **Open now** | Complaints of the month whose status is not CLOSED now (the current state, whatever the "as of" date). | `complaintMetrics` |
-| **Safety** | Safety complaints raised; the median whole minutes to the first acknowledgement (a COMMENT event with `kind: "ack"`, which only the duty manager's acknowledge action writes, D149; `first_response_at` is NOT an acknowledgement); and those not closed with no such event. With none acknowledged the median is "No data". | `complaintMetrics`, `loadComplaintsBetween` |
+| **Safety (D171)** | A safety complaint is SEEN when the duty manager acknowledged it (COMMENT event `kind: "ack"`, D149) or closed it. For the month: closed by the duty manager + open and seen + open and not yet seen (+ closed another way) = raised. The time to the first sight is the median from raising to the acknowledgement or the closing, whichever came first. The strip and the line "Open and not yet seen, all months" use the strict fact for OPEN complaints of every month. | `complaintMetrics`; `countUnacknowledgedSafety` |
 | **Reconciliation line** | The bank rows of the imports uploaded in the last 30 India days to the business date (on or after the first day of the window) by state: posted automatically, by hand, waiting for a person, waiting for approval, not maintenance; the share automatic is posted automatically out of the rows imported; the accounted check is stored + already imported + refused = read, READ BACK for each import in the window. | `reconciliationLine`, `src/domain/reports/reconciliation.ts`; `src/server/reports/reconciliation.ts` |
 | **Manual interventions** | Decisions MANUAL, APPROVED, REJECTED and IGNORE on those rows, by type: count and the median whole minutes from the row's import to the decision. | `reconciliationLine` |
-| **Goals** | Three targets against the month's actuals, each Met, Not met or No data, taken on the counts; each is shown next to its metric, not in a section of its own. | `evaluateGoals`, `src/domain/reports/goals.ts` |
+| **Goals** | Three targets against the month's actuals, each Met, Not met or No data, taken on the counts, with the gap in whole points (a miss rounds up, a margin down; D176). Shown next to the metric. | `evaluateGoals`, `gapInPoints` |
 
 A share with a denominator of zero is **"No data"** in words, never 0 percent (`percent` returns null). A share is shown as a whole percent rounded half up.
 
@@ -153,7 +156,7 @@ A share with a denominator of zero is **"No data"** in words, never 0 percent (`
 within the SLA are floors, reopened is a ceiling. The seed writes the row (`COMMITTEE_GOALS` in `src/domain/seed/settings.ts`). A hosted database seeded earlier needs the row inserted ONCE by the owner:
 the exact INSERT and a verifying SELECT are step E8 of `docs/deploy-checklist.md` and in `docs/deployment-plan.md`, and `tests/integration/committee-goals-sql.test.ts` runs that text on a freshly seeded
 database (it also checks that running it twice is harmless). Until it is inserted, or if the value is invalid, the report shows the same numbers as built-in defaults and says so.
-Each goal is shown next to its metric as "Met" or "Not met" in words with an icon (a check or a warning); "No data" has no verdict. The note that the built-in targets are shown is in "About these numbers", only when the setting is unset.
+Each goal is shown next to its metric as "Met" or "Not met" in words with an icon (a check or a warning); "No data" has no verdict. The note that the standard starting targets are shown is under the headline cards, only when the setting is unset.
 
 ## What is deliberately absent
 
@@ -193,3 +196,16 @@ The look at 1280px, 768px and 360px is checked in a browser by `tests/e2e/screen
 (`tests/ui/committee-*.test.ts`, `tests/ui/charts.test.ts`) check the markup of every block and state; the pure functions are table-driven and property tested (`tests/domain/reports/`); the loaders run as the app role
 against raw SQL (`tests/integration/committee-report.test.ts`); the page over HTTP is `scripts/smoke-app.mjs`. The smoke starts the server with the `JEV_` classifier variables blank, so that it is the same
 whether or not the machine's own `.env` holds provider keys, and sends nothing to a provider. A click is not simulated anywhere: no DOM library is installed and none was added.
+
+## Added in v3: invariants with a named test
+
+| Invariant | Test |
+|---|---|
+| Safety groups and complaint counts add up (2,000 random sets) | RP4b `tests/domain/reports/complaints.test.ts`; V3 `tests/integration/committee-report-v3.test.ts` (SQL, two dates) |
+| Collected within 20 days per month equals SQL; by day 20 never above today | SE2b `series.test.ts`; V3 |
+| The Replies card equals the last point of its line | MS1 `monthly-sla.test.ts`; V3; the browser spec |
+| Unpaid bills + late fees = Total owed, per group and in total (2,000 sets); towers add up to it | RP1 `age.test.ts`; TW1 `towers.test.ts`; V3; RP7 |
+| The drill-down never repeats or skips a flat, in both orders, with ties | RC2 `tests/lib/reports/cursor.test.ts` |
+| Text sizes and contrast | TX1 `tests/ui/committee-text.test.ts` |
+
+Mutations that were applied and caught (then restored, diff empty): the Replies line dropping its last point (cards test and V3), the safety breakdown dropping the duty manager's closings (RP4, CB2, RP2, V3), the complaint breakdown dropping a closure kind (RP4, RP4b, RP2, V3), the monthly bars using today's value (VZ1), the drill-down defaulting to oldest first (RC4 and the browser spec) and the age groups not adding up to the total (RP1, SE4, TW1). The seeded database has no FEE_ONLY bill, so the last one is caught by the random sets and not by the integration tests.

@@ -176,7 +176,7 @@ demo data is dated 27 October, so replies can look overdue.
 
 ## Reading the committee report (staff)
 
-The report is described in `docs/committee-report.md` (decisions D131 to D133). With a seeded database and the app running in demo mode (see Run and Demo data above; `DEMO_AS_OF=2026-10-27` reproduces the
+The report is described in `docs/committee-report.md` (decisions D131 to D133, and D171 to D183 for the version that applied the committee audit; what was done with every audit finding is in `docs/committee-audit-disposition.md`). With a seeded database and the app running in demo mode (see Run and Demo data above; `DEMO_AS_OF=2026-10-27` reproduces the
 numbers below):
 
 ```bash
@@ -184,15 +184,13 @@ npm run db:seed -- --yes && npm run build && npm run start     # http://localhos
 ```
 
 1. Log in as **Meera Kapoor** (`5000000003`, `reports:view`; the code is in the banner). `/staff` lists **Committee report**; open it. A resident, or staff without `reports:view`, ends at `/forbidden`.
-2. The top says "Figures as of 27 October 2026". Under it are four cards: **Collected this month** (82%, "₹1.48 crore of ₹1.81 crore", the exact rupees in small text), **Total owed**, **Paid on time** and
-   **Replies within the SLA** (each against its goal, Met or Not met in words with an icon, and a small trend line you can open as a table). A red strip above them appears only when a safety complaint waits for the duty manager.
-3. Below the cards are five sections; each title has a one-sentence summary. At 360px they start closed: tap one to open it. At 768px and wider the first two (**Money**, **What is owed**) start open.
-   **Money**: Billed (₹1,80,52,190) = Collected (₹1,48,42,714) + Outstanding (₹32,09,476), the late fees and flats in two sentences, and the month-by-month collection (bars on a phone, columns from 768px).
-   **What is owed** says "All open dues, all months": the five age groups as bars, and **See the flats** beside each group opens the list of flat codes, oldest first, 25 at a time. No names, no phone numbers.
-4. **Collection quality** (three rows, three plain numbers and, from 768px, the payment curve), **Complaints** (six lines, one safety line, and from 768px the weekly SLA chart) and **Bank reconciliation** (three lines;
+2. The top says "As of 27 October 2026 · read only", and the month box changes the page as soon as you choose a month. Under it are four cards, each naming its period: **Money collected for October** (82%, "₹1.48 crore of ₹1.81 crore billed", October within 20 days and September at the same age), **Total still owed, all months**, **Bills paid by the due date** and **Complaints answered in time** (each against its goal with the gap in points, Met or Not met in words with an icon, and a small six-month line you can open as a table). A strip above them appears only while a safety complaint is open and not yet seen by the duty manager. "What these words mean" under the cards leads to About.
+3. Below the cards are five sections; each title has a one-sentence summary that adds something the cards do not say. At 360px they start closed: tap one to open it. At 768px and wider the first two (**Billed and collected**, **What is owed**) start open.
+   **Billed and collected**: Billed = Collected + Still unpaid, the late fees in three lines (real money apart from a calculation), and the month-by-month collection measured at the same age (within 20 days).
+   **What is owed** says "All open dues, all months": Total owed = unpaid bills + late fees, one list of age groups, **See the flats** beside each group opens its flats (flat codes only, largest first, a switch to oldest first, 25 at a time, a way back at the top and bottom), and the towers that owe the most.
+4. **How fast bills are paid** (three rows, three plain numbers and, from 768px, the payment curve), **Complaints** (six lines, one safety line, and from 768px the weekly SLA chart) and **Bank statement matchingon** (three lines;
    it says no statement was imported until you import the sample statement as Priya Nair). Every chart has a **Show as a table** link with the same numbers as text. **About these numbers** at the bottom defines every figure.
-5. **Choose sections** (under the month selector) opens a sheet: untick a section, press Save, and it is gone from the page and stays gone after a reload on this device and browser; **Show everything** brings it back. The cards
-   cannot be hidden. The choice is a cookie, not a setting in the database.
+5. **Choose sections** (at the bottom, above About) opens a sheet: untick a section and it is gone from the page at once, and stays gone after a reload on this device and browser; tick it again to bring it back, then press Done. The four cards cannot be hidden. The choice is a cookie, not a setting in the database.
 6. The targets are assumptions in the setting `committee_goals`. On a hosted database that was seeded before this task, the owner inserts the row once (`docs/deploy-checklist.md`, E8); until then the built-in targets are shown and
    the page says so.
 

@@ -55,3 +55,7 @@ honest limits, not to run a real township tomorrow.
 | No export or print view of the committee report; the report has no per-flat or per-person view | Out of this build | The committee reads it on screen | Export and print views | M |
 | Staff admin UI, gate visitor flow, amenity booking and multi-flat residents are out of scope | `CLAUDE.md` | Permissions are seeded; a resident has one flat | Separate features | L |
 | The security items in `docs/security.md` ("What is NOT built") | Scope and the free tier | Real SMS, strong staff authentication, encryption, retention, monitoring, backups with tested restores and penetration testing are all absent | See that table | L |
+| The committee report has no export or print view, no "30 days ago" for Total owed (no history is kept), no Marathi or Hindi labels, and the login still goes to Staff home first | Skipped by the human in T14c (F-54, S-10, N-03, S-12, F-43) | Next steps; Marathi and Hindi need a native speaker |
+| The audit that drove committee report v3 was a simulated review of screenshots, not a user study | `docs/committee-audit-disposition.md` | Show the page to real committee members |
+| The wrap of "Typical days to pay" and "Typical time until marked resolved" on a 360 px phone, a screen-reader pass and a large-text pass were not checked | Only a 150 percent zoom pass for overflow was automated | Check by hand |
+

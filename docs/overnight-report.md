@@ -9,6 +9,7 @@
 | B Documentation package, runbooks and clean-clone script | DONE (the Phase B section below), with the UNVERIFIED items listed there |
 | C Safety detection measurement | DONE (the Phase C section at the end): measured only, the detector is unchanged |
 | T10c Safety detection improvement, Stage 1 (normalisation) | DONE (the T10c section at the end); Stages 2 and 3 documented, not built |
+| T14c Committee report v3 (audit applied) | DONE (the T14c section at the end) |
 | D Reconcile documents | NOT STARTED |
 | E Final verification | NOT STARTED |
 
@@ -676,3 +677,66 @@ Improved: ELONGATE_VOWEL (17.7% to 99.7% on the new holdout) and LEET (4.4% to 9
 - The benchmark is synthetic; the squashed and Devanagari-folded readings are tested only by unit tests.
 - The new holdout's before numbers were computed after its single run from the earlier detectors in git (R105).
 - `git status` still shows the old modified screenshots under `docs/screenshots`; I did not stage or touch them.
+
+## T14c: committee report v3 (the audit applied)
+
+Started Sun 8 Nov 2026 16:33:11 IST. Part 5 (towers) was adopted: it began at about 17:40, 67 minutes in, with every earlier part green. Status: DONE, with the UNVERIFIED items below. Decision numbers D171 to D183, assumptions R107 to R111 (the prompt's "next free numbers").
+
+### Commits (each: `npm run check` and `npm run scan:secrets` passed, by hand and through the hook)
+
+| Hash | Message |
+|---|---|
+| a9891db | fix(domain): safety seen counts closure; complaint counts add up (prompt commits 1 to 3 in one: the same file and the same tests) |
+| 88c41f9 | feat(domain): collected within 20 days per month |
+| c74124f | fix(server): SLA sparkline uses the monthly series |
+| 1984894 | feat(domain): total owed split into unpaid bills and late fees (also goal gaps and previous-period names) |
+| fc0e242 | feat(ui): wording from the committee audit |
+| f2c6bc8 | feat(ui): phone first screen, month selector and moved controls |
+| c0fa281 | feat(ui): fair monthly bars, mini lines and section summaries |
+| e26800e | feat(ui): one list for ages and a flat-level drill-down |
+| d7e7c15 | feat(ui): text size, contrast and laptop alignment |
+| bfa3f1f | feat: towers with the most unpaid |
+| 96f69bd | test: committee v3 integration against SQL on two business dates |
+| fd0c4d8 | fix(ui): tables of more than four columns stack on a phone (found by the browser test) |
+| 8982acb | test: committee v3 in a browser |
+| d0cdc8b | feat(ui): payment curve, weekly values and billed wording (S-08, S-07, F-05: adopted, missed by the earlier commits, found when the disposition was written) |
+| (this commit) | docs: committee audit disposition and report v3 |
+
+### Independent SQL beside the loader (from the test output)
+
+| Figure | SQL | Loader |
+|---|---|---|
+| Collected within 20 days, Jun to Oct (both dates) | 1,461,104,500 / 1,446,555,800 / 1,435,645,800 / 1,405,768,200 / 1,418,321,700 paise | the same, to the paise; 81, 80, 79, 78, 79 percent |
+| Open flats, all groups (27 Oct) | 838 | 838 |
+| Open bills and unpaid bills per group | 1 to 30 days 484 bills, 320,947,600 paise; 31 to 60 210, 131,181,900; 61 to 90 130, 84,475,700; over 90 119 bills, 117 flats, 73,231,000 | equal |
+| Total owed (27 Oct) | unpaid 609,836,200 | 618,968,600 = unpaid 609,836,200 + late fees 9,132,400 |
+| Total owed (8 Nov) | unpaid 609,836,200 | 621,369,000 = unpaid 609,836,200 + late fees 11,532,800 |
+| Towers | 28 towers; top T03 32,623,200 unpaid | equal; towers add up to Total owed |
+| Reads of the database | — | 10 on both dates; 1.4 s and 1.6 s |
+
+### First screen at 360 x 800 (Playwright, pristine seed, strip present)
+
+Card bottoms at 567, 774, 1,205 and 1,583 px, so two whole cards fit under the strip, the title and the month control (limit 800). I looked at the 360 screenshot: no overlap or clipping. Awkward: the "Goal 90%" label sits on the 100 line of the small charts, and the small lines look flat because the scale is fixed at 0 to 100 (as decided). I did not view the 1280 screenshot separately (it passed overflow, target, axe and text checks at 1280).
+
+### Mutations (applied, failing tests, restored from a file copy, `git diff` of the file empty)
+
+| Mutation | Failing tests |
+|---|---|
+| 1 Replies line drops its last point | `cards.test.ts` CD1 "Replies within the SLA…"; integration V3 "the Replies card's line…" (27 Oct only: on 8 Nov September and October have the same share, so the check could not see it) |
+| 2 safety breakdown drops the duty manager's closings | RP4 two tests, CB2 "a complaint closed by the duty manager is seen…"; integration RP2 complaints (two tests) and V3 on both dates |
+| 3 complaint breakdown omits a closure kind | RP4b, RP4 "closed by the resident, automatically…"; integration RP2 (two) and V3 on both dates |
+| 4 monthly bars use today's value | VZ1 "the bars and the columns carry the same percents…" |
+| 5 drill-down defaults to oldest first | RC4 "the order is in the address…"; browser "the drill-down opens largest first…" |
+| 6 age groups do not add up to the total | RP1 2,000 random sets, SE4, TW1; NOT caught by the integration tests (the seed has no FEE_ONLY bill) |
+
+### Existing tests edited, and why
+
+`complaints.test.ts` and `committee-blocks.test.ts` (the safety and closed shapes), `committee-cards.test.ts` and `smoke-app.mjs` (strip wording), `committee-report.test.ts` (the pristine seed: 15 of 16 safety complaints were closed by the duty manager; the page parts; the drill-down rows are flats), `cards.test.ts`, `visuals.test.ts`, `committee-ageing.test.ts`, `age.test.ts`, `period.test.ts` (paging moved to `cursor.test.ts`), `ageing.test.ts` (bar widths replaced), `committee-choose.test.ts`, `committee-report-shell.test.ts`, `committee-layout.test.ts`, `charts.test.ts`, `money-line.test.ts`, `token-contrast.test.ts` (ink-2 7.38 to 9.76) and the committee e2e spec: each asserted wording, a shape or a control that the audit changed. No assertion was weakened otherwise.
+
+### Not verified
+
+- `scripts/smoke-app.mjs` is already out of date (known-limitations); only its safety line was updated and it was not run.
+- The wrap of "Typical days to pay" and "Typical time until marked resolved" on a 360 px phone; a screen-reader and a large-text pass; the 1280 screenshot was not looked at by eye.
+- The audit was simulated; no real committee member saw the page.
+- Hindi and Marathi were not touched.
+
