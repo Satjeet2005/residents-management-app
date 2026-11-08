@@ -50,6 +50,41 @@ test.describe("the committee report at one width", () => {
     await checkScreen(page, watch, "committee", "report");
   });
 
+  test("a phone's first screen holds the alert strip, the title, the month control and at least two whole headline cards, with no scrolling", async ({ page }) => {
+    test.skip(widthOf(page) !== 360, "the first-screen acceptance is for the 360 x 800 phone");
+    await openReport(page);
+    const height = page.viewportSize()?.height ?? 0;
+    const bottomOf = async (locator: ReturnType<Page["locator"]>) => {
+      const box = await locator.boundingBox();
+      expect(box).not.toBeNull();
+      return (box?.y ?? 0) + (box?.height ?? 0);
+    };
+    // The strip is there only while a safety complaint is open and unseen: on the pristine seed it is, after the staff specs of the chain have acknowledged them it is not.
+    const strip = page.getByRole("status").filter({ hasText: "not yet seen by the duty manager" });
+    const stripShown = (await strip.count()) > 0;
+    if (stripShown) expect(await bottomOf(strip)).toBeLessThanOrEqual(height);
+    expect(await bottomOf(page.getByRole("heading", { level: 1 }))).toBeLessThanOrEqual(height);
+    expect(await bottomOf(page.locator("#report-period"))).toBeLessThanOrEqual(height);
+    const bottoms = await Promise.all((await page.locator("section[aria-label='Headline figures'] > ul > li").all()).map(bottomOf));
+    const whole = bottoms.filter((bottom) => bottom <= height).length;
+    console.log(`FIRST SCREEN 360x${height}: strip ${stripShown ? "shown" : "absent"}; card bottoms ${bottoms.map(Math.round).join(", ")}; whole cards visible ${whole}`);
+    expect(whole).toBeGreaterThanOrEqual(2);
+  });
+
+  test("choosing a month changes the page with no Show button, and Choose sections sits at the bottom, above About", async ({ page }) => {
+    await openReport(page);
+    await expect(page.getByRole("button", { name: "Show", exact: true })).toHaveCount(0);
+    await page.locator("#report-period").selectOption("2026-09");
+    await expect(page).toHaveURL(/period=2026-09/);
+    await expect(page.getByRole("heading", { name: /Money collected for September/ })).toBeVisible();
+    await expect(page.locator("#report-period")).toHaveValue("2026-09");
+    const choose = await page.getByRole("button", { name: "Choose sections" }).boundingBox();
+    const about = await page.locator("section#about").boundingBox();
+    const lastSection = await page.locator("details#bank").boundingBox();
+    expect((choose?.y ?? 0) > (lastSection?.y ?? 0) + (lastSection?.height ?? 0) - 1).toBe(true);
+    expect((choose?.y ?? 0) < (about?.y ?? 0)).toBe(true);
+  });
+
   test("every section opened: the visuals, the page checks and the screenshots", async ({ page }) => {
     const watch = watchPage(page);
     await openReport(page);
@@ -99,7 +134,7 @@ test.describe("the committee report at one width", () => {
   test("the keyboard reaches the Choose sections button and the section toggles; Enter and Space toggle a section; Escape closes the sheet and returns focus", async ({ page }) => {
     await openReport(page);
     const reached = new Set<string>();
-    for (let i = 0; i < 60 && reached.size < 6; i++) {
+    for (let i = 0; i < 90 && reached.size < 6; i++) {
       await page.keyboard.press("Tab");
       const label = await page.evaluate(() => {
         const el = document.activeElement;
@@ -127,7 +162,7 @@ test.describe("the committee report at one width", () => {
     await expect(choose).toBeFocused();
   });
 
-  test("the Choose sections sheet: one checkbox per section, hiding one keeps it hidden after a reload, and Show everything restores it", async ({ page, context }) => {
+  test("the Choose sections sheet: one checkbox per section applied at once, one Done button, hiding one keeps it hidden after a reload, and ticking it again restores it", async ({ page, context }) => {
     const watch = watchPage(page);
     await openReport(page);
     await page.getByRole("button", { name: "Choose sections" }).click();
@@ -136,8 +171,9 @@ test.describe("the committee report at one width", () => {
     await expect(sheet.getByRole("checkbox", { name: "Complaints" })).toBeChecked();
     await checkScreen(page, watch, "committee", "choose");
     await sheet.getByRole("checkbox", { name: "Complaints" }).uncheck();
-    await sheet.getByRole("button", { name: "Save" }).click();
     await expect(page.locator("details#complaints")).toHaveCount(0);
+    await sheet.getByRole("button", { name: "Done" }).click();
+    await expect(sheet).toBeHidden();
     await expect(page.getByText("1 section is hidden on this device.")).toBeVisible();
     await expect(page.locator("section[aria-label='Headline figures'] li")).toHaveCount(4);
     const cookie = (await context.cookies()).find((c) => c.name === "committee_view");
@@ -149,8 +185,9 @@ test.describe("the committee report at one width", () => {
     for (const id of SECTIONS.filter((s) => s !== "complaints")) await expect(page.locator(`details#${id}`)).toHaveCount(1);
 
     await page.getByRole("button", { name: "Choose sections" }).click();
-    await page.getByRole("dialog").getByRole("button", { name: "Show everything" }).click();
+    await page.getByRole("dialog").getByRole("checkbox", { name: "Complaints" }).check();
     await expect(page.locator("details#complaints")).toHaveCount(1);
+    await page.getByRole("dialog").getByRole("button", { name: "Done" }).click();
     expect((await context.cookies()).find((c) => c.name === "committee_view")).toBeUndefined();
     await page.reload();
     for (const id of SECTIONS) await expect(page.locator(`details#${id}`)).toHaveCount(1);

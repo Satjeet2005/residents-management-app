@@ -35,9 +35,12 @@ describe("CC1 the Choose sections control", () => {
     expect(count(out, /checked=""/g)).toBe(5);
   });
 
-  it("offers Show everything and Save, and says the headline figures are always shown", () => {
-    expect(out).toContain(">Show everything<");
-    expect(out).toContain(">Save<");
+  it("has ONE button in the sheet, Done: no Save, no Show everything and no Close; it says each choice is saved at once and the headline figures are always shown", () => {
+    const sheet = out.slice(out.indexOf("<dialog"));
+    expect(count(sheet, /<button/g)).toBe(1);
+    expect(sheet).toContain(">Done<");
+    expect(sheet).not.toMatch(/>Save<|>Show everything<|>Close</);
+    expect(words(out)).toContain("saved on this device as soon as you make it");
     expect(words(out)).toContain("The four headline figures are always shown.");
   });
 

@@ -45,10 +45,10 @@ const TITLES: Record<SectionId, () => string> = {
 };
 
 /**
- * The committee report: the alert strip (only when a safety complaint waits), one h1, the month selector and the "as of" date in words, the four headline cards,
- * the five sections as collapsible <details> each with a one-sentence headline (the first two shown open from 768px; a section the person hid on this device is
- * left out of the HTML), and "About these numbers" at the bottom. Read
- * only: the controls are the selector's Show button, the section toggles and the links of the ageing and the drill-down. A month with no bills says so in the
+ * The committee report: the alert strip (only when a safety complaint is open and not yet seen), one h1, "As of <date> · read only", the month selector (it applies
+ * when chosen), the four headline cards, the five sections as collapsible <details> each with a one-sentence headline (the first two shown open from 768px; a section
+ * the person hid on this device is left out of the HTML), then "Choose sections" and "About these numbers" at the bottom. Read
+ * only: the controls are the month selector, the section toggles, Choose sections and the links of the ageing and the drill-down. A month with no bills says so in the
  * sections it affects and never draws zeros.
  */
 export function ReportView({ report, hidden = [] }: { report: CommitteeReport; hidden?: readonly SectionId[] }) {
@@ -65,13 +65,12 @@ export function ReportView({ report, hidden = [] }: { report: CommitteeReport; h
     bank: <ReconciliationBlock line={report.reconciliation} />,
   };
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4">
+    <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-4 md:gap-6">
       <AlertStrip count={report.safetyUnacknowledged} canManageComplaints={report.canManageComplaints} />
-      <header className="flex flex-col gap-3">
+      <header className="flex flex-col gap-2">
         <h1 className="text-heading font-semibold">{t("committee.title")}</h1>
         <p className="text-body text-ink-2">{t("committee.asOf", { date: dateWords(report.asOf) })}</p>
         <PeriodForm period={report.period} periods={report.periods} />
-        <ChooseSections hidden={hidden} />
       </header>
       <HeadlineCards report={report} />
       <div className="grid items-start gap-4 xl:grid-cols-2">
@@ -81,6 +80,7 @@ export function ReportView({ report, hidden = [] }: { report: CommitteeReport; h
           </ReportSection>
         ))}
       </div>
+      <ChooseSections hidden={hidden} />
       <AboutBlock asOf={report.asOf} />
       <ResponsiveDefaults />
     </main>

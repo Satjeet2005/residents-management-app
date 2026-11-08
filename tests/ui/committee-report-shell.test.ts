@@ -2,7 +2,7 @@ import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { MoneyBlock } from "@/app/(staff)/staff/reports/money-block";
-import { PeriodForm } from "@/app/(staff)/staff/reports/period-form";
+import { PeriodForm, periodHrefOf } from "@/app/(staff)/staff/reports/period-form";
 import { ReportView } from "@/app/(staff)/staff/reports/report-view";
 import { StaffView } from "@/app/(staff)/staff/staff-view";
 import { AGE_BUCKETS } from "@/domain/reports/age";
@@ -37,7 +37,7 @@ const report = (over: Partial<CommitteeReport> = {}): CommitteeReport =>
 describe("CR1 the period selector", () => {
   const out = html(h(PeriodForm, { period: "2026-10-01", periods: ["2026-10-01", "2026-09-01", "2026-08-01"] }));
 
-  it("is a plain GET form with a labelled select and an outlined Show button, both 48px", () => {
+  it("is a plain GET form with a labelled select, 48px; the outlined Show button is only inside <noscript>, so a month applies when chosen", () => {
     const form = /<form[^>]*>/.exec(out)?.[0] ?? "";
     expect(form).toContain('method="get"');
     expect(form).toContain('action="/staff/reports"');
@@ -46,8 +46,13 @@ describe("CR1 the period selector", () => {
     expect(select).toContain('id="report-period"');
     expect(select).toContain('name="period"');
     expect(select).toContain("min-h-12");
-    expect(out).toMatch(/<button[^>]*type="submit"[^>]*min-h-12[^>]*>Show<\/button>/);
+    expect(out).toMatch(/<noscript><button[^>]*type="submit"[^>]*min-h-12[^>]*>Show<\/button><\/noscript>/);
+    expect(out.replace(/<noscript>.*<\/noscript>/, "")).not.toContain("type=\"submit\"");
     expect(out).not.toContain("bg-accent");
+  });
+
+  it("the month is the address the page reads", () => {
+    expect(periodHrefOf("2026-09")).toBe("/staff/reports?period=2026-09");
   });
 
   it("offers the months with bills, newest first, the shown month chosen", () => {
@@ -112,7 +117,7 @@ describe("CR3 the page", () => {
     expect(count(out, /<main/g)).toBe(1);
     expect(count(out, /<h1/g)).toBe(1);
     expect(out).toMatch(/<h1[^>]*>Committee report<\/h1>/);
-    expect(words(out)).toContain("Figures as of 27 October 2026.");
+    expect(words(out)).toContain("As of 27 October 2026 · read only");
     expect(out).toContain('id="report-period"');
   });
 

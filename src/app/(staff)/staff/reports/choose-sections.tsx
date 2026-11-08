@@ -17,27 +17,29 @@ const LABELS: Record<SectionId, () => string> = {
 };
 
 /**
- * "Choose sections": a 48px button that opens a sheet with one checkbox per SECTION (never the headline cards), "Show everything" and "Save". Saving sends the hidden
- * ids to a server action, which checks the person and the request, remembers the choice in a cookie for this device and browser, and the page is rendered again
- * without the hidden sections. A failure says so and changes nothing. Both buttons are outlined: the report has no filled control (it only reads).
+ * "Choose sections", at the BOTTOM of the page (D178): a 48px button that opens a sheet with one checkbox per SECTION (never the headline cards). A choice is sent to
+ * a server action AS SOON AS it is made, which checks the person and the request, remembers the choice in a cookie for this device and browser, and the page is
+ * rendered again without the hidden sections. There is one button, "Done", which only closes the sheet. A failure says so and puts the checkbox back.
  */
 export function ChooseSections({ hidden }: { hidden: readonly SectionId[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [shown, setShown] = useState<readonly SectionId[]>(SECTION_IDS.filter((id) => !hidden.includes(id)));
   const [failed, setFailed] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
-  const send = (ids: readonly SectionId[]) => {
+  const choose = (id: SectionId, checked: boolean) => {
+    const before = shown;
+    const after = SECTION_IDS.filter((x) => (x === id ? checked : shown.includes(x)));
+    setShown(after);
     setFailed(false);
     startTransition(async () => {
       try {
-        const answer = await saveSections(SECTION_IDS.filter((id) => !ids.includes(id)));
-        if (!answer.ok || answer.data !== "SAVED") return setFailed(true);
-        setShown(ids);
-        setOpen(false);
+        const answer = await saveSections(SECTION_IDS.filter((x) => !after.includes(x)));
+        if (!answer.ok || answer.data !== "SAVED") throw new Error("not saved");
         router.refresh();
       } catch {
+        setShown(before);
         setFailed(true);
       }
     });
@@ -55,6 +57,7 @@ export function ChooseSections({ hidden }: { hidden: readonly SectionId[] }) {
         open={open}
         onClose={() => setOpen(false)}
         title={t("committee.choose.title")}
+        hideClose
         footer={
           <div className="flex flex-col gap-2">
             {failed && (
@@ -62,14 +65,9 @@ export function ChooseSections({ hidden }: { hidden: readonly SectionId[] }) {
                 {t("committee.choose.failed")}
               </p>
             )}
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outlined" disabled={pending} onClick={() => send(SECTION_IDS)}>
-                {t("committee.choose.showAll")}
-              </Button>
-              <Button variant="outlined" loading={pending} loadingLabel={t("committee.choose.saving")} onClick={() => send(shown)}>
-                {t("committee.choose.save")}
-              </Button>
-            </div>
+            <Button variant="outlined" onClick={() => setOpen(false)}>
+              {t("committee.choose.done")}
+            </Button>
           </div>
         }
       >
@@ -78,13 +76,7 @@ export function ChooseSections({ hidden }: { hidden: readonly SectionId[] }) {
           {SECTION_IDS.map((id) => (
             <li key={id}>
               <label className="flex min-h-12 cursor-pointer items-center gap-3 text-body">
-                <input
-                  type="checkbox"
-                  checked={shown.includes(id)}
-                  onChange={(event) => setShown(event.target.checked ? SECTION_IDS.filter((x) => x === id || shown.includes(x)) : shown.filter((x) => x !== id))}
-                  className="h-6 w-6 shrink-0"
-                  style={{ accentColor: "var(--color-accent)" }}
-                />
+                <input type="checkbox" checked={shown.includes(id)} onChange={(event) => choose(id, event.target.checked)} className="h-6 w-6 shrink-0" style={{ accentColor: "var(--color-accent)" }} />
                 {LABELS[id]()}
               </label>
             </li>

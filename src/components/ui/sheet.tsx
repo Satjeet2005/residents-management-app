@@ -11,6 +11,8 @@ export type SheetProps = {
   children: ReactNode;
   /** Stays at the bottom while the body scrolls, for the main action. */
   footer?: ReactNode;
+  /** Leave out the Close button of the header, when the footer has the one button that closes it (a sheet whose choices apply at once). */
+  hideClose?: boolean;
 };
 
 /**
@@ -18,7 +20,7 @@ export type SheetProps = {
  * the backdrop, Escape to close and inert page behind. Focus goes back to the
  * element that opened it. Opens from the bottom at 360px and is centred when wide.
  */
-export function Sheet({ open, onClose, title, children, footer }: SheetProps) {
+export function Sheet({ open, onClose, title, children, footer, hideClose = false }: SheetProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const opener = useRef<Element | null>(null);
   const titleId = useId();
@@ -56,9 +58,11 @@ export function Sheet({ open, onClose, title, children, footer }: SheetProps) {
         <h2 id={titleId} className="text-title font-semibold">
           {title}
         </h2>
-        <Button variant="outlined" onClick={() => dialog.current?.close()}>
-          Close
-        </Button>
+        {!hideClose && (
+          <Button variant="outlined" onClick={() => dialog.current?.close()}>
+            Close
+          </Button>
+        )}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">{children}</div>
       {footer !== undefined && <div className="sticky bottom-0 border-t border-hairline bg-paper px-4 py-3">{footer}</div>}
