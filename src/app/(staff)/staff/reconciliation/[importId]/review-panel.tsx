@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { t } from "@/lib/messages";
 import { payerNoticeText, thresholdNotice } from "@/lib/reconciliation/labels";
+import { DEFAULT_FILTERS, type RowFilters } from "@/lib/reconciliation/filters";
 import { workspaceHref } from "@/lib/reconciliation/lanes";
 import {
   REASON_MAX,
@@ -36,7 +37,7 @@ export const rowLinkId = (rowId: string): string => `recon-row-${rowId}`;
  * result), write a reason of at least 5 characters, and post, or say the payment is not for maintenance. Nothing is preselected, nothing is
  * posted in bulk, and a submit in flight blocks a second one. Every decision is sent to the same routes the API has, with the row's version.
  */
-export function ReviewPanel({ review, importId, lane, nextRowId, actionsAllowed }: { review: ReviewData; importId: string; lane: Lane; nextRowId: string | null; actionsAllowed: boolean }) {
+export function ReviewPanel({ review, importId, lane, nextRowId, actionsAllowed, filters = DEFAULT_FILTERS }: { review: ReviewData; importId: string; lane: Lane; nextRowId: string | null; actionsAllowed: boolean; filters?: RowFilters }) {
   const router = useRouter();
   const [state, dispatch] = useReducer(reviewReducer, null, () => initialReviewState(null));
   const heading = useRef<HTMLHeadingElement>(null);
@@ -48,7 +49,7 @@ export function ReviewPanel({ review, importId, lane, nextRowId, actionsAllowed 
   const busy = state.submit.status === "SUBMITTING";
   const finished = state.submit.status === "DONE";
 
-  const closeHref = workspaceHref({ importId, lane });
+  const closeHref = workspaceHref({ importId, lane, filters });
 
   function close(): void {
     const main = document.getElementById(MAIN_ID);
@@ -131,7 +132,7 @@ export function ReviewPanel({ review, importId, lane, nextRowId, actionsAllowed 
   function next(): void {
     const main = document.getElementById(MAIN_ID);
     if (main !== null) main.inert = false;
-    router.replace(workspaceHref({ importId, lane, row: nextRowId }), { scroll: false });
+    router.replace(workspaceHref({ importId, lane, row: nextRowId, filters }), { scroll: false });
     router.refresh();
   }
 

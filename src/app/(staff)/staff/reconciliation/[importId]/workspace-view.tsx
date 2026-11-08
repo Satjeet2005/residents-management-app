@@ -24,11 +24,11 @@ export function WorkspaceView({ data, lane, viewer }: { data: Workspace; lane: L
         <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-4">
           <WorkspaceHeader header={header} counts={counts} />
           <ProportionStrip laneCounts={laneCounts} />
-          <LaneSelector importId={header.importId} lane={lane} laneCounts={laneCounts} manuallyPosted={counts.manuallyMatched} />
-          <RowList key={`${lane}:${JSON.stringify(laneCounts)}`} importId={header.importId} lane={lane} initialRows={data.rows} initialCursor={data.nextCursor} selectedId={review?.id ?? null} viewer={viewer} thresholdPaise={data.thresholdPaise} laneTotal={laneCounts[lane]} />
+          <LaneSelector importId={header.importId} lane={lane} laneCounts={laneCounts} manuallyPosted={counts.manuallyMatched} filters={data.filters} />
+          <RowList key={`${lane}:${JSON.stringify(laneCounts)}:${JSON.stringify(data.filters)}`} importId={header.importId} lane={lane} initialRows={data.rows} initialCursor={data.nextCursor} selectedId={review?.id ?? null} viewer={viewer} thresholdPaise={data.thresholdPaise} laneTotal={data.facets.filteredTotal} filters={data.filters} />
         </main>
       </div>
-      {review !== null && <ReviewPanel key={review.id} review={review} importId={header.importId} lane={lane} nextRowId={nextRowOf(data.rows, review.id)} actionsAllowed={actionsAllowed(counts)} />}
+      {review !== null && <ReviewPanel key={review.id} review={review} importId={header.importId} lane={lane} nextRowId={nextRowOf(data.rows, review.id)} actionsAllowed={actionsAllowed(counts)} filters={data.filters} />}
     </>
   );
 }

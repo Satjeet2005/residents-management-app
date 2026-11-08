@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { Prisma } from "../../../generated/prisma/client";
+import { REASON_GROUPS, type ReasonGroup, codesOfGroup } from "@/domain/matching/reason-groups";
+import { DEFAULT_FILTERS, type ReasonFilter, type RowFilters, effectiveFilters } from "@/lib/reconciliation/filters";
 import { type CalendarDate, istDateOf } from "@/domain/time/calendar";
 import type { Db, DbOrTx } from "@/server/auth/db";
 import { calendarDateOf } from "@/server/home/mapper";
@@ -132,33 +135,68 @@ export type RowListItem = {
 export type RowList = { items: RowListItem[]; nextCursor: string | null; laneCounts: Record<Lane, number>; summary: StatementSummary | null };
 
 const cursorSchema = z.string().regex(/^[A-Za-z0-9_-]{1,120}$/);
-/** The keyset cursor is `<amount>:<id>` in base64url: the last row of the page, so the next page starts after it. */
-const encodeCursor = (amount: bigint, id: string): string => Buffer.from(`${amount}:${id}`, "utf8").toString("base64url");
-function decodeCursor(cursor: string | undefined): { amount: bigint; id: string } | null {
+type Cursor = { sort: "largest"; amount: bigint; id: string } | { sort: "oldest"; date: string; id: string };
+/**
+ * The keyset cursor is the last row of the page in base64url, so the next page starts after it: `<amount>:<id>` for the largest-first order and
+ * `d<date>:<id>` for the oldest-first order. A cursor of the other order is not a cursor of this one: it starts again from the first page.
+ */
+const encodeCursor = (cursor: Cursor): string => Buffer.from(cursor.sort === "largest" ? `${cursor.amount}:${cursor.id}` : `d${cursor.date}:${cursor.id}`, "utf8").toString("base64url");
+function decodeCursor(cursor: string | undefined, sort: RowFilters["sort"]): Cursor | null {
   if (cursor === undefined || !cursorSchema.safeParse(cursor).success) return null;
-  const match = /^([0-9]{1,18}):([0-9a-f-]{36})$/.exec(Buffer.from(cursor, "base64url").toString("utf8"));
-  return match === null ? null : { amount: BigInt(match[1]), id: match[2] };
+  const text = Buffer.from(cursor, "base64url").toString("utf8");
+  if (sort === "largest") {
+    const match = /^([0-9]{1,18}):([0-9a-f-]{36})$/.exec(text);
+    return match === null ? null : { sort, amount: BigInt(match[1]), id: match[2] };
+  }
+  const match = /^d(\d{4}-\d{2}-\d{2}):([0-9a-f-]{36})$/.exec(text);
+  return match === null ? null : { sort, date: match[1], id: match[2] };
+}
+
+const AMOUNT = Prisma.sql`GREATEST(b.credit_paise, b.debit_paise)`;
+
+/** The reason filter as SQL: a row is in a group when one of its stored reason codes is one the table of groups lists for it (and the group "low" also takes the matcher's own LOW confidence). */
+function reasonSql(group: ReasonGroup): Prisma.Sql {
+  const codes = codesOfGroup(group);
+  const byCode = Prisma.sql`EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(b.parsed->'decision'->'reasons', '[]'::jsonb)) r WHERE r->>'code' = ANY(${codes}::text[]))`;
+  return group === "low" ? Prisma.sql`(${byCode} OR b.parsed->'decision'->>'confidence' = 'LOW')` : byCode;
+}
+
+/** Amount and reason as SQL (TRUE when neither narrows). The threshold is a bound parameter; a credit AT the threshold is "or more". */
+function narrowSql(filters: RowFilters, thresholdPaise: bigint | undefined): Prisma.Sql {
+  const parts: Prisma.Sql[] = [Prisma.sql`TRUE`];
+  if (filters.amount === "high" && thresholdPaise !== undefined) parts.push(Prisma.sql`${AMOUNT} >= ${thresholdPaise}`);
+  if (filters.amount === "low" && thresholdPaise !== undefined) parts.push(Prisma.sql`${AMOUNT} < ${thresholdPaise}`);
+  if (filters.reason !== "any") parts.push(reasonSql(filters.reason));
+  return Prisma.join(parts, " AND ");
 }
 
 /**
- * The rows of one import in one lane, biggest amount first, then by id, a page at a time (keyset, so a page never skips or repeats a
- * row while others change state). `limit` is at most 50. Also the row counts of all four lanes and the import's summary.
- * Null for an id that is not an import. A bad cursor starts from the first page.
+ * The rows of one import in one lane, a page at a time (keyset, so a page never skips or repeats a row while others change state). The order is biggest amount
+ * first by default (`sort: "largest"`, then id) or oldest date first (`sort: "oldest"`, then id); `amount` and `reason` narrow the rows (D192), and the amount
+ * needs `thresholdPaise`. `limit` is at most 50. Also the row counts of all four lanes (never filtered) and the import's summary.
+ * Null for an id that is not an import. A bad cursor, or one of the other order, starts from the first page.
  */
-export async function listRows({ db, importId, lane, cursor, limit }: { db: Db; importId: string; lane: Lane; cursor?: string; limit?: number }): Promise<RowList | null> {
+export async function listRows({ db, importId, lane, cursor, limit, filters = DEFAULT_FILTERS, thresholdPaise }: { db: Db; importId: string; lane: Lane; cursor?: string; limit?: number; filters?: RowFilters; thresholdPaise?: bigint }): Promise<RowList | null> {
   if (!z.uuid().safeParse(importId).success) return null;
   const summary = await getStatementSummary(db, importId);
   if (summary === null) return null;
   const size = Math.min(Math.max(Math.trunc(limit ?? 25), 1), MAX_PAGE);
-  const after = decodeCursor(cursor);
+  const applied = effectiveFilters(filters, lane);
+  const after = decodeCursor(cursor, applied.sort);
   const states = [...LANE_STATES[lane]];
+  const afterSql =
+    after === null
+      ? Prisma.sql`TRUE`
+      : after.sort === "largest"
+        ? Prisma.sql`(${AMOUNT} < ${after.amount} OR (${AMOUNT} = ${after.amount} AND b.id::text > ${after.id}))`
+        : Prisma.sql`(b.txn_date > ${after.date}::date OR (b.txn_date = ${after.date}::date AND b.id::text > ${after.id}))`;
+  const order = applied.sort === "largest" ? Prisma.sql`amount DESC, b.id ASC` : Prisma.sql`b.txn_date ASC, b.id ASC`;
   const rows = await db.$queryRaw<
     { id: string; row_number: number; txn_date: Date; amount: bigint; credit: bigint; narration_raw: string; state: string; version: number; parsed: { decision?: { confidence?: string } } | null; flat_code: string | null }[]
-  >`SELECT b.id::text AS id, b.row_number, b.txn_date, GREATEST(b.credit_paise, b.debit_paise) AS amount, b.credit_paise AS credit, b.narration_raw, b.state::text AS state, b.version, b.parsed, f.code AS flat_code
+  >`SELECT b.id::text AS id, b.row_number, b.txn_date, ${AMOUNT} AS amount, b.credit_paise AS credit, b.narration_raw, b.state::text AS state, b.version, b.parsed, f.code AS flat_code
     FROM bank_rows b LEFT JOIN flats f ON f.id = b.flat_id
-    WHERE b.import_id = ${importId}::uuid AND b.state::text = ANY(${states})
-      AND (${after === null} OR GREATEST(b.credit_paise, b.debit_paise) < ${after?.amount ?? 0n} OR (GREATEST(b.credit_paise, b.debit_paise) = ${after?.amount ?? 0n} AND b.id::text > ${after?.id ?? ""}))
-    ORDER BY amount DESC, b.id ASC
+    WHERE b.import_id = ${importId}::uuid AND b.state::text = ANY(${states}) AND ${afterSql} AND ${narrowSql(applied, thresholdPaise)}
+    ORDER BY ${order}
     LIMIT ${size + 1}`;
   const page = rows.slice(0, size);
   const grouped = await db.bankRow.groupBy({ by: ["state"], where: { importId }, _count: { _all: true } });
@@ -177,10 +215,27 @@ export async function listRows({ db, importId, lane, cursor, limit }: { db: Db; 
       confidence: r.parsed?.decision?.confidence ?? null,
       flatCode: r.flat_code,
     })),
-    nextCursor: rows.length > size && last !== undefined ? encodeCursor(BigInt(last.amount), last.id) : null,
+    nextCursor: rows.length > size && last !== undefined ? encodeCursor(applied.sort === "largest" ? { sort: "largest", amount: last.amount, id: last.id } : { sort: "oldest", date: calendarDateOf(last.txn_date), id: last.id }) : null,
     laneCounts: Object.fromEntries(LANES.map((l) => [l, count(LANE_STATES[l])])) as Record<Lane, number>,
     summary,
   };
+}
+
+export type RowFacets = { filteredTotal: number; reasonCounts: Record<ReasonFilter, number> };
+
+/**
+ * What the Filters sheet shows, in ONE query: how many rows of the lane match the amount and reason filters (the "y" of "Showing x of y"), and how many rows of the
+ * lane are in each reason group and in all (the numbers beside the options). The group counts are for the whole lane, not narrowed by the amount, and a row can be in
+ * several groups, so they can add up to more than the lane. Rows are counted by the same SQL as `listRows`.
+ */
+export async function rowFacets({ db, importId, lane, filters = DEFAULT_FILTERS, thresholdPaise }: { db: Db; importId: string; lane: Lane; filters?: RowFilters; thresholdPaise?: bigint }): Promise<RowFacets> {
+  const applied = effectiveFilters(filters, lane);
+  const states = [...LANE_STATES[lane]];
+  const groups = REASON_GROUPS.map((group) => Prisma.sql`(count(*) FILTER (WHERE ${reasonSql(group)}))::int AS ${Prisma.raw(group)}`);
+  const [row] = await db.$queryRaw<(Record<ReasonGroup, number> & { total: number; lane_total: number })[]>`
+    SELECT (count(*) FILTER (WHERE ${narrowSql(applied, thresholdPaise)}))::int AS total, count(*)::int AS lane_total, ${Prisma.join(groups)}
+    FROM bank_rows b WHERE b.import_id = ${importId}::uuid AND b.state::text = ANY(${states})`;
+  return { filteredTotal: row.total, reasonCounts: { any: row.lane_total, noflat: row.noflat, several: row.several, differs: row.differs, low: row.low } };
 }
 
 export type ImportListItem = { importId: string; filename: string; uploadedAt: string; rowsRead: number };

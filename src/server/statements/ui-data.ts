@@ -3,10 +3,11 @@ import { istDateOf } from "@/domain/time/calendar";
 import type { Db } from "@/server/auth/db";
 import type { SessionUser } from "@/server/auth/session-service";
 import { z } from "zod";
+import { DEFAULT_FILTERS, type RowFilters, effectiveFilters } from "@/lib/reconciliation/filters";
 import type { Confidence, EntryLine, ImportListEntry, Lane, ReviewData, RowCard, SummaryCounts, WorkspaceHeader } from "@/lib/reconciliation/types";
 import { getStatementSummary } from "./import";
 import { bankIdempotencyKey } from "./reference";
-import { getRowReview, listImports, listRows } from "./review";
+import { type RowFacets, getRowReview, listImports, listRows, rowFacets } from "./review";
 
 /** Thrown by a loader for a person who does not hold the permission. A page has already sent such a person away; this is the second lock at the data. */
 export class StaffAccessError extends Error {
@@ -151,12 +152,12 @@ function storedBest(parsed: unknown): { bestFlat: string | null; confidence: Con
 }
 
 /**
- * One page of one lane as cards (keyset, biggest amount first): the T12b `listRows` page plus the best candidate flat of each row.
+ * One page of one lane as cards (keyset, in the chosen order, biggest amount first by default, narrowed by the filters): the T12b `listRows` page plus the best candidate flat of each row.
  * Needs payments:match. Null for an id that is not an import.
  */
-export async function loadRowCards({ db, user, importId, lane, cursor }: { db: Db; user: Viewer; importId: string; lane: Lane; cursor?: string }): Promise<{ rows: RowCard[]; nextCursor: string | null; laneCounts: Record<Lane, number> } | null> {
+export async function loadRowCards({ db, user, importId, lane, cursor, filters = DEFAULT_FILTERS }: { db: Db; user: Viewer; importId: string; lane: Lane; cursor?: string; filters?: RowFilters }): Promise<{ rows: RowCard[]; nextCursor: string | null; laneCounts: Record<Lane, number> } | null> {
   requirePermission(user, "payments:match");
-  const page = await listRows({ db, importId, lane, cursor, limit: PAGE_SIZE });
+  const page = await listRows({ db, importId, lane, cursor, limit: PAGE_SIZE, filters, thresholdPaise: filters.amount === "any" ? undefined : await readThreshold(db) });
   if (page === null) return null;
   const ids = page.items.map((i) => i.id);
   const stored = await db.bankRow.findMany({ where: { id: { in: ids } }, select: { id: true, parsed: true, dedupeKey: true } });
@@ -194,18 +195,23 @@ export type Workspace = {
   nextCursor: string | null;
   /** The society's approval threshold in paise, a decimal string: a credit at or above it needs a second approver. */
   thresholdPaise: string;
+  /** The filters in force in this lane (a reason chosen on a lane without reasons is already "any"). */
+  filters: RowFilters;
+  /** The rows of the lane that match the filters ("y" of "Showing x of y") and the rows in each reason group of the lane. */
+  facets: RowFacets;
 };
 
 /** The workspace of one import: header, the counts read back from the database, and the first page of the chosen lane. Needs payments:match. Null for an id that is not an import. */
-export async function loadWorkspace({ db, user, importId, lane, rowId, now }: { db: Db; user: Viewer; importId: string; lane: Lane; rowId?: string | null; now: number }): Promise<Workspace | null> {
+export async function loadWorkspace({ db, user, importId, lane, rowId, now, filters = DEFAULT_FILTERS }: { db: Db; user: Viewer; importId: string; lane: Lane; rowId?: string | null; now: number; filters?: RowFilters }): Promise<Workspace | null> {
   requirePermission(user, "payments:match");
   if (!z.uuid().safeParse(importId).success) return null;
-  const [record, counts, cards, review, threshold] = await Promise.all([
+  const threshold = await readThreshold(db);
+  const [record, counts, cards, review, facets] = await Promise.all([
     db.statementImport.findUnique({ where: { id: importId }, select: { filename: true, uploadedAt: true, uploadedBy: { select: { name: true } } } }),
     countsOf(db, importId),
-    loadRowCards({ db, user, importId, lane }),
+    loadRowCards({ db, user, importId, lane, filters }),
     rowId === undefined || rowId === null ? Promise.resolve(null) : loadReview({ db, user, importId, rowId, now }),
-    readThreshold(db),
+    rowFacets({ db, importId, lane, filters, thresholdPaise: threshold }),
   ]);
   if (record === null || counts === null || cards === null) return null;
   return {
@@ -216,6 +222,8 @@ export async function loadWorkspace({ db, user, importId, lane, rowId, now }: { 
     rows: cards.rows,
     nextCursor: cards.nextCursor,
     thresholdPaise: threshold.toString(),
+    filters: effectiveFilters(filters, lane),
+    facets,
   };
 }
 

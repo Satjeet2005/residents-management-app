@@ -3,6 +3,7 @@ import { Money } from "@/components/ui/money";
 import { cx } from "@/components/ui/cx";
 import { formatDay } from "@/lib/format-date";
 import { t } from "@/lib/messages";
+import { DEFAULT_FILTERS, type RowFilters } from "@/lib/reconciliation/filters";
 import { narrationPreview, reasonLine } from "@/lib/reconciliation/labels";
 import { workspaceHref } from "@/lib/reconciliation/lanes";
 import type { Viewer } from "@/lib/reconciliation/permission-view";
@@ -58,7 +59,7 @@ const CARD = "flex w-full items-center gap-2 rounded-control";
  * The rows of a lane (D191): one card for each row. In Needs you the WHOLE card is the one control that opens the review (the row is in the URL as ?row=); the selected
  * card has a 2px border. Its name is the card's own words behind "Review" (or "Reviewing"), so the name always contains what is seen (WCAG 2.5.3). The other lanes have no review to open, so their cards are plain, and Awaiting approval keeps its Approve and Reject buttons inside the card.
  */
-export function RowsView({ rows, caption, importId, lane, selectedId, viewer, thresholdPaise }: { rows: readonly RowCard[]; caption: string; importId: string; lane: Lane; selectedId: string | null; viewer: Viewer; thresholdPaise: string }) {
+export function RowsView({ rows, caption, importId, lane, selectedId, viewer, thresholdPaise, filters = DEFAULT_FILTERS }: { rows: readonly RowCard[]; caption: string; importId: string; lane: Lane; selectedId: string | null; viewer: Viewer; thresholdPaise: string; filters?: RowFilters }) {
   return (
     <ul aria-label={caption} className="flex max-w-3xl flex-col gap-2">
       {rows.map((row) => {
@@ -68,7 +69,7 @@ export function RowsView({ rows, caption, importId, lane, selectedId, viewer, th
             {lane === "NEEDS_YOU" ? (
               <RowLink
                 id={rowLinkId(row.id)}
-                href={workspaceHref({ importId, lane, row: row.id })}
+                href={workspaceHref({ importId, lane, row: row.id, filters })}
                 aria-current={selected ? "true" : undefined}
                 className={cx(CARD, "bg-paper", selected ? "border-2 border-ink px-[10px] py-[3px]" : "border border-hairline px-[11px] py-[4px]")}
               >

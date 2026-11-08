@@ -229,7 +229,7 @@ describe("WS6 the lane panel", () => {
 });
 
 describe("WS7 the workspace", () => {
-  const data: Workspace = { header: { importId: IMPORT, filename: "sample-statement.csv", uploadedOn: "2026-10-27", uploadedBy: "Priya Nair" }, counts: counts(), laneCounts, rows: [card()], nextCursor: null, review: null, thresholdPaise: "1000000" };
+  const data: Workspace = { header: { importId: IMPORT, filename: "sample-statement.csv", uploadedOn: "2026-10-27", uploadedBy: "Priya Nair" }, counts: counts(), laneCounts, rows: [card()], nextCursor: null, review: null, thresholdPaise: "1000000", filters: { sort: "largest", amount: "any", reason: "any" }, facets: { filteredTotal: 43, reasonCounts: { any: 43, noflat: 0, several: 0, differs: 0, low: 0 } } };
   const out = html(h(WorkspaceView, { data, lane: "NEEDS_YOU", viewer }));
 
   it("has one h1, who imported the file and when, a main landmark and the breadcrumb", () => {

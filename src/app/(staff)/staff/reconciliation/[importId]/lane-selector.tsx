@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useRef } from "react";
 import { cx } from "@/components/ui/cx";
 import { t } from "@/lib/messages";
+import { DEFAULT_FILTERS, type RowFilters } from "@/lib/reconciliation/filters";
 import { laneLabel, nextTabIndex, workspaceHref } from "@/lib/reconciliation/lanes";
 import { LANES, type Lane } from "@/lib/reconciliation/types";
 
@@ -17,7 +18,7 @@ export const laneTabId = (lane: Lane): string => `recon-tab-${lane}`;
  * them and show that lane. Each card is a link, so it also works without a script, and the lane is in the URL (`?lane=`). Only the selected card is in the tab order.
  * Under the cards, when rows were posted by hand, one line about Posted splits automatic from by hand.
  */
-export function LaneSelector({ importId, lane, laneCounts, manuallyPosted }: { importId: string; lane: Lane; laneCounts: Record<Lane, number>; manuallyPosted: number }) {
+export function LaneSelector({ importId, lane, laneCounts, manuallyPosted, filters = DEFAULT_FILTERS }: { importId: string; lane: Lane; laneCounts: Record<Lane, number>; manuallyPosted: number; filters?: RowFilters }) {
   const router = useRouter();
   const tabs = useRef<(HTMLAnchorElement | null)[]>([]);
   return (
@@ -34,13 +35,13 @@ export function LaneSelector({ importId, lane, laneCounts, manuallyPosted }: { i
             aria-selected={l === lane}
             aria-controls={lanePanelId}
             tabIndex={l === lane ? 0 : -1}
-            href={workspaceHref({ importId, lane: l })}
+            href={workspaceHref({ importId, lane: l, filters })}
             onKeyDown={(event) => {
               const to = nextTabIndex(event.key, index, LANES.length);
               if (to === null) return;
               event.preventDefault();
               tabs.current[to]?.focus();
-              router.push(workspaceHref({ importId, lane: LANES[to] }));
+              router.push(workspaceHref({ importId, lane: LANES[to], filters }));
             }}
             className={cx("flex min-h-16 min-w-0 flex-col-reverse justify-center rounded-control", l === lane ? "border-2 border-ink bg-paper-2 px-[10px] py-[2px]" : "border border-hairline px-[11px] py-[3px]")}
           >
