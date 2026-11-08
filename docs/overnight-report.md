@@ -8,6 +8,7 @@
 | A Committee report v2 | DONE (this section) |
 | B Documentation package, runbooks and clean-clone script | DONE (the Phase B section below), with the UNVERIFIED items listed there |
 | C Safety detection measurement | DONE (the Phase C section at the end): measured only, the detector is unchanged |
+| T10c Safety detection improvement, Stage 1 (normalisation) | IN PROGRESS (the T10c section at the end) |
 | D Reconcile documents | NOT STARTED |
 | E Final verification | NOT STARTED |
 
@@ -597,3 +598,14 @@ The repair is in `scripts/repair-seed-keys.sql` and `docs/live-refresh-runbook.m
 - `audit-pack/committee` is not merged into `master`; the prompt expected it to be.
 - The existing `timeline.test.ts` used fake ids (`u-kavita`); they became UUIDs because the loader now (correctly) ignores anything else.
 - Decision and assumption numbers used: D165 to D167, R96 to R99.
+
+## T10c: safety detection improvement, Stage 1 (normalisation)
+
+Status: IN PROGRESS.
+
+### Step 0
+
+- Preconditions: the Phase C commits (`3b8119a` to `8d13ebf`), the T13h commits (`7ddf60a`, `b70896b`: the fifth category MEDICAL_VIOLENCE) and the T13i commits (`ca46620` to `98edfaf`) are present.
+- Baseline from the committed files: dev single 36.88% (1844/5000), double 16.56% (414/2500), false alarms 3.86% (62/1608); holdout 9301 to 9305 single 35.98% (1799/5000), double 17.52% (438/2500), false alarms 3.45% (55/1595).
+- Disk: 14 GB free of 195 GB (93% used).
+- Number mapping: the prompt's D164 (Stage 1 only) and D166 (only genuine safety phrases are CRITICAL) are chat numbers; the repository already uses D164 and D166 for other decisions, so this task uses D168 onward and R100 onward. D125 was added to `docs/decisions.md`.

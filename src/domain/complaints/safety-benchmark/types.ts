@@ -17,5 +17,5 @@ export type BenchmarkItem = {
   operations: readonly string[];
 };
 
-export type NegativeGroup = "GENERATED" | "NEAR_MISS" | "EXISTING";
+export type NegativeGroup = "GENERATED" | "NEAR_MISS" | "EXISTING" | "EVERYDAY" | "AMBIGUOUS";
 export type NegativeItem = { text: string; group: NegativeGroup };
