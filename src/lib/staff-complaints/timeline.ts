@@ -107,7 +107,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * The ids a payload names (the assignee of an ASSIGNED event), so the loader can look the names up once. Only a UUID can be looked up: a seed key, a number,
- * null, a very long text or anything else is left out (the line then reads "someone", D165), because the id column is a uuid and any other text would make
+ * null, a very long text or anything else is left out (the line then reads "someone", D166), because the id column is a uuid and any other text would make
  * the database refuse the whole query.
  */
 export function userIdsIn(events: readonly TimelineInput[]): string[] {

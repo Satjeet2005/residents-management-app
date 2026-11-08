@@ -12,7 +12,7 @@ import { type TestAppRole, createAppRole } from "./app-role-helpers";
 import { connect } from "./db";
 import { actorOf } from "./complaints-helpers";
 
-export type SeededWorld = { ownerPrisma: PrismaClient; appPrisma: PrismaClient; databaseName: string; kavita: Actor; sanjay: Actor; close: () => Promise<void> };
+export type SeededWorld = { ownerPrisma: PrismaClient; appPrisma: PrismaClient; databaseName: string; ownerUrl: string; kavita: Actor; sanjay: Actor; close: () => Promise<void> };
 
 /**
  * A scratch database `township_test_seeded_<hex>` (its name is printed by SELECT current_database() and checked before anything is written) with the whole
@@ -48,6 +48,7 @@ export async function setupSeededWorld(): Promise<SeededWorld> {
       ownerPrisma,
       appPrisma,
       databaseName,
+      ownerUrl: databaseUrl,
       kavita: await actorOf(ownerPrisma, await idOf("Kavita Rao")),
       sanjay: await actorOf(ownerPrisma, await idOf("Sanjay Pawar")),
       close: async () => {
