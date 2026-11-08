@@ -11,10 +11,10 @@ type Stage = {
   headline: { single: Counts; double: Counts; falseAlarm: Counts };
   byOperation: { single: Record<string, Counts>; double: Record<string, Counts> };
 };
-const history = JSON.parse(readFileSync("tests/fixtures/safety/history.json", "utf8")) as { sets: Record<"dev" | "holdout", Stage[]>; everyday: { hits: Record<string, number[]>; hitsThroughABareCurrentRule: number[] } };
+const history = JSON.parse(readFileSync("tests/fixtures/safety/history.json", "utf8")) as { sets: Record<"dev" | "holdout" | "holdout2", Stage[]>; everyday: { hits: Record<string, number[]>; hitsThroughABareCurrentRule: number[] } };
 
 describe("T10c H1 before and after: the same generated texts at three detector states", () => {
-  it.each(["dev", "holdout"] as const)("%s: the texts, digests and generator version never changed; only the detector did", (set) => {
+  it.each(["dev", "holdout", "holdout2"] as const)("%s: the texts, digests and generator version never changed; only the detector did", (set) => {
     const [baseline, afterFix, afterNormalisation] = history.sets[set];
     for (const stage of [baseline, afterFix, afterNormalisation]) {
       expect(stage.generatorVersion).toBe("safety-perturb-1");
@@ -24,7 +24,7 @@ describe("T10c H1 before and after: the same generated texts at three detector s
     expect(GENERATOR_VERSION).toBe("safety-perturb-1");
   });
 
-  it.each(["dev", "holdout"] as const)("%s: the last stage is exactly the committed expected.json", (set) => {
+  it.each(["dev", "holdout", "holdout2"] as const)("%s: the last stage is exactly the committed expected.json", (set) => {
     const last = history.sets[set][2];
     const committed = readExpected(set).pooled;
     expect(last.headline.single).toEqual({ k: committed.headline.singleOperationRecall.k, n: committed.headline.singleOperationRecall.n });
@@ -40,7 +40,7 @@ describe("T10c H1 before and after: the same generated texts at three detector s
   });
 
   it("every operation has the same number of items at every stage", () => {
-    for (const set of ["dev", "holdout"] as const) {
+    for (const set of ["dev", "holdout", "holdout2"] as const) {
       for (const split of ["single", "double"] as const) {
         const [a, b, c] = history.sets[set].map((stage) => Object.fromEntries(Object.entries(stage.byOperation[split]).map(([key, v]) => [key, v.n])));
         expect(b).toEqual(a);
@@ -50,7 +50,7 @@ describe("T10c H1 before and after: the same generated texts at three detector s
   });
 
   it("Stage 1 never lowers recall on an operation and never adds a false alarm", () => {
-    for (const set of ["dev", "holdout"] as const) {
+    for (const set of ["dev", "holdout", "holdout2"] as const) {
       const [, afterFix, afterNormalisation] = history.sets[set];
       for (const split of ["single", "double"] as const) {
         for (const [operation, counts] of Object.entries(afterNormalisation.byOperation[split])) expect(counts.k, `${set} ${split} ${operation}`).toBeGreaterThanOrEqual(afterFix.byOperation[split][operation].k);

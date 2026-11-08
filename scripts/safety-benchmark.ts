@@ -1,6 +1,6 @@
 // Safety-detection benchmark (docs/safety-benchmark.md). It measures the detector as it is today; it never changes it.
 //   npx tsx scripts/safety-benchmark.ts            recompute every committed set, print the headline numbers, exit 1 if anything differs
-//   npx tsx scripts/safety-benchmark.ts --write dev|holdout   generate a set and write its fixtures (refuses to overwrite: a holdout is run once)
+//   npx tsx scripts/safety-benchmark.ts --write dev|holdout|holdout2   generate a set and write its fixtures (refuses to overwrite: a holdout is run once)
 import { isDeepStrictEqual } from "node:util";
 import { mergeTallies, summarise, type Rated, type Tally } from "../src/domain/complaints/safety-benchmark/evaluate";
 import { GENERATOR_VERSION } from "../src/domain/complaints/safety-benchmark/perturb";
@@ -41,7 +41,7 @@ function check(set: SetName): boolean {
 const args = process.argv.slice(2);
 if (args[0] === "--write") {
   const set = args[1] as SetName;
-  if (!(set in SETS)) throw new Error("usage: --write dev|holdout");
+  if (!(set in SETS)) throw new Error("usage: --write dev|holdout|holdout2");
   if (fixturesExist(set)) throw new Error(`${set} fixtures already exist; a set is generated once (delete its folder by hand to regenerate)`);
   const written = writeFixtures(set);
   headline(set, written.pooled);

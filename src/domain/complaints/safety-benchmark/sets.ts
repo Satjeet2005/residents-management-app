@@ -4,10 +4,14 @@ import { makeItem } from "./perturb";
 import { itemRng } from "./prng";
 import { LANGUAGE_FORMS, type BasePhrase, type BenchmarkItem, type LanguageForm, type NegativeItem } from "./types";
 
-/** The two sets. The development set may be used to find bugs in the benchmark; the holdout is generated and run once, after the dev set is frozen. */
+/**
+ * The sets. The development set may be used to find bugs in the benchmark; a holdout is generated and run once, after the dev set is frozen.
+ * `holdout` was run before the T10c detector changes, so it is reused; `holdout2` (T10c) was generated after the detector was frozen.
+ */
 export const SETS = {
   dev: [301, 302, 303, 304, 305],
   holdout: [9301, 9302, 9303, 9304, 9305],
+  holdout2: [9401, 9402, 9403, 9404, 9405],
 } as const;
 export type SetName = keyof typeof SETS;
 export const SINGLE_PER_SEED = 1000;
