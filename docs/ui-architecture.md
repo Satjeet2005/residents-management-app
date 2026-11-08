@@ -167,3 +167,9 @@ page calls `requireUser({ need: "RESIDENT" })`, a loader in `src/server/complain
 view draws the data, and a client component (the form, the answer buttons) holds a reducer from `src/lib/` and calls the existing routes. The Home's
 loader runs auto-close lazily and adds `safetyAlert`; while it is set the Pay buttons are outlined. The resident pages stream under
 `(resident)/loading.tsx`, so a not-found page for a complaint of another flat is a 200 response with the not-found page and a `noindex` tag.
+
+## UI batch 1 (D184 to D193)
+
+- **Sheets** lock the page scroll in one place (`src/lib/scroll-lock.ts`, reference counted, used only by `Sheet`); the Emergency sheet is call-first and opens from the top (`Sheet fromTop`).
+- **Staff home** (`/staff`): the h1 is the role title from permissions (`src/domain/auth/role-title.ts`), strips only above zero, one card per tool, numbers from `loadStaffHome` (`src/server/staff/home-data.ts`, SELECT only, a failing count leaves its card without numbers). The back link is in the staff layout (`back-link.tsx`, a client component that hides on `/staff` and on the workspace).
+- **Reconciliation workspace**: `workspace-header.tsx` (breadcrumb, title, meta, accounted line), `proportion-strip.tsx`, `lane-selector.tsx` (the only place the lanes are written), `filters-bar.tsx` (filter row, chips, the Filters sheet), `rows-view.tsx` and `row-link.tsx` (one tappable card per row). Filters are in the address (`?sort=`, `?amount=`, `?reason=`) and are read by `parseFilters` against an allowlist; the server filters and sorts in SQL (`listRows`, `rowFacets` in `src/server/statements/review.ts`).

@@ -98,6 +98,20 @@ One new grant: UPDATE of `status`, `resolved_at`, `resolved_by_id` and `note` of
 - **Waivers.** The late fee stays owing (D107); a waiver would be a separate, approved workflow.
 - Notifications.
 
+## Reason groups of the Filters sheet (D192)
+
+Every reason code the matcher stores (`REASON_CODES`, 25 of them) belongs to zero or more of four groups; `GROUPS_OF_CODE` in `src/domain/matching/reason-groups.ts` is typed over all codes and `tests/domain/matching/reason-groups.test.ts` fails when one is missing. The SQL takes its code lists from the same table (`codesOfGroup`).
+
+| Group | Codes |
+|---|---|
+| No flat found | NO_NARRATION, NO_MATCH |
+| Several possible flats | CODE_AMBIGUOUS, CODE_CONFLICT, PAYER_SHARED, MULTIPLE_FLATS_OWE |
+| Amount differs from what is due | AMOUNT_PRINCIPAL_ONLY, AMOUNT_LESS, AMOUNT_MORE, NO_OPEN_BILL, HINT_CONFLICT |
+| Low confidence | NAME_INITIAL, NAME_TRUNCATED, LATER_PAYMENT, NEEDS_SECOND_SIGNAL, STATE_CHANGED, and any row whose stored confidence is LOW |
+| (none) | CODE_FOUND, PAYER_KNOWN, NAME_EXACT, AMOUNT_EQUALS_DUE, ABOVE_THRESHOLD (the amount filter covers it), DEBIT, INTEREST, BANK_CHARGE, CHEQUE_RETURN |
+
+A row can be in more than one group, so the counts beside the options can add up to more than the lane. Sorting is by amount (largest first) or by date (oldest first), each with the row id as the last key, and the keyset cursor belongs to its order.
+
 ## Assumptions
 
 - **M1.** `expectedAmountDuePaise` is optional on a match; a client that omits it is not protected against a payment that landed after

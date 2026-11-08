@@ -115,6 +115,18 @@ Decision numbers (D4, D14 and so on) refer to `docs/decisions.md`.
 | R109 | A month is "younger than 20 days" when its issue date plus 20 days is after the business date; its within-20-days figure is read up to the business date and written "so far". | `collectedByDay`. | None. |
 | R110 | The promise line ("Critical 15 min, High 2 h, Normal 24 h, Low 72 h") is the `sla_minutes` setting, shown in whole hours from 60 minutes. | `src/lib/reports/share.ts`. | None. |
 | R111 | A tower is the flat's `tower` value; "Tower 12" is shown for the code T12. | `src/lib/reports/towers.ts`. | None. |
+| R112 | Staff titles are derived from permissions because the data model has no job titles; a person with complaints:duty_manager is called "Duty manager" even when they also hold other permissions. | `roleTitleKey` in `src/domain/auth/role-title.ts`. | Add a job-title column if the society wants real titles. |
+| R113 | "Approvals waiting for you" counts AWAITING_APPROVAL rows whose LATEST REQUEST_APPROVAL decision was made by someone else, across all imports; the strip links to the awaiting lane of the newest import that has any. | `loadStaffHome` in `src/server/staff/home-data.ts`. | None. |
+| R114 | The brief asks for one filled control per card and one filled control per view; where a person has several tools only the first card's link is filled and the others are outlined (the design system's rule of one filled control per view wins). None of the five seeded staff has more than one tool. | `StaffView`. | Decide if a multi-tool user should see all links filled. |
+| R115 | The Emergency sheet opens from the TOP on a phone so that the Call button is in the top 55 percent of the screen; a bottom sheet put it at 65 percent. | `Sheet` prop `fromTop`. | Check with real thumbs. |
+| R116 | Only Needs you rows have a review panel, so only they are tappable cards; the other lanes have plain cards, and Awaiting approval keeps its Approve and Reject buttons inside the card (a card with buttons is not one control). | `rows-view.tsx`. | None. |
+| R117 | The narration on a row card is 14px (caption) with two lines, because a four-line row (narration, reason and the second approver line) at 16px is 130px and the limit is 120px. The full text is in the review. | `rows-view.tsx`. | Check readability with the accounts team. |
+| R118 | The amount filter compares the larger of the credit and the debit with the threshold, so a debit is also "or more" at the threshold; only credits ever need an approver. | `narrowSql` in `src/server/statements/review.ts`. | None. |
+| R119 | The reason counts beside the options are for the whole lane, not narrowed by the amount; the filtered total is narrowed by both. | `rowFacets`. | Use facet counts if the committee wants them to move. |
+| R120 | Filters stay when the lane changes; the reason filter is ignored on lanes that have no reasons. | `workspaceHref`, `effectiveFilters`. | None. |
+| R121 | A sort alone counts as an active choice (a chip and the number on the Filters button) but does not say "(filtered)", because it only reorders. | `activeFilters`, `narrowsRows`. | None. |
+| R122 | The empty filtered state was not reachable in the demo data (no combination of amount and reason is empty); it is covered by a render test and, when the data has such a combination, by the browser spec. | `tests/ui/reconciliation-workspace.test.ts` (WS8). | None. |
+| R123 | Phone numbers: ten digits (or 91 and ten, or 0 and a mobile number) are shown as +91 xxxxx xxxxx; anything else (112, a landline with its STD code) is shown as written. | `formatPhone`. | Check with the society's real numbers. |
 
 
 ## Assumptions kept in other documents

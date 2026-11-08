@@ -93,3 +93,7 @@ The look at 1280px and 360px, the focus ring, where focus lands, the sheet's scr
 commands are in the README, "Walking the reconciliation"). The render tests (`tests/ui/reconciliation-*.test.ts`) check the markup for each state; the
 reducer and the labels are unit tested (`tests/lib/reconciliation/`); the loaders run as the app role (`tests/integration/staff-ui-data.test.ts`); the
 whole thing over HTTP is `scripts/smoke-app.mjs`. A click is not simulated anywhere: no DOM library is installed and none was added.
+
+## UI batch 1: staff home and workspace (D186 to D192)
+
+The staff home, its titles, strips and cards are described in `docs/ui-audit-staff-home.md`; the workspace's selector, rows and Filters sheet in `docs/ui-audit-reconciliation.md`. In short: the lane names appear once (the selector) and its counts are the unfiltered lane totals; a row of Needs you is one tappable card; sort, amount and reason are in the address; the amount words come from the society's approval threshold, never a fixed number; the reason groups are the table in `docs/manual-reconciliation-design.md`.

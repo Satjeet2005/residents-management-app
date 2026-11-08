@@ -85,12 +85,20 @@ the element that holds the text.
 | `LedgerTotal` | label, large amount, then a double rule | n/a |
 | `Tracker` | 3 or 4 steps; done (check), current (thick ring), upcoming (hollow); connector solid after done, dashed after the others | `<ol>`, `aria-current="step"`, "Step n of m" as text, a spoken "Done: / Current: / Next: " before each label |
 | `SectionHeader` | title, optional link | a heading (h2 or h3); the link is 48px tall |
-| `Sheet` | open, closed; with or without footer | native `<dialog>` + `showModal()`: focus trap, Escape, backdrop tap and Close button close it, focus returns to the opener, `aria-labelledby` the title |
+| `Sheet` | open, closed; with or without footer; from the bottom (default) or from the top (`fromTop`) | native `<dialog>` + `showModal()`: focus trap, Escape, backdrop tap and Close button close it, focus returns to the opener (without scrolling the page), `aria-labelledby` the title; while open the page behind is locked (D184) |
 | `Skeleton` | n plain bars | `aria-busy="true"`, "Loading" for screen readers, no shimmer |
 | `BlockError` | message, optional consequence, Try again | `role="alert"`; the retry is a 48px button |
 | `Notice` | status, alert | `role="status"` (news) or `role="alert"` (needs attention); always words |
 
 Not built here: screens, auth, data fetching, the payment-confirmed animation.
+
+## Sheet behaviour (D184)
+
+Every sheet goes through the one `Sheet` component, so every sheet behaves the same. While one is open the page behind does not scroll: `src/lib/scroll-lock.ts` fixes the body at the current scroll position, keeps the scrollbar gutter (no shift on a desktop) and, on the last release, restores every style and the exact scroll position. It is reference counted, released on close, Escape and unmount, and only `Sheet` calls it (a test scans the sources). The sheet's body has `overscroll-behavior: contain` and a height of the dynamic viewport less the header, so scrolling inside it never reaches the page. `fromTop` opens it from the top on a phone, for a sheet whose first control must be in the top half of the screen.
+
+## The clutter budget (D185)
+
+A screen that matters (the Emergency sheet is the first) is given a budget that a browser test asserts: how many controls it may have, that the primary action is inside a stated part of the first screen, that exactly one control is filled, that every control is 48px and 8px apart, that nothing is styled as a link that is not one, and axe. "Cluttered" becomes a number that can fail. The protocol is `docs/ui-fix-protocol.md`.
 
 ## Rules
 
