@@ -103,12 +103,22 @@ export function staffTimeline(events: readonly TimelineInput[], names: ReadonlyM
   return out;
 }
 
-/** The ids a payload names (the assignee of an ASSIGNED event), so the loader can look the names up once. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * The ids a payload names (the assignee of an ASSIGNED event), so the loader can look the names up once. Only a UUID can be looked up: a seed key, a number,
+ * null, a very long text or anything else is left out (the line then reads "someone", D165), because the id column is a uuid and any other text would make
+ * the database refuse the whole query.
+ */
 export function userIdsIn(events: readonly TimelineInput[]): string[] {
   const ids = new Set<string>();
   for (const event of events) {
     const payload = record(event.payload);
-    if (event.eventType === "ASSIGNED" && typeof payload.assignee === "string") ids.add(payload.assignee);
+    if (event.eventType === "ASSIGNED" && typeof payload.assignee === "string" && UUID.test(payload.assignee)) ids.add(payload.assignee);
   }
   return [...ids];
 }
+
+/** True when an ASSIGNED event names an assignee that is not a UUID (so the page shows "someone" and a warning is logged once). */
+export const hasUnusableAssignee = (events: readonly TimelineInput[]): boolean =>
+  events.some((event) => event.eventType === "ASSIGNED" && !(typeof record(event.payload).assignee === "string" && UUID.test(record(event.payload).assignee as string)));

@@ -1,9 +1,10 @@
 import { type SlaState, slaState } from "@/domain/complaints/lifecycle";
 import type { Db } from "@/server/auth/db";
-import { type TimelineLine, staffTimeline, userIdsIn } from "@/lib/staff-complaints/timeline";
+import { type TimelineLine, hasUnusableAssignee, staffTimeline, userIdsIn } from "@/lib/staff-complaints/timeline";
 import type { BoardView } from "@/domain/complaints/board-views";
 import type { BoardFilters, BoardQuery } from "@/lib/staff-complaints/board-query";
 import { requirePermission } from "@/server/statements/ui-data";
+import { warnUnusableEventId } from "@/server/warnings";
 import { autoCloseQuietly } from "./auto-close";
 import { type BoardRow, type ViewBoard, type ViewCounts, listBoardView } from "./board-views";
 import { type Actor, isDutyManager, isUuid } from "./context";
@@ -90,6 +91,7 @@ export async function loadComplaintPage(input: { db: Db; user: Actor; id: string
     throw new Error(`complaint detail: ${result.error}`);
   }
   const { events, classifications, ...complaint } = result.complaint;
+  if (hasUnusableAssignee(events)) warnUnusableEventId("payload.assignee");
   const [users, assignable] = await Promise.all([input.db.user.findMany({ where: { id: { in: userIdsIn(events) } }, select: { id: true, name: true } }), listStaffUsers(input)]);
   if (assignable.status === "ERROR") throw new Error(`complaint detail: ${assignable.error}`);
   const ack = events.find((e) => e.eventType === "COMMENT" && typeof e.payload === "object" && e.payload !== null && (e.payload as { kind?: unknown }).kind === "ack");

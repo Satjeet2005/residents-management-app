@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { residentTimeline } from "@/domain/complaints/timeline";
-import { type TimelineInput, staffTimeline, userIdsIn } from "@/lib/staff-complaints/timeline";
+import { type TimelineInput, hasUnusableAssignee, staffTimeline, userIdsIn } from "@/lib/staff-complaints/timeline";
 
 const T0 = Date.UTC(2026, 10, 6, 6, 30);
-const kavita = { id: "u-kavita", name: "Kavita Rao" };
-const sanjay = { id: "u-sanjay", name: "Sanjay Pawar" };
+const kavita = { id: "6b1c0e0a-2f4d-4c53-9a1e-1d2c3b4a5f60", name: "Kavita Rao" };
+const sanjay = { id: "7c2d1f1b-3a5e-4d64-8b2f-2e3d4c5b6a71", name: "Sanjay Pawar" };
 const names = new Map([[kavita.id, kavita.name], [sanjay.id, sanjay.name]]);
 let n = 0;
 const ev = (eventType: TimelineInput["eventType"], minutes: number, payload: unknown, actor: TimelineInput["actor"] = null): TimelineInput => ({ id: `e${(n += 1)}`, eventType, at: T0 + minutes * 60_000, actor, payload });
@@ -122,5 +122,42 @@ describe("SC11 the staff timeline", () => {
   it("finds the user ids a payload names", () => {
     expect(userIdsIn(ORDINARY).sort()).toEqual([kavita.id, sanjay.id].sort());
     expect(userIdsIn([ev("COMMENT", 0, { assignee: "x" })])).toEqual([]);
+  });
+});
+
+describe("T13i unusable ids in a payload never throw and read as someone", () => {
+  const ASSIGNEES: [string, unknown][] = [
+    ["a seed key", "user:5000000005"],
+    ["null", null],
+    ["a number", 42],
+    ["a very long text", "x".repeat(100_000)],
+    ["an empty text", ""],
+    ["an object", { id: "user:5000000005" }],
+    ["an array", ["user:5000000005"]],
+    ["an unknown but valid UUID", "0f0f0f0f-0f0f-4f0f-8f0f-0f0f0f0f0f0f"],
+  ];
+
+  it.each(ASSIGNEES)("%s: userIdsIn leaves it out (unless it is a valid UUID) and the timeline reads 'Assigned to someone'", (_label, assignee) => {
+    const events = [ev("ASSIGNED", 0, { assignee })];
+    const ids = userIdsIn(events);
+    expect(ids).toEqual(assignee === "0f0f0f0f-0f0f-4f0f-8f0f-0f0f0f0f0f0f" ? [assignee] : []);
+    expect(staffTimeline(events, new Map()).map((l) => l.label)).toEqual(["Assigned to someone"]);
+  });
+
+  it("hasUnusableAssignee is true for every unusable assignee and false for a UUID", () => {
+    for (const [, assignee] of ASSIGNEES.slice(0, 7).filter(([l]) => l !== "an unknown but valid UUID")) expect(hasUnusableAssignee([ev("ASSIGNED", 0, { assignee })])).toBe(true);
+    expect(hasUnusableAssignee([ev("ASSIGNED", 0, { assignee: "0f0f0f0f-0f0f-4f0f-8f0f-0f0f0f0f0f0f" })])).toBe(false);
+    expect(hasUnusableAssignee([ev("COMMENT", 0, { assignee: "x" })])).toBe(false);
+  });
+
+  it("an event with no actor and a payload that is not an object are both shown, never thrown on", () => {
+    const events: TimelineInput[] = [
+      { id: "a", eventType: "ASSIGNED", at: 1, actor: null, payload: null },
+      { id: "b", eventType: "ESCALATED", at: 2, actor: null, payload: "user:5000000005" },
+      { id: "c", eventType: "STATUS_CHANGED", at: 3, actor: null, payload: [1, 2] },
+    ];
+    const lines = staffTimeline(events, new Map());
+    expect(lines.length).toBeGreaterThanOrEqual(3);
+    for (const line of lines) expect(line.who).toBeNull();
   });
 });

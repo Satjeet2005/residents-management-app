@@ -26,3 +26,7 @@ export const warnProviderBreakerOpened = (provider: string, cooldownMs: number):
 /** A classifier provider answered 401 or 403: its key or URL is wrong. */
 export const warnProviderAuthFailed = (provider: string, status: number | undefined, cooldownMs: number): void =>
   warn(`auth:${provider}`, cooldownMs, "ProviderAuthFailed", `classifier provider ${provider} refused its key (HTTP ${status ?? "unknown"})`, "classifier", "PROVIDER");
+
+/** A complaint event names a person with something that is not a UUID (bad data, for example from an old seed): the page shows "someone" and this is logged once per instance and field. `field` is a fixed name, never data. */
+export const warnUnusableEventId = (field: "payload.assignee"): void =>
+  warn(`unusable-event-id:${field}`, 24 * 60 * MINUTE_MS, "UnusableEventId", `a complaint event holds ${field} that is not a UUID; it is shown as someone`, "complaint detail", "JOB");
