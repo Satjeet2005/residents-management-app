@@ -63,12 +63,12 @@ describe("CR1 the period selector", () => {
   });
 });
 
-describe("CR2 the money line", () => {
-  const out = html(h(MoneyBlock, { period: "2026-10-01", money }));
+describe("CR2 the money section", () => {
+  const series = emptyReport().series.monthly;
+  const out = html(h(MoneyBlock, { money, series }));
   const text = words(out);
 
   it("shows Billed, Collected and Outstanding in rupees with Indian grouping, and says they add up", () => {
-    expect(text).toContain("Money, October 2026");
     expect(text).toContain("Billed ₹1,80,52,190");
     expect(text).toContain("Collected Principal paid, as of the date above. A late fee is not in it. ₹1,48,42,714");
     expect(text).toContain("Outstanding Principal still owed. ₹32,09,476");
@@ -78,28 +78,28 @@ describe("CR2 the money line", () => {
   it("puts a double rule under the three lines, as a ledger does", () => {
     expect(out).toContain('class="h-[7px] border-y-2 border-ink"');
     expect(out.indexOf("Outstanding")).toBeLessThan(out.indexOf("h-[7px]"));
-    expect(out.indexOf("h-[7px]")).toBeLessThan(out.indexOf("Late fees on these bills"));
+    expect(out.indexOf("h-[7px]")).toBeLessThan(out.indexOf("Late fees:"));
   });
 
-  it("shows the three late-fee figures and the flat counts", () => {
-    expect(text).toContain("Late fees on these bills");
-    expect(text).toContain("Posted and paid ₹3,800");
-    expect(text).toContain("Posted and owing ₹1,900");
-    expect(text).toContain("Accruing on open bills Worked out today and not yet posted. It is posted when the principal is paid. ₹1,23,456");
-    expect(text).toContain("Flats billed 2399");
-    expect(text).toContain("Flats paid in full 1915");
-    expect(text).toContain("Flats with principal outstanding 484");
+  it("says the late fees and the flats in two sentences, in full Indian grouping", () => {
+    expect(text).toContain("Late fees: ₹3,800 paid, ₹1,900 owing, ₹1,23,456 accruing.");
+    expect(text).toContain("2,399 flats billed: 1915 paid in full, 484 with principal outstanding.");
   });
 
-  it("uses tabular figures for every amount, right-aligned, and the definition list structure", () => {
-    expect(count(out, /class="tnum[^"]*"/g)).toBeGreaterThanOrEqual(9);
-    expect(count(out, /<dl/g)).toBe(3);
-    expect(count(out, /<dd class="text-right"/g)).toBe(9);
+  it("uses tabular figures for every amount, right-aligned, in one definition list", () => {
+    expect(count(out, /<dl/g)).toBe(1);
+    expect(count(out, /<dd class="text-right"/g)).toBe(3);
+    expect(count(out, /class="tnum[^"]*"/g)).toBeGreaterThanOrEqual(5);
   });
 
-  it("shows a fee as paise when it has any, and whole rupees otherwise (the Money component)", () => {
-    const odd = html(h(MoneyBlock, { period: "2026-10-01", money: { ...money, fees: { ...money.fees, postedPaidPaise: 380_050n } } }));
-    expect(words(odd)).toContain("Posted and paid ₹3,800.50");
+  it("shows a fee as paise when it has any, and whole rupees otherwise", () => {
+    const odd = html(h(MoneyBlock, { money: { ...money, fees: { ...money.fees, postedPaidPaise: 380_050n } }, series }));
+    expect(words(odd)).toContain("Late fees: ₹3,800.50 paid");
+  });
+
+  it("shows the monthly collection as bars below 768px and as columns from 768px: one set of numbers, one table each, never both at once", () => {
+    expect(out).toMatch(/<div class="md:hidden"><figure[\s\S]*?monthly-bars-title/);
+    expect(out).toMatch(/<div class="hidden md:block"><figure[\s\S]*?monthly-columns-title/);
   });
 });
 
@@ -123,8 +123,8 @@ describe("CR3 the page", () => {
     const empty = html(h(ReportView, { report: report({ money: null }) }));
     expect(words(empty)).toContain("No bills for this month");
     expect(words(empty)).toContain("Choose another month above.");
-    expect(empty).not.toContain("committee-money");
-    expect(empty).not.toContain("Billed");
+    expect(empty).not.toContain("Collected Principal paid");
+    expect(empty).not.toContain("Late fees:");
   });
 
   it("names the period and the date in words", () => {

@@ -54,6 +54,6 @@ describe("CS3 the empty month", () => {
     expect(words(out)).toContain("Choose another month above.");
     expect(out).toContain('id="report-period"');
     expect(words(out)).toContain("October 2026 March 2026");
-    expect(out).toContain("committee-ageing");
+    expect(out).toContain('<details id="owed"');
   });
 });

@@ -1,9 +1,13 @@
+import { HorizontalBars } from "@/components/charts/horizontal-bars";
+import { StackedBars } from "@/components/charts/stacked-bars";
 import { Money } from "@/components/ui/money";
 import { DoubleRule } from "@/components/ui/rules";
+import { formatRupees } from "@/domain/money/money";
 import type { MoneyLine } from "@/domain/reports/money-line";
+import type { MonthlyPoint } from "@/domain/reports/series";
 import { t } from "@/lib/messages";
-import { periodLabel } from "@/lib/reports/period";
-import type { CalendarDate } from "@/domain/time/calendar";
+import { flatsText } from "@/lib/reports/cards";
+import { monthlyVisual } from "@/lib/reports/visuals";
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -18,15 +22,13 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
 }
 
 /**
- * The money line of a month, ledger style: Billed, then Collected and Outstanding, which add up to it exactly, under a double rule; then the late fees on those
- * bills (posted and paid, posted and owing, accruing and not yet posted); then the flats. Money is the Money component (Indian grouping, tabular figures).
+ * The money section of a month, ledger style: Billed, then Collected and Outstanding, which add up to it exactly, under a double rule; two sentences (late fees,
+ * flats); then the monthly collection as bars below 768px and as columns from 768px (the same data and the same table, only one of them shown at a time).
  */
-export function MoneyBlock({ period, money }: { period: CalendarDate; money: MoneyLine }) {
+export function MoneyBlock({ money, series }: { money: MoneyLine; series: readonly MonthlyPoint[] }) {
+  const visual = monthlyVisual(series);
   return (
-    <section aria-labelledby="committee-money" className="flex flex-col gap-4">
-      <h2 id="committee-money" className="text-title font-semibold">
-        {t("committee.money.heading", { month: periodLabel(period) })}
-      </h2>
+    <>
       <dl className="flex flex-col">
         <Row label={t("committee.money.billed")}>
           <Money amount={money.billedPaise} size="large" />
@@ -40,32 +42,16 @@ export function MoneyBlock({ period, money }: { period: CalendarDate; money: Mon
       </dl>
       <DoubleRule />
       <p className="text-caption text-ink-2">{t("committee.money.equation")}</p>
-
-      <h3 className="text-body font-semibold">{t("committee.fees.heading")}</h3>
-      <dl className="flex flex-col border-t border-hairline">
-        <Row label={t("committee.fees.paid")}>
-          <Money amount={money.fees.postedPaidPaise} />
-        </Row>
-        <Row label={t("committee.fees.owing")}>
-          <Money amount={money.fees.postedOwingPaise} />
-        </Row>
-        <Row label={t("committee.fees.accruing")} hint={t("committee.fees.accruing.hint")}>
-          <Money amount={money.fees.accruingPaise} />
-        </Row>
-      </dl>
-
-      <h3 className="text-body font-semibold">{t("committee.flats.heading")}</h3>
-      <dl className="flex flex-col border-t border-hairline">
-        <Row label={t("committee.flats.billed")}>
-          <span className="tnum text-body font-semibold">{money.flatsBilled}</span>
-        </Row>
-        <Row label={t("committee.flats.paid")}>
-          <span className="tnum text-body font-semibold">{money.flatsPaidInFull}</span>
-        </Row>
-        <Row label={t("committee.flats.outstanding")}>
-          <span className="tnum text-body font-semibold">{money.flatsOutstanding}</span>
-        </Row>
-      </dl>
-    </section>
+      <p className="tnum text-body">
+        {t("committee.money.fees", { paid: formatRupees(money.fees.postedPaidPaise), owing: formatRupees(money.fees.postedOwingPaise), accruing: formatRupees(money.fees.accruingPaise) })}
+      </p>
+      <p className="tnum text-body">{t("committee.money.flats", { billed: flatsText(money.flatsBilled), paid: money.flatsPaidInFull, owing: money.flatsOutstanding })}</p>
+      <div className="md:hidden">
+        <HorizontalBars text={{ ...visual.text, id: "monthly-bars" }} rows={visual.rows} scaleMax={100} />
+      </div>
+      <div className="hidden md:block">
+        <StackedBars text={{ ...visual.text, id: "monthly-columns" }} columns={visual.columns} labels={visual.labels} />
+      </div>
+    </>
   );
 }

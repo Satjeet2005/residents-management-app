@@ -1,8 +1,8 @@
 import { CheckIcon, WarningIcon } from "@/components/icons";
 import type { InterventionType, ReconciliationLine } from "@/domain/reports/reconciliation";
 import { t } from "@/lib/messages";
+import { countText } from "@/lib/reports/cards";
 import { minutesText, shareText } from "@/lib/reports/share";
-import { StatRow } from "./stat-row";
 
 const typeLabel = (type: InterventionType): string => {
   switch (type) {
@@ -18,37 +18,24 @@ const typeLabel = (type: InterventionType): string => {
 };
 
 /**
- * The reconciliation line of the last 30 days: the bank rows by what became of them, the share posted automatically, whether every import's rows add up (read
- * back from the database for each one) and the manual interventions by decision type with the median time from import to decision. Counts only: no flat and no name.
+ * The reconciliation of the last 30 days, in THREE lines (rows posted automatically with their share, rows waiting for a person and for approval, rows that are not
+ * maintenance), then whether every import's rows add up (read back from the database for each one). The manual interventions table appears ONLY when at least one
+ * count is above zero; otherwise the section says there were no manual decisions. Counts only: no flat and no name.
  */
 export function ReconciliationBlock({ line }: { line: ReconciliationLine }) {
-  const heading = (
-    <h2 id="committee-recon" className="text-title font-semibold">
-      {t("committee.recon.heading")}
-    </h2>
-  );
-  if (line.imports === 0) {
-    return (
-      <section aria-labelledby="committee-recon" className="flex flex-col gap-2">
-        {heading}
-        <p className="text-body">{t("committee.recon.none")}</p>
-      </section>
-    );
-  }
+  if (line.imports === 0) return <p className="text-body">{t("committee.recon.none")}</p>;
+  const anyManual = line.interventions.some((i) => i.count > 0);
   return (
-    <section aria-labelledby="committee-recon" className="flex flex-col gap-3">
-      {heading}
-      <dl className="flex flex-col border-t border-hairline">
-        <StatRow label={t("committee.recon.rows")}>{line.rowsImported}</StatRow>
-        <StatRow label={t("committee.recon.auto")}>{line.postedAutomatically}</StatRow>
-        <StatRow label={t("committee.recon.manual")}>{line.postedByHand}</StatRow>
-        <StatRow label={t("committee.recon.waiting")}>{line.waitingForPerson}</StatRow>
-        <StatRow label={t("committee.recon.approval")}>{line.waitingForApproval}</StatRow>
-        <StatRow label={t("committee.recon.notMaintenance")}>{line.notMaintenance}</StatRow>
-        <StatRow label={t("committee.recon.share")} detail={line.rowsImported === 0 ? undefined : t("committee.recon.share.detail", { n: line.postedAutomatically, d: line.rowsImported })}>
-          {shareText(line.postedAutomatically, line.rowsImported)}
-        </StatRow>
-      </dl>
+    <>
+      <ul className="tnum flex flex-col gap-2 text-body">
+        <li>
+          {line.rowsImported === 0
+            ? t("committee.recon.lineNoRows")
+            : t("committee.recon.lineAuto", { n: countText(line.postedAutomatically), d: countText(line.rowsImported), share: shareText(line.postedAutomatically, line.rowsImported) })}
+        </li>
+        <li>{t("committee.recon.lineWaiting", { a: countText(line.waitingForPerson), b: countText(line.waitingForApproval) })}</li>
+        <li>{t("committee.recon.lineNotMaintenance", { n: countText(line.notMaintenance) })}</li>
+      </ul>
       {line.allAccounted === true ? (
         <p className="flex items-center gap-2 text-body font-semibold">
           <CheckIcon size={20} />
@@ -60,26 +47,29 @@ export function ReconciliationBlock({ line }: { line: ReconciliationLine }) {
           {t("committee.recon.notAccounted", { n: line.notAccounted, d: line.imports })}
         </p>
       )}
-      <h3 className="pt-2 text-body font-semibold">{t("committee.recon.interventions")}</h3>
-      <table className="w-full text-left text-body">
-        <caption className="sr-only">{t("committee.recon.interventions.caption")}</caption>
-        <thead>
-          <tr className="border-b-2 border-ink">
-            <th scope="col" className="py-2 pr-4 font-semibold">{t("committee.recon.col.type")}</th>
-            <th scope="col" className="py-2 pr-4 text-right font-semibold">{t("committee.recon.col.count")}</th>
-            <th scope="col" className="py-2 text-right font-semibold">{t("committee.recon.col.median")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {line.interventions.map((i) => (
-            <tr key={i.type} className="border-b border-hairline">
-              <th scope="row" className="py-2 pr-4 font-normal">{typeLabel(i.type)}</th>
-              <td className="tnum py-2 pr-4 text-right">{i.count}</td>
-              <td className="tnum py-2 text-right">{minutesText(i.medianMinutes)}</td>
+      {anyManual ? (
+        <table className="w-full text-left text-body">
+          <caption className="pb-2 text-left font-semibold">{t("committee.recon.interventions.caption")}</caption>
+          <thead>
+            <tr className="border-b-2 border-ink">
+              <th scope="col" className="py-2 pr-4 font-semibold">{t("committee.recon.col.type")}</th>
+              <th scope="col" className="py-2 pr-4 text-right font-semibold">{t("committee.recon.col.count")}</th>
+              <th scope="col" className="py-2 text-right font-semibold">{t("committee.recon.col.median")}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
+          </thead>
+          <tbody>
+            {line.interventions.map((i) => (
+              <tr key={i.type} className="border-b border-hairline">
+                <th scope="row" className="py-2 pr-4 font-normal">{typeLabel(i.type)}</th>
+                <td className="tnum py-2 pr-4 text-right">{i.count}</td>
+                <td className="tnum py-2 text-right">{minutesText(i.medianMinutes)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p className="text-body">{t("committee.recon.noManual")}</p>
+      )}
+    </>
   );
 }

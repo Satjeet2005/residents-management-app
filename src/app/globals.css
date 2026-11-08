@@ -111,3 +111,11 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* The toggle of a report section (a native <details>): no browser marker, and the chevron turns a quarter when the section is open. */
+details[data-section] > summary::-webkit-details-marker {
+  display: none;
+}
+details[data-section][open] > summary > [data-chevron] {
+  transform: rotate(90deg);
+}

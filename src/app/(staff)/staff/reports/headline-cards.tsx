@@ -1,31 +1,9 @@
 import { ProgressBar } from "@/components/charts/progress-bar";
 import { Sparkline } from "@/components/charts/sparkline";
-import { CheckIcon, WarningIcon } from "@/components/icons";
-import type { GoalMark } from "@/lib/reports/cards";
 import { t } from "@/lib/messages";
 import { collectedBarText, trendText } from "@/lib/reports/visuals";
 import type { CommitteeReport } from "@/server/reports/report-data";
-
-/** The goal next to its metric: the target in words, and Met or Not met in words with an icon (never colour alone). With no data there is a target and no verdict. */
-function Goal({ mark }: { mark: GoalMark }) {
-  return (
-    <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-ink-2">
-      <span>{mark.text}</span>
-      {mark.status === "MET" && (
-        <span className="inline-flex items-center gap-1 text-body font-semibold text-ink">
-          <CheckIcon size={20} />
-          {t("committee.goals.met")}
-        </span>
-      )}
-      {mark.status === "NOT_MET" && (
-        <span className="inline-flex items-center gap-1 text-body font-semibold text-caution">
-          <WarningIcon size={20} />
-          {t("committee.goals.notMet")}
-        </span>
-      )}
-    </p>
-  );
-}
+import { GoalLine } from "./goal-mark";
 
 function Card({ label, value, children }: { label: string; value: string; children: React.ReactNode }) {
   return (
@@ -57,7 +35,7 @@ export function HeadlineCards({ report }: { report: CommitteeReport }) {
           <p className="text-body text-ink-2">{cards.owed.detail}</p>
         </Card>
         <Card label={t("committee.card.onTime")} value={cards.onTime.value}>
-          <Goal mark={cards.onTime.goal} />
+          <GoalLine mark={cards.onTime.goal} />
           {cards.onTime.lastMonth !== null && <p className="text-body text-ink-2">{cards.onTime.lastMonth}</p>}
           <Sparkline
             text={trendText({ id: "m2-on-time", caption: t("committee.card.onTime"), title: t("committee.trend.onTime.title"), points: cards.onTime.trend, goal: cards.onTime.goal })}
@@ -66,7 +44,7 @@ export function HeadlineCards({ report }: { report: CommitteeReport }) {
           />
         </Card>
         <Card label={t("committee.card.sla")} value={cards.sla.value}>
-          <Goal mark={cards.sla.goal} />
+          <GoalLine mark={cards.sla.goal} />
           {cards.sla.lastMonth !== null && <p className="text-body text-ink-2">{cards.sla.lastMonth}</p>}
           <Sparkline
             text={trendText({ id: "m2-sla", caption: t("committee.card.sla"), title: t("committee.trend.sla.title"), points: cards.sla.trend, goal: cards.sla.goal })}

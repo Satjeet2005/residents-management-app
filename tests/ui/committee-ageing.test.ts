@@ -36,23 +36,32 @@ describe("CA1 the ageing block", () => {
   const text = words(out);
 
   it("says it is ALL open dues of ALL months, shows the total due and the five buckets in order with flats, bills and amount due", () => {
-    expect(text).toContain("What is owed");
     expect(text).toContain("All open dues, all months, as of the date above.");
     expect(text).toContain("Total due 520 flats, 700 bills ₹55,65,000");
-    const positions = ["Not yet due", "1 to 30 days", "31 to 60 days", "61 to 90 days", "Over 90 days"].map((label) => text.indexOf(label, text.indexOf("Total due")));
+    const list = text.slice(text.lastIndexOf("Show as a table"));
+    const positions = ["Not yet due", "1 to 30 days", "31 to 60 days", "61 to 90 days", "Over 90 days"].map((label) => list.indexOf(label));
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
     expect(positions.every((p) => p > 0)).toBe(true);
-    expect(text).toContain("Not yet due 10 flats, 10 bills ₹65,000");
-    expect(text).toContain("31 to 60 days 300 flats, 310 bills ₹25,00,000");
-    expect(text).toContain("Over 90 days 50 flats, 60 bills ₹5,00,000");
+    expect(text).toContain("Not yet due 10 flats, 10 bills");
+    expect(text).toContain("Not yet due 10 10 ₹65,000");
+    expect(text).toContain("31 to 60 days 300 flats, 310 bills");
+    expect(text).toContain("31 to 60 days 300 310 ₹25,00,000");
+    expect(text).toContain("Over 90 days 50 flats, 60 bills");
   });
 
-  it("draws a segmented bar of plain elements whose widths add up to 100, hidden from assistive technology (the list carries the numbers)", () => {
-    const bar = /<div aria-hidden="true" class="flex h-4 w-full[^"]*">([\s\S]*?)<\/div><div aria-hidden="true" class="h-\[7px\]/.exec(out)?.[1] ?? "";
-    const widths = [...bar.matchAll(/width:(\d+)%/g)].map((m) => Number(m[1]));
-    expect(widths).toHaveLength(5);
-    expect(widths.reduce((a, b) => a + b, 0)).toBe(100);
-    expect(out).not.toMatch(/<svg|<canvas|<img/);
+  it("draws the five age groups as bars at every width (M4), labelled in text, with a title, a description and a table", () => {
+    expect(out).toContain('aria-labelledby="ageing-title ageing-desc"');
+    expect(out).not.toContain("md:hidden");
+    for (const label of ["Not yet due", "1 to 30 days", "31 to 60 days", "61 to 90 days", "Over 90 days"]) expect(out).toContain(`>${label}</text>`);
+    expect(out).toContain(">₹5.0 lakh</text>");
+    expect(out).toContain("Show as a table");
+    expect(words(out)).toContain("Over 90 days 50 60 ₹5,00,000");
+  });
+
+  it("puts the links beside the chart, never inside the picture", () => {
+    const picture = /<svg[\s\S]*<\/svg>/.exec(out)?.[0] ?? "";
+    expect(picture).not.toContain("<a");
+    expect(out.indexOf("</figure>")).toBeLessThan(out.indexOf(">See the flats</a>"));
   });
 
   it("each bucket with bills has a 48px link to its drill-down, named by the bucket", () => {
@@ -74,7 +83,7 @@ describe("CA1 the ageing block", () => {
     const none: Ageing = { buckets: ageing.buckets.map((b) => ({ ...b, flats: 0, bills: 0, amountDuePaise: 0n })), total: { flats: 0, bills: 0, amountDuePaise: 0n } };
     const empty = html(h(AgeingBlock, { ageing: none, period: "2026-10-01", selected: null }));
     expect(words(empty)).toContain("Nothing is owed.");
-    expect(empty).not.toContain("width:");
+    expect(empty).not.toContain("<svg");
     expect(empty).not.toContain("See the flats");
   });
 
@@ -163,12 +172,14 @@ describe("CA3 the drill-down section", () => {
 describe("CA4 the page with the ageing", () => {
   const report = (drilldown: AgeingPage | null): CommitteeReport => emptyReport({ ageing, drilldown });
 
-  it("shows the ageing block always, and the drill-down only when a bucket is chosen, after the block", () => {
+  it("shows the owed section always, closed unless a bucket is chosen (then the server opens it), and the drill-down after the block", () => {
     const without = html(h(ReportView, { report: report(null) }));
-    expect(without).toContain("committee-ageing");
+    expect(without).toContain('<details id="owed"');
+    expect(without).not.toMatch(/<details id="owed"[^>]* open=""/);
     expect(without).not.toContain('id="ageing-detail"');
     const withDrill = html(h(ReportView, { report: report(page()) }));
-    expect(withDrill.indexOf("committee-ageing")).toBeLessThan(withDrill.indexOf('id="ageing-detail"'));
+    expect(withDrill).toMatch(/<details id="owed"[^>]*data-default-open="false" open=""/);
+    expect(withDrill.indexOf('<details id="owed"')).toBeLessThan(withDrill.indexOf('id="ageing-detail"'));
     expect(count(withDrill, /<h1/g)).toBe(1);
   });
 

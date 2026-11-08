@@ -38,7 +38,7 @@ export const percentText = (value: number | null): string => (value === null ? t
 
 export const flatsText = (n: number): string => (n === 1 ? t("committee.count.flat") : t("committee.count.flats", { n: countText(n) }));
 
-const goalMark = (rows: readonly GoalRow[], key: GoalKey): GoalMark => {
+export const goalMark = (rows: readonly GoalRow[], key: GoalKey): GoalMark => {
   const row = rows.find((r) => r.key === key) as GoalRow;
   const target = row.key === "reopenedMax" ? t("committee.goals.atMost", { n: row.targetPercent }) : t("committee.goals.atLeast", { n: row.targetPercent });
   return { key, status: row.status, targetPercent: row.targetPercent, text: t("committee.card.goal", { target }) };
