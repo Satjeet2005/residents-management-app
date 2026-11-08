@@ -62,7 +62,7 @@ describe("CA1 the age list: one list instead of bars, a table and a second set o
     expect(positions.every((p) => p >= 0)).toBe(true);
     expect(words(list)).toContain("31 to 60 days ₹25,00,000 310 bills · 45% of the total");
     expect(words(list)).toContain("Not yet due ₹65,000 10 bills · 1% of the total");
-    expect(count(out, /<ul/g)).toBe(1);
+    expect(count(out.slice(0, out.indexOf("<details")), /<ul/g)).toBe(1);
   });
 
   it("each bar is a share of the TOTAL (comparable), drawn by a div, never inside a picture", () => {
@@ -93,6 +93,7 @@ describe("CA1 the age list: one list instead of bars, a table and a second set o
     expect(out).toContain("See the numbers behind this chart");
     expect(text).toContain("Age Bills Flats Unpaid bills Late fees Total");
     expect(text).toContain("Total owed 700 520 ₹55,65,000 ₹0 ₹55,65,000");
+    expect(words(out.slice(out.indexOf("md:hidden"))).replace(/\s+/g, " ")).toContain("Total owed Bills 700 Flats 520 Unpaid bills ₹55,65,000 Late fees ₹0 Total ₹55,65,000");
   });
 
   it("a sentence ties the month's Still unpaid to the group that holds it, when there is a money line", () => {

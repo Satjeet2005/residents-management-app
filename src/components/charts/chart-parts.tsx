@@ -10,10 +10,32 @@ export type ChartText = { id: string; caption: string; title: string; descriptio
 
 /** "Show as a table": the plotted values as text, at every width (the chart is a picture of this table). Native <details>, so it works without a script. */
 export function TableToggle({ table }: { table: ChartTable }) {
+  // A table of more than four columns cannot fit a phone without a sideways scroll: below 768px its rows are stacked, a header and one line per figure.
+  const stacked = table.columns.length > 4;
   return (
     <details className="text-body">
       <summary className="flex min-h-12 cursor-pointer items-center font-semibold text-accent underline underline-offset-4">{t("committee.chart.table")}</summary>
-      <div className="overflow-x-auto pb-2">
+      {stacked && (
+        <div className="tnum flex flex-col pb-2 md:hidden">
+          <p className="pb-2 text-caption font-semibold">{table.caption}</p>
+          <ul className="flex list-none flex-col p-0">
+            {table.rows.map((row) => (
+              <li key={row.header} className="flex flex-col gap-1 border-b border-hairline py-2">
+                <span className="text-body font-semibold">{row.header}</span>
+                <dl className="flex flex-col">
+                  {table.columns.slice(1).map((column, index) => (
+                    <div key={column} className="flex items-baseline justify-between gap-4">
+                      <dt className="text-caption text-ink-2">{column}</dt>
+                      <dd className="text-right text-caption">{row.cells[index]}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <div className={cx("overflow-x-auto pb-2", stacked && "hidden md:block")}>
         <table className="tnum w-full text-left text-caption">
           <caption className="pb-2 text-left font-semibold">{table.caption}</caption>
           <thead>
