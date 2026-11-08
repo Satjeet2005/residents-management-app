@@ -1,6 +1,7 @@
 "use client";
 
 import { type MouseEvent, type ReactNode, useEffect, useId, useRef } from "react";
+import { lockScroll } from "@/lib/scroll-lock";
 import { Button } from "./button";
 
 export type SheetProps = {
@@ -18,12 +19,22 @@ export type SheetProps = {
 /**
  * A modal sheet on the native <dialog> element: showModal() gives the focus trap,
  * the backdrop, Escape to close and inert page behind. Focus goes back to the
- * element that opened it. Opens from the bottom at 360px and is centred when wide.
+ * element that opened it. Opens from the bottom at 360px and is centred when wide. While it is open the page behind does not scroll
+ * (one reference-counted lock, src/lib/scroll-lock.ts, released on close, Escape and unmount, which is also what a route change does to the page that holds the sheet) and the sheet's own
+ * scroll never chains to the page (overscroll-behavior: contain, a body no taller than the dynamic viewport less the header).
  */
 export function Sheet({ open, onClose, title, children, footer, hideClose = false }: SheetProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const opener = useRef<Element | null>(null);
+  const release = useRef<(() => void) | null>(null);
   const titleId = useId();
+
+  const unlock = () => {
+    release.current?.();
+    release.current = null;
+  };
+
+  useEffect(() => unlock, []);
 
   useEffect(() => {
     const element = dialog.current;
@@ -31,12 +42,15 @@ export function Sheet({ open, onClose, title, children, footer, hideClose = fals
     if (open && !element.open) {
       opener.current = document.activeElement;
       element.showModal();
+      if (release.current === null) release.current = lockScroll();
     } else if (!open && element.open) {
       element.close();
+      unlock();
     }
   }, [open]);
 
   const handleClose = () => {
+    unlock();
     if (opener.current instanceof HTMLElement) opener.current.focus();
     onClose();
   };
@@ -52,7 +66,7 @@ export function Sheet({ open, onClose, title, children, footer, hideClose = fals
       aria-labelledby={titleId}
       onClose={handleClose}
       onClick={handleBackdrop}
-      className="m-0 mt-auto max-h-[90dvh] w-full max-w-none flex-col rounded-t-sheet border border-hairline bg-paper p-0 text-ink backdrop:bg-ink/50 open:flex sm:m-auto sm:max-w-lg sm:rounded-sheet"
+      className="m-0 mt-auto max-h-[calc(100dvh-3.5rem)] w-full max-w-none flex-col rounded-t-sheet border border-hairline bg-paper p-0 text-ink backdrop:bg-ink/50 open:flex sm:m-auto sm:max-w-lg sm:rounded-sheet"
     >
       <div className="flex items-center justify-between gap-4 border-b border-hairline px-4 py-3">
         <h2 id={titleId} className="text-title font-semibold">
@@ -64,7 +78,7 @@ export function Sheet({ open, onClose, title, children, footer, hideClose = fals
           </Button>
         )}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">{children}</div>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">{children}</div>
       {footer !== undefined && <div className="sticky bottom-0 border-t border-hairline bg-paper px-4 py-3">{footer}</div>}
     </dialog>
   );
