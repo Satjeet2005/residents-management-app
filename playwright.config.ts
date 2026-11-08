@@ -9,6 +9,7 @@ import { DESKTOP_1280, MOBILE_360, TABLET_768 } from "./tests/e2e/helpers/profil
  *   3        the resident flows (real clicks: pay, complaints, the Home alerts; they change data);
  *   4        the reconciliation flow, which imports the sample statement through the page, matches, requests and approves (it changes Swati's bank row, Aamir's late fee);
  *   5 and 6  the staff screens at 360 and at 1280, and the Home of a flat that owes only a late fee (they read what 3 and 4 left);
+ *   6b       the SEEDED gas complaint opened and acknowledged by the duty manager at 360 (T13i; it must run before any spec that acknowledges a safety complaint);
  *   7        the staff complaints board and complaint page at 360, 768 and 1280 (T13h; they change complaints: they assign, comment, resolve and acknowledge);
  *   8        the committee report v2 at 360, 768 and 1280 (read only, apart from the section choice, which is a cookie of the browser context);
  *   9        the other staff flows, the keyboard, the installability and the offline page.
@@ -21,6 +22,7 @@ const chain: { name: string; profile: typeof MOBILE_360 | typeof TABLET_768 | ty
   { name: "reconciliation-flow", profile: DESKTOP_1280, match: /flows[\\/]reconciliation\.spec\.ts$/ },
   { name: "staff-screens-360", profile: MOBILE_360, match: /screens[\\/](staff|after-reconciliation)\.spec\.ts$/ },
   { name: "staff-screens-1280", profile: DESKTOP_1280, match: /screens[\\/](staff|after-reconciliation)\.spec\.ts$/ },
+  { name: "seeded-safety-360", profile: MOBILE_360, match: /screens[\\/]seeded-safety\.spec\.ts$/ },
   { name: "staff-complaints-360", profile: MOBILE_360, match: /screens[\\/]staff-complaints\.spec\.ts$/ },
   { name: "staff-complaints-768", profile: TABLET_768, match: /screens[\\/]staff-complaints\.spec\.ts$/ },
   { name: "staff-complaints-1280", profile: DESKTOP_1280, match: /screens[\\/]staff-complaints\.spec\.ts$/ },
