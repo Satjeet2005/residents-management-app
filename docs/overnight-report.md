@@ -526,3 +526,74 @@ The report commit follows. Not pushed. Phase D not started.
 
 - The existing test positives add no new base phrase; the copied lists (`test-positives.ts`, `test-negatives.ts`) are kept equal to the frozen tests by a test that reads them.
 - `CLAUDE.md` says "one idempotent `processOutbox()`" (Phase B finding) and was not edited here.
+
+## T13i: the seeded complaints answered 500
+
+**Branch:** `master` (the `audit-pack/committee` branch is NOT merged into it: two commits, `8597fc1` and `e9fb140`, are only on that branch and I did not merge, as `CLAUDE.md` asks before a merge). `git log --oneline -5` at the start: `8d13ebf docs: Phase C report`, `8d1cf97`, `a8290cf`, `31033c5`, `fe9f75a`.
+
+### Diagnosis (before any fix)
+
+An integration test over a freshly seeded scratch database (3,450 complaints, 31 safety; `township_test_seeded_*`) called the staff detail loader (`loadComplaintPage`, as Sanjay Pawar) for every complaint:
+**3,445 of 3,450 threw** `invalid input syntax for type uuid: "user:5000000004"` or `"user:5000000005"` (the two default assignees); the 5 that opened have no ASSIGNED event. Open complaints failing 285 of 290, safety 31 of 31, closed 3,160 of 3,165.
+The resident detail loader (as the owner) failed for none: the resident page never reads those ids.
+Scan of every text, varchar and jsonb column of every table for `(^|[^A-Za-z0-9])(user|flat|complaint|bill|member|staff):`: `complaint_events.payload` 3,529 rows, and `ledger_entries.idempotency_key` 11,999 rows (an opaque unique string `seed:bill:T01-0103:2026-06-01`, never looked up as an id: allowed).
+The 3,529 rows are: `ASSIGNED.assignee` 3,445, `ESCALATED.to` 31, `DUPLICATE_LINKED.primary` 37, `AFFECTED_TOO.flat` 16.
+**Root cause:** `src/server/seed/rows.ts` translated every id COLUMN with `uuidFromKey` but wrote `JSON.stringify(e.payload)` untouched, and `src/domain/seed/complaint-timeline.ts` / `complaint-clusters.ts` put keys in those payloads. The sink: `userIdsIn` (`src/lib/staff-complaints/timeline.ts`) sent the ASSIGNED assignee to `db.user.findMany({ where: { id: { in } } })`, a uuid column, which throws for any other text, so one value took the page down. The forced gas complaint (T09, 27 Oct 2026 11:00, Sanjay Pawar) was one of the 3,445.
+
+### Deep-scan results
+
+| | before | after |
+|---|---|---|
+| strings of the default dataset's rows holding a seed key (unit scan) | 3,529 payloads | 0 (over 100,000 strings scanned) |
+| `complaint_events.payload` rows holding a seed key, seeded database | 3,529 | 0 |
+| `ledger_entries.idempotency_key` | 11,999 (opaque, allowed) | 11,999 (unchanged) |
+| staff detail loader failures over all 3,450 | 3,445 | 0 (the test checks 616: 290 open, 31 safety, 300 closed sample, overlapping) |
+
+### Commits (the order differs from the prompt's so that EVERY commit passes: the integration test is committed after the fixes, because a commit holding a known-failing test is wrong; the failing output above is the evidence)
+
+| Hash | Message | `npm run check` | `npm run scan:secrets` |
+|---|---|---|---|
+| `ca46620` | fix(seed): map every seed key to a UUID, including inside JSON | pass (4,769) | no secrets found |
+| `f4d9683` | fix(server): loaders treat unknown actors as the system | pass (4,769) | no secrets found |
+| `f778e0a` | test: exhaustive complaint loader test | pass (4,769) | no secrets found |
+| `a4eb7ce` | test: seeded complaints open for the duty manager in a browser | pass (4,769) | no secrets found |
+| (this commit) | docs: seed keys never reach the database, hosted repair | pass | no secrets found |
+
+### Mutations (applied, failing tests, restored from a copy, restoration checked)
+
+| Mutation | Failing tests |
+|---|---|
+| 1 the unmapped seed key back in the writer (`JSON.stringify(value)`) | unit: "T13i a deep scan of every string of every row…", "the four payload fields that named a key now hold the UUID of that key", "the forced gas complaint's events name the duty manager Sanjay Pawar by his real UUID"; integration: "no text or jsonb column of any table holds a seed key", "a complaint whose events hold malformed ids still opens…" |
+| 2 UUID validation removed in the timeline builder | unit: "a seed key / a very long text / an empty text: userIdsIn leaves it out…"; integration: "a complaint whose events hold malformed ids still opens…" |
+| 3 loader throws on a null actor (`event.actor!.name`) | unit: 12 timeline tests ("shows every event, internal ones included…", "a payload that is not an object never breaks a line", "an id it does not know reads as 'someone'…", the null/number/object cases…); integration: "the staff detail page loads for every open complaint…", "a complaint whose events hold malformed ids still opens…" |
+
+### Repair of a database seeded before the fix (scratch database, `township_seed_scratch`; `SELECT current_database()` printed first and checked; dropped afterwards)
+
+```
+database: township_seed_scratch
+seeded with the FIXED seed: true events 22835
+seed-key rows after the fixed seed: 0
+checksum of all payloads (fixed seed): 968e33e3f9ffa5f51c02de85c66786a6
+deliberately corrupted rows: 3529 | seed-key rows now: 3529 | checksum differs: true
+repair run 1: BEGIN, SELECT, CREATE, ALTER, UPDATE 3529, ALTER, SELECT, SELECT, COMMIT
+  last selects: [[{"database_being_repaired":"township_seed_scratch"}],[{"rows_still_holding_a_seed_key":0}],[{"tgname":"complaint_events_no_update_delete","trigger_state_o_means_on":"O"}]]
+repair run 2: BEGIN, SELECT, CREATE, ALTER, UPDATE 0, ALTER, SELECT, SELECT, COMMIT
+seed-key rows after the repair: 0 | checksum equals the fixed seed: true
+append-only trigger back on: complaint_events is append-only: UPDATE is not allowed
+```
+
+The repair is in `scripts/repair-seed-keys.sql` and `docs/live-refresh-runbook.md` step 12. The hosted site works WITHOUT it: the loaders show "Assigned to someone". It was NOT run on Neon.
+
+### Phase end commands
+
+- `npm run check`: 203 files, 4,769 passed, 1 skipped; `npm run scan:secrets`: no secrets found.
+- `npm run test:ci-parity`: unit 4,769 passed, 1 skipped; integration 75 files, 1,109 passed.
+- `npm run e2e`: 80 passed (the new project `seeded-safety-360` among them). The run rewrites tracked screenshots in `docs/screenshots` (the same unstaged ones as before); only the new `staff-complaint-detail-seeded-gas-360.png` was committed.
+- Cleanup: the e2e script drops `township_seed_scratch`; the integration databases drop themselves; checked by query afterwards: no database starting `township_` other than none, 0 roles `app_t_*`.
+
+### Not verified / notes
+
+- The repair on Neon (R99). The hosted database itself was not touched.
+- `audit-pack/committee` is not merged into `master`; the prompt expected it to be.
+- The existing `timeline.test.ts` used fake ids (`u-kavita`); they became UUIDs because the loader now (correctly) ignores anything else.
+- Decision and assumption numbers used: D165 to D167, R96 to R99.

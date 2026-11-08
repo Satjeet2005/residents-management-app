@@ -99,6 +99,10 @@ Decision numbers (D4, D14 and so on) refer to `docs/decisions.md`.
 | R93 | The NEAR_MISS negatives deliberately include everyday words that are rule words or contain one (gas bill, blood donation, current account, flu shot). They are false alarms by the rule table's design (D162, no negation handling) and are reported, not filtered; the near-miss rate is a hard-sample rate, and the GENERATED sentences give the estimate for ordinary complaints. | `negatives.ts`; `docs/safety-benchmark.md`. | Remove the homonyms from the list. |
 | R94 | The existing safety-test negatives are a third negative group (EXISTING, 97 sentences, the same in both sets); they hit nothing by construction, so they are reported on their own and not as evidence of a low false-alarm rate. | `negatives.ts`. | Drop the group. |
 | R95 | Intervals are 95 percent Wilson score (z = 1.959964); rates are rounded to six decimals in the committed JSON; the digest is SHA-256 of one JSON line per generated item, in order. | `wilson.ts`, `evaluate.ts`, `tests/domain/complaints/safety-benchmark/fixtures.ts`. | Use another interval or serialisation (new digests). |
+| R96 | An id that cannot be used reads "someone" (the existing wording of the staff timeline for an unknown person), not "the system"; "the system" is only for an event with no actor. | `staffTimeline` (`nameOf`, `who`); `docs/complaints-design.md`. | Change the `staffComplaints.timeline.someone` text. |
+| R97 | A seed key is a string that STARTS with `user:`, `flat:`, `complaint:`, `bill:`, `member:` or `staff:`; the scan tests look for those prefixes anywhere in a value, and skip only `ledger_entries.idempotency_key`. | `withUuids` in `src/server/seed/rows.ts`; `tests/integration/seed-key-scan.ts`. | Add a prefix to both. |
+| R98 | The exhaustive loader test covers every open complaint (290), every safety complaint (31) and a seeded-random 300 of the closed ones (seed 20261108), as the staff duty manager and, for the detail loader, as the resident who raised each; the other closed ones were covered once by the diagnostic run (3,445 of 3,450 failed before the fix). | `tests/integration/complaints-seeded-loaders.test.ts`. | Raise the sample. |
+| R99 | The repair script was tested only on a local Postgres 16 scratch database; it needs the owner of the hosted database, and `sha256()` and `pg_temp` functions (any Postgres 11 or later; UNVERIFIED on Neon). | `scripts/repair-seed-keys.sql`. | Run it by hand and report the difference. |
 
 
 ## Assumptions kept in other documents
@@ -123,6 +127,7 @@ These are numbered inside their own files. Read them there.
 | `docs/committee-report.md` | RC1 to RC12 (and R67, R78 to R84) | The committee report: the median rule, the default month, what "paid in full" means, the on-time and SLA denominators, the current-state complaint figures, the reconciliation window, the goals. |
 | `docs/complaint-classification.md` | CC1 to CC7 | Complaint classification: when the fallback answers, urgent words, the arm names, OTHER, the de-identification decision. |
 | `docs/classifier-providers.md` | (R50 to R65 above) | The System One protocol as documented, the two providers, failover, breaker, cap, privacy, key rotation. |
+| `docs/seed-data.md`, `docs/complaints-design.md` | R96 to R99 (above) | Seed keys never reach the database, defensive loading, the optional repair. |
 | `docs/safety-benchmark.md` | R90 to R95 (above) | The safety benchmark: base phrases, sampling, what counts as detection, the near-miss negatives, intervals and digests. |
 | `docs/design-system.md` | A1 to A10 | Colours, radii, tracker markers, fonts, spacing, motion, placeholder translations. |
 

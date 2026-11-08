@@ -87,6 +87,14 @@ Resident (`RESIDENT`): `POST` and `GET /api/complaints`, `GET /api/complaints/[i
 NO_FLAT, VALIDATION and ASSIGNEE_INVALID; 404 NOT_FOUND; 403 permission. The body of a refusal is only `{ "error": CODE }`. The app role gets column-level UPDATE on
 thirteen columns of `complaints` and nothing else (D95).
 
+## Defensive loading (D166)
+
+An id read from a JSON payload or a nullable field is data, not a promise. The detail loader validates it as a UUID before it goes to a uuid column (`userIdsIn`, `src/lib/staff-complaints/timeline.ts`);
+anything else (a seed key, null, a number, an object, a 100,000-character text, an unknown UUID) reads "Assigned to someone", an event with no actor reads as the system, and nothing throws. A bad
+value logs one fixed line per server instance and field through the redacted logger (`warnUnusableEventId`, `UnusableEventId`), never the value. The board does not read payloads, so it was never exposed;
+the integration test pages through every board view on the seeded database and on a complaint carrying the malformed payloads. Tests: `tests/lib/staff-complaints/timeline.test.ts`,
+`tests/integration/complaints-seeded-loaders.test.ts`.
+
 ## What is absent
 
 Translation, duplicate linking, reminders and escalation timers, a notifications list. The resident and staff screens are

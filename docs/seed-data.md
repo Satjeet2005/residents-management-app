@@ -108,6 +108,16 @@ Amounts due as of 2026-10-27, worked with `computeLateFee`: T12-0408 646800,
 T21-1601 569800, T07-1203 0, T15-0902 1,734,100 (two bills, 47 and 17 days
 overdue), and 1,072,000 for each of the three cheque flats.
 
+## The rule: seed keys never reach the database (D165)
+
+The dataset names things by KEY (`user:5000000005`, `flat:T09-0904`, `complaint:forced-gas-smell`); the writer turns every key into a UUID with `uuidFromKey` before a row is written.
+That covers the id columns and also every string inside a JSON payload, at any depth (`withUuids` in `src/server/seed/rows.ts`): the `assignee` of an ASSIGNED event, the `to` of an ESCALATED
+event, the `primary` of a DUPLICATE_LINKED event and the `flat` of an AFFECTED_TOO event. Before this rule the payloads kept the raw keys (3,529 rows) and the staff complaint page, which looks the
+assignee up in a uuid column, answered 500 for 3,445 of the 3,450 seeded complaints. Three tests hold the rule: a deep scan of every string of every row of the default dataset
+(`tests/server/seed-rows.test.ts`), a scan of every text and jsonb column of every table after seeding (`tests/integration/complaints-seeded-loaders.test.ts`), and the forced gas complaint naming Sanjay Pawar
+by his real UUID. The only column allowed to spell a key is `ledger_entries.idempotency_key` (`seed:bill:T01-0103:2026-06-01`): an opaque unique string that is never looked up as an id. The row and event
+counts did not change. Repairing an already seeded database: `docs/live-refresh-runbook.md`, step 12.
+
 ## Assumptions
 
 - **A1.** Areas are filled by quota rather than independent draws, so the mean is

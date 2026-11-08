@@ -231,6 +231,30 @@ In Chrome open `<LIVE_URL>/manifest.webmanifest`. **Expected:** JSON with name "
 
 Use the table in step 6. In short: a `config.*` or `appRole.*` problem is fixed in the Vercel dashboard or by step 3, then Redeploy; `schema.missingTables` by steps 2 and 3; `database` by the connection string; `data.seeded: false` by the seed or the reset. Whatever you see, the report holds only booleans and table names, so pasting it to the agent is safe.
 
+### 12. OPTIONAL: repair seed keys left by the old seed (owner only, D167)
+
+**Do you need it?** Only if the hosted database was seeded BEFORE the fix of D165 (commit `ca46620`). The app works WITHOUT this step and without re-seeding: since D166 the staff
+complaint page treats an assignee it cannot look up as "someone", so the seeded complaints open (before the fix 3,445 of the 3,450 seeded staff pages answered "We could not load the
+complaints", the forced gas complaint included). What the repair adds: the timeline shows the real names ("Assigned to Sanjay Pawar") instead of "Assigned to someone".
+
+**What it does.** `scripts/repair-seed-keys.sql` rewrites, in `complaint_events.payload`, every string that is a seed key (`user:`, `flat:`, `complaint:`, `bill:`, `member:`, `staff:`) to the UUID of that
+key, computed in SQL with the same function as `src/server/seed/uuid.ts` (SHA-256 of `township-app/demo-seed/v1`, a newline and the key; version nibble 5, variant bits 10). It touches 3,529 rows on an old seed
+(`ASSIGNED.assignee` 3,445, `ESCALATED.to` 31, `DUPLICATE_LINKED.primary` 37, `AFFECTED_TOO.flat` 16) and nothing else. `complaint_events` is append-only, so the script switches that ONE trigger off
+inside its transaction and on again before its check; it is the only place that does. Run it as the OWNER, in the Neon SQL Editor (paste the file) or with the helper above:
+
+```bash
+read -rs DATABASE_URL; export DATABASE_URL     # the OWNER connection string, typed, not echoed
+runsql -f scripts/repair-seed-keys.sql
+unset DATABASE_URL
+```
+
+**Expected:** the first result names the database you mean to repair (check it is the Neon demo database), `UPDATE 3529` (`UPDATE 0` if it was already repaired or seeded after the fix), then
+`rows_still_holding_a_seed_key` = **0** and the trigger state `O` (on), then `COMMIT`. If the count is not 0, run `ROLLBACK` and tell the agent. It is safe to run twice.
+
+**Evidence (local scratch database `township_seed_scratch`, dropped afterwards):** seeded with the FIXED seed (22,835 events, 0 seed-key rows, checksum of all payloads `968e33e3f9ffa5f51c02de85c66786a6`);
+corrupted on purpose exactly as the old seed was (3,529 rows, seed-key rows 3,529, checksum different); first run `UPDATE 3529`, `rows_still_holding_a_seed_key` 0, trigger `O`; second run `UPDATE 0`; afterwards
+0 seed-key rows, the checksum equal to the fixed seed's, and an `UPDATE` of an event refused again ("complaint_events is append-only: UPDATE is not allowed"). The transcript is in `docs/overnight-report.md` (T13i).
+
 ## When the review is over or something goes wrong
 
 `DEMO_MODE=false` and Redeploy closes the demo login at once. Roll back the code with Deployments > the previous production deployment > Instant Rollback. To put the demo data back to a clean seeded state, use `docs/hosted-reset-procedure.md` (owner only; destroys all data).
