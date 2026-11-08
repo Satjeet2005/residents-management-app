@@ -17,6 +17,12 @@ const PAGE_MAX = 50;
 const ACKS = Prisma.sql`LEFT JOIN (SELECT DISTINCT complaint_id FROM complaint_events WHERE event_type = 'COMMENT' AND payload->>'kind' = 'ack') a ON a.complaint_id = c.id`;
 const ACKED = Prisma.sql`(a.complaint_id IS NOT NULL)`;
 
+/** Safety complaints, of every month, that are not closed and that the duty manager has not acknowledged (the alert of the committee report): one query. */
+export async function countUnacknowledgedSafety(db: Db): Promise<number> {
+  const [row] = await db.$queryRaw<{ n: number }[]>`SELECT (count(*))::int AS n FROM complaints c ${ACKS} WHERE c.status <> 'CLOSED' AND c.safety_flag AND NOT ${ACKED}`;
+  return row.n;
+}
+
 /** The SQL twin of `inView` (src/domain/complaints/board-views.ts). */
 function viewPredicate(view: BoardView, viewerId: string, now: Date): Prisma.Sql {
   const open = Prisma.sql`c.status <> 'CLOSED'`;

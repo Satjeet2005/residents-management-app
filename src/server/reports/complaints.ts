@@ -1,18 +1,15 @@
 import type { ReportComplaint } from "@/domain/reports/complaints";
-import { type CalendarDate, addDays, dayStartInstant } from "@/domain/time/calendar";
+import { type CalendarDate, dayStartInstant } from "@/domain/time/calendar";
 import type { Db } from "@/server/auth/db";
-import { monthStart } from "@/lib/reports/period";
-
-/** The first day of the month after a period. */
-const nextMonth = (period: CalendarDate): CalendarDate => monthStart(addDays(period, 31));
 
 /**
- * The complaints raised in a month (by created_at, India time) with the two times the report needs from their events: the first time each was marked resolved
- * and the first acknowledgement by the duty manager. TWO queries however many complaints there are: the complaints, and one query for those events (the
- * relation filter keeps it to the month). Reads only (the app role has SELECT on both tables).
+ * The complaints raised from the start of `from` to the start of `until` (by created_at, India time; `until` is not included) with the two times the report
+ * needs from their events: the first time each was marked resolved and the first acknowledgement by the duty manager. TWO queries however many complaints
+ * there are: the complaints, and one query for those events (the relation filter keeps it to the window). The report asks once for a window that covers its
+ * month, the previous month and the eight weeks of the SLA chart, and cuts it in memory. Reads only (the app role has SELECT on both tables).
  */
-export async function loadMonthComplaints(db: Db, period: CalendarDate): Promise<ReportComplaint[]> {
-  const created = { gte: new Date(dayStartInstant(period)), lt: new Date(dayStartInstant(nextMonth(period))) };
+export async function loadComplaintsBetween(db: Db, from: CalendarDate, until: CalendarDate): Promise<ReportComplaint[]> {
+  const created = { gte: new Date(dayStartInstant(from)), lt: new Date(dayStartInstant(until)) };
   const [rows, events] = await Promise.all([
     db.complaint.findMany({
       where: { createdAt: created },

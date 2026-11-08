@@ -2,15 +2,22 @@ import { type AgeBucket, type Ageing, ageingTable } from "@/domain/reports/age";
 import { type ComplaintMetrics, complaintMetrics } from "@/domain/reports/complaints";
 import { type GoalRow, evaluateGoals, goalsFromSetting } from "@/domain/reports/goals";
 import { type CollectionQuality, type MoneyLine, collectionQuality, moneyLine } from "@/domain/reports/money-line";
+import { type PaymentCurve, paymentCurve } from "@/domain/reports/payment-curve";
+import { lastPeriods, previousPeriod } from "@/domain/reports/periods";
 import type { ReportPosition } from "@/domain/reports/positions";
 import type { ReconciliationLine } from "@/domain/reports/reconciliation";
-import { type CalendarDate, istDateOf } from "@/domain/time/calendar";
-import { choosePeriod, periodOptions } from "@/lib/reports/period";
+import { type MonthlyPoint, type OnTimePoint, monthlySeries, onTimeRateByPeriod } from "@/domain/reports/series";
+import { type WeeklyPoint, isoWeekStart, slaShare, weeklySla, WEEKS } from "@/domain/reports/weekly-sla";
+import { type CalendarDate, addDays, dayStartInstant, istDateOf } from "@/domain/time/calendar";
+import { type HeadlineCards, buildCards } from "@/lib/reports/cards";
+import { type SectionHeadlines, sectionHeadlines } from "@/lib/reports/headlines";
+import { choosePeriod, monthStart, periodOptions } from "@/lib/reports/period";
 import type { Db } from "@/server/auth/db";
 import type { SessionUser } from "@/server/auth/session-service";
+import { countUnacknowledgedSafety } from "@/server/complaints/board-views";
 import { requirePermission } from "@/server/statements/ui-data";
 import { type AgeingPage, ageingPageOf } from "./ageing-page";
-import { loadMonthComplaints } from "./complaints";
+import { loadComplaintsBetween } from "./complaints";
 import { loadReportPositions } from "./positions";
 import { loadReconciliationLine } from "./reconciliation";
 
@@ -37,14 +44,27 @@ export type CommitteeReport = {
   reconciliation: ReconciliationLine;
   /** The committee's targets against the month's actuals. `source` says whether the targets are the `committee_goals` setting or the built-in defaults. */
   goals: { rows: GoalRow[]; source: "SETTING" | "DEFAULT" };
+  /** The four headline cards and the one-sentence headline of each section: text and numbers worked out from the figures above. */
+  cards: HeadlineCards;
+  headlines: SectionHeadlines;
+  /** The series behind the visuals: six months of money and on-time rates (the selected month last), the payment curve of the month, eight weeks of SLA. */
+  series: { monthly: MonthlyPoint[]; onTime: OnTimePoint[]; weeklySla: WeeklyPoint[]; curve: PaymentCurve | null };
+  /** Safety complaints of any month that are not closed and have no acknowledgement by the duty manager: the alert at the top of the page. */
+  safetyUnacknowledged: number;
+  /** Does the viewer hold complaints:manage (the alert links to the safety view only for them)? */
+  canManageComplaints: boolean;
 };
 
 /** The positions of the bills of one period. */
 export const inPeriod = (positions: readonly ReportPosition[], period: CalendarDate): ReportPosition[] => positions.filter((p) => p.bill.period === period);
 
+const minDate = (dates: readonly CalendarDate[]): CalendarDate => dates.reduce((a, b) => (a < b ? a : b));
+
 /**
  * The data of /staff/reports (D5, D131). The permission is checked here, at the data (the page has already sent anyone else away). The business clock decides
- * "as of". Every figure comes from `billPosition` through `positionsForFlat`, the function the Home uses.
+ * "as of". Every figure comes from `billPosition` through `positionsForFlat`, the function the Home uses. TEN reads however many flats, bills and complaints
+ * there are: the policy, the bills and the ledger entries (three), one window of complaints and its events (two), the bank rows (three), the goals setting
+ * and the safety complaints nobody has acknowledged. Every series is cut from those in memory.
  */
 export async function loadCommitteeReport(input: { db: Db; user: Viewer; requestedPeriod: CalendarDate | null; bucket?: AgeBucket | null; now: number }): Promise<CommitteeReport> {
   requirePermission(input.user, "reports:view");
@@ -53,31 +73,58 @@ export async function loadCommitteeReport(input: { db: Db; user: Viewer; request
   const periods = periodOptions(positions.map((p) => p.bill.period), asOf);
   const period = choosePeriod({ requested: input.requestedPeriod, options: periods, asOf });
   const monthPositions = inPeriod(positions, period);
-  const [complaints, reconciliation, goalSetting] = await Promise.all([
-    loadMonthComplaints(input.db, period),
+  const previous = previousPeriod(period);
+  const until = monthStart(addDays(period, 31));
+  const chartEnd = minDate([asOf, addDays(until, -1)]);
+  const from = minDate([addDays(isoWeekStart(chartEnd), -7 * (WEEKS - 1)), previous]);
+  const [window, reconciliation, goalSetting, safetyUnacknowledged] = await Promise.all([
+    loadComplaintsBetween(input.db, from, until),
     loadReconciliationLine(input.db, asOf),
     input.db.societySetting.findUnique({ where: { key: "committee_goals" }, select: { value: true } }),
+    countUnacknowledgedSafety(input.db),
   ]);
+  const inMonth = (start: CalendarDate) => window.filter((c) => c.createdAt >= dayStartInstant(start) && c.createdAt < dayStartInstant(monthStart(addDays(start, 31))));
+  const complaints = inMonth(period);
   const quality = monthPositions.length === 0 ? null : collectionQuality(monthPositions, asOf);
   const metrics = complaintMetrics(complaints, input.now);
   const { goals, source } = goalsFromSetting(goalSetting?.value);
+  const goalRows = evaluateGoals(goals, {
+    onTime: { n: quality?.dueOnTime ?? 0, d: quality?.due ?? 0 },
+    firstReply: { n: metrics.firstReply.withinSla, d: metrics.firstReply.decided },
+    reopened: { n: metrics.resolved.reopened, d: metrics.resolved.count },
+  });
+  const onTime = onTimeRateByPeriod(positions, lastPeriods(period, asOf), asOf);
+  const weeks = weeklySla(window, chartEnd, input.now);
+  const ageing = ageingTable(positions, asOf);
+  const money = monthPositions.length === 0 ? null : moneyLine(monthPositions);
   return {
     asOf,
     period,
     periods,
-    money: monthPositions.length === 0 ? null : moneyLine(monthPositions),
-    ageing: ageingTable(positions, asOf),
+    money,
+    ageing,
     drilldown: input.bucket === undefined || input.bucket === null ? null : ageingPageOf(positions, asOf, input.bucket, null),
     quality,
     complaints: metrics,
     reconciliation,
-    goals: {
-      source,
-      rows: evaluateGoals(goals, {
-        onTime: { n: quality?.dueOnTime ?? 0, d: quality?.due ?? 0 },
-        firstReply: { n: metrics.firstReply.withinSla, d: metrics.firstReply.decided },
-        reopened: { n: metrics.resolved.reopened, d: metrics.resolved.count },
-      }),
+    goals: { source, rows: goalRows },
+    cards: buildCards({ money, ageing, onTime, sla: { selected: slaShare(complaints, input.now), previous: slaShare(inMonth(previous), input.now), weeks }, goals: goalRows }),
+    headlines: sectionHeadlines({ money, ageing, quality, complaints: metrics, reconciliation }),
+    series: {
+      monthly: monthlySeries(positions, lastPeriods(period, asOf)),
+      onTime,
+      weeklySla: weeks,
+      curve:
+        monthPositions.length === 0
+          ? null
+          : paymentCurve({
+              bills: monthPositions.map((p) => ({ amountPaise: p.bill.amountPaise, payments: p.payments })),
+              issueDate: minDate(monthPositions.map((p) => p.bill.issuedOn)),
+              dueDate: minDate(monthPositions.map((p) => p.bill.dueOn)),
+              asOf,
+            }),
     },
+    safetyUnacknowledged,
+    canManageComplaints: input.user.permissions.includes("complaints:manage"),
   };
 }
