@@ -5,6 +5,9 @@ import { type ReportPosition, isOpen } from "./positions";
 export const AGE_BUCKETS = ["NOT_YET_DUE", "DAYS_1_30", "DAYS_31_60", "DAYS_61_90", "OVER_90"] as const;
 export type AgeBucket = (typeof AGE_BUCKETS)[number];
 
+/** A bill is in "Over 90 days" from this many days past its due date. */
+export const OVER_90_FROM_DAYS = 91;
+
 /** Days from the bill's due date to `asOf`: zero on the due date itself, negative before it. */
 export const daysPastDue = (dueOn: CalendarDate, asOf: CalendarDate): number => diffDays(dueOn, asOf);
 
@@ -16,7 +19,7 @@ export function ageBucket(days: number): AgeBucket {
   if (days <= 0) return "NOT_YET_DUE";
   if (days <= 30) return "DAYS_1_30";
   if (days <= 60) return "DAYS_31_60";
-  if (days <= 90) return "DAYS_61_90";
+  if (days < OVER_90_FROM_DAYS) return "DAYS_61_90";
   return "OVER_90";
 }
 

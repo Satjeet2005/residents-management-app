@@ -1,4 +1,5 @@
 import { type AgeBucket, type Ageing, type AgeingSort, ageingTable } from "@/domain/reports/age";
+import { type TowerRollup, towerRollup } from "@/domain/reports/towers";
 import { type ComplaintMetrics, complaintMetrics } from "@/domain/reports/complaints";
 import { type GoalRow, evaluateGoals, goalsFromSetting } from "@/domain/reports/goals";
 import { type CollectionQuality, type MoneyLine, collectionQuality, moneyLine } from "@/domain/reports/money-line";
@@ -37,6 +38,8 @@ export type CommitteeReport = {
   money: MoneyLine | null;
   /** What is owed, all open dues of all months, as of the business date. */
   ageing: Ageing;
+  /** What is owed by tower: the same open dues as the age groups, so the towers add up to the same total. */
+  towers: TowerRollup;
   /** The first page of the drill-down of the bucket in the address (`?bucket=`), or null when none was asked for. */
   drilldown: AgeingPage | null;
   /** How promptly the month's bills were paid; null when the month has no bills. */
@@ -111,6 +114,7 @@ export async function loadCommitteeReport(input: { db: Db; user: Viewer; request
     periods,
     money,
     ageing,
+    towers: towerRollup(positions, asOf),
     drilldown: input.bucket === undefined || input.bucket === null ? null : ageingPageOf(positions, asOf, input.bucket, input.sort ?? "LARGEST", null),
     quality,
     complaints: metrics,

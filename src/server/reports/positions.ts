@@ -13,7 +13,7 @@ import { parsePolicy, toDueBill, toDueEntry } from "@/server/home/mapper";
 export async function loadReportPositions(db: Db, asOf: CalendarDate): Promise<{ positions: ReportPosition[]; policy: LateFeePolicy }> {
   const [settings, bills, entries] = await Promise.all([
     db.societySetting.findMany({ where: { key: "late_fee_policy" }, select: { key: true, value: true } }),
-    db.bill.findMany({ select: { id: true, flatId: true, period: true, issuedOn: true, dueOn: true, amountPaise: true, flat: { select: { code: true } } } }),
+    db.bill.findMany({ select: { id: true, flatId: true, period: true, issuedOn: true, dueOn: true, amountPaise: true, flat: { select: { code: true, tower: true } } } }),
     db.ledgerEntry.findMany({
       where: { billId: { not: null }, entryType: { in: ["PAYMENT", "REVERSAL", "LATE_FEE", "ADJUSTMENT"] } },
       select: { id: true, flatId: true, entryType: true, direction: true, amountPaise: true, effectiveDate: true, billId: true, reversesEntryId: true, createdAt: true },
@@ -24,10 +24,10 @@ export async function loadReportPositions(db: Db, asOf: CalendarDate): Promise<{
   const entriesByFlat = Map.groupBy(entries, (e) => e.flatId);
   const positions: ReportPosition[] = [];
   for (const [flatId, flatBills] of billsByFlat) {
-    const flatCode = flatBills[0].flat.code;
+    const { code: flatCode, tower } = flatBills[0].flat;
     const dueBills: DueBill[] = flatBills.map(toDueBill);
     const dueEntries: DueEntry[] = (entriesByFlat.get(flatId) ?? []).map(toDueEntry);
-    for (const p of positionsForFlat({ bills: dueBills, entries: dueEntries, policy, asOf })) positions.push({ ...p, flatId, flatCode });
+    for (const p of positionsForFlat({ bills: dueBills, entries: dueEntries, policy, asOf })) positions.push({ ...p, flatId, flatCode, tower });
   }
   return { positions, policy };
 }

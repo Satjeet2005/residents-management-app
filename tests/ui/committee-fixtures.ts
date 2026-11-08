@@ -1,3 +1,4 @@
+import { towerRollup } from "@/domain/reports/towers";
 import { complaintMetrics } from "@/domain/reports/complaints";
 import { defaultGoals, evaluateGoals } from "@/domain/reports/goals";
 import { reconciliationLine } from "@/domain/reports/reconciliation";
@@ -21,6 +22,7 @@ export function emptyReport(over: Partial<CommitteeReport> = {}): CommitteeRepor
     periods: ["2026-10-01"],
     money: null,
     ageing: { buckets: [], total: { flats: 0, bills: 0, unpaidBillsPaise: 0n, lateFeesPaise: 0n, amountDuePaise: 0n } },
+    towers: towerRollup([], "2026-10-27"),
     drilldown: null,
     quality: null,
     complaints: complaintMetrics([], NOW),

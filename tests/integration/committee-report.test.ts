@@ -71,6 +71,20 @@ const LIVE_PAYMENTS = `
   WHERE e.entry_type = 'PAYMENT' AND e.direction = 'PAYMENT' AND e.effective_date <= $1::date
     AND NOT EXISTS (SELECT 1 FROM ledger_entries r WHERE r.entry_type = 'REVERSAL' AND r.reverses_entry_id = e.id AND r.effective_date <= $1::date)`;
 
+/** The open dues by an independent route: principal-open bills and FEE_ONLY bills, each with its age in days, from SQL only ($1 is the as-of date). */
+const OPEN_DUES_SQL = `WITH paid AS (SELECT bill_id, sum(amount_paise) AS p FROM (${LIVE_PAYMENTS}) l GROUP BY bill_id),
+         fees AS (SELECT bill_id, sum(amount_paise) AS f FROM ledger_entries WHERE entry_type = 'LATE_FEE' AND direction = 'CHARGE' AND effective_date <= $1::date GROUP BY bill_id),
+         open AS (
+           SELECT b.id, b.flat_id, b.due_on, b.amount_paise - COALESCE(p.p, 0) AS principal, 0::bigint AS fee_only
+           FROM bills b LEFT JOIN paid p ON p.bill_id = b.id WHERE b.issued_on <= $1::date AND COALESCE(p.p, 0) < b.amount_paise
+           UNION ALL
+           SELECT b.id, b.flat_id, b.due_on, 0::bigint, f.f - (p.p - b.amount_paise)
+           FROM bills b JOIN paid p ON p.bill_id = b.id JOIN fees f ON f.bill_id = b.id
+           WHERE b.issued_on <= $1::date AND p.p >= b.amount_paise AND f.f - (p.p - b.amount_paise) > 0),
+         aged AS (SELECT o.*, ($1::date - o.due_on) AS days,
+                    CASE WHEN $1::date - o.due_on <= 0 THEN 'NOT_YET_DUE' WHEN $1::date - o.due_on <= 30 THEN 'DAYS_1_30' WHEN $1::date - o.due_on <= 60 THEN 'DAYS_31_60' WHEN $1::date - o.due_on <= 90 THEN 'DAYS_61_90' ELSE 'OVER_90' END AS bucket
+                  FROM open o)`;
+
 describe("RP2 the money line, checked against raw SQL", () => {
   it("October as of 27 Oct 2026: Billed, Collected, Outstanding and the flat counts equal a separate SQL query", async () => {
     const sql = await fx.owner.$queryRawUnsafe<{ billed: string; collected: string; outstanding: string; flats: string; paid_in_full: string; owing: string }[]>(
@@ -211,24 +225,12 @@ describe("RP2 the ageing, checked against raw SQL and against the Home's own sum
   });
 
   it("every group, against an independent SQL: bills, distinct flats, unpaid bills (principal) and the late fees on top, and every flat's bills, oldest age and amount", async () => {
-    const SQL = `WITH paid AS (SELECT bill_id, sum(amount_paise) AS p FROM (${LIVE_PAYMENTS}) l GROUP BY bill_id),
-         fees AS (SELECT bill_id, sum(amount_paise) AS f FROM ledger_entries WHERE entry_type = 'LATE_FEE' AND direction = 'CHARGE' AND effective_date <= $1::date GROUP BY bill_id),
-         open AS (
-           SELECT b.id, b.flat_id, b.due_on, b.amount_paise - COALESCE(p.p, 0) AS principal, 0::bigint AS fee_only
-           FROM bills b LEFT JOIN paid p ON p.bill_id = b.id WHERE b.issued_on <= $1::date AND COALESCE(p.p, 0) < b.amount_paise
-           UNION ALL
-           SELECT b.id, b.flat_id, b.due_on, 0::bigint, f.f - (p.p - b.amount_paise)
-           FROM bills b JOIN paid p ON p.bill_id = b.id JOIN fees f ON f.bill_id = b.id
-           WHERE b.issued_on <= $1::date AND p.p >= b.amount_paise AND f.f - (p.p - b.amount_paise) > 0),
-         aged AS (SELECT o.*, ($1::date - o.due_on) AS days,
-                    CASE WHEN $1::date - o.due_on <= 0 THEN 'NOT_YET_DUE' WHEN $1::date - o.due_on <= 30 THEN 'DAYS_1_30' WHEN $1::date - o.due_on <= 60 THEN 'DAYS_31_60' WHEN $1::date - o.due_on <= 90 THEN 'DAYS_61_90' ELSE 'OVER_90' END AS bucket
-                  FROM open o)`;
     const groups = await fx.owner.$queryRawUnsafe<{ bucket: string; bills: string; flats: string; principal: string | null; fee_only: string | null }[]>(
-      `${SQL} SELECT bucket, count(*)::text AS bills, count(DISTINCT flat_id)::text AS flats, sum(principal)::text AS principal, sum(fee_only)::text AS fee_only FROM aged GROUP BY bucket`,
+      `${OPEN_DUES_SQL} SELECT bucket, count(*)::text AS bills, count(DISTINCT flat_id)::text AS flats, sum(principal)::text AS principal, sum(fee_only)::text AS fee_only FROM aged GROUP BY bucket`,
       AS_OF,
     );
     const perFlat = await fx.owner.$queryRawUnsafe<{ bucket: string; code: string; bills: string; oldest: number; principal: string | null }[]>(
-      `${SQL} SELECT a.bucket, f.code, count(*)::text AS bills, max(a.days)::int AS oldest, sum(a.principal)::text AS principal FROM aged a JOIN flats f ON f.id = a.flat_id GROUP BY a.bucket, f.code`,
+      `${OPEN_DUES_SQL} SELECT a.bucket, f.code, count(*)::text AS bills, max(a.days)::int AS oldest, sum(a.principal)::text AS principal FROM aged a JOIN flats f ON f.id = a.flat_id GROUP BY a.bucket, f.code`,
       AS_OF,
     );
     for (const bucket of october.ageing.buckets) {
@@ -247,10 +249,45 @@ describe("RP2 the ageing, checked against raw SQL and against the Home's own sum
       }
       expect(flats.reduce((sum, f) => sum + f.amountDuePaise, 0n), bucket.bucket).toBe(bucket.amountDuePaise);
     }
-    const totalFlats = await fx.owner.$queryRawUnsafe<{ n: string }[]>(`${SQL} SELECT count(DISTINCT flat_id)::text AS n FROM aged`, AS_OF);
+    const totalFlats = await fx.owner.$queryRawUnsafe<{ n: string }[]>(`${OPEN_DUES_SQL} SELECT count(DISTINCT flat_id)::text AS n FROM aged`, AS_OF);
     expect(october.ageing.total.flats).toBe(Number(totalFlats[0].n));
     console.log(`D175 SQL    open flats=${totalFlats[0].n} groups: ${groups.map((g) => `${g.bucket}=${g.bills} bills/${g.flats} flats/${g.principal}`).join(" ")}`);
     console.log(`D175 loader open flats=${october.ageing.total.flats} groups: ${october.ageing.buckets.map((b) => `${b.bucket}=${b.bills} bills/${b.flats} flats/${b.unpaidBillsPaise}`).join(" ")}`);
+  });
+});
+
+describe("RP7 what is owed by tower, against independent SQL (D182)", () => {
+  it("every tower: flats owing, bills, unpaid bills, and flats over 90 days equal SQL; the towers add up to Total owed; no name or flat code in the block", async () => {
+    const rows = await fx.owner.$queryRawUnsafe<{ tower: string; flats: string; bills: string; principal: string | null; fee_only: string | null; over90: string }[]>(
+      `${OPEN_DUES_SQL} SELECT f.tower, count(DISTINCT a.flat_id)::text AS flats, count(*)::text AS bills, sum(a.principal)::text AS principal, sum(a.fee_only)::text AS fee_only,
+              count(DISTINCT a.flat_id) FILTER (WHERE a.days >= 91)::text AS over90
+       FROM aged a JOIN flats f ON f.id = a.flat_id GROUP BY f.tower`,
+      AS_OF,
+    );
+    const { towers, total } = october.towers;
+    expect(towers.length).toBe(rows.length);
+    expect(towers.length).toBeGreaterThan(10);
+    for (const tower of towers) {
+      const sql = rows.find((r) => r.tower === tower.tower);
+      expect([tower.flats, tower.bills, tower.flatsOver90], tower.tower).toEqual([Number(sql?.flats), Number(sql?.bills), Number(sql?.over90)]);
+      expect(tower.unpaidBillsPaise, tower.tower).toBe(BigInt(sql?.principal ?? 0));
+      expect(tower.lateFeesPaise >= BigInt(sql?.fee_only ?? 0), tower.tower).toBe(true);
+    }
+    expect(towers.map((t) => t.amountDuePaise)).toEqual([...towers.map((t) => t.amountDuePaise)].sort((a, b) => (a < b ? 1 : a > b ? -1 : 0)));
+    // The totals over ALL towers are Total owed, the same figure as the age groups and the card.
+    expect(total.amountDuePaise).toBe(october.ageing.total.amountDuePaise);
+    expect(towers.reduce((sum, t) => sum + t.amountDuePaise, 0n)).toBe(october.ageing.total.amountDuePaise);
+    expect(towers.reduce((sum, t) => sum + t.unpaidBillsPaise, 0n)).toBe(october.ageing.total.unpaidBillsPaise);
+    expect(towers.reduce((sum, t) => sum + t.flats, 0)).toBe(october.ageing.total.flats);
+    expect(total.flatsOver90).toBe(Number((await fx.owner.$queryRawUnsafe<{ n: string }[]>(`${OPEN_DUES_SQL} SELECT count(DISTINCT flat_id)::text AS n FROM aged WHERE days >= 91`, AS_OF))[0].n));
+    console.log(`D182 SQL    towers=${rows.length} top=${[...rows].sort((a, b) => Number(BigInt(b.principal ?? 0) - BigInt(a.principal ?? 0))).slice(0, 3).map((r) => `${r.tower}:${r.principal}`).join(" ")}`);
+    console.log(`D182 loader towers=${towers.length} top=${towers.slice(0, 3).map((t) => `${t.tower}:${t.unpaidBillsPaise}/${t.amountDuePaise}`).join(" ")}`);
+    const t12 = towers.findIndex((t) => t.tower === "T12");
+    console.log(`D182 T12 rank=${t12 + 1} of ${towers.length}, ${JSON.stringify({ ...towers[t12], unpaidBillsPaise: String(towers[t12]?.unpaidBillsPaise), lateFeesPaise: String(towers[t12]?.lateFeesPaise), amountDuePaise: String(towers[t12]?.amountDuePaise) })}; median amount ${towers[Math.floor(towers.length / 2)].amountDuePaise}`);
+    const out = renderToStaticMarkup(h(ReportView, { report: october }));
+    const block = out.slice(out.indexOf('aria-labelledby="committee-towers"'), out.indexOf("</section>", out.indexOf('aria-labelledby="committee-towers"')));
+    expect(block).toContain("Towers with the most unpaid");
+    expect(block).not.toMatch(/T\d\d-\d{4}/);
   });
 });
 

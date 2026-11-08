@@ -16,6 +16,7 @@ import { QualityBlock } from "./quality-block";
 import { ReconciliationBlock } from "./reconciliation-block";
 import { ReportSection } from "./report-section";
 import { ResponsiveDefaults } from "./responsive-defaults";
+import { TowersBlock } from "./towers-block";
 
 /** What a section says when the month has no bills: in words, with no zeros and no chart. */
 function EmptyMonth() {
@@ -58,6 +59,7 @@ export function ReportView({ report, hidden = [] }: { report: CommitteeReport; h
       <>
         <AgeingBlock ageing={report.ageing} money={report.money} period={report.period} selected={report.drilldown?.bucket ?? null} />
         {report.drilldown !== null && <AgeingDetail page={report.drilldown} period={report.period} />}
+        <TowersBlock rollup={report.towers} />
       </>
     ),
     quality: report.quality === null ? <EmptyMonth /> : <QualityBlock quality={report.quality} curve={report.series.curve} goal={report.cards.onTime.goal} period={report.period} />,

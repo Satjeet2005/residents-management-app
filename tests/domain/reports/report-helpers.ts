@@ -9,7 +9,7 @@ export const policy = defaultLateFeePolicy;
 let counter = 0;
 export const nextId = (prefix: string): string => `${prefix}-${(counter += 1)}`;
 
-export type FlatSpec = { flatId: string; flatCode: string; bills: DueBill[]; entries: DueEntry[] };
+export type FlatSpec = { flatId: string; flatCode: string; /** The flat's tower; the part of the code before the dash when not given. */ tower?: string; bills: DueBill[]; entries: DueEntry[] };
 
 /** A bill due on `dueOn` (the 10th of the period's month in the tests), issued on the 1st of that month. */
 export function bill(period: string, amountPaise: Paise, dueOn = `${period.slice(0, 8)}10`): DueBill {
@@ -25,7 +25,7 @@ export const lateFee = (billId: string, amountPaise: Paise, effectiveDate: strin
 
 /** The positions of the given flats as of a date, the way the report's loader builds them: `positionsForFlat` per flat. */
 export function positionsOf(flats: readonly FlatSpec[], asOf: string): ReportPosition[] {
-  return flats.flatMap((f) => positionsForFlat({ bills: f.bills, entries: f.entries, policy, asOf }).map((p) => ({ ...p, flatId: f.flatId, flatCode: f.flatCode })));
+  return flats.flatMap((f) => positionsForFlat({ bills: f.bills, entries: f.entries, policy, asOf }).map((p) => ({ ...p, flatId: f.flatId, flatCode: f.flatCode, tower: f.tower ?? f.flatCode.split("-")[0] })));
 }
 
 /**
