@@ -491,7 +491,7 @@ describe("RP6 access: who may read the report, and what the page never shows", (
 
   it("the committee user sees the whole page, from the real data, with every block", async () => {
     const out = renderToStaticMarkup(h(ReportView, { report: { ...october, drilldown: firstPage } }));
-    for (const part of ["Committee report", "Figures as of 27 October 2026", "Money collected for October", "Billed and collected", "What is owed", "How fast bills are paid", "Complaints", "Bank statement matching", "About these numbers", "Open dues: 31 to 60 days"]) expect(out).toContain(part);
+    for (const part of ["Committee report", "As of 27 October 2026 · read only", "Money collected for October", "Billed and collected", "What is owed", "How fast bills are paid", "Complaints", "Bank statement matching", "About these numbers", "Open dues: 31 to 60 days"]) expect(out).toContain(part);
     expect(out).not.toMatch(/<h2[^>]*>Goals<\/h2>/);
     expect(out).toContain("₹1,80,52,190");
     expect(out).not.toMatch(/NaN|undefined/);

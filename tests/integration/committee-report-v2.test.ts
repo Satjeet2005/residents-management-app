@@ -1,3 +1,4 @@
+import { formatRupeesShort } from "@/domain/money/short";
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -73,6 +74,33 @@ describe("V2-1 the monthly series against SQL", () => {
       expect(point.hasBills, point.period).toBe(sql !== undefined);
     }
     expect(report.series.monthly.at(-1)?.hasBills).toBe(true);
+  });
+
+  it("collected within 20 days of the bill, per month, equals an independent SQL sum (D173), and October, 26 days old, is not 'so far' on 27 October", async () => {
+    const rows = await fx.owner.$queryRawUnsafe<{ period: Date; billed: bigint; within: bigint }[]>(
+      `SELECT b.period, SUM(b.amount_paise)::bigint AS billed,
+              SUM(LEAST(b.amount_paise, COALESCE((
+                SELECT SUM(e.amount_paise) FROM ledger_entries e
+                WHERE e.bill_id = b.id AND e.entry_type = 'PAYMENT' AND e.effective_date <= LEAST(b.issued_on + 20, DATE '${AS_OF}')
+                  AND NOT EXISTS (SELECT 1 FROM ledger_entries r WHERE r.entry_type = 'REVERSAL' AND r.reverses_entry_id = e.id AND r.effective_date <= DATE '${AS_OF}')
+              ), 0)))::bigint AS within
+       FROM bills b WHERE b.issued_on <= DATE '${AS_OF}' GROUP BY b.period`,
+    );
+    const byPeriod = new Map(rows.map((r) => [toPeriod(r.period), r]));
+    for (const point of report.series.monthly) {
+      const sql = byPeriod.get(point.period);
+      expect(point.byDay20Paise, point.period).toBe(sql?.within ?? 0n);
+      expect(point.byDay20Percent, point.period).toBe(sql === undefined ? null : Number((200n * sql.within + sql.billed) / (2n * sql.billed)));
+      expect(point.byDay20Paise <= point.collectedPaise, point.period).toBe(true);
+      console.log(`V2 within 20 days ${point.period}: SQL ${sql?.within ?? 0n} of ${sql?.billed ?? 0n}, loader ${point.byDay20Paise}, today ${point.collectedPaise}`);
+    }
+    expect(report.series.monthly.at(-1)?.inProgress).toBe(false);
+  });
+
+  it("the Collected card compares October with September at the same age, with both figures from the series", () => {
+    const [sep, oct] = report.series.monthly.slice(-2);
+    expect(report.cards.collected.within20).toBe(`October within 20 days: ${oct.byDay20Percent}%`);
+    expect(report.cards.collected.sameAge).toBe(`September, at the same age: ${sep.byDay20Percent}%`);
   });
 
   it("the Collected card is the money line: the same collected and billed as the SQL for October", async () => {
@@ -236,7 +264,9 @@ describe("V2-7 the page from the real report", () => {
 
   it("every card and every section headline is built from the same figures: the cards equal the money line and the ageing total", () => {
     expect(report.cards.collected.comparison).toContain("₹");
-    expect(report.headlines.owed).toContain(report.ageing.total.flats.toLocaleString("en-IN"));
+    const over90 = report.ageing.buckets.find((b) => b.bucket === "OVER_90");
+    expect(report.headlines.owed).toBe(over90 !== undefined && over90.bills > 0 ? `${formatRupeesShort(over90.amountDuePaise)} is over 90 days` : "Nothing is over 90 days");
+    expect(report.headlines.money).toBe(`Billed ${formatRupeesShort(report.money?.billedPaise ?? 0n)} · ${(report.money?.flatsOutstanding ?? 0).toLocaleString("en-IN")} flats still to pay`);
     expect(report.cards.owed.comparison).toBe(`${report.ageing.total.flats.toLocaleString("en-IN")} flats`);
     expect(report.headlines.complaints).toContain(report.complaints.raised.toLocaleString("en-IN"));
   });

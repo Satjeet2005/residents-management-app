@@ -64,7 +64,7 @@ describe("SE2b collected within 20 days of the bill (D173)", () => {
     ["part payments add up inside the window only", (id: string) => [payment(id, 250_000n, "2026-09-05"), payment(id, 250_000n, "2026-09-20"), payment(id, 500_000n, "2026-09-30")], 50, false],
     ["nothing paid is 0 percent, not no data", () => [], 0, false],
   ])("%s", (_name, entries, expected, inProgress) => {
-    expect(collectedByDay(one(1_000_000n, entries), AS_OF)).toEqual({ percent: expected, inProgress });
+    expect(collectedByDay(one(1_000_000n, entries), AS_OF)).toMatchObject({ percent: expected, inProgress });
   });
 
   it("a late fee paid above the bill is never counted: the share is capped at the bill", () => {
@@ -83,12 +83,12 @@ describe("SE2b collected within 20 days of the bill (D173)", () => {
   it("a month whose day 20 is after the as-of date is read up to the as-of date and flagged in progress", () => {
     const b = bill("2026-10-01", 1_000_000n);
     const early = positionsOf([flat("T01-0004", [b], [payment(b.id, 300_000n, "2026-10-05"), payment(b.id, 200_000n, "2026-10-15")])], "2026-10-10");
-    expect(collectedByDay(early, "2026-10-10")).toEqual({ percent: 30, inProgress: true });
-    expect(collectedByDay(early, "2026-10-21")).toEqual({ percent: 30, inProgress: false });
+    expect(collectedByDay(early, "2026-10-10")).toMatchObject({ percent: 30, inProgress: true });
+    expect(collectedByDay(early, "2026-10-21")).toMatchObject({ percent: 30, inProgress: false });
   });
 
   it("no bills is no data", () => {
-    expect(collectedByDay([], AS_OF)).toEqual({ percent: null, inProgress: false });
+    expect(collectedByDay([], AS_OF)).toEqual({ paise: 0n, percent: null, inProgress: false });
   });
 
   it("monthlySeries carries both measures: older months by day 20 are close to today, the young month differs", () => {

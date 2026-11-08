@@ -20,6 +20,9 @@ function Card({ label, period, phonePeriod, value, children }: { label: string; 
   );
 }
 
+/** The line under a small line chart: the previous period and this one with their figures ("September 73% → October 70%"), or the previous period alone; nothing without one. */
+const Comparison = ({ text }: { text: string | null }) => (text === null ? null : <p className="tnum text-body text-ink-2">{text}</p>);
+
 /**
  * The four headline cards, always shown and never hideable: Collected this month (a progress bar, no goal because none exists), Total owed, Paid on time (goal and a
  * six-month sparkline) and Replies within the SLA (goal and an eight-week sparkline). Each is a label, one large value, a comparison line and a mark.
@@ -46,21 +49,21 @@ export function HeadlineCards({ report }: { report: CommitteeReport }) {
         <Card label={t("committee.card.onTime", { month })} period={t("committee.card.period.bills", { month })} phonePeriod={false} value={cards.onTime.value}>
           {cards.onTime.percent !== null && <p className="text-body text-ink-2">{t("committee.card.onTimeCaption", { n: cards.onTime.percent, month })}</p>}
           <GoalLine mark={cards.onTime.goal} />
-          {cards.onTime.lastMonth !== null && <p className="text-body text-ink-2">{cards.onTime.lastMonth}</p>}
           <Sparkline
             text={trendText({ id: "m2-on-time", caption: t("committee.trend.onTime.title"), title: t("committee.trend.onTime.title"), points: cards.onTime.trend, goal: cards.onTime.goal })}
             points={cards.onTime.trend}
             goal={{ percent: cards.onTime.goal.targetPercent, label: t("committee.sparkline.goal", { n: cards.onTime.goal.targetPercent }) }}
           />
+          <Comparison text={cards.onTime.arrow ?? cards.onTime.lastMonth} />
         </Card>
         <Card label={t("committee.card.sla", { month })} period={t("committee.card.period.complaints", { month })} phonePeriod={false} value={cards.sla.value}>
           <GoalLine mark={cards.sla.goal} />
-          {cards.sla.lastMonth !== null && <p className="text-body text-ink-2">{cards.sla.lastMonth}</p>}
           <Sparkline
             text={trendText({ id: "m2-sla", caption: t("committee.trend.sla.title"), title: t("committee.trend.sla.title"), points: cards.sla.trend, goal: cards.sla.goal })}
             points={cards.sla.trend}
             goal={{ percent: cards.sla.goal.targetPercent, label: t("committee.sparkline.goal", { n: cards.sla.goal.targetPercent }) }}
           />
+          <Comparison text={cards.sla.arrow ?? cards.sla.lastMonth} />
         </Card>
       </ul>
       <p className="pt-3">

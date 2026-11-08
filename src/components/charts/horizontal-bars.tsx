@@ -1,5 +1,5 @@
 import { CHART_TEXT } from "./chart-tokens";
-import { type ChartText, ChartFigure, ChartSvg, Hatch } from "./chart-parts";
+import { type ChartText, ChartFigure, ChartSvg, Dots, Hatch } from "./chart-parts";
 
 export const MAX_BARS = 7;
 const WIDTH = 320;
@@ -12,8 +12,8 @@ export type BarRow = {
   valueText: string;
   /** The length of the bar, 0 or more, in the unit of the other rows; the longest row is the full width. */
   value: number;
-  /** "warning" draws the bar hatched in the caution colour: pattern and colour, with the label as the meaning. */
-  emphasis?: "warning";
+  /** "warning" draws the bar hatched in the caution colour: pattern and colour, with the label as the meaning. "partial" draws it dotted and dashed, for a figure still growing (the label says "so far"). */
+  emphasis?: "warning" | "partial";
 };
 
 /**
@@ -25,11 +25,13 @@ export function HorizontalBars({ text, rows, scaleMax }: { text: ChartText; rows
   if (rows.length > MAX_BARS) throw new RangeError(`A bar chart has at most ${MAX_BARS} bars, got ${rows.length}`);
   const full = scaleMax ?? Math.max(...rows.map((r) => r.value), 0);
   const hatch = `${text.id}-hatch`;
+  const dots = `${text.id}-dots`;
   return (
     <ChartFigure text={text}>
       <ChartSvg text={text} width={WIDTH} height={rows.length * ROW}>
         <defs>
           <Hatch id={hatch} />
+          <Dots id={dots} />
         </defs>
         {rows.map((row, index) => {
           const top = index * ROW;
@@ -44,7 +46,17 @@ export function HorizontalBars({ text, rows, scaleMax }: { text: ChartText; rows
               </text>
               <rect x={2} y={top + 26} width={WIDTH - 4} height={BAR} rx={3} strokeWidth={2} className="fill-paper stroke-hairline" />
               {length > 0 && (
-                <rect x={2} y={top + 26} width={Math.max(length, 4)} height={BAR} rx={3} strokeWidth={2} fill={row.emphasis === "warning" ? `url(#${hatch})` : undefined} className={row.emphasis === "warning" ? "stroke-caution" : "fill-accent stroke-accent"} />
+                <rect
+                  x={2}
+                  y={top + 26}
+                  width={Math.max(length, 4)}
+                  height={BAR}
+                  rx={3}
+                  strokeWidth={2}
+                  strokeDasharray={row.emphasis === "partial" ? "5 3" : undefined}
+                  fill={row.emphasis === "warning" ? `url(#${hatch})` : row.emphasis === "partial" ? `url(#${dots})` : undefined}
+                  className={row.emphasis === "warning" ? "stroke-caution" : row.emphasis === "partial" ? "stroke-accent" : "fill-accent stroke-accent"}
+                />
               )}
             </g>
           );

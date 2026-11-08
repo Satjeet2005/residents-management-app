@@ -1,5 +1,5 @@
 import { CHART_TEXT } from "./chart-tokens";
-import { type ChartText, ChartFigure, ChartSvg, Hatch } from "./chart-parts";
+import { type ChartText, ChartFigure, ChartSvg, Dots, Hatch } from "./chart-parts";
 import { MAX_BARS } from "./horizontal-bars";
 
 const WIDTH = 560;
@@ -15,8 +15,10 @@ export type StackColumn = {
   collected: number;
   outstanding: number;
   hasData: boolean;
-  /** The collected share written above the column ("82%"). */
+  /** The collected share written above the column ("82%"; "79% so far" for a month still growing). */
   percentText: string;
+  /** The month is younger than the measuring age: its collected part is drawn dotted, never solid. */
+  partial?: boolean;
 };
 
 /**
@@ -32,6 +34,7 @@ export function StackedBars({ text, columns, labels }: { text: ChartText; column
   const barWidth = Math.min(56, slot * 0.6);
   const tallest = Math.max(...columns.map((c) => c.collected + c.outstanding), 1);
   const hatch = `${text.id}-hatch`;
+  const dots = `${text.id}-dots`;
   const lastWithData = columns.findLastIndex((c) => c.hasData);
   const base = TOP + plotHeight;
   return (
@@ -39,6 +42,7 @@ export function StackedBars({ text, columns, labels }: { text: ChartText; column
       <ChartSvg text={text} width={WIDTH} height={HEIGHT}>
         <defs>
           <Hatch id={hatch} />
+          <Dots id={dots} />
         </defs>
         <line x1={LEFT} x2={LEFT + plotWidth} y1={base} y2={base} strokeWidth={2} className="stroke-ink" />
         {columns.map((column, index) => {
@@ -49,7 +53,16 @@ export function StackedBars({ text, columns, labels }: { text: ChartText; column
             <g key={column.label}>
               {column.hasData ? (
                 <>
-                  <rect x={centre - barWidth / 2} y={base - collectedHeight} width={barWidth} height={collectedHeight} strokeWidth={2} className="fill-accent stroke-accent" />
+                  <rect
+                    x={centre - barWidth / 2}
+                    y={base - collectedHeight}
+                    width={barWidth}
+                    height={collectedHeight}
+                    strokeWidth={2}
+                    strokeDasharray={column.partial === true ? "5 3" : undefined}
+                    fill={column.partial === true ? `url(#${dots})` : undefined}
+                    className={column.partial === true ? "stroke-accent" : "fill-accent stroke-accent"}
+                  />
                   <rect x={centre - barWidth / 2} y={base - collectedHeight - outstandingHeight} width={barWidth} height={outstandingHeight} strokeWidth={2} fill={`url(#${hatch})`} className="stroke-ink" />
                   <text x={centre} y={base - collectedHeight - outstandingHeight - 8} fontSize={CHART_TEXT} fontWeight={600} textAnchor="middle" className="fill-ink">
                     {column.percentText}

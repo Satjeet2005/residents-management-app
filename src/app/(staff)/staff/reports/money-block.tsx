@@ -51,11 +51,16 @@ export function MoneyBlock({ money, series, period }: { money: MoneyLine; series
       </ul>
       <p className="tnum text-body">{t("committee.money.flats", { billed: flatsText(money.flatsBilled), paid: countText(money.flatsPaidInFull), owing: countText(money.flatsOutstanding) })}</p>
       <div className="md:hidden">
-        <HorizontalBars text={{ ...visual.text, id: "monthly-bars" }} rows={visual.rows} scaleMax={100} />
+        <HorizontalBars text={{ ...visual.phoneText, id: "monthly-bars" }} rows={visual.rows} scaleMax={100} />
       </div>
       <div className="hidden md:block">
         <StackedBars text={{ ...visual.text, id: "monthly-columns" }} columns={visual.columns} labels={visual.labels} />
       </div>
+      <ul className="flex flex-col gap-1 text-body text-ink-2">
+        {visual.notes.map((note) => (
+          <li key={note}>{note}</li>
+        ))}
+      </ul>
     </>
   );
 }

@@ -9,6 +9,8 @@ import { percent, percentOfPaise } from "./stats";
 export const COLLECTED_WITHIN_DAYS = 20;
 
 export type CollectedByDay = {
+  /** The amount paid within the days, in paise (never above the bills). */
+  paise: Paise;
   /** Share of the billed amount paid within the days, whole percent half up; null without bills. */
   percent: number | null;
   /** True when the day-20 date has not come: the share is then read up to the as-of date, and is still growing. */
@@ -32,7 +34,7 @@ export function collectedByDay(positions: readonly ReportPosition[], asOf: Calen
     billed += p.bill.amountPaise;
     paid += within < p.bill.amountPaise ? within : p.bill.amountPaise;
   }
-  return { percent: percentOfPaise(paid, billed), inProgress };
+  return { paise: paid, percent: percentOfPaise(paid, billed), inProgress };
 }
 
 export type MonthlyPoint = {
@@ -46,6 +48,8 @@ export type MonthlyPoint = {
   collectedPercent: number | null;
   /** Collected within 20 days of the issue date, the fair comparison (D173); null without bills. */
   byDay20Percent: number | null;
+  /** The same amount in paise, for the stacked chart. */
+  byDay20Paise: Paise;
   /** The month is younger than 20 days: `byDay20Percent` is read up to the as-of date. */
   inProgress: boolean;
 };
@@ -71,6 +75,7 @@ export function monthlySeries(positions: readonly ReportPosition[], periods: rea
       outstandingPaise: line.outstandingPaise,
       collectedPercent: percentOfPaise(line.collectedPaise, line.billedPaise),
       byDay20Percent: early.percent,
+      byDay20Paise: early.paise,
       inProgress: early.inProgress && mine.length > 0,
     };
   });

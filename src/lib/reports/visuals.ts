@@ -86,33 +86,68 @@ export function trendText(input: { id: string; caption: string; title: string; p
 
 const monthLabel = (period: string): string => monthName(period).slice(0, 3);
 
-/** The monthly collection (M3 below 768px and C1 from 768px draw the same data): the points of the six months. */
-export type MonthlyVisual = { text: ChartText; rows: BarRow[]; columns: StackColumn[]; labels: { collected: string; outstanding: string } };
+/** The monthly collection (M3 below 768px and C1 from 768px draw the same data): the months that have bills, measured at the same age. */
+export type MonthlyVisual = {
+  /** The text and table of the columns (from 768px): month, billed, within 20 days, collected today, still unpaid today. */
+  text: ChartText;
+  /** The text and table of the bars (below 768px): THREE columns, month, within 20 days, still unpaid today in lakh, so the table needs no sideways scroll. */
+  phoneText: ChartText;
+  rows: BarRow[];
+  columns: StackColumn[];
+  labels: { collected: string; outstanding: string };
+  /** The sentences under the chart: why the months can be compared, and (only when a month was left out) that months before billing started are not shown. */
+  notes: string[];
+};
 
 /**
- * One description, one table and one set of numbers for the monthly collection, so the phone bars and the laptop columns can never disagree. The takeaway is the
- * movement of the collected share over the months that have bills; the table has Billed, Collected, Outstanding and the share of each month in full Indian grouping.
+ * One description and one set of numbers for the monthly collection, so the phone bars and the laptop columns cannot disagree. Every month is measured at the SAME
+ * AGE (D173): the share of its bills paid within 20 days, written "so far" and drawn dotted for a month younger than that. A month without bills is not drawn and
+ * not listed (the note says so). The table keeps both measures: within 20 days and still unpaid today.
  */
 export function monthlyVisual(series: readonly MonthlyPoint[]): MonthlyVisual {
-  const points = series.map((p) => ({ label: monthLabel(p.period), value: p.collectedPercent }));
+  const billed = series.filter((p) => p.hasBills);
+  const label = (p: MonthlyPoint): string => (p.inProgress ? t("committee.monthly.soFarLabel", { month: monthLabel(p.period) }) : monthLabel(p.period));
+  const valueText = (p: MonthlyPoint): string => (p.inProgress ? t("committee.monthly.soFarValue", { n: percentText(p.byDay20Percent) }) : percentText(p.byDay20Percent));
+  const points = billed.map((p) => ({ label: monthLabel(p.period), value: p.byDay20Percent }));
+  const description = t("committee.monthly.desc", { movement: trendDescription(points, null) });
+  const young = billed.find((p) => p.inProgress);
+  const named = (p: MonthlyPoint): string => `${monthName(p.period)} ${p.period.slice(0, 4)}`;
+  const table = (columns: string[], cells: (p: MonthlyPoint) => string[]): ChartText["table"] => ({
+    caption: t("committee.monthly.caption"),
+    columns,
+    rows: billed.map((p) => ({ header: p.inProgress ? t("committee.monthly.soFarLabel", { month: named(p) }) : named(p), cells: cells(p) })),
+  });
   return {
     text: {
       id: "monthly",
       caption: t("committee.monthly.caption"),
       title: t("committee.monthly.title"),
-      description: t("committee.monthly.desc", { movement: trendDescription(points, null) }),
-      table: {
-        caption: t("committee.monthly.caption"),
-        columns: [t("committee.monthly.col.month"), t("committee.monthly.col.billed"), t("committee.monthly.col.collected"), t("committee.monthly.col.outstanding"), t("committee.monthly.col.share")],
-        rows: series.map((p) => ({
-          header: `${monthName(p.period)} ${p.period.slice(0, 4)}`,
-          cells: p.hasBills ? [formatRupees(p.billedPaise), formatRupees(p.collectedPaise), formatRupees(p.outstandingPaise), percentText(p.collectedPercent)] : Array.from({ length: 4 }, () => t("committee.noData")),
-        })),
-      },
+      description: young === undefined ? description : `${description} ${t("committee.monthly.descYoung", { month: monthName(young.period) })}`,
+      table: table([t("committee.monthly.col.month"), t("committee.monthly.col.billed"), t("committee.monthly.col.within20"), t("committee.monthly.col.today"), t("committee.monthly.col.unpaid")], (p) => [
+        formatRupees(p.billedPaise),
+        valueText(p),
+        percentText(p.collectedPercent),
+        formatRupees(p.outstandingPaise),
+      ]),
     },
-    rows: series.map((p) => ({ label: monthLabel(p.period), valueText: percentText(p.collectedPercent), value: p.collectedPercent ?? 0 })),
+    phoneText: {
+      id: "monthly",
+      caption: t("committee.monthly.caption"),
+      title: t("committee.monthly.title"),
+      description: young === undefined ? description : `${description} ${t("committee.monthly.descYoung", { month: monthName(young.period) })}`,
+      table: table([t("committee.monthly.col.month"), t("committee.monthly.col.within20"), t("committee.monthly.col.unpaidLakh")], (p) => [valueText(p), formatRupeesShort(p.outstandingPaise)]),
+    },
+    rows: billed.map((p) => ({ label: label(p), valueText: valueText(p), value: p.byDay20Percent ?? 0, emphasis: p.inProgress ? ("partial" as const) : undefined })),
     labels: { collected: t("committee.monthly.collected"), outstanding: t("committee.monthly.outstanding") },
-    columns: series.map((p) => ({ label: monthLabel(p.period), collected: Number(p.collectedPaise), outstanding: Number(p.outstandingPaise), hasData: p.hasBills, percentText: percentText(p.collectedPercent) })),
+    columns: billed.map((p) => ({
+      label: label(p),
+      collected: Number(p.byDay20Paise),
+      outstanding: Number(p.billedPaise - p.byDay20Paise),
+      hasData: true,
+      percentText: valueText(p),
+      partial: p.inProgress,
+    })),
+    notes: [t("committee.monthly.fair"), ...(billed.length < series.length ? [t("committee.monthly.hidden")] : [])],
   };
 }
 

@@ -13,25 +13,44 @@ const point = (period: string, billed: bigint, collected: bigint): MonthlyPoint 
   outstandingPaise: billed - collected,
   collectedPercent: billed === 0n ? null : Number((200n * collected + billed) / (2n * billed)),
   byDay20Percent: billed === 0n ? null : Number((200n * collected + billed) / (2n * billed)),
+  byDay20Paise: collected,
   inProgress: false,
 });
 
-describe("VZ1 the monthly visual: one text and one table for the phone bars and the laptop columns", () => {
-  const visual = monthlyVisual([point("2026-08-01", 0n, 0n), point("2026-09-01", 1_000_000n, 790_000n), point("2026-10-01", 1_000_000n, 820_000n)]);
+describe("VZ1 the monthly visual: every month at the same age, one text and one table per width (D173)", () => {
+  const young = { ...point("2026-10-01", 1_000_000n, 820_000n), byDay20Percent: 70, byDay20Paise: 700_000n, inProgress: true };
+  const sep = { ...point("2026-09-01", 1_000_000n, 960_000n), byDay20Percent: 79, byDay20Paise: 790_000n };
+  const visual = monthlyVisual([point("2026-08-01", 0n, 0n), sep, young]);
 
-  it("the takeaway is computed from the series, and the gap is skipped", () => {
-    expect(visual.text.description).toBe("Collected share of each month's billing. Oct was 82%, up from Sep (79%).");
+  it("the takeaway is about the share within 20 days, computed from the series, with the young month said to be so far", () => {
+    expect(visual.text.description).toBe("Share of each month's bills paid within 20 days of the bill. Oct was 70%, down from Sep (79%). October is still younger than 20 days, so its figure is so far.");
+    expect(visual.text.title).toBe("Collected within 20 days of the bill, month by month");
   });
 
-  it("the table has every month with the full Indian grouping, and 'No data' for a month without bills", () => {
-    expect(visual.text.table.rows[0]).toEqual({ header: "August 2026", cells: ["No data", "No data", "No data", "No data"] });
-    expect(visual.text.table.rows[2]).toEqual({ header: "October 2026", cells: ["₹10,000", "₹8,200", "₹1,800", "82%"] });
+  it("a month without bills is not drawn and not listed, and the notes say why months can be compared and that earlier months are not shown", () => {
+    expect(visual.rows.map((r) => r.label)).toEqual(["Sep", "Oct so far"]);
+    expect(visual.notes).toEqual(["Every month is measured at the same age, so older months are not favoured.", "Months before billing started are not shown"]);
+    expect(monthlyVisual([sep, point("2026-10-01", 1n, 1n)]).notes).toEqual(["Every month is measured at the same age, so older months are not favoured."]);
   });
 
-  it("the bars and the columns carry the same percents, in the same order", () => {
-    expect(visual.rows.map((r) => r.valueText)).toEqual(["No data", "79%", "82%"]);
-    expect(visual.columns.map((c) => c.percentText)).toEqual(["No data", "79%", "82%"]);
-    expect(visual.columns[2]).toMatchObject({ collected: 820_000, outstanding: 180_000, hasData: true });
+  it("the table of the columns holds both measures: within 20 days and still unpaid today, in full Indian grouping", () => {
+    expect(visual.text.table.columns).toEqual(["Month", "Billed", "Within 20 days", "Collected today", "Still unpaid today"]);
+    expect(visual.text.table.rows[1]).toEqual({ header: "October 2026 so far", cells: ["₹10,000", "70% so far", "82%", "₹1,800"] });
+  });
+
+  it("the table of the phone has THREE columns, so it needs no sideways scroll, with the unpaid amount in lakh", () => {
+    expect(visual.phoneText.table.columns).toEqual(["Month", "Within 20 days", "Still unpaid today (lakh)"]);
+    expect(visual.phoneText.table.rows[0]).toEqual({ header: "September 2026", cells: ["79%", "₹400"] });
+    expect(visual.phoneText.table.rows.every((r) => r.cells.length === 2)).toBe(true);
+  });
+
+  it("the bars and the columns carry the same percents, in the same order, plotted by day 20 and not by today; the young month is dotted and says so", () => {
+    expect(visual.rows.map((r) => r.valueText)).toEqual(["79%", "70% so far"]);
+    expect(visual.rows.map((r) => r.value)).toEqual([79, 70]);
+    expect(visual.rows.map((r) => r.emphasis)).toEqual([undefined, "partial"]);
+    expect(visual.columns.map((c) => c.percentText)).toEqual(["79%", "70% so far"]);
+    expect(visual.columns[1]).toMatchObject({ collected: 700_000, outstanding: 300_000, hasData: true, partial: true });
+    expect(visual.columns[0]).toMatchObject({ collected: 790_000, outstanding: 210_000 });
   });
 });
 

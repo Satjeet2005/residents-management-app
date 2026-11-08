@@ -93,3 +93,13 @@ export function runsOf<T extends { y: number | null }>(points: readonly T[]): T[
   if (current.length > 0) runs.push(current);
   return runs;
 }
+
+/** A dotted fill, lighter than a solid bar, for a figure that is still growing (a month younger than 20 days): it is told apart by pattern and by the word "so far", not by colour. */
+export function Dots({ id }: { id: string }) {
+  return (
+    <pattern id={id} width="8" height="8" patternUnits="userSpaceOnUse">
+      <rect width="8" height="8" className="fill-paper" />
+      <circle cx="4" cy="4" r="1.75" className="fill-accent" />
+    </pattern>
+  );
+}

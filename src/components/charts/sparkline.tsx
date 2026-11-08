@@ -3,7 +3,7 @@ import { type ChartText, ChartFigure, ChartSvg, runsOf } from "./chart-parts";
 
 const WIDTH = 224;
 const HEIGHT = 104;
-const LEFT = 6;
+const LEFT = 32;
 const RIGHT = 52;
 const TOP = 26;
 const BOTTOM = 28;
@@ -11,8 +11,9 @@ const BOTTOM = 28;
 export type SparkPoint = { label: string; value: number | null };
 
 /**
- * M2: a trend of up to eight values from 0 to 100 as a line, with the LAST value written at its end, the first and last labels under it, and the goal as a dashed
- * tick line written "Goal 90%". A value of null is a gap: the line breaks and no point is drawn. Nothing in it can be tapped or hovered.
+ * M2: a trend of up to eight values on a FIXED scale from 0 to 100 (a solid baseline written "0" and a faint line at 100), the LAST value written at its end, the
+ * first and last labels under it, and the goal as a dashed line written "Goal 90%". A value of null is a gap: the line breaks and no point is drawn. Nothing in it
+ * can be tapped or hovered.
  */
 export function Sparkline({ text, points, goal }: { text: ChartText; points: readonly SparkPoint[]; goal: { percent: number; label: string } | null }) {
   const plotWidth = WIDTH - LEFT - RIGHT;
@@ -25,6 +26,11 @@ export function Sparkline({ text, points, goal }: { text: ChartText; points: rea
   return (
     <ChartFigure text={text}>
       <ChartSvg text={text} width={WIDTH} height={HEIGHT}>
+        <line x1={LEFT} x2={WIDTH - RIGHT} y1={y(100)} y2={y(100)} strokeWidth={CHART_STROKE} className="stroke-hairline" />
+        <line x1={LEFT} x2={WIDTH - RIGHT} y1={y(0)} y2={y(0)} strokeWidth={CHART_STROKE} className="stroke-ink" />
+        <text x={LEFT - 6} y={y(0) + 5} fontSize={CHART_TEXT} textAnchor="end" className="fill-ink-2">
+          0
+        </text>
         {goal !== null && (
           <>
             <line x1={LEFT} x2={WIDTH - RIGHT} y1={goalY} y2={goalY} strokeWidth={CHART_STROKE} strokeDasharray="6 4" className="stroke-ink-2" />

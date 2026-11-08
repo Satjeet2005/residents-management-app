@@ -17,8 +17,9 @@ export type GoalMark = { key: GoalKey; status: GoalStatus; targetPercent: number
 export type HeadlineCards = {
   collected: { percent: number | null; value: string; comparison: string; exact: string | null; /** "October within 20 days: 79%" and "September, at the same age: 93%" (D173); null without data. */ within20: string | null; sameAge: string | null };
   owed: { value: string; comparison: string; detail: string };
-  onTime: { percent: number | null; value: string; goal: GoalMark; lastMonth: string | null; trend: TrendPoint[] };
-  sla: { percent: number | null; value: string; goal: GoalMark; lastMonth: string | null; trend: TrendPoint[] };
+  /** `arrow` is "September 73% → October 70%" under the small line, from the same two numbers as the card; null without a previous figure. */
+  onTime: { percent: number | null; value: string; goal: GoalMark; lastMonth: string | null; arrow: string | null; trend: TrendPoint[] };
+  sla: { percent: number | null; value: string; goal: GoalMark; lastMonth: string | null; arrow: string | null; trend: TrendPoint[] };
 };
 
 export type CardsInput = {
@@ -61,6 +62,10 @@ export const goalMark = (rows: readonly GoalRow[], key: GoalKey): GoalMark => {
   return { key, status: row.status, targetPercent: row.targetPercent, text: goalText(row) };
 };
 
+/** "September 73% → October 70%": the two periods named with the same two figures as the card and its line. Null when either has no figure. */
+const arrowText = (before: { period: string; value: number | null } | undefined, now: { period: string; value: number | null } | undefined): string | null =>
+  before === undefined || now === undefined || before.value === null || now.value === null ? null : t("committee.card.arrow", { before: monthName(before.period), a: before.value, now: monthName(now.period), b: now.value });
+
 /** "September: 73%", the previous period named (D177); null when it has no figure, so the line is left out. */
 const previousText = (point: { period: string; value: number | null } | undefined): string | null => (point === undefined || point.value === null ? null : t("committee.card.previous", { month: monthName(point.period), n: point.value }));
 
@@ -98,6 +103,7 @@ export function buildCards(input: CardsInput): HeadlineCards {
       value: percentText(thisMonth.headlinePercent),
       goal: goalMark(goals, "onTimeCollection"),
       lastMonth: previousText(lastMonth && { period: lastMonth.period, value: lastMonth.headlinePercent }),
+      arrow: arrowText(lastMonth && { period: lastMonth.period, value: lastMonth.headlinePercent }, { period: thisMonth.period, value: thisMonth.headlinePercent }),
       trend: onTime.map((p) => ({ label: monthName(p.period).slice(0, 3), value: p.headlinePercent })),
     },
     sla: {
@@ -105,6 +111,7 @@ export function buildCards(input: CardsInput): HeadlineCards {
       value: percentText(slaPercent),
       goal: goalMark(goals, "firstReplyWithinSla"),
       lastMonth: previousText(slaPrevious && { period: slaPrevious.period, value: slaPrevious.sharePercent }),
+      arrow: arrowText(slaPrevious && { period: slaPrevious.period, value: slaPrevious.sharePercent }, sla.months.at(-1) && { period: (sla.months.at(-1) as MonthlySlaPoint).period, value: slaPercent }),
       trend: sla.months.map((m) => ({ label: monthName(m.period).slice(0, 3), value: m.sharePercent })),
     },
   };

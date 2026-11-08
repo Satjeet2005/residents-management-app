@@ -26,8 +26,8 @@ const point = (period: string, due: number, dueOnTime: number): OnTimePoint => (
 const month = (period: string, decided: number, met: number): MonthlySlaPoint => ({ period, raised: decided, decided, met, sharePercent: decided === 0 ? null : Math.round((100 * met) / decided) });
 const rows = evaluateGoals(defaultGoals, { onTime: { n: 7, d: 10 }, firstReply: { n: 17, d: 20 }, reopened: { n: 0, d: 0 } });
 const monthly: MonthlyPoint[] = [
-  { period: "2026-09-01", hasBills: true, billedPaise: 100n, collectedPaise: 93n, outstandingPaise: 7n, collectedPercent: 93, byDay20Percent: 91, inProgress: false },
-  { period: "2026-10-01", hasBills: true, billedPaise: 100n, collectedPaise: 82n, outstandingPaise: 18n, collectedPercent: 82, byDay20Percent: 79, inProgress: false },
+  { period: "2026-09-01", hasBills: true, billedPaise: 100n, collectedPaise: 93n, outstandingPaise: 7n, collectedPercent: 93, byDay20Percent: 91, byDay20Paise: 91n, inProgress: false },
+  { period: "2026-10-01", hasBills: true, billedPaise: 100n, collectedPaise: 82n, outstandingPaise: 18n, collectedPercent: 82, byDay20Percent: 79, byDay20Paise: 79n, inProgress: false },
 ];
 const input = {
   money,
@@ -91,11 +91,11 @@ describe("CD2 the section headlines", () => {
   const headlines = sectionHeadlines({ money, ageing, quality, complaints, reconciliation });
 
   it("says each one in a sentence from the data", () => {
-    expect(headlines.money).toBe("₹1.48 crore collected of ₹1.81 crore");
-    expect(headlines.owed).toBe("817 flats owe ₹60.6 lakh");
-    expect(headlines.quality).toBe("70% paid on time, 88% of paid bills");
-    expect(headlines.complaints).toBe("1,603 raised, 85% replied in time");
-    expect(headlines.bank).toBe("24 of 106 rows posted automatically");
+    expect(headlines.money).toBe("Billed ₹1.81 crore · 484 flats still to pay");
+    expect(headlines.owed).toBe("₹12.1 lakh is over 90 days");
+    expect(headlines.quality).toBe("Typical 6 days to pay · 88% of paid bills were on time");
+    expect(headlines.complaints).toBe("1,603 raised, 85% answered in time");
+    expect(headlines.bank).toBe("70 bank entries need a person");
   });
 
   it("says so in words when there is nothing to count", () => {
@@ -103,8 +103,18 @@ describe("CD2 the section headlines", () => {
     expect(empty).toEqual({ money: "No bills this month", owed: "Nothing is owed", quality: "No bills this month", complaints: "None raised this month", bank: "No bank statement in the last 30 days" });
   });
 
-  it("a flat count of one is singular", () => {
-    expect(sectionHeadlines({ money, ageing: { ...ageing, total: { ...ageing.total, flats: 1 } }, quality, complaints, reconciliation }).owed).toBe("1 flat owes ₹60.6 lakh");
+  it("none over 90 days, one bank entry waiting, nobody waiting and every flat paid are said in words", () => {
+    const none = { ...ageing, buckets: ageing.buckets.map((b) => (b.bucket === "OVER_90" ? { ...b, bills: 0, flats: 0, unpaidBillsPaise: 0n, lateFeesPaise: 0n, amountDuePaise: 0n } : b)) };
+    expect(sectionHeadlines({ money, ageing: none, quality, complaints, reconciliation }).owed).toBe("Nothing is over 90 days");
+    const one = reconciliationLine({ states: { ...states, QUEUED: 1 }, imports: [{ rowsRead: 37, stored: 37, invalidRows: 0, alreadyImported: 0 }], decisions: [] });
+    expect(sectionHeadlines({ money, ageing, quality, complaints, reconciliation: one }).bank).toBe("1 bank entry needs a person");
+    const nobody = reconciliationLine({ states: { ...states, QUEUED: 0 }, imports: [{ rowsRead: 36, stored: 36, invalidRows: 0, alreadyImported: 0 }], decisions: [] });
+    expect(sectionHeadlines({ money, ageing, quality, complaints, reconciliation: nobody }).bank).toBe("No bank entry needs a person");
+    expect(sectionHeadlines({ money: { ...money, flatsOutstanding: 0 }, ageing, quality, complaints, reconciliation }).money).toBe("Billed ₹1.81 crore · every flat has paid");
+  });
+
+  it("a section headline never repeats a card's figure: it carries new information", () => {
+    expect(Object.values(headlines).join(" ")).not.toContain("₹1.48 crore");
   });
 });
 
