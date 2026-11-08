@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createPrng } from "@/domain/seed/prng";
-import { atLeastPercent, atMostPercent, medianOf, percent } from "@/domain/reports/stats";
+import { atLeastPercent, atMostPercent, medianOf, percent, percentOfPaise } from "@/domain/reports/stats";
 
 describe("RP1 medianOf", () => {
   it.each([
@@ -65,5 +65,16 @@ describe("RP1 percent", () => {
     expect(atMostPercent(8, 100, 8)).toBe(true);
     expect(atMostPercent(81, 1000, 8)).toBe(false);
     expect(atMostPercent(0, 0, 8)).toBe(false);
+  });
+});
+
+describe("percentOfPaise", () => {
+  it("rounds half up on exact integers and says null for a zero denominator", () => {
+    expect(percentOfPaise(1n, 0n)).toBeNull();
+    expect(percentOfPaise(0n, 5n)).toBe(0);
+    expect(percentOfPaise(1n, 8n)).toBe(13);
+    expect(percentOfPaise(1n, 3n)).toBe(33);
+    expect(percentOfPaise(2n, 3n)).toBe(67);
+    expect(percentOfPaise(9_007_199_254_740_993n, 9_007_199_254_740_993n)).toBe(100);
   });
 });

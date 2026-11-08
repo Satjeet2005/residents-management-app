@@ -19,3 +19,9 @@ export const atLeastPercent = (n: number, d: number, targetPercent: number): boo
 
 /** Is `n` out of `d` at most `maxPercent`? Worked out on the counts. False when `d` is 0. */
 export const atMostPercent = (n: number, d: number, maxPercent: number): boolean => d > 0 && n * 100 <= maxPercent * d;
+
+/** `n` out of `d` (paise) as a whole percent, rounded half up on the exact integers, or null when `d` is 0. */
+export function percentOfPaise(n: bigint, d: bigint): number | null {
+  if (d === 0n) return null;
+  return Number((200n * n + d) / (2n * d));
+}
