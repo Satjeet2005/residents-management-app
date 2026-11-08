@@ -296,7 +296,7 @@ Do these in order. Nothing here is pasted into a chat: passwords are typed at pr
 - [ ] **E9c. Create and verify the logs role** by the five steps of "Setting up the read-only logs role" in `docs/observability.md`. **Expected:** `npm run logs:errors -- --since=7d --limit=1` prints "No error events matched" or a row, and `SELECT 1 FROM users` as `township_logs` is refused.
 - [ ] **E9d. Redeploy, then open `$BASE_URL/api/health/ready`.** **Expected:** `"canInsertErrorEvents":true` and `"canReadErrorEvents":false`; `canReadErrorEvents: true` makes the report degraded (the app role was given SELECT: re-run E9b).
 - [ ] **E9e. Set `OPS_TEST_TOKEN` in the Vercel dashboard only** (Production, Secret, at least 32 characters: `openssl rand -hex 32`), and redeploy. `config.opsTestEnabled` is now `true`.
-- [ ] **E9f. Run the error-test route and find its reference.** `read -rs T; curl -s -H "x-ops-token: $T" "$BASE_URL/api/ops/error-test"; unset T` answers `{"ref":"E-XXXXXX"}`; then `npm run logs:errors -- --ref E-XXXXXX --paste`. **Expected:** one WARN block, source TEST, message "ops test". Without the header the route answers a plain 404.
+- [ ] **E9f. Run the error-test route and find its reference.** `read -rs T; curl -s -H "x-ops-token: $T" "$BASE_URL/api/ops/error-test"; unset T` answers `{"ref":"E-XXXXXX"}`; then `npm run logs:errors -- --ref=E-XXXXXX --paste`. **Expected:** one WARN block, source TEST, message "ops test". Without the header the route answers a plain 404.
 - [ ] **E9g. `LOGS_DATABASE_URL` is never set in Vercel.** **Expected:** the Vercel variable list has no such name.
 
 ## Part F. Keep it alive for the review window

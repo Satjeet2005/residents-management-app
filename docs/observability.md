@@ -51,13 +51,13 @@ shape) are kept, because they are the keys a person quotes. The reader redacts e
 A person sees "Something went wrong." and "Reference: ..." (an `E-XXXXXX` from an API answer, or a digest number on a page). The developer runs:
 
 ```bash
-npm run logs:errors -- --ref E-XXXXXX --paste        # a reference from an API answer or a log line
-npm run logs:errors -- --digest 3175611538 --paste   # the number on an error page
+npm run logs:errors -- --ref=E-XXXXXX --paste        # a reference from an API answer or a log line
+npm run logs:errors -- --digest=3175611538 --paste   # the number on an error page
 ```
 
 `--paste` prints one plain-text block per event (reference, time, level, source, route, method, status, error name, error code, message, stack,
-deployment), redacted again, ready to paste to an assistant. Other options: `--since 30m|1h|24h|7d` (default 24h), `--request-id`, `--route`
-(contains), `--level warn|error`, `--source`, `--limit` (default 20, at most 200), `--json`.
+deployment), redacted again, ready to paste to an assistant. Other options: `--since=30m|1h|24h|7d` (default 24h), `--request-id=ID`, `--route=TEXT`
+(contains), `--level=warn|error`, `--source=NAME`, `--limit=N` (default 20, at most 200), `--json`. Every option with a value is written `--name=value`: the space form (`--ref E-XXXXXX`) is refused as an unknown argument.
 
 ## Neon SQL editor queries (ready to paste)
 
