@@ -1,13 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { BlockError } from "@/components/ui/block-error";
 import { Button } from "@/components/ui/button";
 import { t } from "@/lib/messages";
-import { DEFAULT_FILTERS, type RowFilters } from "@/lib/reconciliation/filters";
-import { laneLabel } from "@/lib/reconciliation/lanes";
+import { DEFAULT_FILTERS, type RowFilters, narrowsRows } from "@/lib/reconciliation/filters";
+import { laneLabel, workspaceHref } from "@/lib/reconciliation/lanes";
 import type { Viewer } from "@/lib/reconciliation/permission-view";
 import type { Lane, RowCard } from "@/lib/reconciliation/types";
+import type { RowFacets } from "@/server/statements/review";
+import { FiltersBar } from "./filters-bar";
 import { loadMoreRows } from "./actions";
 import { lanePanelId, laneTabId } from "./lane-selector";
 import { RowsView } from "./rows-view";
@@ -26,7 +29,7 @@ export function emptyLaneText(lane: Lane): string {
 }
 
 /** The rows of the chosen lane, as the tab panel: the first page from the server, then "Load more" (keyset, 25 at a time). */
-export function RowList({ importId, lane, initialRows, initialCursor, selectedId, viewer, thresholdPaise, laneTotal, filters = DEFAULT_FILTERS }: { importId: string; lane: Lane; initialRows: RowCard[]; initialCursor: string | null; selectedId: string | null; viewer: Viewer; thresholdPaise: string; laneTotal: number; filters?: RowFilters }) {
+export function RowList({ importId, lane, initialRows, initialCursor, selectedId, viewer, thresholdPaise, facets, filters = DEFAULT_FILTERS }: { importId: string; lane: Lane; initialRows: RowCard[]; initialCursor: string | null; selectedId: string | null; viewer: Viewer; thresholdPaise: string; facets: RowFacets; filters?: RowFilters }) {
   const [rows, setRows] = useState(initialRows);
   const [cursor, setCursor] = useState(initialCursor);
   const [phase, setPhase] = useState<"IDLE" | "LOADING" | "FAILED">("IDLE");
@@ -48,8 +51,19 @@ export function RowList({ importId, lane, initialRows, initialCursor, selectedId
 
   return (
     <div role="tabpanel" id={lanePanelId} aria-labelledby={laneTabId(lane)} className="flex min-w-0 flex-col gap-3">
-      {rows.length === 0 ? <p className="text-body text-ink-2">{emptyLaneText(lane)}</p> : <RowsView rows={rows} caption={t("recon.list.caption", { lane: laneLabel(lane) })} importId={importId} lane={lane} selectedId={selectedId} viewer={viewer} thresholdPaise={thresholdPaise} filters={filters} />}
-      {rows.length > 0 && <p className="text-caption text-ink-2">{t("recon.list.showing", { shown: rows.length, total: laneTotal })}</p>}
+      {facets.reasonCounts.any > 0 && <FiltersBar importId={importId} lane={lane} filters={filters} facets={facets} thresholdPaise={thresholdPaise} shown={rows.length} />}
+      {rows.length === 0 ? (
+        narrowsRows(filters, lane) && facets.reasonCounts.any > 0 ? (
+          <div className="flex flex-col items-start gap-2">
+            <p className="text-body text-ink-2">{t("recon.filter.empty")}</p>
+            <Link href={workspaceHref({ importId, lane })} className="inline-flex min-h-12 items-center text-body font-semibold text-accent underline underline-offset-4">
+              {t("recon.filter.emptyReset")}
+            </Link>
+          </div>
+        ) : (
+          <p className="text-body text-ink-2">{emptyLaneText(lane)}</p>
+        )
+      ) : <RowsView rows={rows} caption={t("recon.list.caption", { lane: laneLabel(lane) })} importId={importId} lane={lane} selectedId={selectedId} viewer={viewer} thresholdPaise={thresholdPaise} filters={filters} />}
       {phase === "FAILED" && <BlockError message={t("recon.list.loadError")} onRetry={loadMore} />}
       {cursor !== null && phase !== "FAILED" && (
         <Button variant="outlined" loading={phase === "LOADING"} loadingLabel={t("recon.list.loading")} onClick={loadMore}>

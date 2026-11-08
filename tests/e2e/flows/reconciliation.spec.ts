@@ -57,7 +57,7 @@ test("import, review, search, post by hand, ask for approval, and approve as a s
   // The credit of ₹10,000 or more is above the threshold: it waits for a second approver.
   await page.goto(`${workspace}?lane=needs-you`);
   await openReview("730000000001");
-  await expect(page.getByText(/needs a second approver/).first()).toBeVisible();
+  await expect(page.getByText(/needs a second approver/).filter({ visible: true }).first()).toBeVisible();
   await page.getByRole("radio").first().check();
   await page.getByLabel(/^Reason/).fill(REASON);
   await page.getByRole("button", { name: /^Post/ }).click();

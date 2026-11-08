@@ -5,6 +5,7 @@ import { LaneSelector } from "@/app/(staff)/staff/reconciliation/[importId]/lane
 import { RowList, emptyLaneText } from "@/app/(staff)/staff/reconciliation/[importId]/row-list";
 import { RowsView } from "@/app/(staff)/staff/reconciliation/[importId]/rows-view";
 import { ProportionStrip } from "@/app/(staff)/staff/reconciliation/[importId]/proportion-strip";
+import { FiltersBar } from "@/app/(staff)/staff/reconciliation/[importId]/filters-bar";
 import { WorkspaceHeader } from "@/app/(staff)/staff/reconciliation/[importId]/workspace-header";
 import { WorkspaceView } from "@/app/(staff)/staff/reconciliation/[importId]/workspace-view";
 import { LANES, type RowCard, type SummaryCounts } from "@/lib/reconciliation/types";
@@ -20,6 +21,7 @@ const IMPORT = "11111111-2222-3333-4444-555555555555";
 const viewer = { id: "priya", role: "STAFF" as const, active: true, permissions: ["payments:match"] };
 
 const counts = (over: Partial<SummaryCounts> = {}): SummaryCounts => ({ rowsRead: 106, autoMatched: 25, manuallyMatched: 0, needsYou: 43, awaitingApproval: 0, notMaintenance: 38, alreadyImported: 0, invalidRows: 0, accounted: true, ...over });
+const facets = { filteredTotal: 43, reasonCounts: { any: 43, noflat: 14, several: 8, differs: 19, low: 20 } };
 const laneCounts = { NEEDS_YOU: 43, AWAITING_APPROVAL: 0, MATCHED: 25, NOT_MAINTENANCE: 38 };
 const card = (over: Partial<RowCard> = {}): RowCard => ({
   id: "a0000000-0000-0000-0000-000000000001",
@@ -215,7 +217,7 @@ describe("WS5 the rows (D191)", () => {
 
 describe("WS6 the lane panel", () => {
   it("is a tabpanel named by its tab, and says what an empty lane means", () => {
-    const empty = html(h(RowList, { importId: IMPORT, lane: "NEEDS_YOU", initialRows: [], initialCursor: null, selectedId: null, viewer, thresholdPaise: "1000000", laneTotal: 0 }));
+    const empty = html(h(RowList, { importId: IMPORT, lane: "NEEDS_YOU", initialRows: [], initialCursor: null, selectedId: null, viewer, thresholdPaise: "1000000", facets: { filteredTotal: 0, reasonCounts: { any: 0, noflat: 0, several: 0, differs: 0, low: 0 } } }));
     expect(empty).toContain('role="tabpanel"');
     expect(empty).toContain('aria-labelledby="recon-tab-NEEDS_YOU"');
     expect(empty).toContain("Nothing needs you. Every row is accounted for.");
@@ -223,13 +225,13 @@ describe("WS6 the lane panel", () => {
   });
 
   it("offers Load more only when a next page exists", () => {
-    expect(html(h(RowList, { importId: IMPORT, lane: "NEEDS_YOU", initialRows: [card()], initialCursor: "abc", selectedId: null, viewer, thresholdPaise: "1000000", laneTotal: 43 }))).toContain(">Load more<");
-    expect(html(h(RowList, { importId: IMPORT, lane: "NEEDS_YOU", initialRows: [card()], initialCursor: null, selectedId: null, viewer, thresholdPaise: "1000000", laneTotal: 1 }))).not.toContain("Load more");
+    expect(html(h(RowList, { importId: IMPORT, lane: "NEEDS_YOU", initialRows: [card()], initialCursor: "abc", selectedId: null, viewer, thresholdPaise: "1000000", facets }))).toContain(">Load more<");
+    expect(html(h(RowList, { importId: IMPORT, lane: "NEEDS_YOU", initialRows: [card()], initialCursor: null, selectedId: null, viewer, thresholdPaise: "1000000", facets: { ...facets, filteredTotal: 1 } }))).not.toContain("Load more");
   });
 });
 
 describe("WS7 the workspace", () => {
-  const data: Workspace = { header: { importId: IMPORT, filename: "sample-statement.csv", uploadedOn: "2026-10-27", uploadedBy: "Priya Nair" }, counts: counts(), laneCounts, rows: [card()], nextCursor: null, review: null, thresholdPaise: "1000000", filters: { sort: "largest", amount: "any", reason: "any" }, facets: { filteredTotal: 43, reasonCounts: { any: 43, noflat: 0, several: 0, differs: 0, low: 0 } } };
+  const data: Workspace = { header: { importId: IMPORT, filename: "sample-statement.csv", uploadedOn: "2026-10-27", uploadedBy: "Priya Nair" }, counts: counts(), laneCounts, rows: [card()], nextCursor: null, review: null, thresholdPaise: "1000000", filters: { sort: "largest", amount: "any", reason: "any" }, facets };
   const out = html(h(WorkspaceView, { data, lane: "NEEDS_YOU", viewer }));
 
   it("has one h1, who imported the file and when, a main landmark and the breadcrumb", () => {
@@ -246,5 +248,74 @@ describe("WS7 the workspace", () => {
     expect(out).toContain('role="tabpanel"');
     expect(out).not.toMatch(/accept all|approve all|post all|select all|bulk/i);
     expect(count(out, /type="checkbox"/g)).toBe(0);
+  });
+});
+
+describe("WS8 the filter row and the Filters sheet (D192)", () => {
+  const bar = (over: Partial<Parameters<typeof FiltersBar>[0]> = {}) => html(h(FiltersBar, { importId: IMPORT, lane: "NEEDS_YOU", filters: { sort: "largest", amount: "any", reason: "any" }, facets, thresholdPaise: "1000000", shown: 25, ...over }));
+
+  it("says Showing x of y rows, and (filtered) only when the amount or reason narrows the rows", () => {
+    expect(bar()).toContain("Showing 25 of 43 rows");
+    expect(bar()).not.toContain("(filtered)");
+    expect(bar({ filters: { sort: "oldest", amount: "any", reason: "any" } })).not.toContain("(filtered)");
+    expect(bar({ filters: { sort: "largest", amount: "high", reason: "any" }, facets: { ...facets, filteredTotal: 7 }, shown: 7 })).toContain("Showing 7 of 7 rows (filtered)");
+  });
+
+  it("the Filters button is outlined and shows how many choices are active", () => {
+    expect(bar()).toMatch(/<button [^>]*border-control[^>]*aria-haspopup="dialog"[^>]*>Filters<\/button>|<button [^>]*aria-haspopup="dialog"[^>]*border-control[^>]*>Filters<\/button>/);
+    expect(bar({ filters: { sort: "oldest", amount: "low", reason: "any" } })).toContain(">Filters (2)<");
+  });
+
+  it("each active choice is a removable chip, a 48px button named Remove filter: <name>", () => {
+    const out = bar({ filters: { sort: "oldest", amount: "high", reason: "noflat" } });
+    for (const name of ["Oldest first", "₹10,000 or more (needs a second approver)", "No flat found"]) expect(out).toContain(`aria-label="Remove filter: ${name}"`);
+    expect(count(out, /aria-label="Remove filter:/g)).toBe(3);
+    expect(bar()).not.toContain("Remove filter");
+  });
+
+  it("the sheet is titled Filters and sort, with three groups and one option on each 48px row", () => {
+    const out = bar();
+    expect(out).toContain(">Filters and sort<");
+    for (const legend of ["Sort", "Amount", "Reason"]) expect(out).toContain(`<legend class="pb-1 text-body font-semibold">${legend}</legend>`);
+    expect(count(out, /type="radio"/g)).toBe(2 + 3 + 5);
+    expect(count(out, /min-h-12 cursor-pointer/g)).toBe(10);
+    for (const label of ["Largest first", "Oldest first", "Any amount", "Any reason", "No flat found", "Several possible flats", "Amount differs from what is due", "Low confidence"]) expect(out).toContain(label);
+  });
+
+  it("the amount words come from the society's threshold, never a fixed number", () => {
+    expect(bar()).toContain("₹10,000 or more (needs a second approver)");
+    expect(bar()).toContain("Under ₹10,000");
+    expect(bar({ thresholdPaise: "2500000" })).toContain("₹25,000 or more (needs a second approver)");
+    expect(bar({ thresholdPaise: "2500000" })).not.toContain("₹10,000");
+  });
+
+  it("each reason shows its row count in the lane, and a note says the counts can add up to more than the lane", () => {
+    const out = bar();
+    for (const [label, n] of [["No flat found", 14], ["Several possible flats", 8], ["Amount differs from what is due", 19], ["Low confidence", 20], ["Any reason", 43]] as const) expect(out).toMatch(new RegExp(`${label}</span><span class="tnum text-caption text-ink-2">${n}</span>`));
+    expect(out).toContain("A row can have more than one reason, so the counts can add up to more than the lane total");
+  });
+
+  it("the reason group is switched off, with its line, on the lanes that have no reasons", () => {
+    const out = bar({ lane: "MATCHED" });
+    expect(out).toMatch(/<fieldset disabled=""[^>]*><legend[^>]*>Reason<\/legend>/);
+    expect(out).toContain("Applies to Needs you and Awaiting approval rows");
+    expect(out).not.toContain("so the counts can add up");
+    expect(bar({ lane: "AWAITING_APPROVAL" })).not.toContain("<fieldset disabled");
+  });
+
+  it("Apply is the only filled control and Reset is outlined", () => {
+    const out = bar();
+    expect(count(out, /bg-accent/g)).toBe(1);
+    expect(out).toMatch(/<button [^>]*bg-accent[^>]*type="submit"[^>]*>Apply<\/button>|<button [^>]*type="submit"[^>]*bg-accent[^>]*>Apply<\/button>/);
+    expect(out).toMatch(/<button [^>]*border-control[^>]*>Reset<\/button>/);
+  });
+
+  it("the lane panel shows the filter row only when the lane has rows, and an empty filtered list says so with a Reset filters link", () => {
+    const filtered = html(h(RowList, { importId: IMPORT, lane: "NEEDS_YOU", initialRows: [], initialCursor: null, selectedId: null, viewer, thresholdPaise: "1000000", facets: { ...facets, filteredTotal: 0 }, filters: { sort: "largest", amount: "high", reason: "noflat" } }));
+    expect(filtered).toContain("No rows match these filters");
+    expect(filtered).toMatch(/<a [^>]*href="\/staff\/reconciliation\/[^"?]+"[^>]*>Reset filters<\/a>/);
+    const none = html(h(RowList, { importId: IMPORT, lane: "NEEDS_YOU", initialRows: [], initialCursor: null, selectedId: null, viewer, thresholdPaise: "1000000", facets: { filteredTotal: 0, reasonCounts: { any: 0, noflat: 0, several: 0, differs: 0, low: 0 } } }));
+    expect(none).not.toContain("Filters");
+    expect(none).toContain("Nothing needs you. Every row is accounted for.");
   });
 });
