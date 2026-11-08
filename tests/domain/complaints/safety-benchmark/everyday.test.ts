@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { decideClassification } from "@/domain/complaints/decision";
 import { detectSafetyWords } from "@/domain/complaints/safety";
 import { AMBIGUOUS_PHRASES, EVERYDAY_PHRASES, everydayNegatives } from "@/domain/complaints/safety-benchmark/negatives";
+import { SETS, generateSeed } from "@/domain/complaints/safety-benchmark/sets";
 import { LANGUAGE_FORMS } from "@/domain/complaints/safety-benchmark/types";
 
 /** The rules whose bare "current" or "करंट" term is the electricity current of a bill or a power cut (the family D169 narrows). */
@@ -67,5 +68,13 @@ describe("T10c everyday Indian phrasing: what the detector does", () => {
 
   it("does not hit the Latin electricity phrases that have no shock word (current gaya, current gela, current kab aayega, light gayi)", () => {
     for (const text of ["current gaya", "current gela", "current kab aayega", "light gayi", "current bill", "power cut since morning"]) expect(detectSafetyWords(text), text).toEqual([]);
+  });
+
+  it("Stage 1 (D168) adds no hit to an everyday or ambiguous sentence: every hit is found by the exact reading", () => {
+    for (const text of [...everyday, ...AMBIGUOUS_PHRASES]) for (const hit of detectSafetyWords(text)) expect(hit.via, `${text} ${hit.rule}`).toBe("EXACT");
+  });
+
+  it("Stage 1 adds no false alarm to the generated, near-miss and existing negatives of the dev set", () => {
+    for (const seed of SETS.dev) for (const negative of generateSeed(seed).negatives) for (const hit of detectSafetyWords(negative.text)) expect(hit.via, `${negative.text} ${hit.rule}`).toBe("EXACT");
   });
 });

@@ -1,10 +1,13 @@
 import { type MatchKind, compileTerms, foldForMatching } from "./match";
+import { type SafetyVia, normalizeForSafety } from "./safety-normalize";
 import { normalizeComplaintText } from "./text";
 
 export type SafetyCategory = "FIRE" | "GAS" | "LIFT_STUCK" | "SHOCK" | "MEDICAL_VIOLENCE";
 /** en: English; hi and mr: Hindi and Marathi in Devanagari; hi-Latn and mr-Latn: the same typed in Latin letters. */
 export type SafetyLanguage = "en" | "hi" | "mr" | "hi-Latn" | "mr-Latn";
-export type SafetyHit = { rule: string; category: SafetyCategory; language: SafetyLanguage; matched: string };
+/** `via` says how the hit was found (EXACT: in the text as read until now; the others: in an extra reading of it, D168). Optional so existing callers and tests keep working. */
+export type SafetyHit = { rule: string; category: SafetyCategory; language: SafetyLanguage; matched: string; via?: SafetyVia };
+export type { SafetyVia } from "./safety-normalize";
 
 /**
  * WORD: the term must stand as a whole word (a letter, vowel sign or digit may not touch it on either side): "gas" does not hit "gasket".
@@ -219,17 +222,8 @@ function firstMatch(pattern: RegExp, except: RegExp | undefined, text: string): 
   return null;
 }
 
-/**
- * Safety words in a complaint, as one hit per rule that matches (never more). The text is normalised first (NFC, zero-width characters out,
- * Devanagari digits to ASCII, 2,000 characters), lower-cased for Latin letters and folded for Devanagari, and the ORIGINAL words are what is
- * read: a translation is never used. `matched` is the matched text after that folding.
- *
- * A bare "current" or करंट (the electricity of a bill or a power cut) hits only when the text also has a shock word (D169). It never throws and has no state. It has NO negation handling, so "no fire" and "fire exit" hit: for a safety rule a false alarm is cheaper than
- * a missed fire. Known accepted false positives are listed in tests/domain/complaints/safety.test.ts and docs/complaint-classification.md.
- */
-export function detectSafetyWords(raw: string): SafetyHit[] {
-  const text = foldForMatching(normalizeComplaintText(raw));
-  if (text === "") return [];
+/** Every rule applied to one text that is already folded for matching: one hit per rule that matches. */
+function scan(text: string, via: SafetyVia): SafetyHit[] {
   const hits: SafetyHit[] = [];
   let shockContext: boolean | undefined;
   for (const compiled of COMPILED) {
@@ -238,7 +232,38 @@ export function detectSafetyWords(raw: string): SafetyHit[] {
       shockContext ??= firstMatch(SHOCK_CONTEXT, undefined, text) !== null;
       if (shockContext) matched = firstMatch(compiled.barePattern, compiled.except, text);
     }
-    if (matched !== null) hits.push({ rule: compiled.id, category: compiled.category, language: compiled.language, matched });
+    if (matched !== null) hits.push({ rule: compiled.id, category: compiled.category, language: compiled.language, matched, via });
+  }
+  return hits;
+}
+
+/**
+ * Safety words in a complaint, as one hit per rule that matches (never more). The text is normalised first (NFC, zero-width characters out,
+ * Devanagari digits to ASCII, 2,000 characters), lower-cased for Latin letters and folded for Devanagari, and the ORIGINAL words are what is
+ * read: a translation is never used. `matched` is the matched text after that folding.
+ *
+ * Stage 1 (D168): the same rules also read up to six extra readings of the raw text (`normalizeForSafety`: spaces or dots between single letters,
+ * stretched letters, digits for letters, other diacritics and variants) and the hits are added, one per rule, the first reading that finds it
+ * naming it in `via`. A hit stays STRONG whichever reading found it. A bare "current" or करंट (the electricity of a bill or a power cut) hits only
+ * when the text also has a shock word (D169). It never throws and has no state. It has NO negation handling, so "no fire" and "fire exit" hit: for a
+ * safety rule a false alarm is cheaper than a missed fire. Known accepted false positives are listed in tests/domain/complaints/safety.test.ts and
+ * docs/complaint-classification.md.
+ */
+export function detectSafetyWords(raw: string): SafetyHit[] {
+  const exactText = foldForMatching(normalizeComplaintText(raw));
+  if (exactText === "") return [];
+  const hits = scan(exactText, "EXACT");
+  const found = new Set(hits.map((h) => h.rule));
+  const read = new Set([exactText]);
+  for (const candidate of normalizeForSafety(raw)) {
+    const text = foldForMatching(candidate.text);
+    if (read.has(text)) continue;
+    read.add(text);
+    for (const hit of scan(text, candidate.via)) {
+      if (found.has(hit.rule)) continue;
+      found.add(hit.rule);
+      hits.push(hit);
+    }
   }
   return hits;
 }

@@ -44,9 +44,10 @@ describe("SB4 a change to the detector shows up in the committed metrics", () =>
   const committed = readExpected("dev").tallies[seed];
   const g = generateSeed(seed);
 
-  it("the test double with an unchanged copy of the rules agrees with the real detector on this seed", () => {
+  it("the test double with an unchanged copy of the rules agrees with the exact reading of the real detector on this seed", () => {
     const double = detectorOf(SAFETY_RULES);
-    for (const item of g.single) expect(double(item.text)).toEqual(detectSafetyWords(item.text));
+    // The double reads only the exact text, so it is compared with the hits the exact reading of the real detector gives (Stage 1 adds the other readings, D168).
+    for (const item of g.single) expect(double(item.text)).toEqual(detectSafetyWords(item.text).filter((h) => h.via === "EXACT").map((h) => ({ rule: h.rule, category: h.category, language: h.language, matched: h.matched })));
   });
 
   it("dropping one term of one rule in the copy changes the tally, so the committed-metrics test would fail", () => {
