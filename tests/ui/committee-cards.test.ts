@@ -42,7 +42,7 @@ describe("AL1 the alert strip", () => {
 });
 
 const money: MoneyLine = { billedPaise: 1_805_219_000n, collectedPaise: 1_484_271_400n, outstandingPaise: 320_947_600n, flatsBilled: 10, flatsPaidInFull: 8, flatsOutstanding: 2, fees: { postedPaidPaise: 0n, postedOwingPaise: 0n, accruingPaise: 0n } };
-const ageing = { buckets: AGE_BUCKETS.map((bucket) => ({ bucket, flats: 1, bills: 1, amountDuePaise: 1n })), total: { flats: 817, bills: 900, amountDuePaise: 606_000_000n } };
+const ageing = { buckets: AGE_BUCKETS.map((bucket) => ({ bucket, flats: 1, bills: 1, unpaidBillsPaise: 1n, lateFeesPaise: 0n, amountDuePaise: 1n })), total: { flats: 817, bills: 900, unpaidBillsPaise: 606_000_000n, lateFeesPaise: 0n, amountDuePaise: 606_000_000n } };
 
 describe("HC1 the four headline cards", () => {
   const out = html(h(HeadlineCards, { report: emptyReport({ money, ageing }) }));

@@ -20,24 +20,30 @@ export function ageBucket(days: number): AgeBucket {
   return "OVER_90";
 }
 
-export type AgeingBucketRow = { bucket: AgeBucket; flats: number; bills: number; amountDuePaise: Paise };
-export type Ageing = { buckets: AgeingBucketRow[]; total: { flats: number; bills: number; amountDuePaise: Paise } };
+/** Unpaid bills (principal still owed) and late fees (posted and owing, or building up) are kept apart: amountDuePaise = unpaidBillsPaise + lateFeesPaise, exactly (D175). */
+export type AgeAmounts = { flats: number; bills: number; unpaidBillsPaise: Paise; lateFeesPaise: Paise; amountDuePaise: Paise };
+export type AgeingBucketRow = AgeAmounts & { bucket: AgeBucket };
+export type Ageing = { buckets: AgeingBucketRow[]; total: AgeAmounts };
+
+const sumOf = (positions: readonly ReportPosition[], pick: (p: ReportPosition) => Paise): Paise => positions.reduce((sum, p) => sum + pick(p), 0n);
+
+/** The figures of a set of open positions: flats counted once, bills, and the amount split into unpaid bills and late fees. */
+function amountsOf(positions: readonly ReportPosition[]): AgeAmounts {
+  const unpaidBillsPaise = sumOf(positions, (p) => p.position.principalOutstandingPaise);
+  const lateFeesPaise = sumOf(positions, (p) => p.position.feeOutstandingPaise);
+  return { flats: new Set(positions.map((p) => p.flatId)).size, bills: positions.length, unpaidBillsPaise, lateFeesPaise, amountDuePaise: unpaidBillsPaise + lateFeesPaise };
+}
 
 /**
  * What is owed as of `asOf`, in five age buckets, from the positions of ALL open bills of ALL months (not only one month). A position's age is the days since
  * its bill's due date (a FEE_ONLY position too: the fee is still owed). Each bucket has its number of flats (a flat counts once in a bucket), its number of
- * bills and its amount due (principal outstanding plus fee). The buckets' amounts add up to `total.amountDuePaise` exactly; `total.flats` counts each flat once.
+ * bills, its unpaid bills (principal outstanding) and its late fees, and the amount due that is their sum. The buckets' amounts add up to the total exactly, and
+ * `total.flats` counts each flat once, so the flats of the buckets add up to MORE than it when a flat has bills of several ages.
  */
 export function ageingTable(positions: readonly ReportPosition[], asOf: CalendarDate): Ageing {
   const open = positions.filter(isOpen);
-  const buckets = AGE_BUCKETS.map((bucket): AgeingBucketRow => {
-    const inBucket = open.filter((p) => ageBucket(daysPastDue(p.bill.dueOn, asOf)) === bucket);
-    return { bucket, flats: new Set(inBucket.map((p) => p.flatId)).size, bills: inBucket.length, amountDuePaise: inBucket.reduce((sum, p) => sum + p.position.amountDuePaise, 0n) };
-  });
-  return {
-    buckets,
-    total: { flats: new Set(open.map((p) => p.flatId)).size, bills: open.length, amountDuePaise: open.reduce((sum, p) => sum + p.position.amountDuePaise, 0n) },
-  };
+  const buckets = AGE_BUCKETS.map((bucket): AgeingBucketRow => ({ bucket, ...amountsOf(open.filter((p) => ageBucket(daysPastDue(p.bill.dueOn, asOf)) === bucket)) }));
+  return { buckets, total: amountsOf(open) };
 }
 
 export type AgeingRow = { flatId: string; flatCode: string; billId: string; period: CalendarDate; daysPastDue: number; amountDuePaise: Paise };

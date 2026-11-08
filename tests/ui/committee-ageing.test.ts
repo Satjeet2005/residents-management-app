@@ -20,13 +20,13 @@ const words = (markup: string) => markup.replace(/<[^>]*>/g, " ").replace(/&#x27
 
 const ageing: Ageing = {
   buckets: [
-    { bucket: "NOT_YET_DUE", flats: 10, bills: 10, amountDuePaise: 6_500_000n },
-    { bucket: "DAYS_1_30", flats: 200, bills: 200, amountDuePaise: 150_000_000n },
-    { bucket: "DAYS_31_60", flats: 300, bills: 310, amountDuePaise: 250_000_000n },
-    { bucket: "DAYS_61_90", flats: 100, bills: 120, amountDuePaise: 100_000_000n },
-    { bucket: "OVER_90", flats: 50, bills: 60, amountDuePaise: 50_000_000n },
+    { bucket: "NOT_YET_DUE", flats: 10, bills: 10, unpaidBillsPaise: 6_500_000n, lateFeesPaise: 0n, amountDuePaise: 6_500_000n },
+    { bucket: "DAYS_1_30", flats: 200, bills: 200, unpaidBillsPaise: 150_000_000n, lateFeesPaise: 0n, amountDuePaise: 150_000_000n },
+    { bucket: "DAYS_31_60", flats: 300, bills: 310, unpaidBillsPaise: 250_000_000n, lateFeesPaise: 0n, amountDuePaise: 250_000_000n },
+    { bucket: "DAYS_61_90", flats: 100, bills: 120, unpaidBillsPaise: 100_000_000n, lateFeesPaise: 0n, amountDuePaise: 100_000_000n },
+    { bucket: "OVER_90", flats: 50, bills: 60, unpaidBillsPaise: 50_000_000n, lateFeesPaise: 0n, amountDuePaise: 50_000_000n },
   ],
-  total: { flats: 520, bills: 700, amountDuePaise: 556_500_000n },
+  total: { flats: 520, bills: 700, unpaidBillsPaise: 556_500_000n, lateFeesPaise: 0n, amountDuePaise: 556_500_000n },
 };
 const row = (over: Partial<AgeingRowView> = {}): AgeingRowView => ({ billId: "b1", flatCode: "T12-0408", period: "2026-09-01", daysPastDue: 47, amountDuePaise: "646800", ...over });
 const page = (over: Partial<AgeingPage> = {}): AgeingPage => ({ bucket: "DAYS_31_60", rows: [row(), row({ billId: "b2", flatCode: "T07-1203", daysPastDue: 40, amountDuePaise: "1066000" })], nextCursor: "abc", ...over });
@@ -72,7 +72,7 @@ describe("CA1 the ageing block", () => {
   });
 
   it("a bucket with no bills has no link, and a selected bucket is marked as current and bold", () => {
-    const sparse: Ageing = { ...ageing, buckets: ageing.buckets.map((b) => (b.bucket === "OVER_90" ? { ...b, flats: 0, bills: 0, amountDuePaise: 0n } : b)) };
+    const sparse: Ageing = { ...ageing, buckets: ageing.buckets.map((b) => (b.bucket === "OVER_90" ? { ...b, flats: 0, bills: 0, unpaidBillsPaise: 0n, lateFeesPaise: 0n, amountDuePaise: 0n } : b)) };
     expect(count(html(h(AgeingBlock, { ageing: sparse, period: "2026-10-01", selected: null })), />See the flats<\/a>/g)).toBe(4);
     const chosen = html(h(AgeingBlock, { ageing, period: "2026-10-01", selected: "DAYS_31_60" }));
     expect(chosen).toMatch(/aria-current="true"[^>]*>See the flats/);
@@ -80,7 +80,7 @@ describe("CA1 the ageing block", () => {
   });
 
   it("nothing owed says so in words and draws no bar", () => {
-    const none: Ageing = { buckets: ageing.buckets.map((b) => ({ ...b, flats: 0, bills: 0, amountDuePaise: 0n })), total: { flats: 0, bills: 0, amountDuePaise: 0n } };
+    const none: Ageing = { buckets: ageing.buckets.map((b) => ({ ...b, flats: 0, bills: 0, unpaidBillsPaise: 0n, lateFeesPaise: 0n, amountDuePaise: 0n })), total: { flats: 0, bills: 0, unpaidBillsPaise: 0n, lateFeesPaise: 0n, amountDuePaise: 0n } };
     const empty = html(h(AgeingBlock, { ageing: none, period: "2026-10-01", selected: null }));
     expect(words(empty)).toContain("Nothing is owed.");
     expect(empty).not.toContain("<svg");

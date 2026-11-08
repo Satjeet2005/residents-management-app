@@ -28,7 +28,22 @@ export type GoalRow = {
   /** The actual in whole percent, or null with no data. */
   actualPercent: number | null;
   status: GoalStatus;
+  /**
+   * The distance to the target in whole percentage points, null with no data. NOT_MET: points short of an "at least" goal, or over a "most" ceiling, at least 1.
+   * MET: points above the goal, or under the ceiling, possibly 0.
+   */
+  gapPoints: number | null;
 };
+
+/**
+ * Whole points between the share n/d and the target, worked out on the counts so the rounding cannot flip a verdict (D176): a miss is rounded UP, so a missed
+ * goal is never "0 points short" (89.6% against 90 is 1 point short); a margin is rounded DOWN, so a goal is never said to be beaten by more than it was.
+ */
+export function gapInPoints(n: number, d: number, targetPercent: number, higherIsBetter: boolean): number | null {
+  if (d === 0) return null;
+  const good = higherIsBetter ? 100 * n - targetPercent * d : targetPercent * d - 100 * n;
+  return good >= 0 ? Math.floor(good / d) : Math.ceil(-good / d);
+}
 
 /** The three counts the goals are taken from: n out of d. */
 export type GoalActuals = { onTime: { n: number; d: number }; firstReply: { n: number; d: number }; reopened: { n: number; d: number } };
@@ -38,7 +53,13 @@ export type GoalActuals = { onTime: { n: number; d: number }; firstReply: { n: n
  * to measure (a zero denominator is never "0 percent" and never "Met").
  */
 export function evaluateGoals(goals: Goals, actuals: GoalActuals): GoalRow[] {
-  const row = (key: GoalKey, targetPercent: number, { n, d }: { n: number; d: number }, meets: boolean): GoalRow => ({ key, targetPercent, actualPercent: percent(n, d), status: d === 0 ? "NO_DATA" : meets ? "MET" : "NOT_MET" });
+  const row = (key: GoalKey, targetPercent: number, { n, d }: { n: number; d: number }, meets: boolean): GoalRow => ({
+    key,
+    targetPercent,
+    actualPercent: percent(n, d),
+    status: d === 0 ? "NO_DATA" : meets ? "MET" : "NOT_MET",
+    gapPoints: gapInPoints(n, d, targetPercent, key !== "reopenedMax"),
+  });
   return [
     row("onTimeCollection", goals.onTimeCollectionPercent, actuals.onTime, atLeastPercent(actuals.onTime.n, actuals.onTime.d, goals.onTimeCollectionPercent)),
     row("firstReplyWithinSla", goals.firstReplyWithinSlaPercent, actuals.firstReply, atLeastPercent(actuals.firstReply.n, actuals.firstReply.d, goals.firstReplyWithinSlaPercent)),

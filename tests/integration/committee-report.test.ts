@@ -153,6 +153,10 @@ describe("RP2 the ageing, checked against raw SQL and against the Home's own sum
     expect(bucketAmounts).toBe(data.ageing.total.amountDuePaise);
     expect(data.ageing.buckets.reduce((sum, b) => sum + b.bills, 0)).toBe(data.ageing.total.bills);
     expect(data.ageing.total.amountDuePaise >= principalOwed + feeOnlyOwed).toBe(true);
+    // D175: the split. The unpaid bills are the principal SQL finds; the late fees are the rest, at least the posted fees still owing.
+    expect(data.ageing.total.unpaidBillsPaise).toBe(principalOwed);
+    expect(data.ageing.total.unpaidBillsPaise + data.ageing.total.lateFeesPaise).toBe(data.ageing.total.amountDuePaise);
+    expect(data.ageing.total.lateFeesPaise >= feeOnlyOwed).toBe(true);
 
     // The total due is the principal plus the fees; the fee side is the Home's own sum over every flat (computeDues), not the report's code path.
     console.log(`RP2 Home   open bills=${homeSum.open}, sum of the Homes' amounts due=${homeSum.total}`);

@@ -32,7 +32,7 @@ describe("CB1 collection quality: three rows, three plain numbers, no 'paid late
   const text = words(out);
 
   it("shows the headline on-time rate with its goal, the secondary rate and the median days, each with what it counts", () => {
-    expect(text).toContain("Paid on time 1687 of 2399 bills due so far were paid on or before their due date Goal: At least 90%");
+    expect(text).toContain("Paid on time 1687 of 2399 bills due so far were paid on or before their due date Goal 90%");
     expect(text).toContain("70%");
     expect(text).toContain("On time, of paid bills 1687 of 1915 paid bills were paid on or before their due date 88%");
     expect(text).toContain("Median days to pay From the day the bill was issued, over 1915 paid bills 3 days");
@@ -63,7 +63,7 @@ describe("CB1 collection quality: three rows, three plain numbers, no 'paid late
 
   it("says 'No data' in words, never 0%, when there is nothing to measure", () => {
     const none = words(html(h(QualityBlock, { quality: { due: 0, dueOnTime: 0, paidOnTime: 0, paid: 0, paidLate: 0, medianDaysToPay: null }, curve: null, goal: { ...goal, status: "NO_DATA" } })));
-    expect(none).toContain("Paid on time Goal: At least 90% No data");
+    expect(none).toContain("Paid on time Goal 90% No data");
     expect(none).toContain("On time, of paid bills No data");
     expect(none).toContain("Median days to pay No data");
     expect(none).not.toMatch(NO_ZERO);
@@ -92,10 +92,10 @@ describe("CB2 complaints: six lines and one safety line", () => {
   it("has six lines: raised, first reply with the SLA goal, time to resolved, reopened with its goal, closed by whom, open now", () => {
     expect(count(out, /<dd class="tnum text-right/g)).toBe(6);
     expect(text).toContain("Raised 5");
-    expect(text).toContain("First reply 3 of 5 complaints whose reply was due Goal: At least 90%");
+    expect(text).toContain("First reply 3 of 5 complaints whose reply was due Goal 90%");
     expect(text).toContain("30 min, 60% in time");
     expect(text).toContain("Time to marked resolved, median From raising to the first time it was marked resolved, over 2 complaints 2 h");
-    expect(text).toContain("Reopened 1 of 2 complaints that were marked resolved Goal: At most 8% Not met");
+    expect(text).toContain("Reopened 1 of 2 complaints that were marked resolved Limit 8% · 42 points over Not met");
     expect(text).toContain("1 by the resident, 1 automatically after no reply, 0 by the duty manager");
     expect(text).toContain("Raised 5 = closed 2 + still open 3");
     expect(text).toContain("Open now 3");
@@ -137,7 +137,7 @@ describe("CB2 complaints: six lines and one safety line", () => {
     const text2 = words(html(h(ComplaintsBlock, { ...props, goals: noGoals, complaints: complaintMetrics([c({ responseDueAt: NOW + 60 * minute })], NOW) })));
     expect(text2).toContain("No data, No data in time");
     expect(text2).toContain("Time to marked resolved, median No data");
-    expect(text2).toContain("Reopened Goal: At most 8% No data");
+    expect(text2).toContain("Reopened Limit 8% No data");
   });
 });
 

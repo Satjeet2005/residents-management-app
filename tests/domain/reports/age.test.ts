@@ -37,15 +37,15 @@ describe("RP1 the ageing table", () => {
 
   it("an empty list has five empty buckets and a zero total", () => {
     const ageing = ageingTable([], "2026-10-27");
-    expect(ageing.buckets.map((b) => [b.bucket, b.flats, b.bills, b.amountDuePaise])).toEqual(AGE_BUCKETS.map((b) => [b, 0, 0, 0n]));
-    expect(ageing.total).toEqual({ flats: 0, bills: 0, amountDuePaise: 0n });
+    expect(ageing.buckets.map((b) => [b.bucket, b.flats, b.bills, b.unpaidBillsPaise, b.lateFeesPaise, b.amountDuePaise])).toEqual(AGE_BUCKETS.map((b) => [b, 0, 0, 0n, 0n, 0n]));
+    expect(ageing.total).toEqual({ flats: 0, bills: 0, unpaidBillsPaise: 0n, lateFeesPaise: 0n, amountDuePaise: 0n });
   });
 
   it("one open bill is in one bucket with its principal plus its computed fee", () => {
     const f = flat("T01-0001", bill("2026-09-01", 637_000n));
     const [p] = positionsOf([f], "2026-10-27");
     const ageing = ageingTable(positionsOf([f], "2026-10-27"), "2026-10-27");
-    expect(ageing.buckets.find((b) => b.bucket === "DAYS_31_60")).toEqual({ bucket: "DAYS_31_60", flats: 1, bills: 1, amountDuePaise: p.position.amountDuePaise });
+    expect(ageing.buckets.find((b) => b.bucket === "DAYS_31_60")).toEqual({ bucket: "DAYS_31_60", flats: 1, bills: 1, unpaidBillsPaise: 637_000n, lateFeesPaise: p.position.feeOutstandingPaise, amountDuePaise: p.position.amountDuePaise });
     expect(p.position.amountDuePaise).toBeGreaterThan(637_000n);
     expect(ageing.total.amountDuePaise).toBe(p.position.amountDuePaise);
   });
@@ -104,6 +104,13 @@ describe("RP1 the ageing table", () => {
       expect(ageing.total.amountDuePaise, label).toBe(dueTotal);
       expect(ageing.buckets.reduce((sum, b) => sum + b.bills, 0), label).toBe(open.length);
       expect(ageing.total.bills, label).toBe(open.length);
+      // D175: the split. Unpaid bills + late fees = the amount due, in every bucket and in total, and the buckets add up to the total of each part.
+      for (const row of [...ageing.buckets, ageing.total]) expect(row.unpaidBillsPaise + row.lateFeesPaise, label).toBe(row.amountDuePaise);
+      expect(ageing.buckets.reduce((sum, b) => sum + b.unpaidBillsPaise, 0n), label).toBe(ageing.total.unpaidBillsPaise);
+      expect(ageing.buckets.reduce((sum, b) => sum + b.lateFeesPaise, 0n), label).toBe(ageing.total.lateFeesPaise);
+      expect(ageing.total.unpaidBillsPaise, label).toBe(open.reduce((sum, p) => sum + p.position.principalOutstandingPaise, 0n));
+      expect(ageing.total.flats, label).toBe(new Set(open.map((p) => p.flatId)).size);
+      expect(ageing.buckets.reduce((sum, b) => sum + b.flats, 0), label).toBeGreaterThanOrEqual(ageing.total.flats);
       const rowCount = AGE_BUCKETS.map((bucket) => ageingRows(positions, asOf, bucket));
       expect(rowCount.map((rows) => rows.length), label).toEqual(ageing.buckets.map((b) => b.bills));
       expect(rowCount.flat().reduce((sum, row) => sum + row.amountDuePaise, 0n), label).toBe(dueTotal);

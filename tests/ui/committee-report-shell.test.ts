@@ -30,7 +30,7 @@ const report = (over: Partial<CommitteeReport> = {}): CommitteeReport =>
   emptyReport({
     periods: ["2026-10-01", "2026-09-01", "2026-08-01"],
     money,
-    ageing: { buckets: AGE_BUCKETS.map((bucket) => ({ bucket, flats: 0, bills: 0, amountDuePaise: 0n })), total: { flats: 0, bills: 0, amountDuePaise: 0n } },
+    ageing: { buckets: AGE_BUCKETS.map((bucket) => ({ bucket, flats: 0, bills: 0, unpaidBillsPaise: 0n, lateFeesPaise: 0n, amountDuePaise: 0n })), total: { flats: 0, bills: 0, unpaidBillsPaise: 0n, lateFeesPaise: 0n, amountDuePaise: 0n } },
     ...over,
   });
 

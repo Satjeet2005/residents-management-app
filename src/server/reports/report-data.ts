@@ -99,6 +99,7 @@ export async function loadCommitteeReport(input: { db: Db; user: Viewer; request
   const weeks = weeklySla(window, chartEnd, input.now);
   const ageing = ageingTable(positions, asOf);
   const money = monthPositions.length === 0 ? null : moneyLine(monthPositions);
+  const monthly = monthlySeries(positions, months, asOf);
   return {
     asOf,
     period,
@@ -110,10 +111,10 @@ export async function loadCommitteeReport(input: { db: Db; user: Viewer; request
     complaints: metrics,
     reconciliation,
     goals: { source, rows: goalRows },
-    cards: buildCards({ money, ageing, onTime, sla: { months: slaMonths }, goals: goalRows }),
+    cards: buildCards({ money, ageing, onTime, sla: { months: slaMonths }, goals: goalRows, monthly }),
     headlines: sectionHeadlines({ money, ageing, quality, complaints: metrics, reconciliation }),
     series: {
-      monthly: monthlySeries(positions, months, asOf),
+      monthly,
       onTime,
       monthlySla: slaMonths,
       weeklySla: weeks,

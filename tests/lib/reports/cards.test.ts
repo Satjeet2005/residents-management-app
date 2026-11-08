@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { AGE_BUCKETS } from "@/domain/reports/age";
 import { complaintMetrics } from "@/domain/reports/complaints";
-import { defaultGoals, evaluateGoals } from "@/domain/reports/goals";
+import { type GoalRow, defaultGoals, evaluateGoals } from "@/domain/reports/goals";
 import type { MoneyLine } from "@/domain/reports/money-line";
 import { reconciliationLine } from "@/domain/reports/reconciliation";
-import type { OnTimePoint } from "@/domain/reports/series";
+import type { MonthlyPoint, OnTimePoint } from "@/domain/reports/series";
 import type { MonthlySlaPoint } from "@/domain/reports/monthly-sla";
-import { buildCards, countText } from "@/lib/reports/cards";
+import { buildCards, countText, goalText } from "@/lib/reports/cards";
 import { sectionHeadlines } from "@/lib/reports/headlines";
 
 const money: MoneyLine = {
@@ -19,25 +19,30 @@ const money: MoneyLine = {
   fees: { postedPaidPaise: 0n, postedOwingPaise: 0n, accruingPaise: 0n },
 };
 const ageing = {
-  buckets: AGE_BUCKETS.map((bucket) => ({ bucket, flats: bucket === "OVER_90" ? 24 : 100, bills: 10, amountDuePaise: 606_000_000n / 5n })),
-  total: { flats: 817, bills: 900, amountDuePaise: 606_000_000n },
+  buckets: AGE_BUCKETS.map((bucket) => ({ bucket, flats: bucket === "OVER_90" ? 24 : 100, bills: 10, unpaidBillsPaise: 606_000_000n / 5n, lateFeesPaise: 0n, amountDuePaise: 606_000_000n / 5n })),
+  total: { flats: 817, bills: 900, unpaidBillsPaise: 606_000_000n, lateFeesPaise: 0n, amountDuePaise: 606_000_000n },
 };
 const point = (period: string, due: number, dueOnTime: number): OnTimePoint => ({ period, due, dueOnTime, paid: dueOnTime + 1, paidOnTime: dueOnTime, headlinePercent: due === 0 ? null : Math.round((100 * dueOnTime) / due), ofPaidPercent: null });
 const month = (period: string, decided: number, met: number): MonthlySlaPoint => ({ period, raised: decided, decided, met, sharePercent: decided === 0 ? null : Math.round((100 * met) / decided) });
 const rows = evaluateGoals(defaultGoals, { onTime: { n: 7, d: 10 }, firstReply: { n: 17, d: 20 }, reopened: { n: 0, d: 0 } });
+const monthly: MonthlyPoint[] = [
+  { period: "2026-09-01", hasBills: true, billedPaise: 100n, collectedPaise: 93n, outstandingPaise: 7n, collectedPercent: 93, byDay20Percent: 91, inProgress: false },
+  { period: "2026-10-01", hasBills: true, billedPaise: 100n, collectedPaise: 82n, outstandingPaise: 18n, collectedPercent: 82, byDay20Percent: 79, inProgress: false },
+];
 const input = {
   money,
   ageing,
   onTime: [point("2026-09-01", 10, 9), point("2026-10-01", 10, 7)],
   sla: { months: [month("2026-08-01", 0, 0), month("2026-09-01", 0, 0), month("2026-10-01", 20, 17)] },
   goals: rows,
+  monthly,
 };
 
 describe("CD1 the four cards", () => {
   const cards = buildCards(input);
 
   it("Collected this month: the percent, both amounts in the short form, and the exact figure in full Indian grouping", () => {
-    expect(cards.collected).toEqual({ percent: 82, value: "82%", comparison: "₹1.48 crore of ₹1.81 crore", exact: "₹1,48,42,714 of ₹1,80,52,190" });
+    expect(cards.collected).toEqual({ percent: 82, value: "82%", comparison: "₹1.48 crore of ₹1.81 crore", exact: "₹1,48,42,714 of ₹1,80,52,190", within20: "October within 20 days: 79%", sameAge: "September, at the same age: 91%" });
   });
 
   it("Total owed: the all-open-dues total in short form, its flats, and the flats over 90 days", () => {
@@ -45,8 +50,8 @@ describe("CD1 the four cards", () => {
   });
 
   it("Paid on time: the headline against the goal, last month, and six points of trend with a gap", () => {
-    expect(cards.onTime).toMatchObject({ percent: 70, value: "70%", lastMonth: "last month 90%" });
-    expect(cards.onTime.goal).toMatchObject({ status: "NOT_MET", targetPercent: 90, text: "Goal: At least 90%" });
+    expect(cards.onTime).toMatchObject({ percent: 70, value: "70%", lastMonth: "September: 90%" });
+    expect(cards.onTime.goal).toMatchObject({ status: "NOT_MET", targetPercent: 90, text: "Goal 90% · 20 points short" });
     expect(cards.onTime.trend).toEqual([
       { label: "Sep", value: 90 },
       { label: "Oct", value: 70 },
@@ -94,11 +99,39 @@ describe("CD2 the section headlines", () => {
   });
 
   it("says so in words when there is nothing to count", () => {
-    const empty = sectionHeadlines({ money: null, ageing: { buckets: [], total: { flats: 0, bills: 0, amountDuePaise: 0n } }, quality: null, complaints: complaintMetrics([], 0), reconciliation: reconciliationLine({ states: { QUEUED: 0, AUTO_MATCHED: 0, AWAITING_APPROVAL: 0, MANUALLY_MATCHED: 0, IGNORED: 0 }, imports: [], decisions: [] }) });
+    const empty = sectionHeadlines({ money: null, ageing: { buckets: [], total: { flats: 0, bills: 0, unpaidBillsPaise: 0n, lateFeesPaise: 0n, amountDuePaise: 0n } }, quality: null, complaints: complaintMetrics([], 0), reconciliation: reconciliationLine({ states: { QUEUED: 0, AUTO_MATCHED: 0, AWAITING_APPROVAL: 0, MANUALLY_MATCHED: 0, IGNORED: 0 }, imports: [], decisions: [] }) });
     expect(empty).toEqual({ money: "No bills this month", owed: "Nothing is owed", quality: "No bills this month", complaints: "None raised this month", bank: "No bank statement in the last 30 days" });
   });
 
   it("a flat count of one is singular", () => {
     expect(sectionHeadlines({ money, ageing: { ...ageing, total: { ...ageing.total, flats: 1 } }, quality, complaints, reconciliation }).owed).toBe("1 flat owes ₹60.6 lakh");
+  });
+});
+
+describe("CD3 goal wording and previous period names (D176, D177)", () => {
+  const row = (over: Partial<GoalRow>): GoalRow => ({ key: "onTimeCollection", targetPercent: 90, actualPercent: 70, status: "NOT_MET", gapPoints: 20, ...over });
+
+  it.each([
+    [row({}), "Goal 90% · 20 points short"],
+    [row({ gapPoints: 1 }), "Goal 90% · 1 point short"],
+    [row({ status: "MET", gapPoints: 3, actualPercent: 93 }), "Goal 90% · 3 points above"],
+    [row({ status: "MET", gapPoints: 0, actualPercent: 90 }), "Goal 90%"],
+    [row({ status: "NO_DATA", gapPoints: null, actualPercent: null }), "Goal 90%"],
+    [row({ key: "reopenedMax", targetPercent: 8, gapPoints: 2 }), "Limit 8% · 2 points over"],
+    [row({ key: "reopenedMax", targetPercent: 8, status: "MET", gapPoints: 3 }), "Limit 8% · 3 points under"],
+  ])("%j reads %s", (goal, text) => {
+    expect(goalText(goal)).toBe(text);
+  });
+
+  it("the previous month is named, and left out when it has no figure", () => {
+    expect(buildCards(input).onTime.lastMonth).toBe("September: 90%");
+    const none = buildCards({ ...input, onTime: [point("2026-09-01", 0, 0), point("2026-10-01", 10, 7)] });
+    expect(none.onTime.lastMonth).toBeNull();
+  });
+
+  it("Collected compares the month with the previous month at the same age, and says 'so far' for a young month", () => {
+    expect(buildCards(input).collected).toMatchObject({ within20: "October within 20 days: 79%", sameAge: "September, at the same age: 91%" });
+    const young = buildCards({ ...input, monthly: [input.monthly[0], { ...input.monthly[1], inProgress: true }] });
+    expect(young.collected.within20).toBe("October so far: 79%");
   });
 });

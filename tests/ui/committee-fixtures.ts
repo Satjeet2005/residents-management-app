@@ -20,7 +20,7 @@ export function emptyReport(over: Partial<CommitteeReport> = {}): CommitteeRepor
     period: "2026-10-01",
     periods: ["2026-10-01"],
     money: null,
-    ageing: { buckets: [], total: { flats: 0, bills: 0, amountDuePaise: 0n } },
+    ageing: { buckets: [], total: { flats: 0, bills: 0, unpaidBillsPaise: 0n, lateFeesPaise: 0n, amountDuePaise: 0n } },
     drilldown: null,
     quality: null,
     complaints: complaintMetrics([], NOW),
@@ -35,7 +35,7 @@ export function emptyReport(over: Partial<CommitteeReport> = {}): CommitteeRepor
   return {
     ...base,
     series: { monthly: monthlySeries([], onTime.map((p) => p.period), base.asOf), onTime, monthlySla: monthlySla([], onTime.map((p) => p.period), NOW), weeklySla: weeks, curve: null, ...over.series },
-    cards: over.cards ?? buildCards({ money: base.money, ageing: base.ageing, onTime, sla: { months: monthlySla([], onTime.map((p) => p.period), NOW) }, goals: base.goals.rows }),
+    cards: over.cards ?? buildCards({ money: base.money, ageing: base.ageing, onTime, sla: { months: monthlySla([], onTime.map((p) => p.period), NOW) }, goals: base.goals.rows, monthly: monthlySeries([], onTime.map((p) => p.period), base.asOf) }),
     headlines: over.headlines ?? sectionHeadlines(base),
   };
 }

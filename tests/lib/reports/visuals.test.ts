@@ -37,8 +37,8 @@ describe("VZ1 the monthly visual: one text and one table for the phone bars and 
 
 describe("VZ2 the ageing visual", () => {
   const ageing = {
-    buckets: AGE_BUCKETS.map((bucket, i) => ({ bucket, flats: i + 1, bills: i + 2, amountDuePaise: BigInt(i === 3 ? 50_000_000 : 1_000_000) })),
-    total: { flats: 15, bills: 20, amountDuePaise: 54_000_000n },
+    buckets: AGE_BUCKETS.map((bucket, i) => ({ bucket, flats: i + 1, bills: i + 2, unpaidBillsPaise: BigInt(i === 3 ? 50_000_000 : 1_000_000), lateFeesPaise: 0n, amountDuePaise: BigInt(i === 3 ? 50_000_000 : 1_000_000) })),
+    total: { flats: 15, bills: 20, unpaidBillsPaise: 54_000_000n, lateFeesPaise: 0n, amountDuePaise: 54_000_000n },
   };
   const visual = ageingVisual(ageing);
 

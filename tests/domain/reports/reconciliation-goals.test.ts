@@ -87,3 +87,31 @@ describe("RP1 the goals", () => {
     expect(evaluateGoals(defaultGoals, { onTime: { n: 0, d: 1 }, firstReply: { n: 0, d: 1 }, reopened: { n: 0, d: 20 } })[2]).toMatchObject({ actualPercent: 0, status: "MET" });
   });
 });
+
+describe("RP1b the gap to each goal, in whole points (D176)", () => {
+  const rows = (onTime: [number, number], reply: [number, number], reopened: [number, number]) =>
+    evaluateGoals(defaultGoals, { onTime: { n: onTime[0], d: onTime[1] }, firstReply: { n: reply[0], d: reply[1] }, reopened: { n: reopened[0], d: reopened[1] } });
+
+  it.each([
+    ["70 of 100 against 90 is 20 short", [70, 100], "NOT_MET", 20],
+    ["93 of 100 against 90 is 3 above", [93, 100], "MET", 3],
+    ["exactly 90 is met with a margin of 0", [90, 100], "MET", 0],
+    ["89.6 percent is 1 short, never 0 short (a miss rounds up)", [448, 500], "NOT_MET", 1],
+    ["93.9 percent is 3 above (a margin rounds down)", [939, 1000], "MET", 3],
+  ] as const)("at least 90: %s", (_name, [n, d], status, gap) => {
+    expect(rows([n, d], [1, 1], [0, 1])[0]).toMatchObject({ status, gapPoints: gap });
+  });
+
+  it.each([
+    ["10 of 100 against a ceiling of 8 is 2 over", [10, 100], "NOT_MET", 2],
+    ["8.1 percent is 1 over", [81, 1000], "NOT_MET", 1],
+    ["5 of 100 is 3 under", [5, 100], "MET", 3],
+    ["exactly 8 is met with room 0", [8, 100], "MET", 0],
+  ] as const)("at most 8: %s", (_name, [n, d], status, gap) => {
+    expect(rows([1, 1], [1, 1], [n, d])[2]).toMatchObject({ status, gapPoints: gap });
+  });
+
+  it("with nothing to measure there is no gap", () => {
+    expect(rows([0, 0], [0, 0], [0, 0]).map((r) => r.gapPoints)).toEqual([null, null, null]);
+  });
+});
