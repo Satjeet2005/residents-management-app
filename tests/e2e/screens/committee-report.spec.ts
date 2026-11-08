@@ -85,6 +85,85 @@ test.describe("the committee report at one width", () => {
     expect((choose?.y ?? 0) < (about?.y ?? 0)).toBe(true);
   });
 
+  test("the drill-down opens largest first, can be turned to oldest first, and has a way back to the age groups at the top and the bottom", async ({ page }) => {
+    const watch = watchPage(page);
+    await openReport(page, "?period=2026-10&bucket=over-90");
+    const detail = page.locator("#ageing-detail");
+    await expect(detail.getByRole("heading", { level: 2 })).toBeFocused();
+    await expect(detail.getByRole("link", { name: "Largest first" })).toHaveAttribute("aria-current", "true");
+    const rows = detail.locator("tbody tr:visible, ul li:visible");
+    await expect(rows.first()).toBeVisible();
+    const amounts = await rows.evaluateAll((els) => els.map((el) => Number(/₹([\d,]+)/.exec((el as HTMLElement).innerText)?.[1].replace(/,/g, ""))));
+    expect(amounts.length).toBeGreaterThan(5);
+    expect(amounts).toEqual([...amounts].sort((a, b) => b - a));
+    await expect(detail.getByText(/^Showing \d+ of \d+$/)).toBeVisible();
+    await checkScreen(page, watch, "committee", "drilldown");
+
+    await detail.getByRole("link", { name: "Oldest first" }).click();
+    await expect(page).toHaveURL(/sort=oldest/);
+    await expect(detail.getByRole("link", { name: "Oldest first" })).toHaveAttribute("aria-current", "true");
+    const days = await detail.locator("tbody tr:visible, ul li:visible").evaluateAll((els) =>
+      els.map((el) => {
+        const row = el as HTMLElement;
+        return Number(row.tagName === "TR" ? row.querySelectorAll("td")[1].innerText : /(\d+) days overdue/.exec(row.innerText)?.[1]);
+      }),
+    );
+    expect(days.length).toBeGreaterThan(5);
+    expect(days).toEqual([...days].sort((a, b) => b - a));
+
+    await expect(detail.getByRole("link", { name: "← Back to age groups" })).toHaveCount(2);
+    await detail.getByRole("link", { name: "← Back to age groups" }).first().click();
+    await expect(page).toHaveURL(/#owed$/);
+    await expect(page.locator("#ageing-detail")).toHaveCount(0);
+  });
+
+  test("the Replies card's figure is the last value of its own line, read from the line's table", async ({ page }) => {
+    await openReport(page);
+    const card = page.locator("section[aria-label='Headline figures'] > ul > li").nth(3);
+    const value = (await card.locator("p.text-hero").innerText()).trim();
+    await card.locator("figure details > summary").click();
+    const last = (await card.locator("figure table tbody tr").last().locator("td").innerText()).trim();
+    expect(last).toBe(value);
+    expect(await card.locator("figure table tbody tr").count()).toBe(6);
+  });
+
+  test("the strip and the Complaints section give the same count of open safety complaints that nobody has seen", async ({ page }) => {
+    await openReport(page);
+    await openAll(page);
+    const strip = page.getByRole("status").filter({ hasText: "not yet seen by the duty manager" });
+    const k = (await strip.count()) > 0 ? Number(/(\d[\d,]*) safety complaints? (is|are)/.exec(await strip.innerText())?.[1].replace(/,/g, "")) : 0;
+    await expect(page.locator("details#complaints")).toContainText(`Open and not yet seen, all months: ${k}`);
+    console.log(`STRIP ${k} = Complaints section ${k}`);
+  });
+
+  test("every table behind a chart fits the screen with no sideways scroll, the phone table included", async ({ page }) => {
+    await openReport(page);
+    await openAll(page);
+    await page.evaluate(() => document.querySelectorAll<HTMLDetailsElement>("figure details, details:not([data-section])").forEach((d) => (d.open = true)));
+    const overflow = await page.evaluate(() => ({
+      page: document.documentElement.scrollWidth - window.innerWidth,
+      tables: [...document.querySelectorAll("table")].filter((t) => t.getBoundingClientRect().width > 0).map((t) => ({ caption: t.querySelector("caption")?.textContent ?? "", extra: (t.closest(".overflow-x-auto") ?? t.parentElement)!.scrollWidth - (t.closest(".overflow-x-auto") ?? t.parentElement)!.clientWidth })),
+    }));
+    expect(overflow.page).toBeLessThanOrEqual(0);
+    for (const table of overflow.tables) expect(table.extra, table.caption).toBeLessThanOrEqual(0);
+    expect(overflow.tables.length).toBeGreaterThanOrEqual(4);
+  });
+
+  test("at 150 percent zoom on a phone (a 240 px wide screen) nothing overflows sideways, with every section and table open", async ({ page }) => {
+    test.skip(widthOf(page) !== 360, "the zoom pass is for the phone");
+    await page.setViewportSize({ width: 240, height: 533 });
+    await openReport(page);
+    await openAll(page);
+    await page.evaluate(() => document.querySelectorAll<HTMLDetailsElement>("figure details").forEach((d) => (d.open = true)));
+    const wider = await page.evaluate(() => ({ page: document.documentElement.scrollWidth - window.innerWidth, elements: [...document.querySelectorAll("main *")].filter((el) => el.getBoundingClientRect().right > window.innerWidth + 1 && getComputedStyle(el).position !== "fixed" && el.closest(".overflow-x-auto") === null && !(el instanceof SVGElement)).map((el) => `${el.tagName.toLowerCase()} ${(el.textContent ?? "").trim().slice(0, 30)}`).slice(0, 5) }));
+    expect(wider.elements).toEqual([]);
+    expect(wider.page).toBeLessThanOrEqual(0);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const file = path.join("docs", "screenshots", "committee-report-zoom150-360.png");
+    await page.screenshot({ path: file, scale: "css", animations: "disabled" });
+    expect(statSync(file).size, file).toBeLessThanOrEqual(MAX_BYTES);
+  });
+
   test("every section opened: the visuals, the page checks and the screenshots", async ({ page }) => {
     const watch = watchPage(page);
     await openReport(page);
