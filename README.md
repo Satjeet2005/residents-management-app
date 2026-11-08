@@ -170,16 +170,21 @@ npm run db:seed -- --yes && npm run build && npm run start     # http://localhos
 ```
 
 1. Log in as **Meera Kapoor** (`5000000003`, `reports:view`; the code is in the banner). `/staff` lists **Committee report**; open it. A resident, or staff without `reports:view`, ends at `/forbidden`.
-2. The top says "Figures as of 27 October 2026". Under **Money, October 2026** read Billed (₹1,80,52,190) = Collected (₹1,48,42,714) + Outstanding (₹32,09,476); the double rule closes the ledger. Under it the late fees
-   (posted and paid, posted and owing, accruing and not yet posted) and the flats (2399 billed, 1915 paid in full, 484 with principal outstanding).
-3. **What is owed** says "All open dues, all months" and splits the total due (₹61,89,686 over 943 bills) into five age groups; the bar and the numbers beside it say the same, and they add up. Press **See the flats** on
-   "31 to 60 days": the list of flat codes, bill month, days overdue and amount due, oldest first, 25 at a time with **Load more**. There is no name and no phone number anywhere.
-4. Read **Collection quality**, **Complaints** (an unacknowledged safety complaint has a warning with an icon and words), the **Bank reconciliation** line (it says no statement was imported until you import the sample
-   statement as Priya Nair) and **Goals**: each row has the target, the actual and Met or Not met in words with an icon. Change the month with the selector (a plain form; it works without a script).
-5. The targets are assumptions in the setting `committee_goals`. On a hosted database that was seeded before this task, the owner inserts the row once (`docs/deploy-checklist.md`, E8).
+2. The top says "Figures as of 27 October 2026". Under it are four cards: **Collected this month** (82%, "₹1.48 crore of ₹1.81 crore", the exact rupees in small text), **Total owed**, **Paid on time** and
+   **Replies within the SLA** (each against its goal, Met or Not met in words with an icon, and a small trend line you can open as a table). A red strip above them appears only when a safety complaint waits for the duty manager.
+3. Below the cards are five sections; each title has a one-sentence summary. At 360px they start closed: tap one to open it. At 768px and wider the first two (**Money**, **What is owed**) start open.
+   **Money**: Billed (₹1,80,52,190) = Collected (₹1,48,42,714) + Outstanding (₹32,09,476), the late fees and flats in two sentences, and the month-by-month collection (bars on a phone, columns from 768px).
+   **What is owed** says "All open dues, all months": the five age groups as bars, and **See the flats** beside each group opens the list of flat codes, oldest first, 25 at a time. No names, no phone numbers.
+4. **Collection quality** (three rows, three plain numbers and, from 768px, the payment curve), **Complaints** (six lines, one safety line, and from 768px the weekly SLA chart) and **Bank reconciliation** (three lines;
+   it says no statement was imported until you import the sample statement as Priya Nair). Every chart has a **Show as a table** link with the same numbers as text. **About these numbers** at the bottom defines every figure.
+5. **Choose sections** (under the month selector) opens a sheet: untick a section, press Save, and it is gone from the page and stays gone after a reload on this device and browser; **Show everything** brings it back. The cards
+   cannot be hidden. The choice is a cookie, not a setting in the database.
+6. The targets are assumptions in the setting `committee_goals`. On a hosted database that was seeded before this task, the owner inserts the row once (`docs/deploy-checklist.md`, E8); until then the built-in targets are shown and
+   the page says so.
 
-To look at it at 1280px and at 360px, open the page in Chrome or Firefox, press F12 and then Ctrl+Shift+M (device toolbar), choose Responsive and type 1280 x 800, then 360 x 800. At 1280px the blocks are two
-columns and the lists are tables; at 360px they are one column and the drill-down rows are cards. Tab through the page: every control shows a ring.
+To look at it at phone and laptop width, open the page in Chrome or Firefox, press F12 and then Ctrl+Shift+M (device toolbar), choose Responsive and type 360 x 800, then 768 x 1024, then 1280 x 800. At 360px it is one
+column: four cards, five closed sections, and only bars and small trend lines (no line charts). At 768px the cards are two by two, the first two sections are open and the line charts and columns appear, full width. At 1280px the cards
+are four in a row and the sections two columns. Tab through the page: every control shows a ring, and Enter or Space opens a section. The pictures taken by the browser checks are in `docs/screenshots/committee-report-*.png`.
 
 ## Raising a complaint (resident)
 

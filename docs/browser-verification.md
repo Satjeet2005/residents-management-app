@@ -80,3 +80,11 @@ Compared by eye: the Home at 360 and the dues sheet. The other resident screens 
 npx playwright install chromium   # once
 npm run e2e                       # everything; `npm run e2e -- tests/e2e/flows` for part of it
 ```
+
+## Committee report v2 (Phase A of the final run)
+
+`tests/e2e/screens/committee-report.spec.ts` runs at 360, 768 and 1280 px (three projects in `playwright.config.ts`, after the staff complaints projects): the page checks of `checkScreen`, the first two
+sections open only from 768px, each visible visual has a title, a description and a table (below 768px the only visuals are the bars and sparklines), an age group link opens the drill-down, Tab reaches the section
+toggles and the Choose sections button, Enter and Space toggle a section, Escape closes the sheet and returns focus, and a hidden section stays hidden after a reload until Show everything. The first thing the server sends
+is the loading state (no heading), so the spec waits for the h1 before it acts. `checkScreen` ignores the content of a closed `<details>`: the browser still reports a box for it, but it is not on screen.
+Screenshots: `docs/screenshots/committee-report-{360,768,1280}.png` (default state), `committee-report-open-*.png` (every section open), `committee-m1..m4-*-360.png` and `committee-c1,c3,c4-*-1280.png` (close-ups), `committee-choose-*.png` (the sheet); each is under 400 KB.
