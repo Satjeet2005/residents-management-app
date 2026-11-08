@@ -54,7 +54,14 @@ async function measure(page: Page) {
       const s = getComputedStyle(el);
       return r.width > 0 && r.height > 0 && s.visibility !== "hidden" && s.display !== "none" && el.closest("[inert]") === null && el.closest("[hidden]") === null && el.closest('[aria-hidden="true"]') === null;
     };
-    const visible = (el: Element): boolean => shown(el) && (modal === undefined || modal.contains(el));
+    // The content of a closed <details> is not on screen (only its <summary> is), whatever box the browser still reports for it.
+    const inClosedDetails = (el: Element): boolean => {
+      for (let details = el.closest("details"); details !== null; details = details.parentElement?.closest("details") ?? null) {
+        if (!details.open && el.closest("summary")?.parentElement !== details) return true;
+      }
+      return false;
+    };
+    const visible = (el: Element): boolean => shown(el) && !inClosedDetails(el) && (modal === undefined || modal.contains(el));
     const interactive = [...document.querySelectorAll('a[href], button, input:not([type="hidden"]), select, textarea, summary, [role="tab"], [role="button"], [tabindex]:not([tabindex="-1"])')];
     const targets: Measured[] = [];
     for (const el of interactive) {
