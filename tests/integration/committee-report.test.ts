@@ -584,7 +584,7 @@ describe("RP6 access: who may read the report, and what the page never shows", (
   it("no resident name or phone number appears anywhere in the page, in any month or any drill-down (every seeded name and phone is searched for)", async () => {
     const people = await fx.owner.user.findMany({ select: { name: true, phone: true } });
     expect(people.length).toBeGreaterThan(2400);
-    const pages = AGE_BUCKETS.map((bucket) => ageingPageOf(seeded, AS_OF, bucket, "LARGEST", null));
+    const pages = AGE_BUCKETS.flatMap((bucket) => (["LARGEST", "OLDEST"] as const).map((sort) => ageingPageOf(seeded, AS_OF, bucket, sort, null)));
     const outputs = pages.map((drilldown) => renderToStaticMarkup(h(ReportView, { report: { ...october, drilldown } })));
     outputs.push(renderToStaticMarkup(h(ReportView, { report: october })));
     expect(outputs.every((out) => out.includes("See the numbers behind this chart") && (out.match(/<table/g) ?? []).length >= 8)).toBe(true);
