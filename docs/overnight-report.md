@@ -8,7 +8,7 @@
 | A Committee report v2 | DONE (this section) |
 | B Documentation package, runbooks and clean-clone script | DONE (the Phase B section below), with the UNVERIFIED items listed there |
 | C Safety detection measurement | DONE (the Phase C section at the end): measured only, the detector is unchanged |
-| T10c Safety detection improvement, Stage 1 (normalisation) | IN PROGRESS (the T10c section at the end) |
+| T10c Safety detection improvement, Stage 1 (normalisation) | DONE (the T10c section at the end); Stages 2 and 3 documented, not built |
 | D Reconcile documents | NOT STARTED |
 | E Final verification | NOT STARTED |
 
@@ -601,11 +601,78 @@ The repair is in `scripts/repair-seed-keys.sql` and `docs/live-refresh-runbook.m
 
 ## T10c: safety detection improvement, Stage 1 (normalisation)
 
-Status: IN PROGRESS.
+Status: DONE. Stage 1 only (D168) plus the confirmed precision fix (D169); Stage 2 and Stage 3 are documented as next steps with triggers (D170), not built.
 
 ### Step 0
 
-- Preconditions: the Phase C commits (`3b8119a` to `8d13ebf`), the T13h commits (`7ddf60a`, `b70896b`: the fifth category MEDICAL_VIOLENCE) and the T13i commits (`ca46620` to `98edfaf`) are present.
+- Preconditions: the Phase C commits (`3b8119a` to `8d13ebf`), the T13h commits (`7ddf60a`, `b70896b`: the fifth category MEDICAL_VIOLENCE) and the T13i commits (`ca46620` to `98edfaf`) were present. I did not run `npm run check` on the untouched tree: the T13i phase end recorded 4,769 passed, and my first run, with only the new everyday group and its test added, passed (4,778 passed, 1 skipped).
 - Baseline from the committed files: dev single 36.88% (1844/5000), double 16.56% (414/2500), false alarms 3.86% (62/1608); holdout 9301 to 9305 single 35.98% (1799/5000), double 17.52% (438/2500), false alarms 3.45% (55/1595).
-- Disk: 14 GB free of 195 GB (93% used).
-- Number mapping: the prompt's D164 (Stage 1 only) and D166 (only genuine safety phrases are CRITICAL) are chat numbers; the repository already uses D164 and D166 for other decisions, so this task uses D168 onward and R100 onward. D125 was added to `docs/decisions.md`.
+- Disk: 14 GB free of 195 GB (93% used) at the start and at the end.
+- Number mapping: the prompt's D164 (Stage 1 only) and D166 (only genuine safety phrases are CRITICAL) are chat numbers; the repository already used D164 and D166 for other decisions, so this task uses D168 and D169 (and D170 for the next-step triggers) and R100 to R106. D125 was added to `docs/decisions.md`.
+
+### Procedure (in this order)
+
+1. Part 0: 302 everyday sentences and 12 ambiguous ones were measured with the unchanged detector: 88 everyday sentences hit (all CRITICAL through the decision path); 17 of them through a bare current rule (14 Devanagari करंट, 3 Latin: "current aa raha hai kya", "current aata jaata", "bijli ka current bill"). The Latin phrases the brief names ("current gaya", "current gela", "current kab aayega", "light gayi") never hit. 9 of 12 ambiguous hit (reported apart).
+2. Part 0b: the problem was confirmed, so the precision fix was made (D169): ten bare-current terms of five rules need a shock word; everyday hits 88 to 71, through a current rule 17 to 0.
+3. Part 1: normalisation, guided by the dev set only (one correction: a number guard that was too wide).
+4. The detector was frozen at `fe89698`; `git diff fe89698` of the detector, the generator, the base list and the contexts was empty before and after the new holdout.
+5. The dev expectations were re-baselined; before and after are in `tests/fixtures/safety/history.json` (commit `9b9d9d7`).
+6. The new holdout (seeds 9401 to 9405, generator version `safety-perturb-1`, asserted) was generated and run ONCE (`3f8e2f8`).
+7. The old holdout was recomputed and is labelled reused.
+
+### Headline numbers (95 percent Wilson intervals)
+
+| | Baseline | After D169 | After D168 (final) |
+|---|---|---|---|
+| NEW holdout single-operation recall | 36.6% (35.3 to 38.0; 1831/5000) | 35.4% (1769/5000) | **46.1% (44.8 to 47.5; 2307/5000)** |
+| NEW holdout double-operation recall | 17.0% (426/2500) | 16.2% (406/2500) | 20.8% (19.3 to 22.4; 520/2500) |
+| NEW holdout false alarms, all negatives | 3.8% (60/1594) | 3.4% (54/1594) | 3.4% (54/1594); generated benign 0/1248 |
+| Dev single-operation recall | 36.9% (1844/5000) | 35.9% (1796/5000) | 47.0% (45.6 to 48.4; 2350/5000) |
+| Old holdout (REUSED: visible before the change, not independent evidence) single | 36.0% (1799/5000) | 35.2% (1761/5000) | 45.8% (44.5 to 47.2; 2292/5000) |
+| Everyday phrasing (302): hits | 88 | 71 | 71 |
+
+Improved: ELONGATE_VOWEL (17.7% to 99.7% on the new holdout) and LEET (4.4% to 96.7%), a little DOUBLE_LETTER and ROMANISATION_VARIANT. No measured effect: the squashed and the Devanagari-folded readings (the generator makes no run of three single letters and the matcher already folds the nukta). Not improved: SWAP_ADJACENT, DROP_LETTER, INSERT_NEIGHBOUR, SUBSTITUTE_NEIGHBOUR, INSERT_SEPARATOR, REMOVE_SPACES, DROP_VOWEL_SIGN, SWAP_VOWEL_LENGTH, DOUBLE_CONSONANT (13 to 28%). Went down by D169: NUKTA_TOGGLE, INSERT_JOINER, CHANDRABINDU_ANUSVARA, RANDOM_CASE, DOUBLE_CONSONANT, DROP_VOWEL_SIGN (a few items whose base phrase is a bare करंट term). Full tables: `docs/safety-benchmark.md`.
+
+### Commits (each ran `npm run check` and `npm run scan:secrets` through the hook: all passed)
+
+| Hash | Message |
+|---|---|
+| b42e2a1 | test: everyday Indian phrasing negatives and their measurement |
+| e16ee78 | fix(domain): a bare current rule needs a shock context |
+| fe89698 | feat(domain): safety text normalisation |
+| 9b9d9d7 | test: re-baseline the dev set |
+| 3f8e2f8 | test: new holdout run once |
+| e7c1c2e | docs: safety improvement measured before and after |
+| (this commit) | docs: decisions, next steps and known limitations |
+
+### Tests edited, and why (a behaviour change this prompt names)
+
+- `safety.test.ts`: "करंट बिल ज्यादा आया है" moved from accepted false positives to negatives (D169).
+- `base.test.ts`: a bare current base phrase is checked with a shock word beside it (D169); the base list itself is unchanged (the builder keeps those terms).
+- `detector-change.test.ts`: its copy of the detector gates the bare terms like the detector (D169), and its agreement test compares with the exact reading of the real detector (D168).
+- `everyday.test.ts`: the measured counts changed from the baseline to the post-fix values (88 to 71, 17 to 0); two Stage 1 no-new-false-alarm tests were added.
+- `dev` and `holdout` `expected.json`: rewritten in the two detector commits (the drift tests compare them with a fresh computation, the hook runs them); texts and digests unchanged.
+- The whole existing detector test suite (`safety.test.ts`, `safety-medical-violence.test.ts`, `decision.test.ts`, `fallback.test.ts`, the 2,000-character test) passes otherwise unchanged.
+
+### Mutations (applied, failing tests, restored from a copy, restoration checked: diff against the copy empty)
+
+| Mutation | Failing tests |
+|---|---|
+| 1 skip the squashed reading | 5: `safety-normalize.test.ts` N6 "lists the readings in a fixed order…", N9 "f i r e in the lobby", "f.i.r.e in the lobby", "l i f t atak gayi" (each found SQUASHED), "a hit is STRONG whichever reading found it". The dev and holdout drift tests do NOT fail: squashing has no measured effect on the benchmark. |
+| 2 skip the Devanagari fold | 1: N6 "lists the readings in a fixed order…". The drift tests do NOT fail: the matcher already folds these. |
+| 3 skip the elongation readings | 14: N6, N9 ("fiiire in the lobby" found ELONGATION, "aaaag lagi hai", "a hit is STRONG…"), the five dev seed drift tests and the old holdout seed drift tests |
+| 4 revert the precision fix | 34: 20 of `safety-current-context.test.ts` (each everyday electricity phrase and the context tests), `safety.test.ts` "करंट बिल ज्यादा आया है hits nothing", the `detector-change.test.ts` agreement test, both `everyday.test.ts` counts, and the dev and holdout drift tests |
+
+### Phase end commands
+
+- `npm run check`: 208 files passed, 1 skipped; 4,963 passed, 1 skipped; `npm run scan:secrets`: no secrets found.
+- `npm run test:ci-parity`: unit passed, integration 75 files, 1,109 passed, 299 s.
+- Cleanup: no database starting `township_`, 0 roles `app_t_*` (checked by query); the temporary scripts were removed; no database was created or dropped by this task.
+
+### Not verified / risks
+
+- The Hindi and Marathi everyday sentences and the shock-word list are not reviewed by a native speaker. The ten narrowed terms are MORE specific now; "तार में करंट आ रहा है" with no shock word is no longer a hit (D169).
+- 71 of 302 everyday sentences still raise CRITICAL ("gas", "blood", "shock absorber", "knife set", "fire exit"); the prompt authorised only the bare-current family. A second precision step is a human decision (D170).
+- The benchmark is synthetic; the squashed and Devanagari-folded readings are tested only by unit tests.
+- The new holdout's before numbers were computed after its single run from the earlier detectors in git (R105).
+- `git status` still shows the old modified screenshots under `docs/screenshots`; I did not stage or touch them.
