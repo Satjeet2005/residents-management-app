@@ -12,7 +12,7 @@
   --color-paper: #fbf8f1; /* ground */
   --color-paper-2: #f1ebdc; /* tint for chips and placeholders; ink on it is 14.60:1 */
   --color-ink: #1c1a17; /* text and the rule, 16.37:1 */
-  --color-ink-2: #57514a; /* secondary text, 7.38:1 */
+  --color-ink-2: #463f38; /* secondary text, darkened for small print (D181), 9.76:1 */
   --color-accent: #0e4f47; /* primary action, tracker, links, 8.89:1 */
   --color-caution: #9a3b0a; /* overdue and warnings, always with words, 6.59:1 */
   --color-control: #6b6558; /* outlined controls, empty tracker markers, 5.46:1 */

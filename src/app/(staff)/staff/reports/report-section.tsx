@@ -9,7 +9,7 @@ import type { SectionId } from "@/lib/reports/sections";
  */
 export function ReportSection({ id, title, period, headline, defaultOpen, forceOpen, children }: { id: SectionId; title: string; period: string; headline: string; defaultOpen: boolean; forceOpen: boolean; children: ReactNode }) {
   return (
-    <details id={id} data-section={id} data-default-open={defaultOpen && !forceOpen ? "true" : "false"} open={forceOpen} className="min-w-0 rounded-control border border-hairline">
+    <details id={id} data-section={id} data-default-open={defaultOpen && !forceOpen ? "true" : "false"} open={forceOpen} className="h-full min-w-0 rounded-control border border-hairline">
       <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 p-4">
         <span className="flex min-w-0 flex-col">
           <h2 className="text-title font-semibold">{title}</h2>

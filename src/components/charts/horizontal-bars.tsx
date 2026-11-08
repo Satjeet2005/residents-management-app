@@ -2,7 +2,7 @@ import { CHART_TEXT } from "./chart-tokens";
 import { type ChartText, ChartFigure, ChartSvg, Dots, Hatch } from "./chart-parts";
 
 export const MAX_BARS = 7;
-const WIDTH = 320;
+const WIDTH = 288;
 const ROW = 54;
 const BAR = 14;
 

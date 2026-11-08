@@ -1,7 +1,7 @@
 import { CHART_STROKE } from "./chart-tokens";
 import { type ChartText, ChartFigure, ChartSvg } from "./chart-parts";
 
-const WIDTH = 296;
+const WIDTH = 288;
 const HEIGHT = 16;
 
 /**

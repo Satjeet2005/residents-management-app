@@ -73,7 +73,7 @@ export function ReportView({ report, hidden = [] }: { report: CommitteeReport; h
         <PeriodForm period={report.period} periods={report.periods} />
       </header>
       <HeadlineCards report={report} />
-      <div className="grid items-start gap-4 xl:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-2">
         {SECTION_IDS.filter((id) => !hidden.includes(id)).map((id, index) => (
           <ReportSection key={id} id={id} title={TITLES[id]()} period={PERIODS[id](report)} headline={report.headlines[id]} defaultOpen={index < 2} forceOpen={id === "owed" && report.drilldown !== null}>
             {bodies[id]}

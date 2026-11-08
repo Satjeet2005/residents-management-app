@@ -20,11 +20,12 @@ describe("LY1 the layout at phone, tablet and laptop widths", () => {
     expect(cards).toContain("xl:grid-cols-4");
   });
 
-  it("sections: one column below 1280px and two columns from 1280px, each section its own height", () => {
+  it("sections: one column below 1280px and two columns from 1280px, the sections of a row the same height so there is no white hole (N-01)", () => {
     const grid = /<div class="([^"]*)"><details id="money"/.exec(out)?.[1] ?? "";
     expect(grid).toContain("xl:grid-cols-2");
     expect(grid).not.toContain("md:grid-cols");
-    expect(grid).toContain("items-start");
+    expect(grid).not.toContain("items-start");
+    expect(out).toMatch(/<details id="money"[^>]*class="h-full /);
   });
 
   it("charts: the phone bars show below 768px and the laptop columns from 768px, each full width, never side by side", () => {
