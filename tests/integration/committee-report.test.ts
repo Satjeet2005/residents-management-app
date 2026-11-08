@@ -479,7 +479,8 @@ describe("RP6 access: who may read the report, and what the page never shows", (
 
   it("the committee user sees the whole page, from the real data, with every block", async () => {
     const out = renderToStaticMarkup(h(ReportView, { report: { ...october, drilldown: firstPage } }));
-    for (const part of ["Committee report", "Figures as of 27 October 2026", "Money, October 2026", "What is owed", "Collection quality, October 2026", "Complaints, October 2026", "Bank reconciliation, last 30 days", "Goals", "Open dues: 31 to 60 days"]) expect(out).toContain(part);
+    for (const part of ["Committee report", "Figures as of 27 October 2026", "Collected this month", "Money", "What is owed", "Collection quality", "Complaints", "Bank reconciliation", "About these numbers", "Open dues: 31 to 60 days"]) expect(out).toContain(part);
+    expect(out).not.toMatch(/<h2[^>]*>Goals<\/h2>/);
     expect(out).toContain("₹1,80,52,190");
     expect(out).not.toMatch(/NaN|undefined/);
   });
@@ -490,6 +491,7 @@ describe("RP6 access: who may read the report, and what the page never shows", (
     const pages = AGE_BUCKETS.map((bucket) => ageingPageOf(seeded, AS_OF, bucket, null));
     const outputs = pages.map((drilldown) => renderToStaticMarkup(h(ReportView, { report: { ...october, drilldown } })));
     outputs.push(renderToStaticMarkup(h(ReportView, { report: october })));
+    expect(outputs.every((out) => out.includes("Show as a table") && (out.match(/<table/g) ?? []).length >= 8)).toBe(true);
     const hits = new Set<string>();
     for (const out of outputs) {
       const text = out.replace(/<[^>]*>/g, " ");

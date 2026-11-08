@@ -1,4 +1,8 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createElement as h } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { ReportView } from "@/app/(staff)/staff/reports/report-view";
+import { SECTION_IDS, parseHiddenSections } from "@/lib/reports/sections";
 import { ageingTable } from "@/domain/reports/age";
 import { DEMO_NOW } from "@/domain/seed/types";
 import { loadCommitteeReport } from "@/server/reports/report-data";
@@ -8,6 +12,9 @@ import { type PaymentsFixture, createPaymentsFixture } from "./payments-fixture"
  * Committee report v2, the loader through the APP role on the seeded database as of 27 Oct 2026. Every series and card is checked against SQL written in this
  * test, which shares no code with the loader (the loader builds positions in memory with `positionsForFlat`; the SQL below counts payments in the database).
  */
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: () => {}, refresh: () => {}, push: () => {} }), usePathname: () => "/", redirect: () => {} }));
+vi.mock("@/app/(staff)/staff/reports/actions", () => ({ loadMoreAgeing: async () => ({ ok: true, data: null }), saveSections: async () => ({ ok: true, data: "SAVED" }) }));
+
 const AS_OF = "2026-10-27";
 const OCTOBER = "2026-10-01";
 const NOW_SQL = `to_timestamp(${DEMO_NOW} / 1000.0)`;
@@ -199,5 +206,36 @@ describe("V2-6 alert, viewer, goals and cost", () => {
     console.log(`committee report: ${operations} database operations, ${Math.round(elapsedMs)} ms`);
     expect(operations).toBeLessThanOrEqual(10);
     expect(elapsedMs).toBeLessThan(3000);
+  });
+});
+
+describe("V2-7 the page from the real report", () => {
+  const words = (markup: string) => markup.replace(/<[^>]*>/g, " ").replace(/&#x27;/g, "'").replace(/\s+/g, " ");
+
+  it("shows the alert strip when the SQL says a safety complaint is waiting, for a viewer who may manage complaints", () => {
+    const strip = renderToStaticMarkup(h(ReportView, { report }));
+    expect(strip.includes('href="/staff/complaints?view=safety"')).toBe(report.safetyUnacknowledged > 0 && report.canManageComplaints);
+    expect(words(strip).includes("waiting for the duty manager")).toBe(report.safetyUnacknowledged > 0);
+  });
+
+  it("every card and every section headline is built from the same figures: the cards equal the money line and the ageing total", () => {
+    expect(report.cards.collected.comparison).toContain("₹");
+    expect(report.headlines.owed).toContain(report.ageing.total.flats.toLocaleString("en-IN"));
+    expect(report.cards.owed.comparison).toBe(`${report.ageing.total.flats.toLocaleString("en-IN")} flats`);
+    expect(report.headlines.complaints).toContain(report.complaints.raised.toLocaleString("en-IN"));
+  });
+
+  it("a hidden-sections cookie omits exactly those sections from the HTML and keeps the cards", () => {
+    const hidden = parseHiddenSections("owed,complaints");
+    const out = renderToStaticMarkup(h(ReportView, { report, hidden }));
+    for (const id of SECTION_IDS) expect(out.includes(`<details id="${id}"`), id).toBe(!hidden.includes(id));
+    expect(out).toContain("Collected this month");
+    expect(renderToStaticMarkup(h(ReportView, { report, hidden: parseHiddenSections("owed,nonsense") })).match(/<details id=/g)).toHaveLength(5);
+  });
+
+  it("the whole page has one h1, no 'NaN' or 'undefined', and no zero percent for a metric without data", () => {
+    const out = renderToStaticMarkup(h(ReportView, { report }));
+    expect(out.match(/<h1/g)).toHaveLength(1);
+    expect(out).not.toMatch(/NaN|undefined/);
   });
 });
