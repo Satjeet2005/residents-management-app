@@ -61,7 +61,19 @@ async function measure(page: Page) {
       }
       return false;
     };
-    const visible = (el: Element): boolean => shown(el) && !inClosedDetails(el) && (modal === undefined || modal.contains(el));
+    // An element that an inner scroll area (a sheet's body) has scrolled out of view, or half out of it, is not whole on screen: its box still overlaps the sheet's sticky footer, which is no overlap for a person.
+    const scrolledOut = (el: Element): boolean => {
+      const r = el.getBoundingClientRect();
+      for (let up = el.parentElement; up !== null && up !== document.body; up = up.parentElement) {
+        const overflowY = getComputedStyle(up).overflowY;
+        if ((overflowY === "auto" || overflowY === "scroll") && up.scrollHeight > up.clientHeight + 1) {
+          const box = up.getBoundingClientRect();
+          if (r.bottom > box.bottom + 0.5 || r.top < box.top - 0.5) return true;
+        }
+      }
+      return false;
+    };
+    const visible = (el: Element): boolean => shown(el) && !inClosedDetails(el) && !scrolledOut(el) && (modal === undefined || modal.contains(el));
     const interactive = [...document.querySelectorAll('a[href], button, input:not([type="hidden"]), select, textarea, summary, [role="tab"], [role="button"], [tabindex]:not([tabindex="-1"])')];
     const targets: Measured[] = [];
     for (const el of interactive) {
@@ -69,6 +81,7 @@ async function measure(page: Page) {
       const isCheck = el instanceof HTMLInputElement && (el.type === "checkbox" || el.type === "radio");
       const box = isCheck ? (el.closest("label") ?? el) : el;
       if (!visible(box) && !(isCheck && visible(el))) continue;
+      if (scrolledOut(box)) continue;
       if (!isCheck && (el.getBoundingClientRect().width < 2 || el.getBoundingClientRect().height < 2)) continue;
       const r = box.getBoundingClientRect();
       if (r.width < 2 || r.height < 2) continue;
