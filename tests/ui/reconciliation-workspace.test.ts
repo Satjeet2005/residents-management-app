@@ -141,45 +141,78 @@ describe("WS4 the lane selector (D190)", () => {
   });
 });
 
-describe("WS5 the rows", () => {
-  const rows = [card(), card({ id: "a0000000-0000-0000-0000-000000000002", amountPaise: "100000", bestFlat: null, confidence: "NONE", narration: "x".repeat(80) })];
-  const out = html(h(RowsView, { rows, caption: "Rows in Needs you", importId: IMPORT, lane: "NEEDS_YOU", selectedId: null, viewer }));
+describe("WS5 the rows (D191)", () => {
+  const rows = [card(), card({ id: "a0000000-0000-0000-0000-000000000002", amountPaise: "1500000", bestFlat: null, confidence: "NONE", narration: `${"word ".repeat(40)}end` })];
+  const render = (selectedId: string | null = null) => html(h(RowsView, { rows, caption: "Rows in Needs you", importId: IMPORT, lane: "NEEDS_YOU", selectedId, viewer, thresholdPaise: "1000000" }));
+  const out = render();
 
-  it("is a real table with headers from 768px and stacked cards below", () => {
-    expect(out).toContain('<div class="hidden md:block">');
-    expect(out).toContain("<table");
-    expect(out).toContain("<caption");
-    for (const heading of ["Date", "Amount", "Narration", "Best match"]) expect(out).toContain(`>${heading}</th>`);
-    expect(out).toContain('<ul class="flex flex-col md:hidden">');
+  it("is a list of cards: one link for each row, and no table", () => {
+    expect(out).not.toContain("<table");
+    expect(count(out, /<li>/g)).toBe(2);
+    expect(count(out, /<a /g)).toBe(2);
+    expect(count(out, /<button/g)).toBe(0);
   });
 
-  it("shows the date, the amount in rupees with tabular figures, the best flat chip and the confidence tag in words", () => {
-    expect(out).toContain("27 Oct");
+  it("the WHOLE card is the one control: the amount, the date, the narration and the reason are inside the link, and its name says what it opens", () => {
+    const link = /<a [^>]*>[\s\S]*?<\/a>/.exec(out)?.[0] ?? "";
+    expect(link).toContain("₹5,660");
+    expect(link).toContain("27 Oct");
+    expect(link).toContain("UPI/710000000003/T21-1601 Aamir Shaikh/maintenance");
+    expect(link).toContain("Best match T21-1601 · Medium");
+    expect(link).toContain('aria-label="Review 5,660 rupees from 27 October"');
+    expect(link).toContain(`href="/staff/reconciliation/${IMPORT}?row=a0000000-0000-0000-0000-000000000001"`);
+    expect(out).not.toMatch(/>Review<|>Reviewing</);
+  });
+
+  it("line 1 is the amount in bold tabular figures then the date; line 2 the narration clamped to two lines; line 3 the reason", () => {
     expect(out).toContain('<span class="tnum text-body font-semibold">₹5,660</span>');
-    expect(out).toContain(">T21-1601<");
-    expect(out).toContain(">Medium<");
-    expect(out).toContain(">No flat found<");
-    expect(out).toContain(">No match<");
+    expect(out).toMatch(/<span class="line-clamp-2 break-words text-body">UPI\/710000000003/);
+    expect(out.indexOf(">₹5,660<")).toBeLessThan(out.indexOf(">27 Oct<"));
+    expect(out.indexOf(">27 Oct<")).toBeLessThan(out.indexOf(">UPI/710000000003"));
+    expect(out.indexOf(">UPI/710000000003")).toBeLessThan(out.indexOf("Best match"));
   });
 
-  it("cuts a long narration to 60 characters with an ellipsis", () => {
-    expect(out).toContain(`${"x".repeat(60)}…`);
-    expect(out).not.toContain("x".repeat(61));
-    expect(out).toContain("UPI/710000000003/T21-1601 Aamir Shaikh/maintenance");
+  it("a row with no candidate says No flat found, and a long narration is cut at a word, with an ellipsis", () => {
+    expect(out).toContain(">No flat found<");
+    expect(out).toMatch(/word…<\/span>/);
+    expect(out).not.toContain("word word word word word word word word word word word word word word word word word word word word word word word");
+  });
+
+  it("a credit at or above the society threshold says Needs a second approver in caution ink with an icon; one below it does not; the threshold is the setting, not a number", () => {
+    const needs = out.split("<li>")[2];
+    const below = out.split("<li>")[1];
+    expect(needs).toMatch(/text-caution"><svg[^>]*aria-hidden="true"[\s\S]*?<\/svg>Needs a second approver/);
+    expect(below).not.toContain("second approver");
+    const exact = html(h(RowsView, { rows: [card({ amountPaise: "1000000" })], caption: "c", importId: IMPORT, lane: "NEEDS_YOU", selectedId: null, viewer, thresholdPaise: "1000000" }));
+    expect(exact).toContain("Needs a second approver");
+    const moved = html(h(RowsView, { rows: [card({ amountPaise: "1000000" })], caption: "c", importId: IMPORT, lane: "NEEDS_YOU", selectedId: null, viewer, thresholdPaise: "1000001" }));
+    expect(moved).not.toContain("second approver");
+  });
+
+  it("a chevron icon sits at the right of each card", () => {
+    expect(out).toMatch(/<\/span><svg[^>]*aria-hidden="true"[\s\S]*?m9 5 7 7-7 7[\s\S]*?<\/svg><\/a>/);
+  });
+
+  it("the selected row has a 2px border and says Reviewing; the others a 1px hairline border", () => {
+    const selected = render("a0000000-0000-0000-0000-000000000001");
+    expect(selected).toContain('aria-current="true"');
+    expect(selected).toContain('aria-label="Reviewing 5,660 rupees from 27 October"');
+    expect(selected).toMatch(/aria-current="true"[^>]*class="[^"]*border-2 border-ink/);
+    expect(count(selected, /border-2 border-ink/g)).toBe(1);
   });
 
   it("keeps the order it is given (the server sorts by amount, biggest first)", () => {
-    expect(out.indexOf("₹5,660")).toBeLessThan(out.indexOf("₹1,000"));
+    expect(out.indexOf("₹5,660")).toBeLessThan(out.indexOf("₹15,000"));
   });
 
   it("a debit says Money out", () => {
-    expect(html(h(RowsView, { rows: [card({ direction: "DEBIT" })], caption: "c", importId: IMPORT, lane: "NEEDS_YOU", selectedId: null, viewer }))).toContain("Money out");
+    expect(html(h(RowsView, { rows: [card({ direction: "DEBIT" })], caption: "c", importId: IMPORT, lane: "NEEDS_YOU", selectedId: null, viewer, thresholdPaise: "1000000" }))).toContain("Money out");
   });
 });
 
 describe("WS6 the lane panel", () => {
   it("is a tabpanel named by its tab, and says what an empty lane means", () => {
-    const empty = html(h(RowList, { importId: IMPORT, lane: "NEEDS_YOU", initialRows: [], initialCursor: null, selectedId: null, viewer }));
+    const empty = html(h(RowList, { importId: IMPORT, lane: "NEEDS_YOU", initialRows: [], initialCursor: null, selectedId: null, viewer, thresholdPaise: "1000000", laneTotal: 0 }));
     expect(empty).toContain('role="tabpanel"');
     expect(empty).toContain('aria-labelledby="recon-tab-NEEDS_YOU"');
     expect(empty).toContain("Nothing needs you. Every row is accounted for.");
@@ -187,13 +220,13 @@ describe("WS6 the lane panel", () => {
   });
 
   it("offers Load more only when a next page exists", () => {
-    expect(html(h(RowList, { importId: IMPORT, lane: "NEEDS_YOU", initialRows: [card()], initialCursor: "abc", selectedId: null, viewer }))).toContain(">Load more<");
-    expect(html(h(RowList, { importId: IMPORT, lane: "NEEDS_YOU", initialRows: [card()], initialCursor: null, selectedId: null, viewer }))).not.toContain("Load more");
+    expect(html(h(RowList, { importId: IMPORT, lane: "NEEDS_YOU", initialRows: [card()], initialCursor: "abc", selectedId: null, viewer, thresholdPaise: "1000000", laneTotal: 43 }))).toContain(">Load more<");
+    expect(html(h(RowList, { importId: IMPORT, lane: "NEEDS_YOU", initialRows: [card()], initialCursor: null, selectedId: null, viewer, thresholdPaise: "1000000", laneTotal: 1 }))).not.toContain("Load more");
   });
 });
 
 describe("WS7 the workspace", () => {
-  const data: Workspace = { header: { importId: IMPORT, filename: "sample-statement.csv", uploadedOn: "2026-10-27", uploadedBy: "Priya Nair" }, counts: counts(), laneCounts, rows: [card()], nextCursor: null, review: null };
+  const data: Workspace = { header: { importId: IMPORT, filename: "sample-statement.csv", uploadedOn: "2026-10-27", uploadedBy: "Priya Nair" }, counts: counts(), laneCounts, rows: [card()], nextCursor: null, review: null, thresholdPaise: "1000000" };
   const out = html(h(WorkspaceView, { data, lane: "NEEDS_YOU", viewer }));
 
   it("has one h1, who imported the file and when, a main landmark and the breadcrumb", () => {

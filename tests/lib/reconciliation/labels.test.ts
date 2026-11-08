@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { confidenceLabel, entryLabel, ignoreKindLabel, payerNoticeText, postedByLabel, railLabel, reasonSentence, relationLabel, requestActionLabel, shortNarration, thresholdNotice } from "@/lib/reconciliation/labels";
+import { confidenceLabel, entryLabel, ignoreKindLabel, payerNoticeText, postedByLabel, railLabel, reasonSentence, relationLabel, requestActionLabel, narrationPreview, reasonLine, thresholdNotice } from "@/lib/reconciliation/labels";
 
 describe("RB1 labels", () => {
   it("the confidence words are High, Medium, Low and No match (a missing one is No match)", () => {
@@ -23,13 +23,26 @@ describe("RB1 labels", () => {
     expect(reasonSentence({ text: "Needs a second approver when posted " })).toBe("Needs a second approver when posted.");
   });
 
-  it("a narration over 60 characters is cut with an ellipsis, a short one is not", () => {
-    const long = "UPI/720000000001/MEERA QURESHI/meera.q@demo/T01-0205/maintenance for the month of October";
-    expect(Array.from(shortNarration(long)).length).toBeLessThanOrEqual(61);
-    expect(shortNarration(long).endsWith("…")).toBe(true);
-    expect(shortNarration(long)).toBe(`${long.slice(0, 60).trimEnd()}…`);
-    expect(shortNarration("CASH DEPOSIT")).toBe("CASH DEPOSIT");
-    expect(shortNarration("x".repeat(60))).toBe("x".repeat(60));
+  it("a narration over 90 characters is cut at the last space, never inside a word, with an ellipsis; a short one is not", () => {
+    const long = "UPI/720000000001/MEERA QURESHI/meera.q@demo/T01-0205/maintenance for the month of October and the advance for the next one";
+    const cut = narrationPreview(long);
+    expect(cut.endsWith("…")).toBe(true);
+    expect(Array.from(cut).length).toBeLessThanOrEqual(91);
+    const kept = cut.slice(0, -1);
+    expect(long.startsWith(kept)).toBe(true);
+    expect(long[kept.length]).toBe(" ");
+    expect(narrationPreview("CASH DEPOSIT")).toBe("CASH DEPOSIT");
+    expect(narrationPreview("x".repeat(90))).toBe("x".repeat(90));
+  });
+
+  it("an unbroken first word longer than the limit is cut at the limit", () => {
+    expect(narrationPreview("x".repeat(200))).toBe(`${"x".repeat(90)}…`);
+  });
+
+  it("the reason line says No flat found, or the best flat with the confidence in words", () => {
+    expect(reasonLine({ bestFlat: null, confidence: null })).toBe("No flat found");
+    expect(reasonLine({ bestFlat: "T12-0702", confidence: "LOW" })).toBe("Best match T12-0702 · Low");
+    expect(reasonLine({ bestFlat: "T21-1601", confidence: "HIGH" })).toBe("Best match T21-1601 · High");
   });
 
   it("an ignore kind, a rail and who posted are in words", () => {

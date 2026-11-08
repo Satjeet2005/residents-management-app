@@ -94,11 +94,11 @@ describe("LN5 the Posted lane is read only", () => {
   });
 
   it("the lane has no buttons, no link and no undo", () => {
-    const out = html(h(RowsView, { rows: [auto, manual], caption: "Rows in Posted", importId: IMPORT, lane: "MATCHED", selectedId: null, viewer: rahul }));
+    const out = html(h(RowsView, { rows: [auto, manual], caption: "Rows in Posted", importId: IMPORT, lane: "MATCHED", selectedId: null, viewer: rahul, thresholdPaise: "1000000" }));
     expect(out).not.toContain("<button");
     expect(out).not.toContain("<a ");
     expect(out).not.toMatch(/undo|reverse|delete/i);
-    expect(out).toContain(">Details</th>");
+    expect(out).toContain("Flat T12-0408");
   });
 });
 
@@ -112,17 +112,17 @@ describe("LN6 the Not maintenance lane is read only", () => {
 
   it("the lane has no buttons or links", () => {
     const ignored: RowCard = { ...base, state: "IGNORED", ignored: { ignoreKind: "DEBIT", reason: null } };
-    const out = html(h(RowsView, { rows: [ignored], caption: "Rows in Not maintenance", importId: IMPORT, lane: "NOT_MAINTENANCE", selectedId: null, viewer: rahul }));
+    const out = html(h(RowsView, { rows: [ignored], caption: "Rows in Not maintenance", importId: IMPORT, lane: "NOT_MAINTENANCE", selectedId: null, viewer: rahul, thresholdPaise: "1000000" }));
     expect(out).not.toContain("<button");
     expect(out).not.toContain("<a ");
     expect(out).toContain("Money going out");
   });
 });
 
-describe("LN7 the Awaiting approval lane as a table", () => {
-  it("has the details column, and a row selection link only in Needs you", () => {
-    const out = html(h(RowsView, { rows: [awaiting], caption: "Rows in Awaiting approval", importId: IMPORT, lane: "AWAITING_APPROVAL", selectedId: null, viewer: priya }));
-    expect(out).toContain(">Details</th>");
+describe("LN7 the Awaiting approval lane as cards", () => {
+  it("has the request details inside a plain card, and a row link only in Needs you", () => {
+    const out = html(h(RowsView, { rows: [awaiting], caption: "Rows in Awaiting approval", importId: IMPORT, lane: "AWAITING_APPROVAL", selectedId: null, viewer: priya, thresholdPaise: "1000000" }));
+    expect(out).toContain("Asked by");
     expect(out).not.toContain("<a ");
     expect(out).toContain("Waiting for another approver");
   });

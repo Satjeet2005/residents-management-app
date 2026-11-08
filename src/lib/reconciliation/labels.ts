@@ -39,10 +39,22 @@ export function reasonSentence(reason: { text: string }): string {
   return /[.!?]$/.test(text) ? text : `${text}.`;
 }
 
-/** The narration cut to `max` characters (code points) with an ellipsis; a short one is returned as it is. The full text is shown in the review. */
-export function shortNarration(text: string, max = 60): string {
-  const characters = Array.from(text);
-  return characters.length <= max ? text : `${characters.slice(0, max).join("").trimEnd()}…`;
+/**
+ * The narration for a row card: a short one as it is; a long one cut at the last space within `max` characters (code points), never inside a word, with an
+ * ellipsis. A first word longer than `max` is cut at `max`. The full text is shown in the review.
+ */
+export function narrationPreview(text: string, max = 90): string {
+  const characters = Array.from(text.trim());
+  if (characters.length <= max) return characters.join("");
+  const head = characters.slice(0, max + 1);
+  const space = head.lastIndexOf(" ");
+  const kept = space > 0 ? head.slice(0, space) : head.slice(0, max);
+  return `${kept.join("").trimEnd()}…`;
+}
+
+/** The second line of a row that needs a person: "No flat found", or "Best match T12-0702 · Low". */
+export function reasonLine(row: { bestFlat: string | null; confidence: Confidence | null }): string {
+  return row.bestFlat === null ? t("recon.row.noFlat") : t("recon.row.bestMatch", { flat: row.bestFlat, confidence: confidenceLabel(row.confidence) });
 }
 
 export function ignoreKindLabel(kind: string | null): string {

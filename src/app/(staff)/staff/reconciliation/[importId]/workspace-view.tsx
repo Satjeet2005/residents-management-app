@@ -25,7 +25,7 @@ export function WorkspaceView({ data, lane, viewer }: { data: Workspace; lane: L
           <WorkspaceHeader header={header} counts={counts} />
           <ProportionStrip laneCounts={laneCounts} />
           <LaneSelector importId={header.importId} lane={lane} laneCounts={laneCounts} manuallyPosted={counts.manuallyMatched} />
-          <RowList key={`${lane}:${JSON.stringify(laneCounts)}`} importId={header.importId} lane={lane} initialRows={data.rows} initialCursor={data.nextCursor} selectedId={review?.id ?? null} viewer={viewer} />
+          <RowList key={`${lane}:${JSON.stringify(laneCounts)}`} importId={header.importId} lane={lane} initialRows={data.rows} initialCursor={data.nextCursor} selectedId={review?.id ?? null} viewer={viewer} thresholdPaise={data.thresholdPaise} laneTotal={laneCounts[lane]} />
         </main>
       </div>
       {review !== null && <ReviewPanel key={review.id} review={review} importId={header.importId} lane={lane} nextRowId={nextRowOf(data.rows, review.id)} actionsAllowed={actionsAllowed(counts)} />}

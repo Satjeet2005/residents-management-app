@@ -192,17 +192,20 @@ export type Workspace = {
   laneCounts: Record<Lane, number>;
   rows: RowCard[];
   nextCursor: string | null;
+  /** The society's approval threshold in paise, a decimal string: a credit at or above it needs a second approver. */
+  thresholdPaise: string;
 };
 
 /** The workspace of one import: header, the counts read back from the database, and the first page of the chosen lane. Needs payments:match. Null for an id that is not an import. */
 export async function loadWorkspace({ db, user, importId, lane, rowId, now }: { db: Db; user: Viewer; importId: string; lane: Lane; rowId?: string | null; now: number }): Promise<Workspace | null> {
   requirePermission(user, "payments:match");
   if (!z.uuid().safeParse(importId).success) return null;
-  const [record, counts, cards, review] = await Promise.all([
+  const [record, counts, cards, review, threshold] = await Promise.all([
     db.statementImport.findUnique({ where: { id: importId }, select: { filename: true, uploadedAt: true, uploadedBy: { select: { name: true } } } }),
     countsOf(db, importId),
     loadRowCards({ db, user, importId, lane }),
     rowId === undefined || rowId === null ? Promise.resolve(null) : loadReview({ db, user, importId, rowId, now }),
+    readThreshold(db),
   ]);
   if (record === null || counts === null || cards === null) return null;
   return {
@@ -212,6 +215,7 @@ export async function loadWorkspace({ db, user, importId, lane, rowId, now }: { 
     laneCounts: cards.laneCounts,
     rows: cards.rows,
     nextCursor: cards.nextCursor,
+    thresholdPaise: threshold.toString(),
   };
 }
 

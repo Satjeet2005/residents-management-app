@@ -25,7 +25,7 @@ export function emptyLaneText(lane: Lane): string {
 }
 
 /** The rows of the chosen lane, as the tab panel: the first page from the server, then "Load more" (keyset, 25 at a time). */
-export function RowList({ importId, lane, initialRows, initialCursor, selectedId, viewer }: { importId: string; lane: Lane; initialRows: RowCard[]; initialCursor: string | null; selectedId: string | null; viewer: Viewer }) {
+export function RowList({ importId, lane, initialRows, initialCursor, selectedId, viewer, thresholdPaise, laneTotal }: { importId: string; lane: Lane; initialRows: RowCard[]; initialCursor: string | null; selectedId: string | null; viewer: Viewer; thresholdPaise: string; laneTotal: number }) {
   const [rows, setRows] = useState(initialRows);
   const [cursor, setCursor] = useState(initialCursor);
   const [phase, setPhase] = useState<"IDLE" | "LOADING" | "FAILED">("IDLE");
@@ -47,7 +47,8 @@ export function RowList({ importId, lane, initialRows, initialCursor, selectedId
 
   return (
     <div role="tabpanel" id={lanePanelId} aria-labelledby={laneTabId(lane)} className="flex min-w-0 flex-col gap-3">
-      {rows.length === 0 ? <p className="text-body text-ink-2">{emptyLaneText(lane)}</p> : <RowsView rows={rows} caption={t("recon.list.caption", { lane: laneLabel(lane) })} importId={importId} lane={lane} selectedId={selectedId} viewer={viewer} />}
+      {rows.length === 0 ? <p className="text-body text-ink-2">{emptyLaneText(lane)}</p> : <RowsView rows={rows} caption={t("recon.list.caption", { lane: laneLabel(lane) })} importId={importId} lane={lane} selectedId={selectedId} viewer={viewer} thresholdPaise={thresholdPaise} />}
+      {rows.length > 0 && <p className="text-caption text-ink-2">{t("recon.list.showing", { shown: rows.length, total: laneTotal })}</p>}
       {phase === "FAILED" && <BlockError message={t("recon.list.loadError")} onRetry={loadMore} />}
       {cursor !== null && phase !== "FAILED" && (
         <Button variant="outlined" loading={phase === "LOADING"} loadingLabel={t("recon.list.loading")} onClick={loadMore}>

@@ -1,60 +1,35 @@
-import Link from "next/link";
-import { StatusTag, type StatusTone } from "@/components/ui/status-tag";
+import { ChevronIcon, WarningIcon } from "@/components/icons";
 import { Money } from "@/components/ui/money";
+import { cx } from "@/components/ui/cx";
 import { formatRupees } from "@/domain/money/money";
-import { formatDay } from "@/lib/format-date";
+import { formatDay, formatDayLong } from "@/lib/format-date";
 import { t } from "@/lib/messages";
-import { confidenceLabel, shortNarration } from "@/lib/reconciliation/labels";
+import { narrationPreview, reasonLine } from "@/lib/reconciliation/labels";
 import { workspaceHref } from "@/lib/reconciliation/lanes";
 import type { Viewer } from "@/lib/reconciliation/permission-view";
-import type { Confidence, Lane, RowCard } from "@/lib/reconciliation/types";
+import type { Lane, RowCard } from "@/lib/reconciliation/types";
 import { AwaitingDetails, IgnoredDetails, PostedDetails } from "./lane-details";
 import { rowLinkId } from "./review-panel";
+import { RowLink } from "./row-link";
 
-const TONE: Record<Confidence, StatusTone> = { HIGH: "positive", MEDIUM: "neutral", LOW: "caution", NONE: "neutral" };
+/** A credit at or above the society's threshold needs a second approver (D14); the threshold is a setting, never a number written here. */
+export const needsSecondApprover = (row: Pick<RowCard, "direction" | "amountPaise">, thresholdPaise: string): boolean => row.direction === "CREDIT" && BigInt(row.amountPaise) >= BigInt(thresholdPaise);
 
-/** The best candidate flat as a chip, and the matcher's confidence as a tag in words. */
-function Candidate({ row }: { row: RowCard }) {
-  return (
-    <span className="flex flex-wrap items-center gap-2">
-      <span className="tnum inline-flex min-h-7 items-center rounded-control border border-control bg-paper-2 px-2 text-caption">{row.bestFlat ?? t("recon.row.noFlat")}</span>
-      <StatusTag tone={TONE[row.confidence ?? "NONE"]}>{confidenceLabel(row.confidence)}</StatusTag>
-    </span>
-  );
-}
-
-/** The link that opens a row in the review panel (the row is in the URL as ?row=). Only rows that wait for a person have one. */
-function ReviewLink({ row, importId, lane, selectedId }: { row: RowCard; importId: string; lane: Lane; selectedId: string | null }) {
-  const selected = row.id === selectedId;
-  const labelValues = { amount: formatRupees(BigInt(row.amountPaise)), date: formatDay(row.txnDate) };
-  // The accessible name starts with the visible word ("Review" or "Reviewing"), as WCAG 2.5.3 asks.
-  const label = selected ? t("recon.row.reviewingLabel", labelValues) : t("recon.row.reviewLabel", labelValues);
-  return (
-    <Link
-      id={rowLinkId(row.id)}
-      href={workspaceHref({ importId, lane, row: row.id })}
-      aria-current={selected ? "true" : undefined}
-      aria-label={label}
-      className="inline-flex min-h-12 items-center text-body font-semibold text-accent underline underline-offset-4 aria-[current=true]:text-ink"
-    >
-      {selected ? t("recon.row.reviewing") : t("recon.row.review")}
-    </Link>
-  );
-}
-
-const amountOf = (row: RowCard) => (
-  <span className="flex flex-col">
-    <Money amount={BigInt(row.amountPaise)} size="strong" />
-    {row.direction === "DEBIT" && <span className="text-caption text-ink-2">{t("recon.row.debit")}</span>}
-  </span>
-);
-
-/** The rows of a lane: a real table from 768px, stacked cards below. */
-/** What a lane says about a row beyond the bank's facts. */
-function Details({ row, lane, viewer }: { row: RowCard; lane: Lane; viewer: Viewer }) {
+/** What a card says on its last line, by lane. A row that needs a person says why; the other lanes keep their details. */
+function LastLine({ row, lane, viewer, thresholdPaise }: { row: RowCard; lane: Lane; viewer: Viewer; thresholdPaise: string }) {
   switch (lane) {
     case "NEEDS_YOU":
-      return <Candidate row={row} />;
+      return (
+        <span className="flex flex-wrap items-center gap-x-3 text-caption text-ink-2">
+          <span>{row.direction === "DEBIT" ? t("recon.row.debit") : reasonLine(row)}</span>
+          {needsSecondApprover(row, thresholdPaise) && (
+            <span className="flex items-center gap-1 font-semibold text-caution">
+              <WarningIcon size={16} />
+              {t("recon.row.needsSecond")}
+            </span>
+          )}
+        </span>
+      );
     case "AWAITING_APPROVAL":
       return <AwaitingDetails row={row} viewer={viewer} />;
     case "MATCHED":
@@ -64,54 +39,58 @@ function Details({ row, lane, viewer }: { row: RowCard; lane: Lane; viewer: View
   }
 }
 
-export function RowsView({ rows, caption, importId, lane, selectedId, viewer }: { rows: readonly RowCard[]; caption: string; importId: string; lane: Lane; selectedId: string | null; viewer: Viewer }) {
-  const reviewable = lane === "NEEDS_YOU";
+/** The three lines every row has: the amount (bold) and the date, the narration clamped to two lines, then the last line of its lane. */
+function Anatomy({ row, lane, viewer, thresholdPaise }: { row: RowCard; lane: Lane; viewer: Viewer; thresholdPaise: string }) {
   return (
-    <>
-      <div className="hidden md:block">
-        <table className="w-full text-left text-body">
-          <caption className="sr-only">{caption}</caption>
-          <thead>
-            <tr className="border-b-2 border-ink">
-              <th scope="col" className="py-2 pr-4 font-semibold">{t("recon.col.date")}</th>
-              <th scope="col" className="py-2 pr-4 text-right font-semibold">{t("recon.col.amount")}</th>
-              <th scope="col" className="py-2 pr-4 font-semibold">{t("recon.col.narration")}</th>
-              <th scope="col" className="py-2 pr-4 font-semibold">{reviewable ? t("recon.col.candidate") : t("recon.col.details")}</th>
-              {reviewable && <th scope="col" className="py-2 font-semibold"><span className="sr-only">{t("recon.col.review")}</span></th>}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.id} className="border-b border-hairline">
-                <td className="tnum py-2 pr-4">{formatDay(row.txnDate)}</td>
-                <td className="py-2 pr-4 text-right">{amountOf(row)}</td>
-                <td className="break-words py-2 pr-4">{shortNarration(row.narration)}</td>
-                <td className="py-2 pr-4">
-                  <Details row={row} lane={lane} viewer={viewer} />
-                </td>
-                {reviewable && (
-                  <td className="py-1">
-                    <ReviewLink row={row} importId={importId} lane={lane} selectedId={selectedId} />
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <ul className="flex flex-col md:hidden">
-        {rows.map((row) => (
-          <li key={row.id} className="flex flex-col gap-2 border-b border-hairline py-3">
-            <span className="flex items-start justify-between gap-4">
-              <span className="tnum text-body">{formatDay(row.txnDate)}</span>
-              {amountOf(row)}
-            </span>
-            <span className="break-words text-body">{shortNarration(row.narration)}</span>
-            <Details row={row} lane={lane} viewer={viewer} />
-            {reviewable && <ReviewLink row={row} importId={importId} lane={lane} selectedId={selectedId} />}
+    <span className="flex min-w-0 flex-1 flex-col">
+      <span className="flex items-baseline justify-between gap-2">
+        <Money amount={BigInt(row.amountPaise)} size="strong" />
+        <span className="tnum text-caption text-ink-2">{formatDay(row.txnDate)}</span>
+      </span>
+      <span className="line-clamp-2 break-words text-body">{narrationPreview(row.narration)}</span>
+      <LastLine row={row} lane={lane} viewer={viewer} thresholdPaise={thresholdPaise} />
+    </span>
+  );
+}
+
+/** "Review 46,445 rupees from 21 October": what a screen reader says for the card that opens the review. */
+function reviewName(row: RowCard, selected: boolean): string {
+  const values = { amount: formatRupees(BigInt(row.amountPaise)).slice(1), date: formatDayLong(row.txnDate) };
+  return selected ? t("recon.row.reviewingLabel", values) : t("recon.row.reviewLabel", values);
+}
+
+const CARD = "flex w-full items-center gap-2 rounded-control";
+
+/**
+ * The rows of a lane (D191): one card for each row. In Needs you the WHOLE card is the one control that opens the review (the row is in the URL as ?row=); the selected
+ * card has a 2px border. The other lanes have no review to open, so their cards are plain, and Awaiting approval keeps its Approve and Reject buttons inside the card.
+ */
+export function RowsView({ rows, caption, importId, lane, selectedId, viewer, thresholdPaise }: { rows: readonly RowCard[]; caption: string; importId: string; lane: Lane; selectedId: string | null; viewer: Viewer; thresholdPaise: string }) {
+  return (
+    <ul aria-label={caption} className="flex max-w-3xl flex-col gap-2">
+      {rows.map((row) => {
+        const selected = row.id === selectedId;
+        return (
+          <li key={row.id}>
+            {lane === "NEEDS_YOU" ? (
+              <RowLink
+                id={rowLinkId(row.id)}
+                href={workspaceHref({ importId, lane, row: row.id })}
+                aria-current={selected ? "true" : undefined}
+                aria-label={reviewName(row, selected)}
+                className={cx(CARD, "bg-paper", selected ? "border-2 border-ink px-[10px] py-[6px]" : "border border-hairline px-[11px] py-[7px]")}
+              >
+                <Anatomy row={row} lane={lane} viewer={viewer} thresholdPaise={thresholdPaise} />
+                <ChevronIcon />
+              </RowLink>
+            ) : (
+              <div className={cx(CARD, "border border-hairline px-[11px] py-[7px]")}>
+                <Anatomy row={row} lane={lane} viewer={viewer} thresholdPaise={thresholdPaise} />
+              </div>
+            )}
           </li>
-        ))}
-      </ul>
-    </>
+        );
+      })}
+    </ul>
   );
 }

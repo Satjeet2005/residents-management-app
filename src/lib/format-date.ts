@@ -10,6 +10,12 @@ export function formatDay(date: CalendarDate): string {
   return `${day} ${MONTHS_SHORT[month - 1]}`;
 }
 
+/** "27 October": the day with the long month name, for a spoken name. */
+export function formatDayLong(date: CalendarDate): string {
+  const { month, day } = parseDate(date);
+  return `${day} ${MONTHS_LONG[month - 1]}`;
+}
+
 /** "27 Oct 2026" */
 export function formatDayYear(date: CalendarDate): string {
   return `${formatDay(date)} ${parseDate(date).year}`;
