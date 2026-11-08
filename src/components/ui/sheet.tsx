@@ -3,6 +3,7 @@
 import { type MouseEvent, type ReactNode, useEffect, useId, useRef } from "react";
 import { lockScroll } from "@/lib/scroll-lock";
 import { Button } from "./button";
+import { cx } from "./cx";
 
 export type SheetProps = {
   open: boolean;
@@ -14,6 +15,8 @@ export type SheetProps = {
   footer?: ReactNode;
   /** Leave out the Close button of the header, when the footer has the one button that closes it (a sheet whose choices apply at once). */
   hideClose?: boolean;
+  /** Where it opens on a phone: from the bottom (default), or from the top when what matters most must be on the first screen (the Emergency sheet, D185). */
+  fromTop?: boolean;
 };
 
 /**
@@ -23,7 +26,7 @@ export type SheetProps = {
  * (one reference-counted lock, src/lib/scroll-lock.ts, released on close, Escape and unmount, which is also what a route change does to the page that holds the sheet) and the sheet's own
  * scroll never chains to the page (overscroll-behavior: contain, a body no taller than the dynamic viewport less the header).
  */
-export function Sheet({ open, onClose, title, children, footer, hideClose = false }: SheetProps) {
+export function Sheet({ open, onClose, title, children, footer, hideClose = false, fromTop = false }: SheetProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const opener = useRef<Element | null>(null);
   const release = useRef<(() => void) | null>(null);
@@ -66,7 +69,7 @@ export function Sheet({ open, onClose, title, children, footer, hideClose = fals
       aria-labelledby={titleId}
       onClose={handleClose}
       onClick={handleBackdrop}
-      className="m-0 mt-auto max-h-[calc(100dvh-3.5rem)] w-full max-w-none flex-col rounded-t-sheet border border-hairline bg-paper p-0 text-ink backdrop:bg-ink/50 open:flex sm:m-auto sm:max-w-lg sm:rounded-sheet"
+      className={cx(fromTop ? "mb-auto mt-0 rounded-b-sheet border-t-0" : "mt-auto rounded-t-sheet", "m-0 max-h-[calc(100dvh-3.5rem)] w-full max-w-none flex-col border border-hairline bg-paper p-0 text-ink backdrop:bg-ink/50 open:flex sm:m-auto sm:max-w-lg sm:rounded-sheet")}
     >
       <div className="flex items-center justify-between gap-4 border-b border-hairline px-4 py-3">
         <h2 id={titleId} className="text-title font-semibold">

@@ -57,7 +57,7 @@ export function EmergencyButton({ numbers }: { numbers: EmergencyNumbers }) {
         <WarningIcon />
         {t("emergency.button")}
       </Button>
-      <Sheet open={open} onClose={() => setOpen(false)} title={t("emergency.title")}>
+      <Sheet open={open} onClose={() => setOpen(false)} title={t("emergency.title")} fromTop>
         <EmergencySheetContent numbers={numbers} />
       </Sheet>
     </>

@@ -17,8 +17,8 @@ import { DESKTOP_1280, MOBILE_360, TABLET_768 } from "./tests/e2e/helpers/profil
  * The device profiles are a 360 x 800 phone (mobile emulation, touch), a 768 x 1024 tablet and a 1280 x 800 desktop.
  */
 const chain: { name: string; profile: { viewport: { width: number; height: number } } & Record<string, unknown>; match: RegExp }[] = [
-  { name: "resident-screens-360", profile: MOBILE_360, match: /screens[\\/]resident\.spec\.ts$/ },
-  { name: "resident-screens-1280", profile: DESKTOP_1280, match: /screens[\\/]resident\.spec\.ts$/ },
+  { name: "resident-screens-360", profile: MOBILE_360, match: /screens[\\/](resident|emergency-sheet)\.spec\.ts$/ },
+  { name: "resident-screens-1280", profile: DESKTOP_1280, match: /screens[\\/](resident|emergency-sheet)\.spec\.ts$/ },
   { name: "sheet-scroll-360x500", profile: { ...MOBILE_360, viewport: { width: 360, height: 500 } }, match: /screens[\\/]sheet-scroll\.spec\.ts$/ },
   { name: "sheet-scroll-1280x500", profile: { ...DESKTOP_1280, viewport: { width: 1280, height: 500 } }, match: /screens[\\/]sheet-scroll\.spec\.ts$/ },
   { name: "resident-flows", profile: MOBILE_360, match: /flows[\\/]resident-.*\.spec\.ts$/ },
