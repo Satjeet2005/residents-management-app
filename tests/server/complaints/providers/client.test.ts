@@ -30,6 +30,11 @@ describe("JevClient: the request", () => {
     expect(body.model).toBe("jev-latest");
   });
 
+  it("a fractional timeout (a share of the caller's budget) does not throw", async () => {
+    const outcome = await client().call("x", { timeoutMs: 299.5 });
+    expect(outcome).toMatchObject({ ok: true, status: 200 });
+  });
+
   it("a 2xx answer is parsed into the two distributions with the status and a latency", async () => {
     const outcome = await client().call("x", { timeoutMs: 1000 });
     expect(outcome).toMatchObject({ ok: true, status: 200 });

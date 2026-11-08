@@ -66,7 +66,7 @@ export class JevClient {
     const now = this.deps.now ?? Date.now;
     const started = now();
     const elapsed = (): number => Math.max(0, now() - started);
-    const timeout = AbortSignal.timeout(options.timeoutMs);
+    const timeout = AbortSignal.timeout(Math.max(1, Math.floor(options.timeoutMs)));
     const signal = options.signal === undefined ? timeout : AbortSignal.any([timeout, options.signal]);
     try {
       const response = await (this.deps.fetch ?? fetch)(this.config.url, {
