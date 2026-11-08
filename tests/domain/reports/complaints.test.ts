@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { type ReportComplaint, complaintMetrics } from "@/domain/reports/complaints";
 import { percent } from "@/domain/reports/stats";
+import { createPrng } from "@/domain/seed/prng";
 
 const T0 = Date.UTC(2026, 9, 5, 6, 30);
 const NOW = Date.UTC(2026, 9, 27, 6, 30);
@@ -16,6 +17,7 @@ const c = (over: Partial<ReportComplaint> = {}): ReportComplaint => ({
   reopenCount: 0,
   resolvedAt: null,
   acknowledgedAt: null,
+  closedAt: null,
   ...over,
 });
 
@@ -26,9 +28,9 @@ describe("RP4 complaint metrics on hand-built rows", () => {
       raised: 0,
       firstReply: { replied: 0, medianMinutes: null, decided: 0, withinSla: 0 },
       resolved: { count: 0, medianMinutes: null, reopened: 0 },
-      closed: { byResident: 0, automatically: 0 },
+      closed: { byResident: 0, automatically: 0, byDutyManager: 0, other: 0 },
       openNow: 0,
-      safety: { count: 0, acknowledged: 0, medianMinutesToAcknowledge: null, unacknowledgedNow: 0 },
+      safety: { count: 0, closedByDutyManager: 0, openSeen: 0, openNotSeen: 0, closedOtherWay: 0, medianMinutesToSeen: null },
     });
     expect(percent(m.firstReply.withinSla, m.firstReply.decided)).toBeNull();
     expect(percent(m.resolved.reopened, m.resolved.count)).toBeNull();
@@ -75,7 +77,7 @@ describe("RP4 complaint metrics on hand-built rows", () => {
     expect(complaintMetrics([c({ reopenCount: 3 })], NOW).resolved).toEqual({ count: 0, medianMinutes: null, reopened: 0 });
   });
 
-  it("closed by the resident versus by itself; a closure by the duty manager is in neither; only closed complaints count", () => {
+  it("closed by the resident, automatically, by the duty manager, and with no kind; only closed complaints count", () => {
     const rows = [
       c({ status: "CLOSED", closeKind: "CONFIRMED" }),
       c({ status: "CLOSED", closeKind: "CONFIRMED" }),
@@ -84,7 +86,7 @@ describe("RP4 complaint metrics on hand-built rows", () => {
       c({ status: "PENDING_CONFIRMATION" }),
     ];
     const m = complaintMetrics(rows, NOW);
-    expect(m.closed).toEqual({ byResident: 2, automatically: 1 });
+    expect(m.closed).toEqual({ byResident: 2, automatically: 1, byDutyManager: 1, other: 0 });
     expect(m.openNow).toBe(1);
     expect(m.raised).toBe(5);
   });
@@ -94,21 +96,46 @@ describe("RP4 complaint metrics on hand-built rows", () => {
     expect(complaintMetrics(statuses.map((status) => c({ status, closeKind: status === "CLOSED" ? "CONFIRMED" : null })), NOW).openNow).toBe(5);
   });
 
-  it("safety: the count, the median minutes to acknowledgement, and any still unacknowledged (closed ones are not 'unacknowledged now')", () => {
+  it("safety (D171): closed by the duty manager, open and seen, open and not yet seen; the median is over the seen ones, a closing counting as the sight", () => {
     const rows = [
       c({ safetyFlag: true, acknowledgedAt: T0 + 2 * minute }),
       c({ safetyFlag: true, acknowledgedAt: T0 + 10 * minute }),
       c({ safetyFlag: true, acknowledgedAt: T0 + 4 * minute }),
       c({ safetyFlag: true }),
-      c({ safetyFlag: true, status: "CLOSED", closeKind: "DUTY_MANAGER" }),
+      c({ safetyFlag: true, status: "CLOSED", closeKind: "DUTY_MANAGER", closedAt: T0 + 6 * minute }),
+      c({ safetyFlag: true, status: "CLOSED", closeKind: "CONFIRMED", closedAt: T0 + 60 * minute }),
       c({ acknowledgedAt: T0 + 1 * minute }),
     ];
-    const m = complaintMetrics(rows, NOW);
-    expect(m.safety).toEqual({ count: 5, acknowledged: 3, medianMinutesToAcknowledge: 4, unacknowledgedNow: 1 });
+    expect(complaintMetrics(rows, NOW).safety).toEqual({ count: 6, closedByDutyManager: 1, openSeen: 3, openNotSeen: 1, closedOtherWay: 1, medianMinutesToSeen: 4 });
   });
 
-  it("safety with no acknowledgement has no median, and with none at all there is no data", () => {
-    expect(complaintMetrics([c({ safetyFlag: true })], NOW).safety).toEqual({ count: 1, acknowledged: 0, medianMinutesToAcknowledge: null, unacknowledgedNow: 1 });
+  it("a safety complaint acknowledged and then closed by the duty manager is seen at the acknowledgement, the earlier time", () => {
+    const row = c({ safetyFlag: true, status: "CLOSED", closeKind: "DUTY_MANAGER", acknowledgedAt: T0 + 3 * minute, closedAt: T0 + 30 * minute });
+    expect(complaintMetrics([row], NOW).safety).toMatchObject({ closedByDutyManager: 1, openSeen: 0, openNotSeen: 0, medianMinutesToSeen: 3 });
+  });
+
+  it("safety with nobody having seen it has no median, and with none at all there is no data", () => {
+    expect(complaintMetrics([c({ safetyFlag: true })], NOW).safety).toEqual({ count: 1, closedByDutyManager: 0, openSeen: 0, openNotSeen: 1, closedOtherWay: 0, medianMinutesToSeen: null });
     expect(complaintMetrics([c()], NOW).safety.count).toBe(0);
+  });
+});
+
+describe("RP4b the counts add up (D171, D172), over 2,000 seeded random complaint sets", () => {
+  const statuses = ["NEW", "ASSIGNED", "IN_PROGRESS", "PENDING_CONFIRMATION", "CLOSED", "REOPENED"] as const;
+  const kinds = ["CONFIRMED", "AUTO_CLOSED", "DUTY_MANAGER", null] as const;
+
+  it("safety: closed by the duty manager + open seen + open not yet seen + closed another way = raised, and the complaint counts add up", () => {
+    const prng = createPrng(1701);
+    for (let set = 0; set < 2000; set++) {
+      const rows = Array.from({ length: prng.int(0, 12) }, () => {
+        const status = statuses[prng.int(0, statuses.length - 1)];
+        const closed = status === "CLOSED";
+        return c({ safetyFlag: prng.chance(0.5), status, closeKind: closed ? kinds[prng.int(0, 3)] : null, closedAt: closed ? T0 + prng.int(1, 500) * minute : null, acknowledgedAt: prng.chance(0.5) ? T0 + prng.int(1, 500) * minute : null });
+      });
+      const m = complaintMetrics(rows, NOW);
+      const { safety, closed } = m;
+      expect(safety.closedByDutyManager + safety.openSeen + safety.openNotSeen + safety.closedOtherWay).toBe(safety.count);
+      expect(closed.byResident + closed.automatically + closed.byDutyManager + closed.other + m.openNow).toBe(m.raised);
+    }
   });
 });

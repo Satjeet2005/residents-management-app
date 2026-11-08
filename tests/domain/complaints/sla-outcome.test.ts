@@ -61,7 +61,7 @@ describe("D150 every SLA figure uses the same outcome", () => {
     for (let i = 0; i < 2000; i++) {
       const created = DUE - 86_400_000;
       rows.push({
-        createdAt: created, safetyFlag: false, status: "ASSIGNED", closeKind: null, reopenCount: 0, resolvedAt: null, acknowledgedAt: null,
+        createdAt: created, safetyFlag: false, status: "ASSIGNED", closeKind: null, reopenCount: 0, resolvedAt: null, acknowledgedAt: null, closedAt: null,
         responseDueAt: DUE + prng.int(-5, 5) * 60_000,
         firstResponseAt: prng.int(0, 3) === 0 ? null : DUE + prng.int(-10, 10) * 60_000,
       });
@@ -75,7 +75,7 @@ describe("D150 every SLA figure uses the same outcome", () => {
   });
 
   it("a complaint with no due time is outside the SLA figure, replied or not", () => {
-    const row: ReportComplaint = { createdAt: DUE, safetyFlag: false, status: "ASSIGNED", closeKind: null, reopenCount: 0, resolvedAt: null, acknowledgedAt: null, responseDueAt: null, firstResponseAt: DUE + 1 };
+    const row: ReportComplaint = { createdAt: DUE, safetyFlag: false, status: "ASSIGNED", closeKind: null, reopenCount: 0, resolvedAt: null, acknowledgedAt: null, closedAt: null, responseDueAt: null, firstResponseAt: DUE + 1 };
     expect(complaintMetrics([row], NOW).firstReply).toMatchObject({ replied: 1, decided: 0, withinSla: 0 });
   });
 });

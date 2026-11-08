@@ -13,7 +13,7 @@ export async function loadComplaintsBetween(db: Db, from: CalendarDate, until: C
   const [rows, events] = await Promise.all([
     db.complaint.findMany({
       where: { createdAt: created },
-      select: { id: true, createdAt: true, safetyFlag: true, status: true, closeKind: true, responseDueAt: true, firstResponseAt: true, reopenCount: true },
+      select: { id: true, createdAt: true, safetyFlag: true, status: true, closeKind: true, responseDueAt: true, firstResponseAt: true, reopenCount: true, closedAt: true },
     }),
     db.complaintEvent.findMany({
       where: {
@@ -46,6 +46,7 @@ export async function loadComplaintsBetween(db: Db, from: CalendarDate, until: C
     responseDueAt: r.responseDueAt?.getTime() ?? null,
     firstResponseAt: r.firstResponseAt?.getTime() ?? null,
     reopenCount: r.reopenCount,
+    closedAt: r.closedAt?.getTime() ?? null,
     resolvedAt: resolvedAt.get(r.id) ?? null,
     acknowledgedAt: r.safetyFlag ? (acknowledgedAt.get(r.id) ?? null) : null,
   }));

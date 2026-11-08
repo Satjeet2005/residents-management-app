@@ -51,7 +51,7 @@ export function ReportView({ report, hidden = [] }: { report: CommitteeReport; h
       </>
     ),
     quality: report.quality === null ? <EmptyMonth /> : <QualityBlock quality={report.quality} curve={report.series.curve} goal={report.cards.onTime.goal} />,
-    complaints: <ComplaintsBlock complaints={report.complaints} goals={report.goals.rows} slaGoal={report.cards.sla.goal} weeks={report.series.weeklySla} />,
+    complaints: <ComplaintsBlock complaints={report.complaints} goals={report.goals.rows} slaGoal={report.cards.sla.goal} weeks={report.series.weeklySla} period={report.period} unseenAllMonths={report.safetyUnacknowledged} />,
     bank: <ReconciliationBlock line={report.reconciliation} />,
   };
   return (

@@ -21,16 +21,16 @@ describe("AL1 the alert strip", () => {
   it("links to the safety view for a viewer who may manage complaints, in the singular and the plural", () => {
     const one = html(h(AlertStrip, { count: 1, canManageComplaints: true }));
     expect(one).toContain('href="/staff/complaints?view=safety"');
-    expect(words(one)).toContain("1 safety complaint is waiting for the duty manager.");
+    expect(words(one)).toContain("1 safety complaint is open and not yet seen by the duty manager.");
     const many = html(h(AlertStrip, { count: 3, canManageComplaints: true }));
-    expect(words(many)).toContain("3 safety complaints are waiting for the duty manager.");
+    expect(words(many)).toContain("3 safety complaints are open and not yet seen by the duty manager.");
   });
 
   it("is plain text, with no link, for a viewer without complaints:manage", () => {
     const out = html(h(AlertStrip, { count: 2, canManageComplaints: false }));
     expect(out).not.toContain("<a");
     expect(out).not.toContain("href");
-    expect(words(out)).toContain("2 safety complaints are waiting for the duty manager.");
+    expect(words(out)).toContain("2 safety complaints are open and not yet seen by the duty manager.");
   });
 
   it("is a status with an icon and the words, not colour alone, and its link is a 48px target", () => {

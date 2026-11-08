@@ -67,7 +67,7 @@ describe("WS2 the weekly SLA series", () => {
 
   it("the month figure of the cards is the same function: slaShare agrees with complaintMetrics", () => {
     const metrics = complaintMetrics(
-      complaints.map((x) => ({ ...x, safetyFlag: false, status: "ASSIGNED" as const, closeKind: null, reopenCount: 0, resolvedAt: null, acknowledgedAt: null })),
+      complaints.map((x) => ({ ...x, safetyFlag: false, status: "ASSIGNED" as const, closeKind: null, reopenCount: 0, resolvedAt: null, acknowledgedAt: null, closedAt: null })),
       NOW,
     );
     expect(slaShare(complaints, NOW)).toMatchObject({ decided: metrics.firstReply.decided, met: metrics.firstReply.withinSla });

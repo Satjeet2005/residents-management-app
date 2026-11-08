@@ -3,6 +3,8 @@ import { WarningIcon } from "@/components/icons";
 import type { ComplaintMetrics } from "@/domain/reports/complaints";
 import type { GoalRow } from "@/domain/reports/goals";
 import type { WeeklyPoint } from "@/domain/reports/weekly-sla";
+import type { CalendarDate } from "@/domain/time/calendar";
+import { monthName } from "@/lib/format-date";
 import { t } from "@/lib/messages";
 import { type GoalMark, countText, goalMark } from "@/lib/reports/cards";
 import { minutesText, shareText } from "@/lib/reports/share";
@@ -10,21 +12,27 @@ import { weeklyVisual } from "@/lib/reports/visuals";
 import { GoalLine } from "./goal-mark";
 import { StatRow } from "./stat-row";
 
-/** The one safety line: how many were raised and whether all were acknowledged (the ones not acknowledged in alert styling, with an icon), and the median time to acknowledgement only when there is one. */
-function SafetyLine({ safety }: { safety: ComplaintMetrics["safety"] }) {
+/**
+ * The safety lines (D171): the month's safety complaints by what became of them, and the all-months count of open ones nobody has seen (the number of the strip at
+ * the top), so the two reconcile. Any not seen is in alert styling with an icon. The median time to the first sight only when there is one.
+ */
+function SafetyLine({ safety, period, unseenAllMonths }: { safety: ComplaintMetrics["safety"]; period: CalendarDate; unseenAllMonths: number }) {
   if (safety.count === 0) return <p className="text-body">{t("committee.complaints.safetyNone")}</p>;
-  const waiting = safety.count - safety.acknowledged;
+  const month = monthName(period);
+  const raised = t("committee.complaints.safetyRaised", { month, n: countText(safety.count), a: safety.closedByDutyManager, b: safety.openSeen, c: safety.openNotSeen });
   return (
     <div className="flex flex-col gap-2">
-      {waiting > 0 ? (
+      <p className="text-body">{raised}</p>
+      {safety.closedOtherWay > 0 && <p className="text-body">{t("committee.complaints.safetyOther", { n: safety.closedOtherWay })}</p>}
+      {unseenAllMonths > 0 ? (
         <p role="status" className="flex items-center gap-2 rounded-control border-2 border-caution p-3 text-body font-semibold text-caution">
           <WarningIcon size={20} />
-          {t("committee.complaints.safetyWaiting", { u: waiting, n: safety.count })}
+          {t("committee.complaints.safetyAllMonths", { k: countText(unseenAllMonths) })}
         </p>
       ) : (
-        <p className="text-body">{safety.count === 1 ? t("committee.complaints.safetyOne") : t("committee.complaints.safetyAll", { n: countText(safety.count) })}</p>
+        <p className="text-body">{t("committee.complaints.safetyAllMonths", { k: 0 })}</p>
       )}
-      {safety.medianMinutesToAcknowledge !== null && <p className="text-body">{t("committee.complaints.safetyMedian", { time: minutesText(safety.medianMinutesToAcknowledge) })}</p>}
+      {safety.medianMinutesToSeen !== null && <p className="text-body">{t("committee.complaints.safetyMedian", { time: minutesText(safety.medianMinutesToSeen) })}</p>}
     </div>
   );
 }
@@ -34,7 +42,7 @@ function SafetyLine({ safety }: { safety: ComplaintMetrics["safety"] }) {
  * met); the time to marked resolved; the reopened share with its goal; who closed them; how many are open now. Then ONE safety line, and from 768px the weekly SLA
  * chart. Every share and median says "No data" when it has nothing to measure; a month with no complaints says so once.
  */
-export function ComplaintsBlock({ complaints, goals, slaGoal, weeks }: { complaints: ComplaintMetrics; goals: readonly GoalRow[]; slaGoal: GoalMark; weeks: readonly WeeklyPoint[] }) {
+export function ComplaintsBlock({ complaints, goals, slaGoal, weeks, period, unseenAllMonths }: { complaints: ComplaintMetrics; goals: readonly GoalRow[]; slaGoal: GoalMark; weeks: readonly WeeklyPoint[]; period: CalendarDate; unseenAllMonths: number }) {
   const visual = weeklyVisual(weeks, slaGoal);
   const chart = weeks.some((w) => w.sharePercent !== null) && (
     <div className="hidden md:block">
@@ -50,6 +58,8 @@ export function ComplaintsBlock({ complaints, goals, slaGoal, weeks }: { complai
     );
   }
   const { firstReply, resolved, closed, safety } = complaints;
+  const closedTotal = closed.byResident + closed.automatically + closed.byDutyManager + closed.other;
+  const closedSum = t("committee.complaints.sum", { raised: countText(complaints.raised), closed: countText(closedTotal), open: countText(complaints.openNow) });
   return (
     <>
       <dl className="flex flex-col border-t border-hairline">
@@ -63,10 +73,13 @@ export function ComplaintsBlock({ complaints, goals, slaGoal, weeks }: { complai
         <StatRow label={t("committee.complaints.reopened")} detail={resolved.count === 0 ? undefined : t("committee.complaints.reopened.detail", { n: resolved.reopened, d: resolved.count })} extra={<GoalLine mark={goalMark(goals, "reopenedMax")} />}>
           {shareText(resolved.reopened, resolved.count)}
         </StatRow>
-        <StatRow label={t("committee.complaints.closed")}>{t("committee.complaints.closedSplit", { a: closed.byResident, b: closed.automatically })}</StatRow>
+        <StatRow label={t("committee.complaints.closed")} detail={closedSum}>
+          {t("committee.complaints.closedSplit", { a: closed.byResident, b: closed.automatically, c: closed.byDutyManager })}
+          {closed.other > 0 && `, ${t("committee.complaints.closedOther", { n: closed.other })}`}
+        </StatRow>
         <StatRow label={t("committee.complaints.openNow")}>{countText(complaints.openNow)}</StatRow>
       </dl>
-      <SafetyLine safety={safety} />
+      <SafetyLine safety={safety} period={period} unseenAllMonths={unseenAllMonths} />
       {chart}
     </>
   );

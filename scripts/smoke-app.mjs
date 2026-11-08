@@ -629,7 +629,7 @@ async function committeeReportBeforeChanges() {
   check("each goal says Met or Not met in words", (page.text.match(/\b(Met|Not met|No data)\b/g) ?? []).length >= 3, "");
   if (frozenToTheBrief) {
     check("the complaint figures equal the independently computed ones: 1603 raised, 16 safety, 290 open now", page.text.includes("Raised 1603") && page.text.includes("Open now 290") && /Safety complaints Raised 16/.test(page.text), "");
-    check("a seeded safety complaint is not acknowledged, and the block says it is waiting for the duty manager", page.text.includes("1 safety complaint is waiting for the duty manager."), "");
+    check("a seeded safety complaint is not acknowledged, and the block says it is open and not yet seen by the duty manager", page.text.includes("1 safety complaint is open and not yet seen by the duty manager."), "");
   }
   check("the reconciliation line is there: before any import it says no statement was imported in the last 30 days", page.text.includes("Bank reconciliation, last 30 days") && page.text.includes("No bank statement was imported in the last 30 days."), "");
 

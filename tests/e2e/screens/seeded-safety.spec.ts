@@ -14,7 +14,7 @@ const GAS = /^T09-\d+ .*Smell of gas in the corridor/;
 async function alertCount(page: Page): Promise<number> {
   await page.goto("/staff/reports");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  const strip = page.getByRole("status").filter({ hasText: /safety complaints? (is|are) waiting for the duty manager/ });
+  const strip = page.getByRole("status").filter({ hasText: /safety complaints? (is|are) open and not yet seen by the duty manager/ });
   if ((await strip.count()) === 0) return 0;
   const text = await strip.first().innerText();
   return /^1 safety complaint is/.test(text.trim()) ? 1 : Number(/^(\d+) safety complaints are/.exec(text.trim())?.[1]);

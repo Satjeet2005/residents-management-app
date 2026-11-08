@@ -215,7 +215,7 @@ describe("V2-7 the page from the real report", () => {
   it("shows the alert strip when the SQL says a safety complaint is waiting, for a viewer who may manage complaints", () => {
     const strip = renderToStaticMarkup(h(ReportView, { report }));
     expect(strip.includes('href="/staff/complaints?view=safety"')).toBe(report.safetyUnacknowledged > 0 && report.canManageComplaints);
-    expect(words(strip).includes("waiting for the duty manager")).toBe(report.safetyUnacknowledged > 0);
+    expect(words(strip).includes("not yet seen by the duty manager")).toBe(report.safetyUnacknowledged > 0);
   });
 
   it("every card and every section headline is built from the same figures: the cards equal the money line and the ageing total", () => {

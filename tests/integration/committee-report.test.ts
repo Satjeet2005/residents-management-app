@@ -102,7 +102,7 @@ describe("RP2 the money line, checked against raw SQL", () => {
   it("the pristine seed gives these October figures, which scripts/smoke-app.mjs also expects (as of 27 Oct 2026): a drift in the seed shows here first", () => {
     expect(october.money).toMatchObject({ billedPaise: 1_805_219_000n, collectedPaise: 1_484_271_400n, outstandingPaise: 320_947_600n, flatsBilled: 2399, flatsPaidInFull: 1915, flatsOutstanding: 484 });
     expect(october.ageing.total).toMatchObject({ bills: 943, amountDuePaise: 618_968_600n });
-    expect(october.complaints).toMatchObject({ raised: 1603, firstReply: { replied: 1570, medianMinutes: 94, decided: 1573, withinSla: 1369 }, resolved: { count: 1470, medianMinutes: 2186, reopened: 152 }, closed: { byResident: 1001, automatically: 297 }, openNow: 290, safety: { count: 16, acknowledged: 0, unacknowledgedNow: 1 } });
+    expect(october.complaints).toMatchObject({ raised: 1603, firstReply: { replied: 1570, medianMinutes: 94, decided: 1573, withinSla: 1369 }, resolved: { count: 1470, medianMinutes: 2186, reopened: 152 }, closed: { byResident: 1001, automatically: 297, byDutyManager: 15, other: 0 }, openNow: 290, safety: { count: 16, closedByDutyManager: 15, openSeen: 0, openNotSeen: 1, closedOtherWay: 0 } });
   });
 
   it("the headline invariants hold: Billed = Collected + Outstanding in paise, paid in full + outstanding = billed, Collected never exceeds Billed", async () => {
@@ -255,11 +255,14 @@ describe("RP2 complaints, checked against raw SQL", () => {
               (count(*) FILTER (WHERE res.at IS NOT NULL AND m.reopen_count > 0))::text AS reopened,
               (count(*) FILTER (WHERE m.status = 'CLOSED' AND m.close_kind = 'CONFIRMED'))::text AS by_resident,
               (count(*) FILTER (WHERE m.status = 'CLOSED' AND m.close_kind = 'AUTO_CLOSED'))::text AS auto_closed,
+              (count(*) FILTER (WHERE m.status = 'CLOSED' AND m.close_kind = 'DUTY_MANAGER'))::text AS closed_manager,
+              (count(*) FILTER (WHERE m.status = 'CLOSED' AND m.close_kind IS NULL))::text AS closed_other,
               (count(*) FILTER (WHERE m.status <> 'CLOSED'))::text AS open_now,
               (count(*) FILTER (WHERE m.safety_flag))::text AS safety,
-              (count(*) FILTER (WHERE m.safety_flag AND ack.at IS NOT NULL))::text AS safety_acked,
-              (percentile_disc(0.5) WITHIN GROUP (ORDER BY floor(extract(epoch FROM (ack.at - m.created_at)) / 60)) FILTER (WHERE m.safety_flag AND ack.at IS NOT NULL))::text AS median_ack,
-              (count(*) FILTER (WHERE m.safety_flag AND m.status <> 'CLOSED' AND ack.at IS NULL))::text AS unacked
+              (count(*) FILTER (WHERE m.safety_flag AND m.status = 'CLOSED' AND m.close_kind = 'DUTY_MANAGER'))::text AS safety_closed_manager,
+              (count(*) FILTER (WHERE m.safety_flag AND m.status <> 'CLOSED' AND ack.at IS NOT NULL))::text AS safety_open_seen,
+              (count(*) FILTER (WHERE m.safety_flag AND m.status <> 'CLOSED' AND ack.at IS NULL))::text AS safety_open_unseen,
+              (percentile_disc(0.5) WITHIN GROUP (ORDER BY floor(extract(epoch FROM (LEAST(ack.at, CASE WHEN m.status = 'CLOSED' AND m.close_kind = 'DUTY_MANAGER' THEN m.closed_at END) - m.created_at)) / 60)) FILTER (WHERE m.safety_flag AND (ack.at IS NOT NULL OR (m.status = 'CLOSED' AND m.close_kind = 'DUTY_MANAGER'))))::text AS median_seen
        FROM m LEFT JOIN res ON res.complaint_id = m.id LEFT JOIN ack ON ack.complaint_id = m.id`,
       "2026-09-30T18:30:00Z",
       "2026-10-31T18:30:00Z",
@@ -267,8 +270,8 @@ describe("RP2 complaints, checked against raw SQL", () => {
     );
     const x = sql[0];
     const c = october.complaints;
-    console.log(`RP2 SQL    complaints raised=${x.raised} replied=${x.replied} median_reply=${x.median_reply} decided=${x.decided} within_sla=${x.within_sla} resolved=${x.resolved} median_resolved=${x.median_resolved} reopened=${x.reopened} by_resident=${x.by_resident} auto=${x.auto_closed} open_now=${x.open_now} safety=${x.safety} acked=${x.safety_acked} median_ack=${x.median_ack} unacked=${x.unacked}`);
-    console.log(`RP2 loader complaints raised=${c.raised} replied=${c.firstReply.replied} median_reply=${c.firstReply.medianMinutes} decided=${c.firstReply.decided} within_sla=${c.firstReply.withinSla} resolved=${c.resolved.count} median_resolved=${c.resolved.medianMinutes} reopened=${c.resolved.reopened} by_resident=${c.closed.byResident} auto=${c.closed.automatically} open_now=${c.openNow} safety=${c.safety.count} acked=${c.safety.acknowledged} median_ack=${c.safety.medianMinutesToAcknowledge} unacked=${c.safety.unacknowledgedNow}`);
+    console.log(`RP2 SQL    complaints raised=${x.raised} replied=${x.replied} median_reply=${x.median_reply} decided=${x.decided} within_sla=${x.within_sla} resolved=${x.resolved} median_resolved=${x.median_resolved} reopened=${x.reopened} by_resident=${x.by_resident} auto=${x.auto_closed} by_manager=${x.closed_manager} open_now=${x.open_now} safety=${x.safety} closed_manager=${x.safety_closed_manager} open_seen=${x.safety_open_seen} open_unseen=${x.safety_open_unseen} median_seen=${x.median_seen}`);
+    console.log(`RP2 loader complaints raised=${c.raised} replied=${c.firstReply.replied} median_reply=${c.firstReply.medianMinutes} decided=${c.firstReply.decided} within_sla=${c.firstReply.withinSla} resolved=${c.resolved.count} median_resolved=${c.resolved.medianMinutes} reopened=${c.resolved.reopened} by_resident=${c.closed.byResident} auto=${c.closed.automatically} by_manager=${c.closed.byDutyManager} open_now=${c.openNow} safety=${c.safety.count} closed_manager=${c.safety.closedByDutyManager} open_seen=${c.safety.openSeen} open_unseen=${c.safety.openNotSeen} median_seen=${c.safety.medianMinutesToSeen}`);
     expect(c.raised).toBeGreaterThan(100);
     expect(String(c.raised)).toBe(x.raised);
     expect(String(c.firstReply.replied)).toBe(x.replied);
@@ -287,9 +290,14 @@ describe("RP2 complaints, checked against raw SQL", () => {
     expect(String(c.closed.automatically)).toBe(x.auto_closed);
     expect(String(c.openNow)).toBe(x.open_now);
     expect(String(c.safety.count)).toBe(x.safety);
-    expect(String(c.safety.acknowledged)).toBe(x.safety_acked);
-    expect(String(c.safety.medianMinutesToAcknowledge)).toBe(String(x.median_ack));
-    expect(String(c.safety.unacknowledgedNow)).toBe(x.unacked);
+    expect(String(c.closed.byDutyManager)).toBe(x.closed_manager);
+    expect(String(c.closed.other)).toBe(x.closed_other);
+    expect(c.closed.byResident + c.closed.automatically + c.closed.byDutyManager + c.closed.other + c.openNow).toBe(c.raised);
+    expect(String(c.safety.closedByDutyManager)).toBe(x.safety_closed_manager);
+    expect(String(c.safety.openSeen)).toBe(x.safety_open_seen);
+    expect(String(c.safety.openNotSeen)).toBe(x.safety_open_unseen);
+    expect(String(c.safety.medianMinutesToSeen)).toBe(String(x.median_seen));
+    expect(c.safety.closedByDutyManager + c.safety.openSeen + c.safety.openNotSeen + c.safety.closedOtherWay).toBe(c.safety.count);
   });
 
   it("the shares have a denominator, so the page shows percentages and not 'no data' for October", () => {

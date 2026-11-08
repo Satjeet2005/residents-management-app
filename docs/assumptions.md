@@ -110,6 +110,7 @@ Decision numbers (D4, D14 and so on) refer to `docs/decisions.md`.
 | R104 | Because the drift tests compare the committed numbers with a fresh computation and the commit hook runs them, each of the two detector commits carries its own re-baselined `expected.json` (dev and the old holdout); the dedicated before-and-after record is `tests/fixtures/safety/history.json` and the commit "test: re-baseline the dev set". The old holdout is rewritten and labelled reused. | `tests/fixtures/safety/`; `history.test.ts`. | Do not regenerate a holdout to improve a number. |
 | R105 | The "before" numbers of the new holdout (stages 0 and 1) were computed AFTER its single run, by running the earlier detectors (read from git) on its texts; the reconstruction was checked by reproducing the committed dev baseline exactly (1844/5000, 62/1608). They decided nothing. | `tests/fixtures/safety/history.json`. | Re-derive from commits `98edfaf` and `e16ee78`. |
 | R106 | The chat's decision numbers D164 (Stage 1 only) and D166 (only a genuine safety phrase is CRITICAL) are D168 and D169 in this repository, because D164 and D166 were already used; D125, absent from the log, was added. | `docs/decisions.md`. | None. |
+| R107 | AUTO_CLOSED means the complaint was closed by the system after the resident did not answer a request to confirm (D15), so the page says "closed automatically after no reply". | `src/server/complaints/auto-close.ts`; `docs/decisions.md` D172. | Check the wording with the committee. |
 
 
 ## Assumptions kept in other documents

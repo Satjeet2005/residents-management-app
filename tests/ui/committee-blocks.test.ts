@@ -75,7 +75,7 @@ describe("CB1 collection quality: three rows, three plain numbers, no 'paid late
 });
 
 describe("CB2 complaints: six lines and one safety line", () => {
-  const c = (over: Partial<ReportComplaint> = {}): ReportComplaint => ({ createdAt: T0, safetyFlag: false, status: "ASSIGNED", closeKind: null, responseDueAt: T0 + 1440 * minute, firstResponseAt: null, reopenCount: 0, resolvedAt: null, acknowledgedAt: null, ...over });
+  const c = (over: Partial<ReportComplaint> = {}): ReportComplaint => ({ createdAt: T0, safetyFlag: false, status: "ASSIGNED", closeKind: null, responseDueAt: T0 + 1440 * minute, firstResponseAt: null, reopenCount: 0, resolvedAt: null, acknowledgedAt: null, closedAt: null, ...over });
   const rows = [
     c({ firstResponseAt: T0 + 30 * minute, resolvedAt: T0 + 120 * minute, status: "CLOSED", closeKind: "CONFIRMED" }),
     c({ firstResponseAt: T0 + 90 * minute, resolvedAt: T0 + 600 * minute, reopenCount: 1, status: "CLOSED", closeKind: "AUTO_CLOSED" }),
@@ -85,7 +85,7 @@ describe("CB2 complaints: six lines and one safety line", () => {
   ];
   const metrics = complaintMetrics(rows, NOW);
   const goals = evaluateGoals(defaultGoals, { onTime: { n: 0, d: 0 }, firstReply: { n: metrics.firstReply.withinSla, d: metrics.firstReply.decided }, reopened: { n: metrics.resolved.reopened, d: metrics.resolved.count } });
-  const props = { complaints: metrics, goals: goals.map((g) => g), slaGoal: goal, weeks: emptyReport().series.weeklySla };
+  const props = { complaints: metrics, goals: goals.map((g) => g), slaGoal: goal, weeks: emptyReport().series.weeklySla, period: "2026-10-01", unseenAllMonths: 1 };
   const out = html(h(ComplaintsBlock, props));
   const text = words(out);
 
@@ -96,21 +96,24 @@ describe("CB2 complaints: six lines and one safety line", () => {
     expect(text).toContain("30 min, 60% in time");
     expect(text).toContain("Time to marked resolved, median From raising to the first time it was marked resolved, over 2 complaints 2 h");
     expect(text).toContain("Reopened 1 of 2 complaints that were marked resolved Goal: At most 8% Not met");
-    expect(text).toContain("1 closed by the resident, 1 closed by themselves");
+    expect(text).toContain("1 by the resident, 1 automatically after no reply, 0 by the duty manager");
+    expect(text).toContain("Raised 5 = closed 2 + still open 3");
     expect(text).toContain("Open now 3");
   });
 
-  it("has ONE safety line: the count not acknowledged in alert styling, and the median only when there is one", () => {
-    expect(text).toContain("1 of 2 safety complaints raised are not acknowledged.");
-    expect(text).toContain("Median time to acknowledgement: 5 min.");
+  it("the safety lines: the month's groups, the all-months count of open ones not yet seen in alert styling, and the median only when there is one (D171)", () => {
+    expect(text).toContain("Safety complaints raised in October: 2. Closed by the duty manager: 0. Open and seen: 1. Open and not yet seen: 1.");
+    expect(text).toContain("Open and not yet seen, all months: 1");
+    expect(text).toContain("Typical time until the duty manager saw it: 5 min (the middle value).");
     expect(out).toContain("border-caution");
   });
 
-  it("all acknowledged is a plain sentence, singular and plural, and a month without safety complaints says so", () => {
-    const one = words(html(h(ComplaintsBlock, { ...props, complaints: complaintMetrics([c({ safetyFlag: true, acknowledgedAt: T0 + 10 * minute })], NOW) })));
-    expect(one).toContain("1 safety complaint raised, acknowledged.");
-    const many = words(html(h(ComplaintsBlock, { ...props, complaints: complaintMetrics([c({ safetyFlag: true, acknowledgedAt: T0 + 10 * minute }), c({ safetyFlag: true, acknowledgedAt: T0 + 20 * minute })], NOW) })));
-    expect(many).toContain("2 safety complaints raised, all acknowledged.");
+  it("a complaint closed by the duty manager is seen; nothing unseen has no alert styling; a month without safety complaints says so", () => {
+    const closed = c({ safetyFlag: true, status: "CLOSED", closeKind: "DUTY_MANAGER", closedAt: T0 + 20 * minute });
+    const all = html(h(ComplaintsBlock, { ...props, unseenAllMonths: 0, complaints: complaintMetrics([closed], NOW) }));
+    expect(words(all)).toContain("Closed by the duty manager: 1. Open and seen: 0. Open and not yet seen: 0.");
+    expect(words(all)).toContain("Typical time until the duty manager saw it: 20 min");
+    expect(all).not.toContain("border-caution");
     expect(words(html(h(ComplaintsBlock, { ...props, complaints: complaintMetrics([c()], NOW) })))).toContain("No safety complaints were raised.");
   });
 
