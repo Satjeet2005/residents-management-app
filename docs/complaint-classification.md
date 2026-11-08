@@ -54,11 +54,19 @@ MODEL_UNAVAILABLE, FALLBACK_USED, NO_CLASSIFICATION, EMPTY_TEXT, SINGLE_ARM_NOT_
   exception (`आग` does not hit `आगे`, ahead; `धूर` does not hit `धुरळा`, dust).
 - **The text is normalised first**, then lower-cased for Latin letters, apostrophes dropped ("can't" is "cant") and Devanagari folded (nukta removed, chandrabindu
   made anusvara), and matched on its original words. A translation is never what is read.
+- **Extra readings of the same text (Stage 1, D168).** The same rules also read up to six more readings of the RAW text, each made on its own: NFKC and case fold with zero-width characters,
+  variation selectors and Latin diacritics out; letters joined where a word is spelled out with spaces or dots ("f i r e", "f.i.r.e"); a stretched letter reduced ("fiiire" reads "fire"); digits and `@` `$` read as the letters they
+  look like inside a word that has a letter ("f1re", "g4s", but not "5th", "5b" or "1 of 3"); the Devanagari variants folded. The hits are added, one per rule, with a `via` field saying which reading found it
+  (EXACT, NORMALISED, SQUASHED, ELONGATION, LEET). A hit found this way is as STRONG as any other: CRITICAL, flagged, escalated. No word was added to any rule (`src/domain/complaints/safety-normalize.ts`,
+  `tests/domain/complaints/safety-normalize.test.ts`).
+- **A bare "current" needs a shock word (D169).** The Devanagari करंट and the Latin "current aa raha", "current aata" and "bijli ka current" also name the electricity of a bill or a power cut ("तीन तासांपासून करंट नाही",
+  "करंट बिल"), so these ten terms of five rules hit only when the same text also has a shock word (laga, shock, jhatka, dhakka, touched, लगा, झटका, धक्का, स्पर्श, शॉक, छूने and the others listed in `docs/safety-words-review.md`). "current laga",
+  "करंट लगा", "विजेचा धक्का" and "electric shock" are unchanged. The price: "तार में करंट आ रहा है" with no shock word is no longer a hit.
 - **High recall over precision**, on purpose: a missed fire is worse than a false alarm. So there is **no negation handling**: "no fire" and "there is no gas leak"
-  still escalate, and some everyday sentences hit ("fire exit", "the gas bill", "shock absorber", "smoke detector", "cigarette smoke", "करंट बिल") and, for MEDICAL_VIOLENCE, "blood donation camp", "a blood test", "a kitchen knife set", "the plant died", "a photo shot", and the Hindi and Marathi `गोली`/`गोळी`, which also mean a tablet, and `रक्तदान` (blood donation). The accepted false
+  still escalate, and some everyday sentences hit ("fire exit", "the gas bill", "shock absorber", "smoke detector", "cigarette smoke") and, for MEDICAL_VIOLENCE, "blood donation camp", "a blood test", "a kitchen knife set", "the plant died", "a photo shot", and the Hindi and Marathi `गोली`/`गोळी`, which also mean a tablet, and `रक्तदान` (blood donation). The accepted false
   positives are listed as tests (`tests/domain/complaints/safety.test.ts`, "accepted false positives") so a change that stops them is a decision, not an accident.
-- **Known gaps**: only the first 2,000 characters are read; a spelling nobody thought of is missed; a word split by an unusual character is missed; "gas" alone
-  is a hit but "gaas" is not. The lists are in a table so a native speaker's corrections are one line each.
+- **Known gaps**: only the first 2,000 characters are read; a spelling nobody thought of is missed (after Stage 1 still the left-out, swapped, inserted and replaced letters, a space inside a word, words run
+  together and a changed Devanagari vowel sign: 13 to 28 percent recall each in the benchmark); "gas" alone is a hit but "gaas" is not. The lists are in a table so a native speaker's corrections are one line each.
 - **NOT verified by a native speaker.** The Hindi, Marathi and romanised lists were written by the agent. `docs/safety-words-review.md` lists every non-English
   rule for a speaker to read, with an empty column for who reviewed it and when. Until then they are an unverified starting point, and the English rules are the
   only ones with any chance of being complete.
@@ -66,10 +74,12 @@ MODEL_UNAVAILABLE, FALLBACK_USED, NO_CLASSIFICATION, EMPTY_TEXT, SINGLE_ARM_NOT_
 
 ## How robust the safety words are to spelling variation
 
-Measured, not changed: `docs/safety-benchmark.md` damages the safety words of every rule in 17 ways (a left-out or doubled letter, a stretched vowel, a space inside a word,
-digits for letters, another romanisation, a changed Devanagari vowel sign, and so on) and counts how often the rules still fire. On the holdout the single-operation recall is
-36.0%; the rules are fully robust only to case, zero-width characters, the nukta and the chandrabindu. The method, tables, the 25 most fragile rules, the false alarms and a staged
-recommendation (for the human to approve, D164) are in that file; `npm run safety:benchmark` recomputes the numbers.
+Measured: `docs/safety-benchmark.md` damages the safety words of every rule in 17 ways (a left-out or doubled letter, a stretched vowel, a space inside a word,
+digits for letters, another romanisation, a changed Devanagari vowel sign, and so on) and counts how often the rules still fire. Before Stage 1 the single-operation recall
+was 36.0% on the first holdout. After Stage 1 (D168) and the shock-context fix (D169), on a NEW holdout run once after the detector was frozen, it is **46.1% (95% CI 44.8 to 47.5)**, against 36.6% for the baseline
+detector on the same texts; two damages in one phrase 20.8% (was 17.0%). A stretched letter (99.7%) and digits for letters (96.7%) are now read; case, zero-width characters, the nukta and the chandrabindu were already
+(about 88 to 100%, a little lower than before only because ten bare-current terms now need a shock word). A left-out, swapped, inserted or replaced letter, a space inside a word, words run together and a changed vowel sign
+are NOT improved (13 to 28%). The remaining stages are proposed with their measured size, risk, effort and trigger in `docs/safety-benchmark.md` ("NEXT STEPS", D170). `npm run safety:benchmark` recomputes the numbers.
 
 ## De-identification
 

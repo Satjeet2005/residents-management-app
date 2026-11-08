@@ -2,10 +2,19 @@
 
 **What this is.** A measurement of how well the safety-word detector (`detectSafetyWords`, `src/domain/complaints/safety.ts`) copes with spelling
 variation: typing mistakes, stretched vowels, spaces and dots inside words, digits for letters, other romanisations, missing or wrong vowel signs in
-Devanagari. **It measures only. The detector, its helpers and every existing test are unchanged** (D162; the run's instruction D125: keep the current rules, measure, decide
-improvements later with data). There is no pass or fail threshold on recall in this phase.
+Devanagari. **Phase C only measured** (D162; the instruction D125: keep the current rules, measure, decide improvements with data). **T10c then improved the detector in
+one stage** on the human's decision (D168: Stage 1, normalisation only) and made one precision fix (D169), and measured both: see "Before and after (T10c)" below. The tables from
+"Procedure and order" to "Findings about the detector" are the Phase C BASELINE (the detector at commit `98edfaf`); the committed `expected.json` files now hold the numbers of the improved detector.
+There is no pass or fail threshold on recall.
 
-**The result in one paragraph.** On a 5,000-item holdout of single-operation misspellings, the detector found **36.0% (34.7 to 37.3; 1799/5000)**
+**The result in one paragraph (T10c).** On a NEW 5,000-item holdout of single-operation misspellings, run once after the detector was frozen, the improved detector found
+**46.1% (44.8 to 47.5; 2307/5000)**; the baseline detector finds 36.6% (35.3 to 38.0) of the same texts. With two different damages in one phrase: 20.8% (was 17.0%). Stage 1
+fixed two kinds of damage almost completely (a stretched letter: 17.7% to 99.7%; digits for letters: 4.4% to 96.7%) and left the others where they were (a left-out, swapped, inserted or
+replaced letter, a space inside a word, a changed Devanagari vowel sign: 13% to 28%). The benign sentences made from the seed complaint templates gave 0 false alarms in about 1,250 sentences, before and after.
+Everyday Indian phrasing that uses safety-looking words ("current gaya", "तीन तासांपासून करंट नाही", "gas bill", "blood donation camp") was measured too: the Devanagari "करंट" of a bill or a power cut was a
+CRITICAL false alarm and is not any more (D169); words such as "gas", "blood", "shock absorber" and "knife set" still are, by design. This is a synthetic benchmark: read "Limits" before quoting a number.
+
+**The Phase C baseline in one paragraph (before T10c).** On a 5,000-item holdout of single-operation misspellings, the detector found **36.0% (34.7 to 37.3; 1799/5000)**
 (dev: 36.9% (35.6 to 38.2; 1844/5000)). With two different damages in one phrase it found 17.5% (16.1 to 19.1; 438/2500). It is robust to case,
 zero-width characters, the nukta and chandrabindu (100% on those operations) and not robust to nearly everything else: a left-out or doubled letter, a
 stretched vowel, a space inside a word, digits for letters, or a changed vowel sign defeat it most of the time. The benign sentences made from the seed
@@ -42,7 +51,184 @@ alarms (3.4 to 3.9% of all negatives), because that list deliberately includes e
   safety tests, which hit nothing by construction). A hit on a negative is a **false alarm**; none is filtered out.
 - **Intervals.** Every rate has a 95% Wilson score interval (`wilson.ts`, tested against known values).
 
-## Procedure and order (followed exactly)
+## Before and after (T10c)
+
+Three detector states were measured on the SAME generated texts (the digests and the generator version `safety-perturb-1` never changed; `tests/fixtures/safety/history.json`,
+checked by `safety-benchmark/history.test.ts`): **0 baseline** (the Phase C detector, commit `98edfaf`), **1 after the precision fix** (D169, commit `e16ee78`: a bare
+"current" or करंट needs a shock word in the same text) and **2 after normalisation** (D168, commit `fe89698`: Stage 1). Stage 2 of this table is not the "Stage 2" of the
+plan below; the plan's Stages 2 and 3 are NOT implemented.
+
+**What was done, in the order the procedure fixes:** (1) the everyday-phrasing group was measured with the unchanged detector; (2) the precision fix, because the measurement
+confirmed the problem; (3) normalisation, guided by the DEV set only (one correction came from it: a number guard that was too wide stopped "0ut" and "4dakl" from being read, and
+leet recall on dev went from 95 to 98 percent); (4) the detector was frozen (`fe89698`); (5) the dev set and the old holdout were re-baselined (in the two detector commits, because
+the drift tests must stay green) and `history.json` records the before and after (`9b9d9d7`); (6) a NEW holdout, seeds 9401 to 9405, was generated and run ONCE (`3f8e2f8`); (7) the old holdout was recomputed and is labelled reused. Nothing
+(detector, generator, base list, contexts, negatives) changed after the new holdout was seen.
+
+### Headline (95 percent Wilson intervals)
+
+| Set | Measure | 0 baseline | 1 after D169 | 2 after D168 |
+|---|---|---|---|---|
+| **Dev (301 to 305)** | single-operation recall | 36.9% (35.6 to 38.2; 1844/5000) | 35.9% (34.6 to 37.3; 1796/5000) | 47.0% (45.6 to 48.4; 2350/5000) |
+| | double-operation recall | 16.6% (15.2 to 18.1; 414/2500) | 15.6% (14.2 to 17.1; 390/2500) | 20.8% (19.3 to 22.4; 520/2500) |
+| | false alarms, all negatives | 3.9% (3.0 to 4.9; 62/1608) | 3.2% (2.5 to 4.2; 52/1608) | 3.2% (2.5 to 4.2; 52/1608) |
+| | false alarms, generated benign sentences | 0.0% (0/1262) | 0.0% (0/1262) | 0.0% (0/1262) |
+| | false alarms, near-miss sentences | 24.9% (62/249) | 20.9% (52/249) | 20.9% (52/249) |
+| | false alarms, existing test negatives | 0.0% (0/97) | 0.0% (0/97) | 0.0% (0/97) |
+| **Old holdout (9301 to 9305), REUSED** | single-operation recall | 36.0% (34.7 to 37.3; 1799/5000) | 35.2% (33.9 to 36.6; 1761/5000) | 45.8% (44.5 to 47.2; 2292/5000) |
+| | double-operation recall | 17.5% (16.1 to 19.1; 438/2500) | 16.2% (14.8 to 17.7; 404/2500) | 20.1% (18.6 to 21.7; 503/2500) |
+| | false alarms, all negatives | 3.4% (2.7 to 4.5; 55/1595) | 3.0% (2.3 to 4.0; 48/1595) | 3.0% (2.3 to 4.0; 48/1595) |
+| | false alarms, generated benign sentences | 0.0% (0/1250) | 0.0% (0/1250) | 0.0% (0/1250) |
+| | false alarms, near-miss sentences | 22.2% (55/248) | 19.4% (48/248) | 19.4% (48/248) |
+| | false alarms, existing test negatives | 0.0% (0/97) | 0.0% (0/97) | 0.0% (0/97) |
+| **NEW holdout (9401 to 9405), run once** | single-operation recall | 36.6% (35.3 to 38.0; 1831/5000) | 35.4% (34.1 to 36.7; 1769/5000) | 46.1% (44.8 to 47.5; 2307/5000) |
+| | double-operation recall | 17.0% (15.6 to 18.6; 426/2500) | 16.2% (14.8 to 17.7; 406/2500) | 20.8% (19.3 to 22.4; 520/2500) |
+| | false alarms, all negatives | 3.8% (2.9 to 4.8; 60/1594) | 3.4% (2.6 to 4.4; 54/1594) | 3.4% (2.6 to 4.4; 54/1594) |
+| | false alarms, generated benign sentences | 0.0% (0/1248) | 0.0% (0/1248) | 0.0% (0/1248) |
+| | false alarms, near-miss sentences | 24.1% (60/249) | 21.7% (54/249) | 21.7% (54/249) |
+| | false alarms, existing test negatives | 0.0% (0/97) | 0.0% (0/97) | 0.0% (0/97) |
+| **Everyday Indian phrasing** (302 sentences) | hits (a hit is a false alarm; all are CRITICAL) | 88 (29.1%) | 71 (23.5%) | 71 (23.5%) |
+| | hits through a bare current rule | 17 | 0 | 0 |
+| **Ambiguous** (12 sentences, reported apart) | hits | 9 | 9 | 9 |
+
+The independent number is the NEW holdout: **single-operation recall 36.6% to 46.1%** (the intervals 35.3 to 38.0 and 44.8 to 47.5 do not overlap), double 17.0% to 20.8%, false
+alarms 3.8% to 3.4%. The old holdout moved the same way (36.0% to 45.8%) but it is reused: visible before the change, so NOT independent evidence of the improvement. The new
+holdout's "before" numbers (stages 0 and 1) were computed afterwards by running the earlier detectors, taken from git, on its texts; they decided nothing.
+
+### Dev: single-operation recall by operation
+
+| Operation | 0 baseline | 1 after D169 | 2 after D168 | Moved by |
+|---|---|---|---|---|
+| SWAP_ADJACENT | 14.3% (40/280) | 14.3% (40/280) | 14.3% (40/280) | unchanged |
+| RANDOM_CASE | 100.0% (297/297) | 99.3% (295/297) | 99.3% (295/297) | D169 (fewer bare current phrases) |
+| INSERT_SEPARATOR | 13.0% (38/292) | 13.0% (38/292) | 13.0% (38/292) | unchanged |
+| SUBSTITUTE_NEIGHBOUR | 17.1% (51/298) | 17.1% (51/298) | 17.1% (51/298) | unchanged |
+| INSERT_JOINER | 100.0% (462/462) | 98.1% (453/462) | 98.1% (453/462) | D169 (fewer bare current phrases) |
+| DOUBLE_LETTER | 17.3% (51/294) | 17.3% (51/294) | 24.5% (72/294) | Stage 1 (D168) |
+| DOUBLE_CONSONANT | 32.2% (151/469) | 29.2% (137/469) | 29.2% (137/469) | D169 (fewer bare current phrases) |
+| INSERT_NEIGHBOUR | 16.8% (46/274) | 16.8% (46/274) | 16.8% (46/274) | unchanged |
+| DROP_LETTER | 13.5% (37/274) | 13.5% (37/274) | 13.5% (37/274) | unchanged |
+| ROMANISATION_VARIANT | 24.9% (43/173) | 24.9% (43/173) | 27.2% (47/173) | Stage 1 (D168) |
+| ELONGATE_VOWEL | 17.2% (51/297) | 17.2% (51/297) | 99.3% (295/297) | Stage 1 (D168) |
+| SWAP_VOWEL_LENGTH | 23.9% (61/255) | 23.9% (61/255) | 23.9% (61/255) | unchanged |
+| LEET | 2.7% (8/299) | 2.7% (8/299) | 98.0% (293/299) | Stage 1 (D168) |
+| DROP_VOWEL_SIGN | 16.9% (67/396) | 15.2% (60/396) | 15.2% (60/396) | D169 (fewer bare current phrases) |
+| NUKTA_TOGGLE | 100.0% (331/331) | 98.2% (325/331) | 98.2% (325/331) | D169 (fewer bare current phrases) |
+| REMOVE_SPACES | 0.5% (1/200) | 0.5% (1/200) | 0.5% (1/200) | unchanged |
+| CHANDRABINDU_ANUSVARA | 100.0% (109/109) | 90.8% (99/109) | 90.8% (99/109) | D169 (fewer bare current phrases) |
+
+### Dev: single-operation recall by language form and by category
+
+| | 0 baseline | 1 after D169 | 2 after D168 |
+|---|---|---|---|
+| ROMANISED_HINDI | 24.5% (245/999) | 24.3% (243/999) | 42.0% (420/999) |
+| ENGLISH | 18.8% (187/996) | 18.8% (187/996) | 38.7% (385/996) |
+| HINDI_DEVANAGARI | 57.8% (609/1054) | 54.4% (573/1054) | 54.4% (573/1054) |
+| MARATHI_DEVANAGARI | 59.1% (572/968) | 58.1% (562/968) | 58.1% (562/968) |
+| ROMANISED_MARATHI | 23.5% (231/983) | 23.5% (231/983) | 41.7% (410/983) |
+| FIRE | 47.3% (300/634) | 47.3% (300/634) | 57.7% (366/634) |
+| MEDICAL_VIOLENCE | 28.4% (677/2382) | 28.4% (677/2382) | 41.1% (980/2382) |
+| GAS | 65.6% (361/550) | 65.6% (361/550) | 71.6% (394/550) |
+| LIFT_STUCK | 28.4% (203/714) | 28.4% (203/714) | 39.6% (283/714) |
+| SHOCK | 42.1% (303/720) | 35.4% (255/720) | 45.4% (327/720) |
+
+### NEW holdout: single-operation recall by operation
+
+| Operation | 0 baseline | 1 after D169 | 2 after D168 | Moved by |
+|---|---|---|---|---|
+| DROP_VOWEL_SIGN | 17.4% (76/436) | 14.9% (65/436) | 14.9% (65/436) | D169 (fewer bare current phrases) |
+| SUBSTITUTE_NEIGHBOUR | 12.9% (37/286) | 12.9% (37/286) | 12.9% (37/286) | unchanged |
+| INSERT_NEIGHBOUR | 17.3% (51/295) | 17.3% (51/295) | 17.3% (51/295) | unchanged |
+| ROMANISATION_VARIANT | 25.1% (47/187) | 25.1% (47/187) | 28.3% (53/187) | Stage 1 (D168) |
+| SWAP_ADJACENT | 12.7% (36/284) | 12.7% (36/284) | 12.7% (36/284) | unchanged |
+| DROP_LETTER | 16.8% (50/297) | 16.8% (50/297) | 16.8% (50/297) | unchanged |
+| DOUBLE_LETTER | 13.4% (38/284) | 13.4% (38/284) | 22.2% (63/284) | Stage 1 (D168) |
+| ELONGATE_VOWEL | 17.7% (55/310) | 17.7% (55/310) | 99.7% (309/310) | Stage 1 (D168) |
+| INSERT_JOINER | 100.0% (506/506) | 96.6% (489/506) | 96.6% (489/506) | D169 (fewer bare current phrases) |
+| NUKTA_TOGGLE | 100.0% (342/342) | 97.7% (334/342) | 97.7% (334/342) | D169 (fewer bare current phrases) |
+| INSERT_SEPARATOR | 12.5% (33/263) | 12.5% (33/263) | 12.5% (33/263) | unchanged |
+| DOUBLE_CONSONANT | 29.7% (133/448) | 27.2% (122/448) | 27.2% (122/448) | D169 (fewer bare current phrases) |
+| RANDOM_CASE | 100.0% (258/258) | 99.6% (257/258) | 99.6% (257/258) | D169 (fewer bare current phrases) |
+| REMOVE_SPACES | 0.5% (1/184) | 0.5% (1/184) | 0.5% (1/184) | unchanged |
+| LEET | 4.4% (12/274) | 4.4% (12/274) | 96.7% (265/274) | Stage 1 (D168) |
+| SWAP_VOWEL_LENGTH | 26.6% (69/259) | 25.5% (66/259) | 25.5% (66/259) | D169 (fewer bare current phrases) |
+| CHANDRABINDU_ANUSVARA | 100.0% (87/87) | 87.4% (76/87) | 87.4% (76/87) | D169 (fewer bare current phrases) |
+
+### NEW holdout: single-operation recall by language form and by category
+
+| | 0 baseline | 1 after D169 | 2 after D168 |
+|---|---|---|---|
+| HINDI_DEVANAGARI | 55.9% (576/1030) | 52.0% (536/1030) | 52.0% (536/1030) |
+| ROMANISED_HINDI | 19.7% (194/984) | 19.6% (193/984) | 38.3% (377/984) |
+| ROMANISED_MARATHI | 23.5% (228/969) | 23.5% (228/969) | 42.0% (407/969) |
+| ENGLISH | 20.2% (196/969) | 20.2% (196/969) | 38.3% (371/969) |
+| MARATHI_DEVANAGARI | 60.8% (637/1048) | 58.8% (616/1048) | 58.8% (616/1048) |
+| MEDICAL_VIOLENCE | 27.0% (654/2419) | 27.0% (654/2419) | 40.1% (969/2419) |
+| SHOCK | 46.0% (347/755) | 37.7% (285/755) | 46.2% (349/755) |
+| FIRE | 45.0% (275/611) | 45.0% (275/611) | 54.0% (330/611) |
+| GAS | 63.7% (367/576) | 63.7% (367/576) | 70.1% (404/576) |
+| LIFT_STUCK | 29.4% (188/639) | 29.4% (188/639) | 39.9% (255/639) |
+
+### NEW holdout: double-operation recall by operation (an operation counts once for each of the two in an item)
+
+| Operation | 0 baseline | 2 after D168 |
+|---|---|---|
+| DROP_LETTER | 8.7% (25/289) | 11.4% (33/289) |
+| SWAP_ADJACENT | 7.7% (22/284) | 9.2% (26/284) |
+| RANDOM_CASE | 14.7% (46/313) | 33.2% (104/313) |
+| SWAP_VOWEL_LENGTH | 17.5% (39/223) | 16.6% (37/223) |
+| CHANDRABINDU_ANUSVARA | 49.3% (37/75) | 38.7% (29/75) |
+| DROP_VOWEL_SIGN | 16.3% (71/435) | 14.3% (62/435) |
+| LEET | 1.4% (4/289) | 21.1% (61/289) |
+| INSERT_JOINER | 42.6% (203/476) | 41.0% (195/476) |
+| ELONGATE_VOWEL | 8.7% (25/289) | 27.3% (79/289) |
+| DOUBLE_LETTER | 7.9% (22/277) | 15.5% (43/277) |
+| INSERT_NEIGHBOUR | 8.4% (26/309) | 9.7% (30/309) |
+| DOUBLE_CONSONANT | 25.0% (118/472) | 22.7% (107/472) |
+| SUBSTITUTE_NEIGHBOUR | 6.9% (20/290) | 7.6% (22/290) |
+| NUKTA_TOGGLE | 47.3% (150/317) | 46.7% (148/317) |
+| INSERT_SEPARATOR | 8.4% (27/321) | 10.9% (35/321) |
+| ROMANISATION_VARIANT | 10.1% (17/168) | 17.3% (29/168) |
+| REMOVE_SPACES | 0.0% (0/173) | 0.0% (0/173) |
+
+### Which operations improved, and which did not
+
+- **Improved by Stage 1 (normalisation):** ELONGATE_VOWEL (a stretched letter; the elongation readings), LEET (digits and `@` `$` for letters; the leet reading), and a little DOUBLE_LETTER
+  and ROMANISATION_VARIANT (some doubled letters become three, and some variants end in a stretched letter). Double-operation recall rose where one of the two damages was one of these.
+- **No measured effect:** the squashed reading (runs of single letters such as "f i r e") and the Devanagari-folded reading. The generator never makes a run of three or more single letters (its
+  INSERT_SEPARATOR puts ONE separator in a word), and the existing matcher already folds the nukta, the chandrabindu and the joiners, so these two readings add no hit on this benchmark. They guard
+  patterns the benchmark does not make; the unit tests cover them, and mutation 1 and 2 show only those tests fail.
+- **Not improved (Stage 1 does not try):** SWAP_ADJACENT, DROP_LETTER, INSERT_NEIGHBOUR, SUBSTITUTE_NEIGHBOUR, INSERT_SEPARATOR, REMOVE_SPACES (words run together), DROP_VOWEL_SIGN,
+  SWAP_VOWEL_LENGTH, DOUBLE_CONSONANT. These are the Stage 2 and Stage 3 targets in "NEXT STEPS".
+- **Went DOWN by the precision fix (D169), honestly:** NUKTA_TOGGLE, INSERT_JOINER, CHANDRABINDU_ANUSVARA, RANDOM_CASE, DOUBLE_CONSONANT and DROP_VOWEL_SIGN lost 1 to 13 points on a few items. The benchmark's base list is the
+  terms of the rules, and ten of those terms are the bare "current" terms (करंट and the like) that now need a shock word; they remain base phrases, but a benchmark sentence with a bare करंट and no shock word is no
+  longer detected. Those items were counted as detected before and are, by the human's decision (D169), not detected now. The second column of each table above shows exactly this step.
+- **False alarms:** none was added by Stage 1 on the generated, near-miss or existing negatives or on the everyday group (`everyday.test.ts` checks that every hit on them is found by the exact reading). The
+  precision fix removed 10 (dev), 7 (old holdout) and 6 (new holdout) near-miss false alarms, all of them the bare Devanagari करंट words ("करंट अकाउंट" and the like).
+- **Cost:** a 5,000-character adversarial text is read in well under 50 ms (nine adversarial shapes are tested, `safety-normalize.test.ts` N8); the extra readings are skipped when they equal the exact reading.
+
+## The everyday Indian phrasing (T10c Part 0)
+
+A group of 302 ordinary sentences in English, Hinglish, Hindi and Marathi that use words overlapping a safety word (electricity current, power cut, gas bill and delivery, blood donation camp, shock absorber, hurt feelings,
+killing time, knife set, fire exit and extinguisher, burnt bulb, a photo "shot"), and 12 AMBIGUOUS sentences (an empty fire extinguisher, a lift stuck with nobody in it, a leak near the meter, a burning smell) that are
+listed apart and not counted as false alarms: `src/domain/complaints/safety-benchmark/negatives.ts` (`EVERYDAY_PHRASES`, `AMBIGUOUS_PHRASES`), `everyday.test.ts`. The group is not part of the generated sets, so the frozen digests do not depend on it.
+It was written by the agent and is not reviewed by a native speaker.
+
+| Language form | Sentences | Hits, baseline | Hits, after D169 and D168 |
+|---|---|---|---|
+| English | 119 | 36 | 36 |
+| Hindi (Devanagari) | 44 | 15 | 7 |
+| Marathi (Devanagari) | 42 | 12 | 6 |
+| Hindi typed in Latin letters | 81 | 19 | 16 |
+| Marathi typed in Latin letters | 16 | 6 | 6 |
+| **All** | **302** | **88** | **71** |
+
+- **The Latin electricity phrases never hit:** "current gaya", "current gela", "current kab aayega", "current bill", "light gayi", "light nahi hai", "bijli gayi", "power cut since morning" gave no hit, before or after.
+- **The problem was the Devanagari करंट (14 sentences) and three Latin ones** ("current aa raha hai kya abhi", "current aata jaata rehta hai", "bijli ka current bill"): 17 sentences, each a CRITICAL alert through the decision path (a strong hit is CRITICAL). After D169 none is.
+- **What still hits (71 sentences, all CRITICAL):** "gas" in a bill, an agency, a connection or a delivery (27), "blood" of a donation camp or a test (8), "shock absorber" (7), "knife set" (8), "killing time" (2), "fire exit", "fire extinguisher", "fire safety audit" and the fire brigade drill (8), "smoke free" (2), "shot", "shooting" and "flu shot" (4), and five single ones ("stroke of luck", "attacked by mosquitoes", two burnt bulbs, "ambulance parking"). These are the documented high-recall false alarms (no negation handling, D162); D169 limited the precision fix to the bare "current" family, so they stay and are listed as the next precision decision under "NEXT STEPS".
+- **AMBIGUOUS:** 9 of 12 hit (3 do not: the two leaks near the meter and the dead wire), reported apart; a hit on an empty extinguisher, a lift stuck with nobody in it or a burning smell is acceptable.
+- **A real shock phrase still hits:** "current laga", "करंट लगा", "विजेचा धक्का", "electric shock", "got a shock", "नल छूने पर करंट आता है" and 15 more are asserted in `safety-current-context.test.ts`.
+
+## Procedure and order (followed exactly), Phase C
 
 1. Base list, generator, negatives and evaluator were built with their unit tests (commits `7b1bfb7`, `3b8119a`, `2eb816e`).
 2. **Dev set**: seeds 301 to 305, each 1,000 single and 500 double items (7,500 items), plus the negatives. Run: baseline recorded.
@@ -52,7 +238,7 @@ alarms (3.4 to 3.9% of all negatives), because that list deliberately includes e
 
 Dev set digest `23a242df3210780947c78942a935f5416df9c1e0fc5831d8b8a8ca6946508164`; holdout digest `117541b051e1a4b1fd82c1f593b3e24a156c9a5413cc7d900e56587551937f9f` (digest of the per-seed digests; the per-seed digests are in each `expected.json`).
 
-## Headline numbers
+## Headline numbers (Phase C baseline, before T10c)
 
 | | Dev (seeds 301 to 305) | Holdout (seeds 9301 to 9305) |
 |---|---|---|
@@ -295,7 +481,7 @@ All false alarms are in the NEAR_MISS group and every one is by a word that is *
 and the Marathi word धुरंधर (an expert), which starts with the fire stem धुर. The near-miss group is a deliberately hard sample: about a quarter of its sentences use such a word, so its rate is not an estimate of the real-world false-alarm rate. The words that are NOT rule words (fine, five, hire, wire, tire, fare, gust, gasket, gastric, fireplace, bloodwork, liftoff, ambulatory, knifeblock) caused no false alarm.
 The 0 of about 1,250 GENERATED sentences (upper bound of the interval 0.31%) is the better estimate for ordinary benign complaints.
 
-## Findings about the detector (recorded, not fixed)
+## Findings about the detector (recorded in Phase C; items 2 and 4 are fixed by Stage 1, T10c)
 
 No defect was found: every miss is a spelling the rule table does not list or normalise, and no hit was wrong in a way other than the documented accepted false positives. Observations for the human:
 
@@ -315,7 +501,26 @@ No defect was found: every miss is a spelling the rule table does not list or no
 - **Native-speaker review is still required** for the Hindi and Marathi word lists and for these test phrases (`docs/safety-words-review.md`).
 - This is not a statement about safety in production. **The declared-danger question and the Emergency control remain the primary safety nets**; the word rules are a second net.
 
-## Recommendation (FOR THE HUMAN TO APPROVE; nothing here is implemented)
+## NEXT STEPS (Stage 2 and Stage 3: NOT implemented; for the human to approve)
+
+Stage 1 is done (D168). The remaining single-operation misses of the NEW holdout are 2,693 of 5,000 (53.9 percentage points); each next stage is sized from them (an UPPER bound on what it
+could fix) and must be re-measured on a NEW holdout and on all negative groups before it ships. The decision and its triggers are D170.
+
+| | Stage 2: generated spelling variants | Stage 3: bounded fuzzy matching with a weak tier |
+|---|---|---|
+| **What** | Offline, a script writes the likely spellings of every term (long and short vowel signs, dropped matras, romanisation pairs aa/a, ee/i, oo/u, v/w, ph/f, a doubled or single consonant, the phrase with its spaces removed or joined) into a reviewed list; the matcher reads the list. No guessing at run time. | Edit distance 1 (terms of five or more letters) or 2 (ten or more) against the words of the text, in a second, WEAK tier: the complaint goes to the duty manager as HIGH and is NOT marked CRITICAL, with no model call. |
+| **Measured misses it would address (new holdout, single)** | DROP_VOWEL_SIGN 371, DOUBLE_CONSONANT 326, DOUBLE_LETTER 221, SWAP_VOWEL_LENGTH 193, REMOVE_SPACES 183, ROMANISATION_VARIANT 134: **1,428 misses, up to +28.6 points** | INSERT_SEPARATOR 230, SWAP_ADJACENT 248, DROP_LETTER 247, INSERT_NEIGHBOUR 244, SUBSTITUTE_NEIGHBOUR 249: **1,218 misses, up to +24.4 points** |
+| **False-alarm risk** | Medium. More terms mean more accidental words, above all in Hindi and Marathi, which have few ordinary words to check against; every variant needs the native-speaker review. Measure on the near-miss and everyday groups (today 20.9 and 23.5 percent). | Highest for CRITICAL, so the weak tier: "fire" is one letter from "five", "hire", "wire", "tire", "fare". The weak tier has a stop list and is measured on the near-miss group; its cost is more HIGH items for the duty manager, not more CRITICAL ones. |
+| **Effort** | 10 to 14 hours (generator script 3, review file and native-speaker round 4, matcher change and tests 3, new holdout and report 2) | 12 to 16 hours (bounded matcher and tier 5, stop list 2, decision and UI wording 2, tests and mutations 3, new holdout and report 2) |
+| **Trigger: do this if** | the native-speaker review of the word lists is done (so the variants are reviewed once, not twice), OR real complaints show a misspelling of these kinds that rules missed, OR the committee wants the figure above 60 percent before go-live | real complaints show dropped, swapped or extra letters in safety words that Stage 2 would not catch, OR Stage 2 is done and the duty manager accepts a HIGH weak tier; never before the near-miss measurement says the weak tier adds fewer than 5 HIGH items per 100 benign complaints |
+
+**Also open (not a stage, a precision decision):** 71 of the 302 everyday sentences still raise a CRITICAL alert through "gas", "blood", "shock absorber", "knife set", "killing time", "fire exit" and similar words (the high-recall design, D162).
+D169 narrowed only the bare "current" family. A second precision step (for example: "gas" needs a leak, smell or cylinder-burst word; "blood" needs bleeding or an injury word) would remove most of them and would also lose some real complaints; it is
+the human's decision, with the native-speaker review, and should be measured with this everyday group.
+
+**Native-speaker review of T10c:** the rules that changed are the ten bare "current" terms of five rules (`docs/safety-words-review.md`, "Changes since the first version"), which are now MORE specific. No word was added or removed. The shock-word list that gives them context needs the same review.
+
+### The Phase C recommendation, as it was written (historical)
 
 The holdout single-operation combined recall is **36.0%, below the 97% line**, so staged improvements are proposed, ordered by benefit and risk. The "misses addressed" figures are the holdout single-operation misses of the operations a stage targets: an UPPER bound on what it could fix (out of 3201 misses, which is 64.0 percentage points).
 
@@ -326,10 +531,11 @@ The holdout single-operation combined recall is **36.0%, below the 97% line**, s
 | 3 | Bounded fuzzy matching (edit distance 1 for terms of five or more letters, 2 for ten or more) with a WEAK tier: it notifies the duty manager but does not mark the complaint critical | SWAP_ADJACENT, DROP_LETTER, INSERT_NEIGHBOUR, SUBSTITUTE_NEIGHBOUR | 1022 | up to +20.4 points | Highest: "fire" is one letter from "five", "hire", "wire", "tire", "fare"; hence the weak tier and a stop list; measure with the near-miss group before shipping |
 
 Each stage must be re-measured on a NEW holdout (the present one is spent for tuning purposes) and on the negatives before it ships, and the human approves each stage.
-**Decision and trigger (D164):** do nothing now; revisit if the native-speaker review changes the lists, or if real complaints show misspelt safety words, or before go-live; when approved, start with stage 1.
+**Decision and trigger (D164, now answered by D168 and D170):** do nothing now; revisit if the native-speaker review changes the lists, or if real complaints show misspelt safety words, or before go-live; when approved, start with stage 1.
 Stage 1 is the cheapest and the only one that needs no new vocabulary.
+
 
 ## Rerun
 
-`npm run safety:benchmark` recomputes both sets from their seeds, prints the headline numbers and exits non-zero if any differs from the committed `expected.json` (the unit tests do the same, per seed).
-To regenerate a set (only when a change to the generator is wanted; a holdout is never regenerated to improve a number) see `tests/fixtures/safety/dev/README.md`.
+`npm run safety:benchmark` recomputes the three sets from their seeds, prints the headline numbers and exits non-zero if any differs from the committed `expected.json` (the unit tests do the same, per seed).
+To regenerate a set (only when a change to the generator is wanted; a holdout is never regenerated to improve a number) see `tests/fixtures/safety/dev/README.md`. The sets are `dev`, `holdout` (reused) and `holdout2` (the independent run of T10c).

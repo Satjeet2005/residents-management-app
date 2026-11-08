@@ -48,6 +48,18 @@ Written 2026-11-07. Thirty numbers an interviewer may ask for. Each row has the 
 | 90, 90 and 8 percent | Committee goals: on-time collection 90%, first reply on time 90%, reopened at most 8%. Assumptions, not agreed targets. | `src/domain/reports/goals.ts`; `src/domain/seed/settings.ts` |
 | 30 days | The reconciliation window on the committee page. | `src/server/reports/reconciliation.ts:6` |
 
+## Added 2026-11-08 (T10c): the safety benchmark
+
+These rows were read from `tests/fixtures/safety/*/expected.json` and `history.json` after the T10c commits. The test counts in the table above are from 2026-11-07 and are older: a fresh `npm run check` of the T10c commits gave 4,963 passed, 1 skipped.
+
+| Number | What it is | Source |
+|---|---|---|
+| 46.1% (95% CI 44.8 to 47.5; 2307/5000) | Single-operation recall of the safety words on the NEW holdout (seeds 9401 to 9405), run once after the detector was frozen. Baseline detector on the same texts: 36.6%. | `tests/fixtures/safety/holdout2/expected.json`, `history.json` |
+| 20.8% (520/2500) | Double-operation recall on the same holdout (baseline 17.0%). | same |
+| 3.4% (54/1594) | False-alarm rate on all benign sentences of that holdout (generated benign sentences: 0 of 1,248; near-miss words 21.7% by design). | same |
+| 302 sentences, 71 still hit | Everyday Indian phrasing that overlaps a safety word; hits fell from 88 to 71 after D169. | `src/domain/complaints/safety-benchmark/negatives.ts`, `everyday.test.ts` |
+| 10 terms of 5 rules | The bare "current" terms that now need a shock word (D169). | `needsShockContext` in `src/domain/complaints/safety.ts` |
+
 ## Numbers that are doc-only or unconfirmed
 
 - The pre-M4j benchmark figures (778 correct, 2 false, recall about 0.44) are in `docs/matching-benchmark.md` only: UNVERIFIED.

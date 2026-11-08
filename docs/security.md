@@ -54,12 +54,14 @@ A complaint about fire, gas, a stuck lift or electric shock (and a fifth, human-
 Marathi or those typed in Latin letters, is escalated by fixed rules before any model sees the text:
 
 - **Rules first.** `SAFETY_RULES` read the original text; a hit gives urgency CRITICAL, source RULE, and escalation to the duty manager (`src/domain/complaints/safety.ts`, `decision.ts`; `tests/domain/complaints/safety.test.ts`, `decision.test.ts`, `tests/integration/complaints-safety.test.ts`).
+- **The rules also read cleaned-up readings of the same text (Stage 1, D168).** `normalizeForSafety` adds up to six readings made from the RAW text (NFKC, case fold, zero-width characters and Latin diacritics out, letters joined where a word is spelled out, a stretched letter reduced, digits read as letters inside a word, Devanagari variants folded); the same rules read each, a hit found there is as strong as any other and records how it was found (`via`). It never throws and a 5,000-character adversarial text is read in under 50 ms (`src/domain/complaints/safety-normalize.ts`, `tests/domain/complaints/safety-normalize.test.ts`).
+- **A bare "current" is not enough (D169).** Ten terms that are only the word "current" (करंट, "current aa raha", "bijli ka current") hit only with a shock word in the same text, so a power-cut or bill message does not wake the duty manager; "current laga", "करंट लगा" and the other shock phrases are unchanged (`tests/domain/complaints/safety-current-context.test.ts`).
 - **A model can never produce CRITICAL.** An answer that includes CRITICAL is refused as invalid; a model cannot lower a rule's urgency (`decision.ts`, rules R1 and R2).
 - **Declared danger.** The resident's "Is anyone in danger right now?" answer is mandatory, and Yes escalates even with no safety word (`tests/integration/complaints-create.test.ts`).
 - **De-identification.** Only de-identified text is ever sent to a provider, and never for a safety complaint (D88, D119, D140; `src/domain/complaints/deidentify.ts`, `tests/domain/complaints/deidentify.test.ts`).
 - **The duty manager's own acknowledgement.** "Seen" means the duty manager pressed "I have seen this"; a plain complaints manager's first reply does not count as a sighting (D149; `tests/integration/safety-acknowledgement.test.ts`).
 
-The Hindi and Marathi word lists were written by the agent and are NOT yet reviewed by a native speaker (`docs/safety-words-review.md`).
+The Hindi and Marathi word lists were written by the agent and are NOT yet reviewed by a native speaker (`docs/safety-words-review.md`). How well the rules cope with misspellings is measured, not assumed: 46.1% of single-operation misspellings on a holdout run once (`docs/safety-benchmark.md`).
 
 ## The demo's own risk
 

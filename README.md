@@ -36,7 +36,7 @@ npm run test:integration    # needs the database running
 npm run test:ci-parity      # unit and integration tests as CI runs them: no .env, only DATABASE_URL
 npm run build
 npm run scan:secrets
-npm run safety:benchmark      # recompute the safety-detection benchmark (dev and holdout), print the headline numbers, fail if they differ from the committed ones (docs/safety-benchmark.md)
+npm run safety:benchmark      # recompute the safety-detection benchmark (dev, the reused holdout and holdout2), print the headline numbers, fail if they differ from the committed ones (docs/safety-benchmark.md; single-operation recall 46.1% on the independent holdout)
 ```
 
 ## Browser checks and installing the app
