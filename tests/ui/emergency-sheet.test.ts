@@ -2,90 +2,75 @@ import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { EmergencyButton, EmergencySheetContent } from "@/components/emergency-sheet";
-import { telHref } from "@/lib/phone-link";
+import { formatPhone, telHref } from "@/lib/phone-link";
 
 const html = renderToStaticMarkup;
 const sheet = (numbers: { dutyManagerPhone: string | null; emergencyServicesPhone: string | null }) => html(h(EmergencySheetContent, { numbers }));
 
-describe("HM5 the Emergency sheet (D43)", () => {
+describe("HM5 the Emergency sheet is call-first (D43, D185)", () => {
   const out = sheet({ dutyManagerPhone: "5900000001", emergencyServicesPhone: null });
 
-  it("says what to do, in the words of the design", () => {
-    expect(out).toContain("If someone is in danger, call the duty manager now.");
-    expect(out).toContain("Call duty manager");
+  it("says the lead sentence, the examples sentence and the not-an-emergency heading, in the words of the design", () => {
+    expect(out).toContain("If someone is in danger, call now.");
+    expect(out).toContain("Use this for fire, gas smell, someone stuck in a lift, electric shock, or someone hurt.");
+    expect(out).toContain(">Not an emergency?<");
+    expect(out).toContain("Water leak, lift not working, noise, parking and similar.");
   });
 
-  it("the duty manager link is a tel: address from the setting and is a large (56px) filled link", () => {
+  it("the duty manager link is a tel: address from the setting, a large (56px) filled link, with the number as readable text under it", () => {
     expect(out).toMatch(/<a [^>]*href="tel:5900000001"/);
     expect(out).toContain("min-h-14");
-    expect(out).toContain("bg-accent");
+    expect(out).toMatch(/<a class="[^"]*bg-accent[^"]*" href="tel:5900000001"><svg[^>]*aria-hidden="true"[\s\S]*?<\/svg>Call duty manager<\/a><p[^>]*>\+91 59000 00001<\/p>/);
   });
 
-  it("has the two lists with their items", () => {
-    expect(out).toContain(">Call now<");
-    for (const item of ["Fire", "Gas smell", "Someone stuck in a lift", "Electric shock", "Someone is hurt"]) expect(out).toContain(item);
-    expect(out).toContain(">Raise a complaint<");
-    for (const item of ["Water leak", "Lift not working with nobody inside", "Noise", "Parking"]) expect(out).toContain(item);
+  it("has no columns, no list, no column headers and no underlined item", () => {
+    expect(out).not.toContain("grid-cols-2");
+    expect(out).not.toContain("<ul");
+    expect(out).not.toContain("<li");
+    expect(out).not.toContain("underline");
+    expect(out).not.toContain(">Call now<");
   });
 
-  it("is laid out as two columns: Call now with a phone icon, Raise a complaint with a chat icon", () => {
-    expect(out).toContain("grid grid-cols-2");
-    const columns = out.split("<section").slice(1);
-    expect(columns).toHaveLength(2);
-    expect(columns[0]).toMatch(/<h3[^>]*border-b-2 border-ink[^>]*><svg[\s\S]*?<\/svg>Call now<\/h3>/);
-    expect(columns[1]).toMatch(/<h3[^>]*border-b border-hairline[^>]*><svg[\s\S]*?<\/svg>Raise a complaint<\/h3>/);
-    expect(columns[0]).toContain("M5 3h4l2 5");
-    expect(columns[1]).toContain("M4 5h16v11H11l-4 4v-4H4z");
+  it("has exactly two links, Call duty manager and Raise a complaint, and says Raise a complaint once", () => {
+    expect((out.match(/<a /g) ?? []).length).toBe(2);
+    expect((out.match(/Raise a complaint/g) ?? []).length).toBe(1);
+    expect(out).not.toContain("<button");
   });
 
-  it("separates the items with hairlines, one row each", () => {
-    expect((out.match(/<li class="border-b border-hairline text-body( py-3)?">/g) ?? []).length).toBe(9);
-  });
-
-  it("the large Call duty manager link is in the accent colour with a phone icon", () => {
-    expect(out).toMatch(/<a class="[^"]*bg-accent[^"]*" href="tel:5900000001"><svg[^>]*aria-hidden="true"[\s\S]*?<\/svg>Call duty manager<\/a>/);
-  });
-
-  it("the four 'Raise a complaint' items are links to /complaints/new, each at least 48px tall", () => {
-    const column = out.split("<section")[2].split("</section>")[0];
-    const links = column.match(/<a [^>]*>/g) ?? [];
-    expect(links).toHaveLength(4);
-    for (const link of links) {
-      expect(link).toContain('href="/complaints/new"');
-      expect(link).toContain("min-h-12");
-      expect(link).toContain("my-1");
-    }
-  });
-
-  it("'Not an emergency?' is followed by an outlined 'Raise a complaint' link to /complaints/new, not a filled one", () => {
-    expect(out).toContain("Not an emergency?");
+  it("the Raise a complaint link opens /complaints/new and is outlined, never filled", () => {
     const button = /<a [^>]*>Raise a complaint<\/a>/.exec(out)?.[0] ?? "";
     expect(button).toContain('href="/complaints/new"');
     expect(button).toContain("border-control");
     expect(button).not.toContain("bg-accent");
-    expect(out).not.toContain("<button");
   });
 
   it("has exactly one filled control: Call duty manager", () => {
     expect((out.match(/bg-accent/g) ?? []).length).toBe(1);
   });
 
+  it("never says 112 or dial (human decision)", () => {
+    expect(out).not.toMatch(/\b112\b|dial/i);
+  });
+
   it("shows nothing for emergency services while that setting is null", () => {
-    expect(out).not.toContain("emergency services");
-    expect(out).not.toContain("Call emergency services");
+    expect(out).not.toContain("Emergency services");
   });
 
-  it("with the emergency services number set, shows a second tel: link, outlined", () => {
+  it("with the emergency services number set, shows it as one plain text line, not a link", () => {
     const both = sheet({ dutyManagerPhone: "5900000001", emergencyServicesPhone: "112" });
-    expect(both).toMatch(/<a [^>]*href="tel:112"/);
-    expect(both).toContain("Call emergency services");
-    expect((both.match(/href="tel:/g) ?? []).length).toBe(2);
+    expect(both).toMatch(/<p[^>]*>Emergency services: 112<\/p>/);
+    expect((both.match(/href="tel:/g) ?? []).length).toBe(1);
+    const ten = sheet({ dutyManagerPhone: "5900000001", emergencyServicesPhone: "9876543210" });
+    expect(ten).toContain("Emergency services: +91 98765 43210");
   });
 
-  it("with no duty manager number, says so and draws no link to nowhere", () => {
+  it("with no duty manager number, says so, draws no call button and no link to nowhere", () => {
     const none = sheet({ dutyManagerPhone: null, emergencyServicesPhone: null });
-    expect(none).toContain("The duty manager&#x27;s number is not set");
+    expect(none).toContain("The duty manager&#x27;s number is not set up. Ask the society office.");
     expect(none).not.toContain("tel:");
+    expect(none).not.toContain("Call duty manager");
+    expect((none.match(/<a /g) ?? []).length).toBe(1);
+    expect(none).not.toContain("bg-accent");
   });
 
   it("the Emergency control is outlined, never filled", () => {
@@ -102,6 +87,31 @@ describe("HM5 the Emergency sheet (D43)", () => {
     expect(button).toContain("Emergency help");
     expect(button).toContain("Close");
     expect(button).not.toMatch(/<dialog[^>]*\sopen(?=[\s>=])/);
+  });
+});
+
+describe("HM5 formatPhone", () => {
+  it.each([
+    ["5900000001", "+91 59000 00001"],
+    ["+91 98765 43210", "+91 98765 43210"],
+    ["919876543210", "+91 98765 43210"],
+    ["09876543210", "+91 98765 43210"],
+    ["98765-43210", "+91 98765 43210"],
+    ["112", "112"],
+    [" 112 ", "112"],
+    ["(022) 2345-6789", "(022) 2345-6789"],
+    ["call me", null],
+    ["022 2345 6789", "022 2345 6789"],
+    ["", null],
+    [null, null],
+  ])("%j is shown as %j", (phone, expected) => {
+    expect(formatPhone(phone)).toBe(expected);
+  });
+
+  it("never changes a digit: the digits of the text equal the digits of the input", () => {
+    for (const phone of ["5900000001", "+919876543210", "09876543210", "112", "(022) 2345-6789", "98765 43210"]) {
+      expect((formatPhone(phone) ?? "").replace(/\D/g, "").replace(/^(91|0)(?=\d{10}$)/, "")).toBe(phone.replace(/\D/g, "").replace(/^(91|0)(?=\d{10}$)/, ""));
+    }
   });
 });
 
