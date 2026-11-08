@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accountedLine, actionsAllowed, barWidths, summarySegments } from "@/lib/reconciliation/summary";
+import { accountedLine, actionsAllowed, barWidths, laneShares } from "@/lib/reconciliation/summary";
 import type { SummaryCounts } from "@/lib/reconciliation/types";
 
 const counts = (over: Partial<SummaryCounts> = {}): SummaryCounts => ({ rowsRead: 105, autoMatched: 27, manuallyMatched: 0, needsYou: 40, awaitingApproval: 0, notMaintenance: 38, alreadyImported: 0, invalidRows: 0, accounted: true, ...over });
@@ -35,16 +35,17 @@ describe("RS1 bar widths (largest remainder)", () => {
   });
 });
 
-describe("RS2 the segments of the summary bar", () => {
-  it("shows Posted automatically, Need you, Awaiting approval and Not maintenance always, with their numbers", () => {
-    const segments = summarySegments(counts());
-    expect(segments.map((s) => [s.label, s.count])).toEqual([["Posted automatically", 27], ["Need you", 40], ["Awaiting approval", 0], ["Not maintenance", 38]]);
-    expect(segments.reduce((sum, s) => sum + s.width, 0)).toBe(100);
+describe("RS2 the shares of the proportion strip", () => {
+  it("lists the four lanes in the order of the selector with their counts, and the widths add up to 100", () => {
+    const shares = laneShares({ NEEDS_YOU: 40, AWAITING_APPROVAL: 0, MATCHED: 27, NOT_MAINTENANCE: 38 });
+    expect(shares.map((s) => [s.lane, s.count])).toEqual([["NEEDS_YOU", 40], ["AWAITING_APPROVAL", 0], ["MATCHED", 27], ["NOT_MAINTENANCE", 38]]);
+    expect(shares.reduce((sum, s) => sum + s.width, 0)).toBe(100);
+    expect(shares[1].width).toBe(0);
   });
 
-  it("adds Already imported and Posted by hand only above zero", () => {
-    const labels = summarySegments(counts({ alreadyImported: 12, manuallyMatched: 3 })).map((s) => s.label);
-    expect(labels).toEqual(["Posted automatically", "Posted by hand", "Need you", "Awaiting approval", "Not maintenance", "Already imported"]);
+  it("a lane with one row is still a visible sliver, and four empty lanes give four zero widths", () => {
+    expect(laneShares({ NEEDS_YOU: 1, AWAITING_APPROVAL: 0, MATCHED: 500, NOT_MAINTENANCE: 0 })[0].width).toBeGreaterThan(0);
+    expect(laneShares({ NEEDS_YOU: 0, AWAITING_APPROVAL: 0, MATCHED: 0, NOT_MAINTENANCE: 0 }).map((s) => s.width)).toEqual([0, 0, 0, 0]);
   });
 });
 

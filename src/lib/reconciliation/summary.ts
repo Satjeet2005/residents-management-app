@@ -1,5 +1,5 @@
 import { t } from "@/lib/messages";
-import type { SummaryCounts } from "./types";
+import { LANES, type Lane, type SummaryCounts } from "./types";
 
 /**
  * Whole-number widths (percent) for a segmented bar: they add up to exactly 100 (largest remainder), and a count above zero
@@ -28,28 +28,15 @@ export function barWidths(counts: readonly number[]): number[] {
   return widths;
 }
 
-export type SegmentKey = "AUTO" | "MANUAL" | "NEEDS_YOU" | "AWAITING" | "NOT_MAINTENANCE" | "ALREADY";
-export type Segment = { key: SegmentKey; label: string; count: number; width: number };
+export type LaneShare = { lane: Lane; count: number; width: number };
 
-/**
- * The segments of the summary bar, in order. "Posted by hand" and "Already imported" appear only above zero; the other three always
- * do. Every segment has a text label and its number, never colour alone.
- */
-export function summarySegments(counts: SummaryCounts): Segment[] {
-  const all: { key: SegmentKey; label: string; count: number; always: boolean }[] = [
-    { key: "AUTO", label: t("recon.segment.auto"), count: counts.autoMatched, always: true },
-    { key: "MANUAL", label: t("recon.segment.manual"), count: counts.manuallyMatched, always: false },
-    { key: "NEEDS_YOU", label: t("recon.segment.needsYou"), count: counts.needsYou, always: true },
-    { key: "AWAITING", label: t("recon.segment.awaiting"), count: counts.awaitingApproval, always: true },
-    { key: "NOT_MAINTENANCE", label: t("recon.segment.notMaintenance"), count: counts.notMaintenance, always: true },
-    { key: "ALREADY", label: t("recon.segment.already"), count: counts.alreadyImported, always: false },
-  ];
-  const shown = all.filter((s) => s.always || s.count > 0);
-  const widths = barWidths(shown.map((s) => s.count));
-  return shown.map((s, i) => ({ key: s.key, label: s.label, count: s.count, width: widths[i] }));
+/** The four lanes in the order of the selector with their share of the bar: the widths add up to 100 (largest remainder) and a lane above zero is never invisible. */
+export function laneShares(laneCounts: Record<Lane, number>): LaneShare[] {
+  const widths = barWidths(LANES.map((lane) => laneCounts[lane]));
+  return LANES.map((lane, index) => ({ lane, count: laneCounts[lane], width: widths[index] }));
 }
 
-/** The line under the bar. It says "accounted for" only when the flag read back from the database is true; then no action may be offered. */
+/** The accounted line of the header. It says "accounted for" only when the flag read back from the database is true; then no action may be offered. */
 export function accountedLine(counts: Pick<SummaryCounts, "accounted" | "rowsRead">): { ok: boolean; text: string } {
   return counts.accounted ? { ok: true, text: t("recon.accounted", { n: counts.rowsRead }) } : { ok: false, text: t("recon.notAccounted") };
 }

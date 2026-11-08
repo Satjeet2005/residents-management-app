@@ -4,7 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 import { LaneTabs } from "@/app/(staff)/staff/reconciliation/[importId]/lane-tabs";
 import { RowList, emptyLaneText } from "@/app/(staff)/staff/reconciliation/[importId]/row-list";
 import { RowsView } from "@/app/(staff)/staff/reconciliation/[importId]/rows-view";
-import { SummaryBar } from "@/app/(staff)/staff/reconciliation/[importId]/summary-bar";
+import { ProportionStrip } from "@/app/(staff)/staff/reconciliation/[importId]/proportion-strip";
+import { WorkspaceHeader } from "@/app/(staff)/staff/reconciliation/[importId]/workspace-header";
 import { WorkspaceView } from "@/app/(staff)/staff/reconciliation/[importId]/workspace-view";
 import { LANES, type RowCard, type SummaryCounts } from "@/lib/reconciliation/types";
 import type { Workspace } from "@/server/statements/ui-data";
@@ -37,29 +38,40 @@ const card = (over: Partial<RowCard> = {}): RowCard => ({
   ...over,
 });
 
-describe("WS1 the summary bar", () => {
-  it("names Posted automatically, Need you, Awaiting approval and Not maintenance with their numbers, in words", () => {
-    const out = html(h(SummaryBar, { counts: counts() }));
-    for (const [label, n] of [["Posted automatically", 25], ["Need you", 43], ["Awaiting approval", 0], ["Not maintenance", 38]] as const) {
-      expect(out).toMatch(new RegExp(`<span>${label}</span><span class="tnum font-semibold">${n}</span>`));
-    }
-    expect(out).not.toContain("Already imported");
+describe("WS1 the proportion strip", () => {
+  const out = html(h(ProportionStrip, { laneCounts }));
+
+  it("is decorative: hidden from assistive technology, 8px tall, with no text and no legend", () => {
+    expect(out).toMatch(/^<div aria-hidden="true" class="flex h-2 w-full/);
+    expect(out.replace(/<[^>]*>/g, "")).toBe("");
+    expect(out).not.toMatch(/Posted automatically|Need you|Awaiting|legend/);
   });
 
-  it("shows Already imported only above zero", () => {
-    expect(html(h(SummaryBar, { counts: counts({ alreadyImported: 106, rowsRead: 106 }) }))).toContain("Already imported");
-  });
-
-  it("the bar is decorative (aria-hidden) and the widths are whole numbers that add up to 100", () => {
-    const out = html(h(SummaryBar, { counts: counts() }));
-    expect(out).toMatch(/<div aria-hidden="true" class="flex h-4 w-full/);
+  it("the widths are whole numbers that add up to 100", () => {
     const widths = [...out.matchAll(/style="width:(\d+)%"/g)].map((m) => Number(m[1]));
     expect(widths.reduce((a, b) => a + b, 0)).toBe(100);
   });
+});
+
+describe("WS2 the workspace header (D189)", () => {
+  const header = { importId: IMPORT, filename: "sample-statement.csv", uploadedOn: "2026-10-27", uploadedBy: "Priya Nair" };
+
+  it("has ONE breadcrumb line, Staff home then All imports, in a labelled nav, and nothing else links back", () => {
+    const out = html(h(WorkspaceHeader, { header, counts: counts() }));
+    expect(count(out, /<nav /g)).toBe(1);
+    expect(out).toContain('<nav aria-label="Breadcrumb"');
+    expect(out).toMatch(/<a [^>]*href="\/staff"[^>]*>Staff home<\/a><svg[\s\S]*?<\/svg><a [^>]*href="\/staff\/reconciliation"[^>]*>All imports<\/a>/);
+    expect(count(out, /<a /g)).toBe(2);
+  });
+
+  it("the h1 is Bank statement matching and the secondary line holds the file, the date and who imported it", () => {
+    const out = html(h(WorkspaceHeader, { header, counts: counts() }));
+    expect(out).toMatch(/<h1[^>]*>Bank statement matching<\/h1>/);
+    expect(out).toContain("sample-statement.csv · imported 27 Oct 2026 by Priya Nair");
+  });
 
   it("WS2 says 'All 106 rows accounted for' with a check icon when the flag is true", () => {
-    const out = html(h(SummaryBar, { counts: counts({ accounted: true }) }));
-    expect(out).toContain("All 106 rows accounted for");
+    const out = html(h(WorkspaceHeader, { header, counts: counts({ accounted: true }) }));
     expect(out).toMatch(/<p class="[^"]*font-semibold"><svg[^>]*aria-hidden="true"[^>]*>.*All 106 rows accounted for/);
     expect(out).not.toContain("do not add up");
   });
@@ -67,14 +79,10 @@ describe("WS1 the summary bar", () => {
   it("WS3 when the flag READ BACK is false it warns 'Do not post from this import', and never says accounted, even if the counts add up", () => {
     const addsUp = counts({ accounted: false });
     expect(addsUp.autoMatched + addsUp.needsYou + addsUp.awaitingApproval + addsUp.notMaintenance).toBe(addsUp.rowsRead);
-    const out = html(h(SummaryBar, { counts: addsUp }));
+    const out = html(h(WorkspaceHeader, { header, counts: addsUp }));
     expect(out).toContain("The counts do not add up. Do not post from this import.");
     expect(out).toContain('role="alert"');
     expect(out).not.toContain("accounted for");
-  });
-
-  it("has the double rule under the totals", () => {
-    expect(html(h(SummaryBar, { counts: counts() }))).toContain("h-[7px] border-y-2 border-ink");
   });
 });
 
@@ -161,15 +169,15 @@ describe("WS7 the workspace", () => {
   const data: Workspace = { header: { importId: IMPORT, filename: "sample-statement.csv", uploadedOn: "2026-10-27", uploadedBy: "Priya Nair" }, counts: counts(), laneCounts, rows: [card()], nextCursor: null, review: null };
   const out = html(h(WorkspaceView, { data, lane: "NEEDS_YOU", viewer }));
 
-  it("has one h1 (the file name), who uploaded it and when, a main landmark and a link back", () => {
+  it("has one h1, who imported the file and when, a main landmark and the breadcrumb", () => {
     expect(count(out, /<h1/g)).toBe(1);
-    expect(out).toContain(">sample-statement.csv</h1>");
-    expect(out).toContain("Imported 27 Oct 2026 by Priya Nair");
+    expect(out).toContain(">Bank statement matching</h1>");
+    expect(out).toContain("sample-statement.csv · imported 27 Oct 2026 by Priya Nair");
     expect(out).toContain("<main");
     expect(out).toMatch(/<a [^>]*href="\/staff\/reconciliation"[^>]*>All imports<\/a>/);
   });
 
-  it("has the summary, the tabs and the rows, and no accept-all or bulk action anywhere", () => {
+  it("has the header, the strip, the tabs and the rows, and no accept-all or bulk action anywhere", () => {
     expect(out).toContain("All 106 rows accounted for");
     expect(out).toContain('role="tablist"');
     expect(out).toContain('role="tabpanel"');
