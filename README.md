@@ -1,6 +1,19 @@
 # Township
 
-Resident app and staff console for a gated township. See `CLAUDE.md` for the rules this repo follows.
+A resident app (an installable web app) and a staff console for a fictional gated township in Pune with 2,400 flats: residents see and pay maintenance dues, raise complaints and see visitors; accounts staff match bank payments to flats; a committee reads a monthly report. Money is whole paise in an append-only ledger, and the safety words of a complaint escalate by fixed rules before any AI runs. Everything is demo data, and the SMS sender and the payment gateway are mocked. See `CLAUDE.md` for the rules this repo follows.
+
+**Live app:** `<LIVE_URL>` (placeholder: the hosted address, to be filled in by the owner). **Repository:** `<REPO_URL>` (placeholder). The list of placeholders is at the end of [deployment.md](deployment.md).
+
+## Start here
+
+- [deployment.md](deployment.md): run it from a clean clone, the demo logins, a five-minute reviewer path, how it is deployed, testing, what to do when something breaks.
+- [docs/walkthrough.md](docs/walkthrough.md): a tour of every core area. [docs/demo-script.md](docs/demo-script.md): the five-minute demo with fallbacks.
+- [docs/interview-prep.md](docs/interview-prep.md) and [docs/numbers-to-know.md](docs/numbers-to-know.md): the hard questions and the numbers an interviewer may ask for.
+- [docs/decisions.md](docs/decisions.md) and [docs/assumptions.md](docs/assumptions.md): every decision and every labelled assumption.
+- [docs/security.md](docs/security.md) and [docs/known-limitations.md](docs/known-limitations.md): what is built and what is not, candidly.
+- [docs/observability.md](docs/observability.md): where to look when something fails.
+- [docs/live-refresh-runbook.md](docs/live-refresh-runbook.md) and [docs/hosted-reset-procedure.md](docs/hosted-reset-procedure.md): bring the hosted deployment up to date, or restore its demo data (owner only).
+- [docs/submission-checklist.md](docs/submission-checklist.md): the final checklist. [docs/screenshots](docs/screenshots): the pictures from the browser checks.
 
 ## Run
 
