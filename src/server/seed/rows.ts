@@ -9,7 +9,18 @@ export type SeedTable = { table: string; columns: string[]; rows: SeedRow[] };
 const id = uuidFromKey;
 const at = (ms: number) => new Date(ms);
 const atOrNull = (ms: number | null) => (ms === null ? null : new Date(ms));
-const json = (value: unknown) => JSON.stringify(value);
+/** A seed key as the dataset writes one: "user:5000000005", "flat:T09-0904", "complaint:forced-gas-smell". It must never reach the database (D165). */
+const SEED_KEY = /^(user|flat|complaint|bill|member|staff):/;
+
+/** The value with every string that is a seed key replaced by its UUID, at any depth (an event payload names people, flats and complaints by key). */
+export function withUuids(value: unknown): unknown {
+  if (typeof value === "string") return SEED_KEY.test(value) ? id(value) : value;
+  if (Array.isArray(value)) return value.map(withUuids);
+  if (typeof value === "object" && value !== null) return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, withUuids(v)]));
+  return value;
+}
+
+const json = (value: unknown) => JSON.stringify(withUuids(value));
 const NOON = 12 * 3_600_000;
 /** 12:00 India Standard Time on a calendar date: the time stamped on rows the dataset only dates by day. */
 const noonOn = (date: string) => new Date(dayStartInstant(date) + NOON);

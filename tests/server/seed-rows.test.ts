@@ -134,3 +134,75 @@ describe("W1 seed rows", () => {
     }
   });
 });
+
+/** T13i: a seed key ("user:5000000005") must never reach the database; it is turned into a UUID, inside JSON payloads too. */
+describe("T13i seed keys never reach the rows", () => {
+  const SEED_KEY_ANYWHERE = /(^|[^A-Za-z0-9])(user|flat|complaint|bill|member|staff):/;
+  /** An idempotency key is an opaque unique string ("seed:bill:T01-0103:2026-06-01"), never looked up as an id. */
+  const OPAQUE = new Set(["ledger_entries.idempotency_key"]);
+
+  const strings = (value: unknown, found: string[] = []): string[] => {
+    if (typeof value === "string") found.push(value);
+    else if (Array.isArray(value)) value.forEach((v) => strings(v, found));
+    else if (typeof value === "object" && value !== null && !(value instanceof Date)) Object.values(value).forEach((v) => strings(v, found));
+    return found;
+  };
+
+  it("T13i a deep scan of every string of every row, JSON payloads parsed, finds no seed-key prefix", () => {
+    const offenders: string[] = [];
+    let scanned = 0;
+    for (const t of tables) {
+      t.rows.forEach((row) =>
+        row.values.forEach((value, i) => {
+          if (OPAQUE.has(`${t.table}.${t.columns[i]}`)) return;
+          const parsed = typeof value === "string" && /^[[{]/.test(value) ? safeParse(value) : value;
+          for (const text of strings(parsed)) {
+            scanned += 1;
+            if (SEED_KEY_ANYWHERE.test(text)) offenders.push(`${t.table}.${t.columns[i]}`);
+          }
+        }),
+      );
+    }
+    expect(scanned).toBeGreaterThan(100_000);
+    expect([...new Set(offenders)]).toEqual([]);
+  });
+
+  it("T13i the four payload fields that named a key now hold the UUID of that key", () => {
+    const events = rowsOf("complaint_events");
+    const col = events.columns.indexOf("payload");
+    const typeCol = events.columns.indexOf("event_type");
+    const seen = new Set<string>();
+    for (const row of events.rows) {
+      const payload = JSON.parse(row.values[col] as string) as Record<string, unknown>;
+      for (const field of ["assignee", "to", "primary", "flat"]) {
+        const value = payload[field];
+        if (typeof value === "string" && (row.values[typeCol] === "ASSIGNED" || row.values[typeCol] === "ESCALATED" || row.values[typeCol] === "DUPLICATE_LINKED" || row.values[typeCol] === "AFFECTED_TOO")) {
+          seen.add(`${row.values[typeCol]}.${field}`);
+          if (field !== "to" || row.values[typeCol] === "ESCALATED") expect(value).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+        }
+      }
+    }
+    expect([...seen].sort()).toEqual(["AFFECTED_TOO.flat", "ASSIGNED.assignee", "DUPLICATE_LINKED.primary", "ESCALATED.to"]);
+  });
+
+  it("T13i the forced gas complaint's events name the duty manager Sanjay Pawar by his real UUID", () => {
+    const complaintId = uuidFromKey("complaint:forced-gas-smell");
+    const sanjay = rowsOf("users").rows.find((r) => r.values[2] === "Sanjay Pawar")!;
+    expect(sanjay.values[1]).toBe("5000000005");
+    expect(sanjay.values[0]).toBe(uuidFromKey("user:5000000005"));
+    const events = rowsOf("complaint_events");
+    const mine = events.rows.filter((r) => r.values[events.columns.indexOf("complaint_id")] === complaintId);
+    const payloads = mine.map((r) => ({ type: r.values[events.columns.indexOf("event_type")], payload: JSON.parse(r.values[events.columns.indexOf("payload")] as string) as Record<string, unknown> }));
+    expect(payloads.find((p) => p.type === "ESCALATED")?.payload.to).toBe(sanjay.values[0]);
+    expect(payloads.find((p) => p.type === "ASSIGNED")?.payload.assignee).toBe(sanjay.values[0]);
+    expect(valueOf("complaints", rowsOf("complaints").rows.findIndex((r) => r.key === "complaint:forced-gas-smell"), "assignee_id")).toBe(sanjay.values[0]);
+  });
+});
+
+function safeParse(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
