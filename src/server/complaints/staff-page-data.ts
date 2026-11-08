@@ -11,16 +11,6 @@ import { type Actor, isDutyManager, isUuid } from "./context";
 import { type ClassificationLine, type StaffComplaint, getStaffComplaint, listStaffUsers } from "./staff-read";
 import type { ControlViewer } from "@/lib/staff-complaints/controls";
 
-/** The data the staff landing page needs beyond the person's permissions: how many safety complaints are open (zero for a person without complaints:manage). */
-export async function loadStaffLanding(input: { db: Db; user: Actor }): Promise<{ openSafety: number }> {
-  try {
-    requirePermission(input.user, "complaints:manage");
-  } catch {
-    return { openSafety: 0 };
-  }
-  return { openSafety: await input.db.complaint.count({ where: { safetyFlag: true, status: { not: "CLOSED" } } }) };
-}
-
 export type BoardPage = {
   view: BoardView;
   filters: BoardFilters;

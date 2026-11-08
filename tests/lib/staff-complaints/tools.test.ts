@@ -12,7 +12,7 @@ describe("SC15 the Complaints tool", () => {
     expect(staffToolsFor({ role: "RESIDENT", active: true, permissions: ["complaints:manage"] })).toEqual([]);
   });
 
-  it("comes after Bank reconciliation for a person who holds both", () => {
-    expect(staffToolsFor(staff(["complaints:manage", "payments:match"])).map((tool) => tool.key)).toEqual(["reconciliation", "complaints"]);
+  it("comes before Bank statement matching for a person who holds both", () => {
+    expect(staffToolsFor(staff(["complaints:manage", "payments:match"])).map((tool) => tool.key)).toEqual(["complaints", "reconciliation"]);
   });
 });

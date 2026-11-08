@@ -113,21 +113,22 @@ describe("HM5 staff landing page", () => {
     expect(out).not.toContain("Sign out of all devices");
   });
 
-  it("lists the tools the person may use: Bank reconciliation for payments:match, the Committee report for reports:view, and nothing for a person without a tool", () => {
-    expect(out).toMatch(/<a [^>]*href="\/staff\/reconciliation"[^>]*>Bank reconciliation<\/a>/);
-    expect(out).toMatch(/<a [^>]*href="\/staff\/reports"[^>]*>Committee report<\/a>/);
-    expect(count(out, /<a /g)).toBe(2);
+  it("lists the tools the person may use: Bank statement matching for payments:match, the Committee report for reports:view, and a calm sentence for a person without a tool", () => {
+    expect(out).toMatch(/<a [^>]*href="\/staff\/reconciliation"[^>]*>Open reconciliation<\/a>/);
+    expect(out).toMatch(/<a [^>]*href="\/staff\/reports"[^>]*>Open the report<\/a>/);
     const reports = html(h(StaffView, { name: "Meera Kapoor", permissions: ["reports:view"] }));
-    expect(reports).not.toContain("Bank reconciliation");
-    expect(reports).toMatch(/<a [^>]*href="\/staff\/reports"[^>]*>Committee report<\/a>/);
-    expect(count(reports, /<a /g)).toBe(1);
+    expect(reports).not.toContain("Bank statement matching");
+    expect(reports).toMatch(/<a [^>]*href="\/staff\/reports"[^>]*>Open the report<\/a>/);
     const approver = html(h(StaffView, { name: "Rahul Menon", permissions: ["payments:approve"] }));
-    expect(approver).toContain("No tool is available for your permissions yet.");
-    expect(approver).not.toContain("<a ");
+    expect(approver).toContain("You do not have access to any tools yet. Ask the society office.");
+    expect(approver).not.toContain("href=");
   });
 
-  it("says so when there are no permissions, and shows an unknown permission as stored", () => {
-    expect(html(h(StaffView, { name: "N", permissions: [] }))).toContain("You have no permissions yet.");
+  it("with no permissions says so calmly and still has Sign out; an unknown permission is shown as stored", () => {
+    const none = html(h(StaffView, { name: "N", permissions: [] }));
+    expect(none).toContain("You do not have access to any tools yet. Ask the society office.");
+    expect(none).toContain(">Sign out<");
+    expect(none).not.toContain("<details");
     expect(permissionLabel("something:new")).toBe("something:new");
   });
 

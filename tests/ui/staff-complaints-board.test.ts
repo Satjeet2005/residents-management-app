@@ -228,26 +228,20 @@ describe("SB3 the board page", () => {
 describe("SB4 the staff landing tool", () => {
   const manager = ["complaints:manage"];
 
-  it("a person with complaints:manage sees the Complaints tool, a link to the board, with no number when no safety complaint is open", () => {
+  it("a person with complaints:manage sees the Complaints card, a filled link to the board", () => {
     const out = html(h(StaffView, { name: "Kavita Rao", permissions: manager }));
-    expect(out).toMatch(/<a [^>]*href="\/staff\/complaints"[^>]*>Complaints<\/a>/);
-    expect(words(out)).not.toContain("open safety complaint");
+    expect(out).toMatch(/<a [^>]*href="\/staff\/complaints"[^>]*>Open complaints<\/a>/);
+    expect(out).toContain(">Complaints<");
   });
 
-  it("says how many safety complaints are open when above zero, in words", () => {
-    expect(words(html(h(StaffView, { name: "K", permissions: manager, openSafety: 1 })))).toContain("1 open safety complaint");
-    expect(words(html(h(StaffView, { name: "K", permissions: manager, openSafety: 3 })))).toContain("3 open safety complaints");
-  });
-
-  it("a person without complaints:manage sees no Complaints tool, and never the safety number", () => {
-    const out = html(h(StaffView, { name: "Priya Nair", permissions: ["payments:match"], openSafety: 4 }));
+  it("a person without complaints:manage sees no Complaints card", () => {
+    const out = html(h(StaffView, { name: "Priya Nair", permissions: ["payments:match"] }));
     expect(out).not.toContain("/staff/complaints");
-    expect(out).not.toContain("safety complaint");
-    expect(out).toContain("Bank reconciliation");
+    expect(out).toContain("Bank statement matching");
   });
 
-  it("the two tools are listed together for a person who holds both permissions, reconciliation first", () => {
+  it("the cards of a person who holds both permissions are listed together, Complaints first", () => {
     const out = html(h(StaffView, { name: "N", permissions: ["payments:match", "complaints:manage"] }));
-    expect(out.indexOf("Bank reconciliation")).toBeLessThan(out.indexOf(">Complaints<"));
+    expect(out.indexOf(">Complaints<")).toBeLessThan(out.indexOf("Bank statement matching"));
   });
 });

@@ -20,7 +20,7 @@ describe("RH1 the staff frame", () => {
   it("has a banner with a labelled nav and one link home, and the page inside", () => {
     expect(out).toContain("<header");
     expect(out).toContain('<nav aria-label="Staff"');
-    expect(out).toMatch(/<a [^>]*href="\/staff"[^>]*>Staff home<\/a>/);
+    expect(out).toMatch(/<a (?=[^>]*href="\/staff")(?=[^>]*aria-label="Back to staff home")[^>]*><svg[\s\S]*?<\/svg>Staff home<\/a>/);
     expect(out).toContain("<main>page</main>");
   });
 });

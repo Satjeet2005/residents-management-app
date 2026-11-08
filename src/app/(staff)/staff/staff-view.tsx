@@ -1,7 +1,15 @@
-import Link from "next/link";
+import type { ReactNode } from "react";
+import { ChevronIcon, CheckIcon, WarningIcon } from "@/components/icons";
 import { SignOutButtons } from "@/components/sign-out-buttons";
+import { ButtonLink } from "@/components/ui/button-link";
+import { cx } from "@/components/ui/cx";
+import { can } from "@/domain/auth/permissions";
+import { formatDayYear } from "@/lib/format-date";
 import { t } from "@/lib/messages";
-import { type StaffTool, staffToolsFor } from "@/lib/staff-tools";
+import { roleTitle } from "@/lib/staff-home";
+import { staffToolsFor } from "@/lib/staff-tools";
+import { workspaceHref } from "@/lib/reconciliation/lanes";
+import type { StaffHomeData } from "@/server/staff/home-data";
 
 /** The message for a staff permission. A permission this app does not know is shown as it is stored. */
 export function permissionLabel(permission: string): string {
@@ -21,74 +29,129 @@ export function permissionLabel(permission: string): string {
   }
 }
 
-const toolLabel = (tool: StaffTool): string => {
-  switch (tool.key) {
-    case "reconciliation":
-      return t("staff.tool.reconciliation");
-    case "complaints":
-      return t("staff.tool.complaints");
-    case "reports":
-      return t("staff.tool.reports");
-  }
-};
-const toolHint = (tool: StaffTool): string => {
-  switch (tool.key) {
-    case "reconciliation":
-      return t("staff.tool.reconciliation.hint");
-    case "complaints":
-      return t("staff.tool.complaints.hint");
-    case "reports":
-      return t("staff.tool.reports.hint");
-  }
-};
+const NO_NUMBERS: StaffHomeData = { complaints: null, unseenSafety: null, statements: null, approvals: null };
 
-/** The open safety complaints under the Complaints tool, in words; nothing when there are none. */
-const safetyNote = (openSafety: number): string | null => (openSafety === 0 ? null : openSafety === 1 ? t("staff.tool.complaints.safetyOne") : t("staff.tool.complaints.safetyMany", { n: openSafety }));
-
-/** The staff landing page: who is signed in, the tools they may open (Complaints says how many safety complaints are open), what they may do in words, and sign out. */
-export function StaffView({ name, permissions, openSafety = 0 }: { name: string; permissions: readonly string[]; openSafety?: number }) {
-  const tools = staffToolsFor({ role: "STAFF", active: true, permissions });
+/** One line and one link, in caution ink with an icon and words (never colour alone). The whole strip is the link. */
+function Strip({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4">
-      <h1 className="text-heading font-semibold">{t("staff.title")}</h1>
-      <p className="text-body">{t("staff.signedInAs", { name })}</p>
-      <section aria-labelledby="staff-tools" className="flex flex-col gap-2">
-        <h2 id="staff-tools" className="text-title font-semibold">
-          {t("staff.tools")}
-        </h2>
-        {tools.length === 0 ? (
-          <p className="text-body text-ink-2">{t("staff.tools.none")}</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {tools.map((tool) => (
-              <li key={tool.key} className="flex flex-col border-b border-hairline pb-3">
-                <Link href={tool.href} className="inline-flex min-h-12 items-center text-body font-semibold text-accent underline underline-offset-4">
-                  {toolLabel(tool)}
-                </Link>
-                <span className="text-caption text-ink-2">{toolHint(tool)}</span>
-                {tool.key === "complaints" && safetyNote(openSafety) !== null && <span className="text-body font-semibold text-caution">{safetyNote(openSafety)}</span>}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-      <section aria-labelledby="staff-permissions" className="flex flex-col gap-2">
-        <h2 id="staff-permissions" className="text-title font-semibold">
-          {t("staff.permissions")}
-        </h2>
-        {permissions.length === 0 ? (
-          <p className="text-body text-ink-2">{t("staff.permissions.none")}</p>
-        ) : (
-          <ul className="text-body">
+    <a href={href} className="flex min-h-12 items-center gap-3 rounded-control border-2 border-caution px-4 py-3 text-body font-semibold text-caution">
+      <WarningIcon />
+      <span className="min-w-0 flex-1">{children}</span>
+      <ChevronIcon />
+    </a>
+  );
+}
+
+function Card({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="flex flex-col gap-3 rounded-control border border-hairline p-4">
+      <h2 className="text-title font-semibold">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+const Line = ({ children, icon }: { children: ReactNode; icon?: ReactNode }) => (
+  <p className="flex items-start gap-2 text-body text-ink-2">
+    {icon}
+    <span>{children}</span>
+  </p>
+);
+
+/**
+ * The staff home (D186, D187, D188): the role title as the heading, who is signed in, attention strips only when a count is above zero, one card for each tool the
+ * person may use (status lines, one filled link and at most one secondary link), what they may do in words, and a small Sign out. The filled link is on the first
+ * card only: with more than one tool the others are outlined, because a view has one filled control. A count that could not be read leaves its card without numbers.
+ */
+export function StaffView({ name, permissions, home = NO_NUMBERS }: { name: string; permissions: readonly string[]; home?: StaffHomeData }) {
+  const user = { role: "STAFF" as const, active: true, permissions };
+  const duty = can(user, "complaints:duty_manager");
+  const approver = can(user, "payments:approve");
+  const cards: { key: string; title: string; body: ReactNode; href: string; primary: string; secondary?: { href: string; label: string } }[] = [];
+
+  for (const tool of staffToolsFor(user)) {
+    if (tool.key === "complaints") {
+      const c = home.complaints;
+      cards.push({
+        key: tool.key,
+        title: t("staff.tool.complaints"),
+        body: c === null ? null : c.needsAction === 0 && c.overdue === 0 ? <Line>{t("staff.home.complaints.none")}</Line> : <Line>{t("staff.home.complaints.counts", { needs: c.needsAction, overdue: c.overdue })}</Line>,
+        href: tool.href,
+        primary: t("staff.home.complaints.open"),
+      });
+    } else if (tool.key === "reconciliation") {
+      const s = home.statements;
+      const newest = s?.newest ?? null;
+      cards.push({
+        key: tool.key,
+        title: t("staff.tool.reconciliation"),
+        body:
+          s === null ? null : newest === null ? (
+            <Line>{t("staff.home.statements.none")}</Line>
+          ) : (
+            <>
+              <Line>{t("staff.home.statements.last", { date: formatDayYear(newest.uploadedOn), rows: newest.rowsRead, file: newest.filename })}</Line>
+              <Line>{t("staff.home.statements.counts", { needs: s.needsPerson, awaiting: s.awaitingApproval })}</Line>
+              {newest.accounted && <Line icon={<CheckIcon />}>{t("staff.home.statements.accounted", { rows: newest.rowsRead })}</Line>}
+            </>
+          ),
+        href: newest === null ? tool.href : workspaceHref({ importId: newest.importId, lane: "NEEDS_YOU" }),
+        primary: s !== null && newest === null ? t("staff.home.statements.uploadFirst") : t("staff.home.statements.open"),
+        secondary: newest === null ? undefined : { href: tool.href, label: t("staff.home.statements.upload") },
+      });
+    } else {
+      cards.push({ key: tool.key, title: t("staff.tool.reports"), body: <Line>{t("staff.home.reports.about")}</Line>, href: tool.href, primary: t("staff.home.reports.open") });
+    }
+  }
+
+  const unseen = duty ? (home.unseenSafety ?? 0) : 0;
+  const waiting = approver ? (home.approvals?.waiting ?? 0) : 0;
+  const approvalsHref = home.approvals?.importId == null ? "/staff/reconciliation" : workspaceHref({ importId: home.approvals.importId, lane: "AWAITING_APPROVAL" });
+
+  return (
+    <main className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-heading font-semibold">{roleTitle(permissions)}</h1>
+        <p className="text-body text-ink-2">{t("staff.signedInAs", { name })}</p>
+      </div>
+      {(unseen > 0 || waiting > 0) && (
+        <div className="flex flex-col gap-2">
+          {unseen > 0 && <Strip href="/staff/complaints?view=safety">{unseen === 1 ? t("staff.strip.safetyOne") : t("staff.strip.safetyMany", { n: unseen })}</Strip>}
+          {waiting > 0 && <Strip href={approvalsHref}>{waiting === 1 ? t("staff.strip.approvalsOne") : t("staff.strip.approvalsMany", { n: waiting })}</Strip>}
+        </div>
+      )}
+      {cards.length === 0 ? (
+        <p className="text-body text-ink-2">{t("staff.home.noTools")}</p>
+      ) : (
+        <div className={cx("grid grid-cols-1 gap-4", cards.length > 1 ? "md:grid-cols-2" : "max-w-xl")}>
+          {cards.map((card, index) => (
+            <Card key={card.key} title={card.title}>
+              {card.body}
+              <div className="flex flex-col items-start gap-2">
+                <ButtonLink href={card.href} variant={index === 0 ? "primary" : "outlined"}>
+                  {card.primary}
+                </ButtonLink>
+                {card.secondary !== undefined && (
+                  <ButtonLink href={card.secondary.href} variant="link">
+                    {card.secondary.label}
+                  </ButtonLink>
+                )}
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+      {permissions.length > 0 && (
+        <details>
+          <summary className="flex min-h-12 cursor-pointer items-center text-body font-semibold">{t("staff.home.permissions")}</summary>
+          <ul className="flex flex-col gap-2 pb-2 text-body">
             {[...permissions].sort().map((permission) => (
-              <li key={permission} className="border-b border-hairline py-3">
-                {permissionLabel(permission)}
-              </li>
+              <li key={permission}>{permissionLabel(permission)}</li>
             ))}
           </ul>
-        )}
-      </section>
-      <SignOutButtons showAll={false} />
+        </details>
+      )}
+      <SignOutButtons showAll={false} compact />
     </main>
   );
 }

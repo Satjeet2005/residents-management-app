@@ -9,7 +9,7 @@ import { createComplaint } from "@/server/complaints/create";
 import { loadComplaintDetail } from "@/server/complaints/page-data";
 import { acknowledgeSafety, closeSafety } from "@/server/complaints/safety";
 import { addComment, setStatus } from "@/server/complaints/staff-actions";
-import { loadBoardMore, loadBoardPage, loadComplaintPage, loadStaffLanding } from "@/server/complaints/staff-page-data";
+import { loadBoardMore, loadBoardPage, loadComplaintPage } from "@/server/complaints/staff-page-data";
 import { StaffAccessError } from "@/server/statements/ui-data";
 import { type World, DAY, NOW, arrange, makeResident, setupWorld } from "./complaints-helpers";
 
@@ -110,17 +110,6 @@ describe("SDATA4 nobody without complaints:manage can load the pages", () => {
   it("staff without complaints:manage are refused too", async () => {
     await forbidden(() => board(world.staff.priya));
     await forbidden(() => page(ids.open, world.staff.priya));
-  });
-
-  it("the landing count is zero for both, never the real number", async () => {
-    expect(await loadStaffLanding({ db: world.appPrisma, user: resident.user })).toEqual({ openSafety: 0 });
-    expect(await loadStaffLanding({ db: world.appPrisma, user: world.staff.priya })).toEqual({ openSafety: 0 });
-  });
-});
-
-describe("SDATA5 the staff landing count", () => {
-  it("counts the open safety complaints for a manager, and not a closed one", async () => {
-    expect(await loadStaffLanding({ db: world.appPrisma, user: world.staff.kavita })).toEqual({ openSafety: 1 });
   });
 });
 
@@ -242,6 +231,5 @@ describe("SDATA8 paging and lazy auto-close", () => {
     expect(closed.status).toBe("OK");
     expect((await board(world.staff.sanjay, "safety")).total).toBe(0);
     expect((await board(world.staff.sanjay)).unacknowledgedSafety).toBe(0);
-    expect(await loadStaffLanding({ db: world.appPrisma, user: world.staff.sanjay })).toEqual({ openSafety: 0 });
   });
 });

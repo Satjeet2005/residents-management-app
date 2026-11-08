@@ -9,7 +9,7 @@ import { Notice } from "./ui/notice";
 type Busy = "NONE" | "ONE" | "ALL";
 
 /** Sign out here, or on every device (POST /api/auth/logout and /logout-all), then go to /login. */
-export function SignOutButtons({ showAll }: { showAll: boolean }) {
+export function SignOutButtons({ showAll, compact = false }: { showAll: boolean; compact?: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState<Busy>("NONE");
   const [failed, setFailed] = useState(false);
@@ -32,7 +32,7 @@ export function SignOutButtons({ showAll }: { showAll: boolean }) {
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className={compact ? "flex flex-col items-start gap-2" : "flex flex-col gap-2"}>
       {failed && <Notice kind="alert">{t("profile.signOutError")}</Notice>}
       <Button variant="outlined" loading={busy === "ONE"} loadingLabel={t("profile.signingOut")} disabled={busy !== "NONE"} onClick={() => signOut("/api/auth/logout", "ONE")}>
         {t("profile.signOut")}
