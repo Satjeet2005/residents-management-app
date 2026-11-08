@@ -111,7 +111,7 @@ export async function loadCommitteeReport(input: { db: Db; user: Viewer; request
     cards: buildCards({ money, ageing, onTime, sla: { selected: slaShare(complaints, input.now), previous: slaShare(inMonth(previous), input.now), weeks }, goals: goalRows }),
     headlines: sectionHeadlines({ money, ageing, quality, complaints: metrics, reconciliation }),
     series: {
-      monthly: monthlySeries(positions, lastPeriods(period, asOf)),
+      monthly: monthlySeries(positions, lastPeriods(period, asOf), asOf),
       onTime,
       weeklySla: weeks,
       curve:

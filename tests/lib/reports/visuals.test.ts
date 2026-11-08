@@ -12,6 +12,8 @@ const point = (period: string, billed: bigint, collected: bigint): MonthlyPoint 
   collectedPaise: collected,
   outstandingPaise: billed - collected,
   collectedPercent: billed === 0n ? null : Number((200n * collected + billed) / (2n * billed)),
+  byDay20Percent: billed === 0n ? null : Number((200n * collected + billed) / (2n * billed)),
+  inProgress: false,
 });
 
 describe("VZ1 the monthly visual: one text and one table for the phone bars and the laptop columns", () => {

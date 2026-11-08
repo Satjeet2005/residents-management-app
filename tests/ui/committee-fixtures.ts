@@ -33,7 +33,7 @@ export function emptyReport(over: Partial<CommitteeReport> = {}): CommitteeRepor
   const weeks = weeklySla([], base.asOf, NOW);
   return {
     ...base,
-    series: { monthly: monthlySeries([], onTime.map((p) => p.period)), onTime, weeklySla: weeks, curve: null, ...over.series },
+    series: { monthly: monthlySeries([], onTime.map((p) => p.period), base.asOf), onTime, weeklySla: weeks, curve: null, ...over.series },
     cards: over.cards ?? buildCards({ money: base.money, ageing: base.ageing, onTime, sla: { selected: slaShare([], NOW), previous: slaShare([], NOW), weeks }, goals: base.goals.rows }),
     headlines: over.headlines ?? sectionHeadlines(base),
   };
