@@ -30,3 +30,7 @@ export const warnProviderAuthFailed = (provider: string, status: number | undefi
 /** A complaint event names a person with something that is not a UUID (bad data, for example from an old seed): the page shows "someone" and this is logged once per instance and field. `field` is a fixed name, never data. */
 export const warnUnusableEventId = (field: "payload.assignee"): void =>
   warn(`unusable-event-id:${field}`, 24 * 60 * MINUTE_MS, "UnusableEventId", `a complaint event holds ${field} that is not a UUID; it is shown as someone`, "complaint detail", "JOB");
+
+/** A count on the staff home could not be read: its card is shown without numbers. `part` is a fixed name, never data. Reported once per cooldown per instance. */
+export const warnStaffHomeCountFailed = (part: "complaints" | "statements" | "approvals"): void =>
+  warn(`staff-home:${part}`, 10 * MINUTE_MS, "StaffHomeCountFailed", `a count on the staff home failed (${part}); its card is shown without numbers`, "staff home", "JOB");

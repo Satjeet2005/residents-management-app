@@ -70,6 +70,9 @@ async function viewCounts(db: Db, viewerId: string, filters: BoardFilters, now: 
   return { counts: Object.fromEntries(BOARD_VIEWS.map((view) => [view, row[view]])) as ViewCounts, unacknowledgedSafety: row.unacknowledged_safety };
 }
 
+/** Every view's count for one viewer, with no filters, and the unseen safety count: the numbers of the staff home, in ONE query (D187). */
+export const boardCounts = (db: Db, viewerId: string, now: number): Promise<{ counts: ViewCounts; unacknowledgedSafety: number }> => viewCounts(db, viewerId, NO_FILTERS, new Date(now));
+
 /** What the order of a non-closed view reads, as SQL: the band, then the first-reply due time (none last). Closed uses closed_at. */
 const BAND = Prisma.sql`CASE WHEN c.status = 'CLOSED' THEN 3 WHEN c.safety_flag AND NOT ${ACKED} THEN 0 WHEN c.urgency IN ('CRITICAL', 'HIGH') THEN 1 ELSE 2 END`;
 const DUE = Prisma.sql`COALESCE(c.response_due_at, 'infinity'::timestamptz)`;
