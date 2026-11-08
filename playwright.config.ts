@@ -13,6 +13,7 @@ import { DESKTOP_1280, MOBILE_360, TABLET_768 } from "./tests/e2e/helpers/profil
  *   6b       the SEEDED gas complaint opened and acknowledged by the duty manager at 360 (T13i; it must run before any spec that acknowledges a safety complaint);
  *   7        the staff complaints board and complaint page at 360, 768 and 1280 (T13h; they change complaints: they assign, comment, resolve and acknowledge);
  *   8        the committee report v2 at 360, 768 and 1280 (read only, apart from the section choice, which is a cookie of the browser context);
+ *   8b       the staff home (D186 to D188): it adds an import and a danger report, so it runs after the specs that count them;
  *   9        the other staff flows, the keyboard, the installability and the offline page.
  * The device profiles are a 360 x 800 phone (mobile emulation, touch), a 768 x 1024 tablet and a 1280 x 800 desktop.
  */
@@ -32,6 +33,7 @@ const chain: { name: string; profile: { viewport: { width: number; height: numbe
   { name: "committee-report-360", profile: MOBILE_360, match: /screens[\\/]committee-report\.spec\.ts$/ },
   { name: "committee-report-768", profile: TABLET_768, match: /screens[\\/]committee-report\.spec\.ts$/ },
   { name: "committee-report-1280", profile: DESKTOP_1280, match: /screens[\\/]committee-report\.spec\.ts$/ },
+  { name: "staff-home-360", profile: MOBILE_360, match: /screens[\\/]staff-home\.spec\.ts$/ },
   { name: "staff-flows", profile: DESKTOP_1280, match: /flows[\\/](staff|keyboard)-.*\.spec\.ts$|installable\.spec\.ts$|harness\.spec\.ts$/ },
 ];
 

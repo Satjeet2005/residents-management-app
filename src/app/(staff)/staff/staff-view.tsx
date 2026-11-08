@@ -143,7 +143,10 @@ export function StaffView({ name, permissions, home = NO_NUMBERS }: { name: stri
       )}
       {permissions.length > 0 && (
         <details>
-          <summary className="flex min-h-12 cursor-pointer items-center text-body font-semibold">{t("staff.home.permissions")}</summary>
+          <summary className="flex min-h-12 cursor-pointer items-center gap-2 text-body font-semibold">
+            <ChevronIcon />
+            {t("staff.home.permissions")}
+          </summary>
           <ul className="flex flex-col gap-2 pb-2 text-body">
             {[...permissions].sort().map((permission) => (
               <li key={permission}>{permissionLabel(permission)}</li>
