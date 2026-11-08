@@ -1,5 +1,7 @@
+import { cookies } from "next/headers";
 import { bucketFromQuery, bucketQuery } from "@/lib/reports/ageing";
 import { periodFromQuery, reportHref } from "@/lib/reports/period";
+import { VIEW_COOKIE, parseHiddenSections } from "@/lib/reports/sections";
 import { requireUser } from "@/server/auth/current-user";
 import { defaultDeps } from "@/server/auth/default-deps";
 import { businessNow } from "@/server/clock";
@@ -17,5 +19,6 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const returnTo = requested === null ? "/staff/reports" : reportHref({ period: requested, bucket: bucket === null ? null : bucketQuery(bucket) });
   const user = await requireUser({ need: "reports:view", returnTo });
   const report = await loadCommitteeReport({ db: defaultDeps().db, user, requestedPeriod: requested, bucket, now: businessNow() });
-  return <ReportView report={report} />;
+  const hidden = parseHiddenSections((await cookies()).get(VIEW_COOKIE)?.value);
+  return <ReportView report={report} hidden={hidden} />;
 }

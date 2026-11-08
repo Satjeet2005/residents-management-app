@@ -6,6 +6,7 @@ import { AboutBlock } from "./about-block";
 import { AgeingBlock } from "./ageing-block";
 import { AgeingDetail } from "./ageing-detail";
 import { AlertStrip } from "./alert-strip";
+import { ChooseSections } from "./choose-sections";
 import { ComplaintsBlock } from "./complaints-block";
 import { HeadlineCards } from "./headline-cards";
 import { MoneyBlock } from "./money-block";
@@ -35,11 +36,12 @@ const TITLES: Record<SectionId, () => string> = {
 
 /**
  * The committee report: the alert strip (only when a safety complaint waits), one h1, the month selector and the "as of" date in words, the four headline cards,
- * the five sections as collapsible <details> each with a one-sentence headline (the first two open from 768px), and "About these numbers" at the bottom. Read
+ * the five sections as collapsible <details> each with a one-sentence headline (the first two shown open from 768px; a section the person hid on this device is
+ * left out of the HTML), and "About these numbers" at the bottom. Read
  * only: the controls are the selector's Show button, the section toggles and the links of the ageing and the drill-down. A month with no bills says so in the
  * sections it affects and never draws zeros.
  */
-export function ReportView({ report }: { report: CommitteeReport }) {
+export function ReportView({ report, hidden = [] }: { report: CommitteeReport; hidden?: readonly SectionId[] }) {
   const bodies: Record<SectionId, React.ReactNode> = {
     money: report.money === null ? <EmptyMonth /> : <MoneyBlock money={report.money} series={report.series.monthly} />,
     owed: (
@@ -59,10 +61,11 @@ export function ReportView({ report }: { report: CommitteeReport }) {
         <h1 className="text-heading font-semibold">{t("committee.title")}</h1>
         <p className="text-body text-ink-2">{t("committee.asOf", { date: dateWords(report.asOf) })}</p>
         <PeriodForm period={report.period} periods={report.periods} />
+        <ChooseSections hidden={hidden} />
       </header>
       <HeadlineCards report={report} />
       <div className="grid items-start gap-4 xl:grid-cols-2">
-        {SECTION_IDS.map((id, index) => (
+        {SECTION_IDS.filter((id) => !hidden.includes(id)).map((id, index) => (
           <ReportSection key={id} id={id} title={TITLES[id]()} headline={report.headlines[id]} defaultOpen={index < 2} forceOpen={id === "owed" && report.drilldown !== null}>
             {bodies[id]}
           </ReportSection>
