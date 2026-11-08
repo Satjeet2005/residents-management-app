@@ -2,10 +2,10 @@ import { CHART_STROKE, CHART_TEXT } from "./chart-tokens";
 import { type ChartText, ChartFigure, ChartSvg, runsOf } from "./chart-parts";
 
 const WIDTH = 224;
-const HEIGHT = 92;
+const HEIGHT = 104;
 const LEFT = 6;
 const RIGHT = 52;
-const TOP = 12;
+const TOP = 26;
 const BOTTOM = 28;
 
 export type SparkPoint = { label: string; value: number | null };
@@ -28,7 +28,7 @@ export function Sparkline({ text, points, goal }: { text: ChartText; points: rea
         {goal !== null && (
           <>
             <line x1={LEFT} x2={WIDTH - RIGHT} y1={goalY} y2={goalY} strokeWidth={CHART_STROKE} strokeDasharray="6 4" className="stroke-ink-2" />
-            <text x={LEFT} y={goalY < TOP + CHART_TEXT ? goalY + CHART_TEXT + 2 : goalY - 4} fontSize={CHART_TEXT} className="fill-ink-2">
+            <text x={LEFT} y={goalY - 6} fontSize={CHART_TEXT} className="fill-ink-2">
               {goal.label}
             </text>
           </>

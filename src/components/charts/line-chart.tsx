@@ -5,7 +5,7 @@ export const MAX_SERIES = 3;
 const WIDTH = 560;
 const HEIGHT = 300;
 const LEFT = 52;
-const RIGHT = 16;
+const RIGHT = 36;
 const TOP = 24;
 const BOTTOM = 56;
 
@@ -95,7 +95,7 @@ export function LineChart({
               )}
               {s.dots === true && drawn.map((p) => p.y !== null && <circle key={p.x} cx={p.x} cy={p.y} r={4} className="fill-accent" />)}
               {last !== undefined && (
-                <text x={last.x} y={(last.y as number) < TOP + 40 ? (last.y as number) + 24 : (last.y as number) - 10} fontSize={CHART_TEXT} fontWeight={600} textAnchor="end" className="fill-ink">
+                <text x={last.x} y={(last.y as number) + 28 < base ? (last.y as number) + 28 : (last.y as number) - 10} fontSize={CHART_TEXT} fontWeight={600} textAnchor="end" className="fill-ink">
                   {s.label} {last.value}%
                 </text>
               )}
