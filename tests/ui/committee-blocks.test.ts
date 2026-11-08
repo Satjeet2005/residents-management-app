@@ -298,3 +298,25 @@ describe("CB6 the responsive defaults", () => {
     expect(words(html(h(ReportView, { report: emptyReport() })))).toContain("No bank statement was imported in the last 30 days.");
   });
 });
+
+describe("CB6 the payment curve says what it shows (S-08) and the weekly chart writes its values (S-07)", () => {
+  const quality: CollectionQuality = { bills: 10, due: 10, dueOnTime: 7, paidOnTime: 7, paid: 8, paidLate: 1, medianDaysToPay: 3 };
+  const curve = paymentCurve({ bills: [{ amountPaise: 1_000_000n, payments: [{ date: "2026-10-03", amountPaise: 700_000n }] }], issueDate: "2026-10-01", dueDate: "2026-10-10", asOf: "2026-10-27" });
+  const out = html(h(QualityBlock, { ...qp, quality, curve, goal }));
+
+  it("is titled with the month, writes the paid share at the due-date marker and says where the line stops", () => {
+    expect(words(out)).toContain("How fast October's money came in");
+    expect(words(out)).toContain("70% paid by the due date");
+    expect(words(out)).toContain("Line stops at today.");
+    expect(out.indexOf("Line stops at today.")).toBeGreaterThan(out.indexOf("</figure>") - 1);
+  });
+
+  it("the weekly chart writes the value above the points before the last", () => {
+    const week = (weekStart: string, share: number) => ({ weekStart, raised: 3, decided: 3, met: 2, sharePercent: share, partial: false });
+    const weeks = [week("2026-10-12", 67), week("2026-10-19", 80), week("2026-10-26", 75)];
+    const props = { complaints: complaintMetrics([], NOW), goals: evaluateGoals(defaultGoals, { onTime: { n: 0, d: 0 }, firstReply: { n: 0, d: 0 }, reopened: { n: 0, d: 0 } }), slaGoal: goal, weeks, period: "2026-10-01", asOf: "2026-10-27", unseenAllMonths: 0, slaMinutes: { CRITICAL: 15, HIGH: 120, NORMAL: 1440, LOW: 4320 } };
+    const chart = html(h(ComplaintsBlock, props));
+    const svg = chart.slice(chart.indexOf('aria-labelledby="weekly-title weekly-desc"'));
+    expect(words(svg.slice(0, svg.indexOf("</svg>")))).toContain("67% 80% Replied in time 75%");
+  });
+});

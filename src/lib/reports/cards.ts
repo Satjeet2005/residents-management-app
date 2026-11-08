@@ -88,7 +88,7 @@ export function buildCards(input: CardsInput): HeadlineCards {
     collected: {
       percent: collectedPercent,
       value: percentText(collectedPercent),
-      comparison: money === null ? t("committee.headline.moneyNone") : t("committee.of", { a: formatRupeesShort(money.collectedPaise), b: formatRupeesShort(money.billedPaise) }),
+      comparison: money === null ? t("committee.headline.moneyNone") : t("committee.card.collectedOf", { a: formatRupeesShort(money.collectedPaise), b: formatRupeesShort(money.billedPaise) }),
       exact: money === null ? null : t("committee.of", { a: formatRupees(money.collectedPaise), b: formatRupees(money.billedPaise) }),
       within20: sameMonth === undefined || sameMonth.byDay20Percent === null ? null : (sameMonth.inProgress ? t("committee.card.within20Open", { month: monthName(sameMonth.period), n: sameMonth.byDay20Percent }) : t("committee.card.within20", { month: monthName(sameMonth.period), n: sameMonth.byDay20Percent })),
       sameAge: sameAge === undefined || sameAge.byDay20Percent === null ? null : t("committee.card.sameAge", { month: monthName(sameAge.period), n: sameAge.byDay20Percent }),

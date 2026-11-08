@@ -17,7 +17,7 @@ import { StatRow } from "./stat-row";
  * measure says "No data", never 0%.
  */
 export function QualityBlock({ quality, curve, goal, period }: { quality: CollectionQuality; curve: PaymentCurve | null; goal: GoalMark; period: CalendarDate }) {
-  const visual = curveVisual(curve, goal.targetPercent);
+  const visual = curveVisual(curve, goal.targetPercent, period);
   const plain = curve === null ? null : curvePlainNumbers(curve);
   const month = monthName(period);
   return (
@@ -37,6 +37,7 @@ export function QualityBlock({ quality, curve, goal, period }: { quality: Collec
       {curve !== null && (
         <div className="hidden md:block">
           <LineChart text={visual.text} series={visual.series} xMax={visual.xMax} xTicks={visual.ticks} xLabel={visual.xLabel} goal={visual.goal} marker={visual.marker} />
+          {visual.note !== null && <p className="pt-2 text-body text-ink-2">{visual.note}</p>}
         </div>
       )}
     </>

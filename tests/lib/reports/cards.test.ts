@@ -42,7 +42,7 @@ describe("CD1 the four cards", () => {
   const cards = buildCards(input);
 
   it("Collected this month: the percent, both amounts in the short form, and the exact figure in full Indian grouping", () => {
-    expect(cards.collected).toEqual({ percent: 82, value: "82%", comparison: "₹1.48 crore of ₹1.81 crore", exact: "₹1,48,42,714 of ₹1,80,52,190", within20: "October within 20 days: 79%", sameAge: "September, at the same age: 91%" });
+    expect(cards.collected).toEqual({ percent: 82, value: "82%", comparison: "₹1.48 crore of ₹1.81 crore billed", exact: "₹1,48,42,714 of ₹1,80,52,190", within20: "October within 20 days: 79%", sameAge: "September, at the same age: 91%" });
   });
 
   it("Total owed: the all-open-dues total in short form, its flats, and the flats over 90 days", () => {

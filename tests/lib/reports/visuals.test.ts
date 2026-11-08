@@ -58,25 +58,39 @@ describe("VZ3 the payment curve visual", () => {
 
   it("the plain numbers and the takeaway say by the due date, by day 20 and now", () => {
     expect(curve && curvePlainNumbers(curve)).toEqual({ due: "70%", day20: "70%", now: "70%" });
-    expect(curveVisual(curve, 90).text.description).toBe("By the due date 70% of the billing was collected, by day 20 70%, and 70% so far.");
+    expect(curveVisual(curve, 90, "2026-10-01").text.description).toBe("By the due date 70% of the billing was collected, by day 20 70%, and 70% so far.");
   });
 
   it("before day 20 and before the due date the missing numbers are left out or said in words", () => {
     const early = paymentCurve({ bills: [{ amountPaise: 1_000_000n, payments: [] }], issueDate: "2026-10-01", dueDate: "2026-10-10", asOf: "2026-10-05" });
     expect(early && curvePlainNumbers(early)).toEqual({ due: "not yet due", day20: null, now: "0%" });
-    expect(curveVisual(early, 90).marker).toBeNull();
+    expect(curveVisual(early, 90, "2026-10-01").marker).toBeNull();
   });
 
   it("marks the due day, draws the goal, and the table lists every plotted day", () => {
-    const visual = curveVisual(curve, 90);
-    expect(visual.marker).toEqual({ x: 9, label: "Due date" });
+    const visual = curveVisual(curve, 90, "2026-10-01");
+    expect(visual.marker).toEqual({ x: 9, label: "70% paid by the due date" });
+    expect(visual.text.title).toBe("How fast October's money came in");
+    expect(visual.note).toBe("Line stops at today.");
     expect(visual.goal).toEqual({ percent: 90, label: "Goal 90%" });
     expect(visual.text.table.rows).toHaveLength(curve?.points.length as number);
     expect(visual.series[0].points).toHaveLength(curve?.points.length as number);
   });
 
+  it("the note says where the line stops: today while the month is young, day 45 once it is older", () => {
+    const old = paymentCurve({ bills: [{ amountPaise: 1_000_000n, payments: [] }], issueDate: "2026-08-01", dueDate: "2026-08-10", asOf: "2026-10-27" });
+    expect(curveVisual(old, 90, "2026-08-01").note).toBe("The line shows the first 45 days after the bill.");
+    expect(curveVisual(null, 90, "2026-08-01").note).toBeNull();
+  });
+
+  it("the weekly chart writes the value above every point but the last, which has its name and value at its end", () => {
+    const week = (weekStart: string, share: number | null) => ({ weekStart, raised: 3, decided: 3, met: 2, sharePercent: share, partial: false });
+    const goal = { key: "firstReplyWithinSla" as const, status: "NOT_MET" as const, targetPercent: 90, text: "Goal 90%" };
+    expect(weeklyVisual([week("2026-10-12", 67), week("2026-10-19", 80)], goal, "2026-10-27").series[0].valueLabels).toBe(true);
+  });
+
   it("no bills gives an empty curve with a description in words", () => {
-    expect(curveVisual(null, 90).text.description).toBe("The month has no bills, so there is no curve.");
+    expect(curveVisual(null, 90, "2026-10-01").text.description).toBe("The month has no bills, so there is no curve.");
   });
 });
 

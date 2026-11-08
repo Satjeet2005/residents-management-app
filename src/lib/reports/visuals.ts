@@ -154,17 +154,21 @@ export function curvePlainNumbers(curve: PaymentCurve): { due: string; day20: st
   return { due: curve.byDueDay === null ? t("committee.curve.notYet") : percentText(curve.byDueDay), day20: curve.byDay20 === null ? null : percentText(curve.byDay20), now: percentText(curve.now) };
 }
 
-/** The payment curve (C3): collected share by day since issue, a dotted marker at the due day and the on-time goal as a dashed line; the table lists every day. */
+/**
+ * The payment curve (C3): collected share by day since issue, a dotted marker at the due day written "69% paid by the due date" and the on-time goal as a dashed line; a
+ * note says where the line stops (today, or day 45); the table lists every day. The title names the month ("How fast October's money came in").
+ */
 export function curveVisual(
   curve: PaymentCurve | null,
   goalPercent: number,
-): { text: ChartText; series: LineSeries[]; xMax: number; ticks: { x: number; label: string }[]; xLabel: string; marker: { x: number; label: string } | null; goal: { percent: number; label: string } } {
+  period: CalendarDate,
+): { text: ChartText; series: LineSeries[]; xMax: number; ticks: { x: number; label: string }[]; xLabel: string; marker: { x: number; label: string } | null; goal: { percent: number; label: string }; note: string | null } {
   const plain = curve === null ? null : curvePlainNumbers(curve);
   return {
     text: {
       id: "curve",
       caption: t("committee.curve.caption"),
-      title: t("committee.curve.title"),
+      title: t("committee.curve.title", { month: monthName(period) }),
       description:
         curve === null || plain === null
           ? t("committee.curve.descNone")
@@ -181,8 +185,9 @@ export function curveVisual(
     xMax: CURVE_DAYS,
     xLabel: t("committee.curve.xLabel"),
     ticks: [0, 10, 20, 30, 40].filter((day) => curve !== null && day <= curve.asOfDay).map((day) => ({ x: day, label: String(day) })),
-    marker: curve === null || curve.asOfDay < curve.dueDay ? null : { x: curve.dueDay, label: t("committee.curve.dueDay") },
+    marker: curve === null || curve.byDueDay === null ? null : { x: curve.dueDay, label: t("committee.curve.dueMarker", { n: curve.byDueDay }) },
     goal: { percent: goalPercent, label: t("committee.sparkline.goal", { n: goalPercent }) },
+    note: curve === null ? null : curve.asOfDay < CURVE_DAYS ? t("committee.curve.note") : t("committee.curve.noteCapped"),
   };
 }
 
@@ -213,6 +218,7 @@ export function weeklyVisual(
         label: t("committee.weekly.series"),
         points: weeks.map((w, index) => ({ x: index, y: w.sharePercent })),
         dots: true,
+        valueLabels: true,
         ...(partialLabel === null ? {} : { partialIndex: weeks.length - 1, partialLabel }),
       },
     ],

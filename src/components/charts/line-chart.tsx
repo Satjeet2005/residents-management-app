@@ -17,6 +17,8 @@ export type LineSeries = {
   dash?: string;
   /** A dot on every point (for a series of few points). */
   dots?: boolean;
+  /** The value of every point but the last is written above it (the last one has the series name and its value at its end). */
+  valueLabels?: boolean;
   /** The point at this index is not final (a week still going): it is drawn as a hollow ring and its end label starts with `partialLabel`. */
   partialIndex?: number;
   partialLabel?: string;
@@ -102,6 +104,14 @@ export function LineChart({
                     <circle key={p.x} cx={p.x} cy={p.y} r={5} strokeWidth={2} className="fill-paper stroke-accent" />
                   ) : (
                     <circle key={p.x} cx={p.x} cy={p.y} r={4} className="fill-accent" />
+                  ),
+                )}
+              {s.valueLabels === true &&
+                drawn.map((p) =>
+                  p.y === null || p.value === null || p === last ? null : (
+                    <text key={`v${p.x}`} x={p.x} y={p.y - 10} fontSize={CHART_TEXT} textAnchor="middle" className="fill-ink">
+                      {p.value}%
+                    </text>
                   ),
                 )}
               {last !== undefined && (
