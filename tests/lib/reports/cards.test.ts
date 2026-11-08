@@ -5,7 +5,7 @@ import { defaultGoals, evaluateGoals } from "@/domain/reports/goals";
 import type { MoneyLine } from "@/domain/reports/money-line";
 import { reconciliationLine } from "@/domain/reports/reconciliation";
 import type { OnTimePoint } from "@/domain/reports/series";
-import type { WeeklyPoint } from "@/domain/reports/weekly-sla";
+import type { MonthlySlaPoint } from "@/domain/reports/monthly-sla";
 import { buildCards, countText } from "@/lib/reports/cards";
 import { sectionHeadlines } from "@/lib/reports/headlines";
 
@@ -23,13 +23,13 @@ const ageing = {
   total: { flats: 817, bills: 900, amountDuePaise: 606_000_000n },
 };
 const point = (period: string, due: number, dueOnTime: number): OnTimePoint => ({ period, due, dueOnTime, paid: dueOnTime + 1, paidOnTime: dueOnTime, headlinePercent: due === 0 ? null : Math.round((100 * dueOnTime) / due), ofPaidPercent: null });
-const week = (weekStart: string, decided: number, met: number): WeeklyPoint => ({ weekStart, raised: decided, decided, met, sharePercent: decided === 0 ? null : Math.round((100 * met) / decided) });
+const month = (period: string, decided: number, met: number): MonthlySlaPoint => ({ period, raised: decided, decided, met, sharePercent: decided === 0 ? null : Math.round((100 * met) / decided) });
 const rows = evaluateGoals(defaultGoals, { onTime: { n: 7, d: 10 }, firstReply: { n: 17, d: 20 }, reopened: { n: 0, d: 0 } });
 const input = {
   money,
   ageing,
   onTime: [point("2026-09-01", 10, 9), point("2026-10-01", 10, 7)],
-  sla: { selected: { raised: 20, decided: 20, met: 17 }, previous: { raised: 0, decided: 0, met: 0 }, weeks: [week("2026-10-19", 4, 4), week("2026-10-26", 0, 0)] },
+  sla: { months: [month("2026-08-01", 0, 0), month("2026-09-01", 0, 0), month("2026-10-01", 20, 17)] },
   goals: rows,
 };
 
@@ -53,17 +53,19 @@ describe("CD1 the four cards", () => {
     ]);
   });
 
-  it("Replies within the SLA: share against the goal, no 'last month' without data, weeks with a gap", () => {
+  it("Replies within the SLA: share against the goal, no previous month without data, and the line's LAST point is the card's figure (D174)", () => {
     expect(cards.sla).toMatchObject({ percent: 85, value: "85%", lastMonth: null });
     expect(cards.sla.goal.status).toBe("NOT_MET");
     expect(cards.sla.trend).toEqual([
-      { label: "19 Oct", value: 100 },
-      { label: "26 Oct", value: null },
+      { label: "Aug", value: null },
+      { label: "Sep", value: null },
+      { label: "Oct", value: 85 },
     ]);
+    expect(cards.sla.trend.at(-1)?.value).toBe(cards.sla.percent);
   });
 
   it("with nothing to measure the values say No data and the goal has no verdict", () => {
-    const none = buildCards({ ...input, money: null, onTime: [point("2026-10-01", 0, 0)], sla: { selected: { raised: 0, decided: 0, met: 0 }, previous: { raised: 0, decided: 0, met: 0 }, weeks: [] }, goals: evaluateGoals(defaultGoals, { onTime: { n: 0, d: 0 }, firstReply: { n: 0, d: 0 }, reopened: { n: 0, d: 0 } }) });
+    const none = buildCards({ ...input, money: null, onTime: [point("2026-10-01", 0, 0)], sla: { months: [month("2026-10-01", 0, 0)] }, goals: evaluateGoals(defaultGoals, { onTime: { n: 0, d: 0 }, firstReply: { n: 0, d: 0 }, reopened: { n: 0, d: 0 } }) });
     expect(none.collected).toMatchObject({ percent: null, value: "No data", exact: null });
     expect(none.onTime).toMatchObject({ value: "No data", lastMonth: null });
     expect(none.onTime.goal.status).toBe("NO_DATA");

@@ -10,6 +10,7 @@ import type { MoneyLine } from "@/domain/reports/money-line";
 import { CURVE_DAYS, type PaymentCurve } from "@/domain/reports/payment-curve";
 import type { MonthlyPoint } from "@/domain/reports/series";
 import type { WeeklyPoint } from "@/domain/reports/weekly-sla";
+import { type CalendarDate, addDays } from "@/domain/time/calendar";
 import { formatDay, monthName } from "@/lib/format-date";
 import { t } from "@/lib/messages";
 import { bucketLabel } from "./ageing";
@@ -178,8 +179,12 @@ export function curveVisual(
 export function weeklyVisual(
   weeks: readonly WeeklyPoint[],
   goal: GoalMark,
+  asOf: CalendarDate,
 ): { text: ChartText; series: LineSeries[]; xMax: number; ticks: { x: number; label: string }[]; xLabel: string; goal: { percent: number; label: string } } {
   const points = weeks.map((w) => ({ label: formatDay(w.weekStart), value: w.sharePercent }));
+  const last = weeks.at(-1);
+  const partialLabel = last === undefined || !last.partial ? null : asOf >= last.weekStart && asOf <= addDays(last.weekStart, 6) ? t("committee.weekly.soFar") : t("committee.weekly.partWeek");
+  const rowHeader = (w: WeeklyPoint, index: number) => (partialLabel !== null && index === weeks.length - 1 ? `${formatDay(w.weekStart)} (${partialLabel})` : formatDay(w.weekStart));
   return {
     text: {
       id: "weekly",
@@ -189,10 +194,17 @@ export function weeklyVisual(
       table: {
         caption: t("committee.weekly.caption"),
         columns: [t("committee.weekly.col.week"), t("committee.weekly.col.raised"), t("committee.weekly.col.share")],
-        rows: weeks.map((w) => ({ header: formatDay(w.weekStart), cells: [countText(w.raised), percentText(w.sharePercent)] })),
+        rows: weeks.map((w, index) => ({ header: rowHeader(w, index), cells: [countText(w.raised), percentText(w.sharePercent)] })),
       },
     },
-    series: [{ label: t("committee.weekly.series"), points: weeks.map((w, index) => ({ x: index, y: w.sharePercent })), dots: true }],
+    series: [
+      {
+        label: t("committee.weekly.series"),
+        points: weeks.map((w, index) => ({ x: index, y: w.sharePercent })),
+        dots: true,
+        ...(partialLabel === null ? {} : { partialIndex: weeks.length - 1, partialLabel }),
+      },
+    ],
     xMax: weeks.length - 1,
     xLabel: t("committee.weekly.xLabel"),
     ticks: weeks.map((w, index) => ({ x: index, label: formatDay(w.weekStart) })),

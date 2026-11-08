@@ -2,11 +2,11 @@ import type { Ageing } from "@/domain/reports/age";
 import type { GoalKey, GoalRow, GoalStatus } from "@/domain/reports/goals";
 import type { MoneyLine } from "@/domain/reports/money-line";
 import type { OnTimePoint } from "@/domain/reports/series";
-import { percent, percentOfPaise } from "@/domain/reports/stats";
-import type { SlaShare, WeeklyPoint } from "@/domain/reports/weekly-sla";
+import { percentOfPaise } from "@/domain/reports/stats";
+import type { MonthlySlaPoint } from "@/domain/reports/monthly-sla";
 import { formatRupees } from "@/domain/money/money";
 import { formatRupeesShort } from "@/domain/money/short";
-import { formatDay, monthName } from "@/lib/format-date";
+import { monthName } from "@/lib/format-date";
 import { t } from "@/lib/messages";
 
 /** A point of a card's sparkline: its short label ("Oct", "26 Oct") and its percent, null for a gap. */
@@ -26,7 +26,8 @@ export type CardsInput = {
   ageing: Ageing;
   /** The six months of the trend, the selected one last. */
   onTime: readonly OnTimePoint[];
-  sla: { selected: SlaShare; previous: SlaShare; weeks: readonly WeeklyPoint[] };
+  /** The last six months of the SLA share, the selected month last (`monthlySla`): the card's figure is the last point of its own line. */
+  sla: { months: readonly MonthlySlaPoint[] };
   goals: readonly GoalRow[];
 };
 
@@ -57,7 +58,8 @@ export function buildCards(input: CardsInput): HeadlineCards {
   const collectedPercent = money === null ? null : percentOfPaise(money.collectedPaise, money.billedPaise);
   const thisMonth = onTime.at(-1) as OnTimePoint;
   const lastMonth = onTime.at(-2);
-  const slaPercent = percent(sla.selected.met, sla.selected.decided);
+  const slaThis = sla.months.at(-1);
+  const slaPercent = slaThis?.sharePercent ?? null;
   return {
     collected: {
       percent: collectedPercent,
@@ -81,8 +83,8 @@ export function buildCards(input: CardsInput): HeadlineCards {
       percent: slaPercent,
       value: percentText(slaPercent),
       goal: goalMark(goals, "firstReplyWithinSla"),
-      lastMonth: lastMonthText(percent(sla.previous.met, sla.previous.decided)),
-      trend: sla.weeks.map((w) => ({ label: formatDay(w.weekStart), value: w.sharePercent })),
+      lastMonth: lastMonthText(sla.months.at(-2)?.sharePercent ?? null),
+      trend: sla.months.map((m) => ({ label: monthName(m.period).slice(0, 3), value: m.sharePercent })),
     },
   };
 }

@@ -187,6 +187,22 @@ describe("V2-5 the weekly SLA against SQL", () => {
     const share = sql.decided === 0n ? null : Number((200n * sql.met + sql.decided) / (2n * sql.decided));
     expect(report.cards.sla.percent).toBe(share);
   });
+
+  it("the Replies card's line is the MONTHLY series: six months each equal to SQL, and its last point is the card's figure (D174)", async () => {
+    const rows = await fx.owner.$queryRawUnsafe<{ month: Date; decided: bigint; met: bigint }[]>(
+      `SELECT date_trunc('month', created_at AT TIME ZONE 'Asia/Kolkata')::date AS month,
+              count(*) FILTER (WHERE response_due_at IS NOT NULL AND (first_response_at IS NOT NULL OR response_due_at < ${NOW_SQL}))::bigint AS decided,
+              count(*) FILTER (WHERE response_due_at IS NOT NULL AND first_response_at IS NOT NULL AND first_response_at <= response_due_at)::bigint AS met
+       FROM complaints GROUP BY 1`,
+    );
+    const byMonth = new Map(rows.map((r) => [toPeriod(r.month), r]));
+    const points = report.series.monthlySla;
+    expect(points).toHaveLength(6);
+    for (const p of points) expect([p.decided, p.met], p.period).toEqual([Number(byMonth.get(p.period)?.decided ?? 0n), Number(byMonth.get(p.period)?.met ?? 0n)]);
+    expect(report.cards.sla.trend).toHaveLength(6);
+    expect(report.cards.sla.trend.at(-1)?.value).toBe(report.cards.sla.percent);
+    expect(points.at(-1)?.sharePercent).toBe(report.cards.sla.percent);
+  });
 });
 
 describe("V2-6 alert, viewer, goals and cost", () => {

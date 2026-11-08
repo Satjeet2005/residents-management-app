@@ -42,8 +42,8 @@ function SafetyLine({ safety, period, unseenAllMonths }: { safety: ComplaintMetr
  * met); the time to marked resolved; the reopened share with its goal; who closed them; how many are open now. Then ONE safety line, and from 768px the weekly SLA
  * chart. Every share and median says "No data" when it has nothing to measure; a month with no complaints says so once.
  */
-export function ComplaintsBlock({ complaints, goals, slaGoal, weeks, period, unseenAllMonths }: { complaints: ComplaintMetrics; goals: readonly GoalRow[]; slaGoal: GoalMark; weeks: readonly WeeklyPoint[]; period: CalendarDate; unseenAllMonths: number }) {
-  const visual = weeklyVisual(weeks, slaGoal);
+export function ComplaintsBlock({ complaints, goals, slaGoal, weeks, period, asOf, unseenAllMonths }: { complaints: ComplaintMetrics; goals: readonly GoalRow[]; slaGoal: GoalMark; weeks: readonly WeeklyPoint[]; period: CalendarDate; asOf: CalendarDate; unseenAllMonths: number }) {
+  const visual = weeklyVisual(weeks, slaGoal, asOf);
   const chart = weeks.some((w) => w.sharePercent !== null) && (
     <div className="hidden md:block">
       <LineChart text={visual.text} series={visual.series} xMax={visual.xMax} xTicks={visual.ticks} xLabel={visual.xLabel} goal={visual.goal} marker={null} />

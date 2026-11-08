@@ -85,7 +85,7 @@ describe("CB2 complaints: six lines and one safety line", () => {
   ];
   const metrics = complaintMetrics(rows, NOW);
   const goals = evaluateGoals(defaultGoals, { onTime: { n: 0, d: 0 }, firstReply: { n: metrics.firstReply.withinSla, d: metrics.firstReply.decided }, reopened: { n: metrics.resolved.reopened, d: metrics.resolved.count } });
-  const props = { complaints: metrics, goals: goals.map((g) => g), slaGoal: goal, weeks: emptyReport().series.weeklySla, period: "2026-10-01", unseenAllMonths: 1 };
+  const props = { complaints: metrics, goals: goals.map((g) => g), slaGoal: goal, weeks: emptyReport().series.weeklySla, period: "2026-10-01", asOf: "2026-10-27", unseenAllMonths: 1 };
   const out = html(h(ComplaintsBlock, props));
   const text = words(out);
 
@@ -118,7 +118,7 @@ describe("CB2 complaints: six lines and one safety line", () => {
   });
 
   it("the weekly chart is drawn from 768px only, with its own table, and only when some week has a share to draw", () => {
-    const week = (weekStart: string, share: number | null) => ({ weekStart, raised: 3, decided: share === null ? 0 : 3, met: share === null ? 0 : 2, sharePercent: share });
+    const week = (weekStart: string, share: number | null) => ({ weekStart, raised: 3, decided: share === null ? 0 : 3, met: share === null ? 0 : 2, sharePercent: share, partial: false });
     const drawn = html(h(ComplaintsBlock, { ...props, weeks: [week("2026-10-12", 67), week("2026-10-19", null)] }));
     expect(drawn).toContain('<div class="hidden md:block"><figure');
     expect(drawn).toContain('aria-labelledby="weekly-title weekly-desc"');

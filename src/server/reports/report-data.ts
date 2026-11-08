@@ -3,11 +3,12 @@ import { type ComplaintMetrics, complaintMetrics } from "@/domain/reports/compla
 import { type GoalRow, evaluateGoals, goalsFromSetting } from "@/domain/reports/goals";
 import { type CollectionQuality, type MoneyLine, collectionQuality, moneyLine } from "@/domain/reports/money-line";
 import { type PaymentCurve, paymentCurve } from "@/domain/reports/payment-curve";
-import { lastPeriods, previousPeriod } from "@/domain/reports/periods";
+import { lastPeriods } from "@/domain/reports/periods";
 import type { ReportPosition } from "@/domain/reports/positions";
 import type { ReconciliationLine } from "@/domain/reports/reconciliation";
+import { type MonthlySlaPoint, monthlySla } from "@/domain/reports/monthly-sla";
 import { type MonthlyPoint, type OnTimePoint, monthlySeries, onTimeRateByPeriod } from "@/domain/reports/series";
-import { type WeeklyPoint, isoWeekStart, slaShare, weeklySla, WEEKS } from "@/domain/reports/weekly-sla";
+import { type WeeklyPoint, isoWeekStart, weeklySla, WEEKS } from "@/domain/reports/weekly-sla";
 import { type CalendarDate, addDays, dayStartInstant, istDateOf } from "@/domain/time/calendar";
 import { type HeadlineCards, buildCards } from "@/lib/reports/cards";
 import { type SectionHeadlines, sectionHeadlines } from "@/lib/reports/headlines";
@@ -48,7 +49,7 @@ export type CommitteeReport = {
   cards: HeadlineCards;
   headlines: SectionHeadlines;
   /** The series behind the visuals: six months of money and on-time rates (the selected month last), the payment curve of the month, eight weeks of SLA. */
-  series: { monthly: MonthlyPoint[]; onTime: OnTimePoint[]; weeklySla: WeeklyPoint[]; curve: PaymentCurve | null };
+  series: { monthly: MonthlyPoint[]; onTime: OnTimePoint[]; monthlySla: MonthlySlaPoint[]; weeklySla: WeeklyPoint[]; curve: PaymentCurve | null };
   /** Safety complaints of any month that are not closed and have no acknowledgement by the duty manager: the alert at the top of the page. */
   safetyUnacknowledged: number;
   /** Does the viewer hold complaints:manage (the alert links to the safety view only for them)? */
@@ -73,10 +74,10 @@ export async function loadCommitteeReport(input: { db: Db; user: Viewer; request
   const periods = periodOptions(positions.map((p) => p.bill.period), asOf);
   const period = choosePeriod({ requested: input.requestedPeriod, options: periods, asOf });
   const monthPositions = inPeriod(positions, period);
-  const previous = previousPeriod(period);
   const until = monthStart(addDays(period, 31));
   const chartEnd = minDate([asOf, addDays(until, -1)]);
-  const from = minDate([addDays(isoWeekStart(chartEnd), -7 * (WEEKS - 1)), previous]);
+  const months = lastPeriods(period, asOf);
+  const from = minDate([addDays(isoWeekStart(chartEnd), -7 * (WEEKS - 1)), months[0]]);
   const [window, reconciliation, goalSetting, safetyUnacknowledged] = await Promise.all([
     loadComplaintsBetween(input.db, from, until),
     loadReconciliationLine(input.db, asOf),
@@ -93,7 +94,8 @@ export async function loadCommitteeReport(input: { db: Db; user: Viewer; request
     firstReply: { n: metrics.firstReply.withinSla, d: metrics.firstReply.decided },
     reopened: { n: metrics.resolved.reopened, d: metrics.resolved.count },
   });
-  const onTime = onTimeRateByPeriod(positions, lastPeriods(period, asOf), asOf);
+  const onTime = onTimeRateByPeriod(positions, months, asOf);
+  const slaMonths = monthlySla(window, months, input.now);
   const weeks = weeklySla(window, chartEnd, input.now);
   const ageing = ageingTable(positions, asOf);
   const money = monthPositions.length === 0 ? null : moneyLine(monthPositions);
@@ -108,11 +110,12 @@ export async function loadCommitteeReport(input: { db: Db; user: Viewer; request
     complaints: metrics,
     reconciliation,
     goals: { source, rows: goalRows },
-    cards: buildCards({ money, ageing, onTime, sla: { selected: slaShare(complaints, input.now), previous: slaShare(inMonth(previous), input.now), weeks }, goals: goalRows }),
+    cards: buildCards({ money, ageing, onTime, sla: { months: slaMonths }, goals: goalRows }),
     headlines: sectionHeadlines({ money, ageing, quality, complaints: metrics, reconciliation }),
     series: {
-      monthly: monthlySeries(positions, lastPeriods(period, asOf), asOf),
+      monthly: monthlySeries(positions, months, asOf),
       onTime,
+      monthlySla: slaMonths,
       weeklySla: weeks,
       curve:
         monthPositions.length === 0

@@ -30,6 +30,8 @@ export type WeeklyPoint = SlaShare & {
   weekStart: CalendarDate;
   /** Whole percent met out of decided; null for a week with no due complaints: a gap, "No data". */
   sharePercent: number | null;
+  /** The week is not over at the chart's end date (the current week so far, or a week cut by the month's end): its figure may still change. */
+  partial: boolean;
 };
 
 /**
@@ -45,6 +47,7 @@ export function weeklySla(complaints: readonly SlaComplaint[], endDate: Calendar
   }
   return buckets.map((mine, i) => {
     const share = slaShare(mine, now);
-    return { weekStart: addDays(firstStart, 7 * i), ...share, sharePercent: percent(share.met, share.decided) };
+    const weekStart = addDays(firstStart, 7 * i);
+    return { weekStart, ...share, sharePercent: percent(share.met, share.decided), partial: addDays(weekStart, 6) > endDate };
   });
 }

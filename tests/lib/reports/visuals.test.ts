@@ -81,13 +81,23 @@ describe("VZ3 the payment curve visual", () => {
 });
 
 describe("VZ4 the weekly SLA visual", () => {
-  const week = (weekStart: string, raised: number, decided: number, met: number): WeeklyPoint => ({ weekStart, raised, decided, met, sharePercent: decided === 0 ? null : Math.round((100 * met) / decided) });
+  const week = (weekStart: string, raised: number, decided: number, met: number): WeeklyPoint => ({ weekStart, raised, decided, met, sharePercent: decided === 0 ? null : Math.round((100 * met) / decided), partial: false });
   const goal = { key: "firstReplyWithinSla" as const, status: "NOT_MET" as const, targetPercent: 90, text: "Goal: At least 90%" };
-  const visual = weeklyVisual([week("2026-10-12", 4, 4, 4), week("2026-10-19", 3, 0, 0), week("2026-10-26", 5, 5, 3)], goal);
+  const visual = weeklyVisual([week("2026-10-12", 4, 4, 4), week("2026-10-19", 3, 0, 0), week("2026-10-26", 5, 5, 3)], goal, "2026-10-27");
 
   it("has a gap for the week with nothing due, the table says No data, and the takeaway compares with the last known week", () => {
     expect(visual.series[0].points.map((p) => p.y)).toEqual([100, null, 60]);
     expect(visual.text.table.rows[1]).toEqual({ header: "19 Oct", cells: ["3", "No data"] });
     expect(visual.text.description).toBe("26 Oct was 60%, down from 12 Oct (100%). Goal: At least 90%: Not met.");
+  });
+
+  it("the part-finished last week is a hollow marker labelled 'this week so far', in the chart and in the table; a week cut by the month's end says 'part week'", () => {
+    const partial = (asOf: string) => weeklyVisual([week("2026-10-19", 3, 3, 3), { ...week("2026-10-26", 5, 5, 3), partial: true }], goal, asOf);
+    const soFar = partial("2026-10-27");
+    expect(soFar.series[0]).toMatchObject({ partialIndex: 1, partialLabel: "this week so far" });
+    expect(soFar.text.table.rows[1].header).toBe("26 Oct (this week so far)");
+    expect(partial("2026-11-08").series[0]).toMatchObject({ partialIndex: 1, partialLabel: "part week" });
+    expect(visual.series[0].partialIndex).toBeUndefined();
+    expect(visual.text.table.rows[2].header).toBe("26 Oct");
   });
 });

@@ -17,6 +17,9 @@ export type LineSeries = {
   dash?: string;
   /** A dot on every point (for a series of few points). */
   dots?: boolean;
+  /** The point at this index is not final (a week still going): it is drawn as a hollow ring and its end label starts with `partialLabel`. */
+  partialIndex?: number;
+  partialLabel?: string;
 };
 
 /**
@@ -93,10 +96,17 @@ export function LineChart({
                   <polyline key={run[0].x} points={run.map((p) => `${p.x},${p.y}`).join(" ")} fill="none" strokeWidth={CHART_STROKE + 0.5} strokeLinejoin="round" strokeDasharray={s.dash} className="stroke-accent" />
                 ),
               )}
-              {s.dots === true && drawn.map((p) => p.y !== null && <circle key={p.x} cx={p.x} cy={p.y} r={4} className="fill-accent" />)}
+              {s.dots === true &&
+                drawn.map((p, index) =>
+                  p.y === null ? null : index === s.partialIndex ? (
+                    <circle key={p.x} cx={p.x} cy={p.y} r={5} strokeWidth={2} className="fill-paper stroke-accent" />
+                  ) : (
+                    <circle key={p.x} cx={p.x} cy={p.y} r={4} className="fill-accent" />
+                  ),
+                )}
               {last !== undefined && (
                 <text x={last.x} y={(last.y as number) + 28 < base ? (last.y as number) + 28 : (last.y as number) - 10} fontSize={CHART_TEXT} fontWeight={600} textAnchor="end" className="fill-ink">
-                  {s.label} {last.value}%
+                  {s.partialIndex === s.points.length - 1 && s.partialLabel !== undefined ? s.partialLabel : s.label} {last.value}%
                 </text>
               )}
             </g>

@@ -2,7 +2,8 @@ import { complaintMetrics } from "@/domain/reports/complaints";
 import { defaultGoals, evaluateGoals } from "@/domain/reports/goals";
 import { reconciliationLine } from "@/domain/reports/reconciliation";
 import { monthlySeries, onTimeRateByPeriod } from "@/domain/reports/series";
-import { slaShare, weeklySla } from "@/domain/reports/weekly-sla";
+import { monthlySla } from "@/domain/reports/monthly-sla";
+import { weeklySla } from "@/domain/reports/weekly-sla";
 import { buildCards } from "@/lib/reports/cards";
 import { sectionHeadlines } from "@/lib/reports/headlines";
 import type { CommitteeReport } from "@/server/reports/report-data";
@@ -33,8 +34,8 @@ export function emptyReport(over: Partial<CommitteeReport> = {}): CommitteeRepor
   const weeks = weeklySla([], base.asOf, NOW);
   return {
     ...base,
-    series: { monthly: monthlySeries([], onTime.map((p) => p.period), base.asOf), onTime, weeklySla: weeks, curve: null, ...over.series },
-    cards: over.cards ?? buildCards({ money: base.money, ageing: base.ageing, onTime, sla: { selected: slaShare([], NOW), previous: slaShare([], NOW), weeks }, goals: base.goals.rows }),
+    series: { monthly: monthlySeries([], onTime.map((p) => p.period), base.asOf), onTime, monthlySla: monthlySla([], onTime.map((p) => p.period), NOW), weeklySla: weeks, curve: null, ...over.series },
+    cards: over.cards ?? buildCards({ money: base.money, ageing: base.ageing, onTime, sla: { months: monthlySla([], onTime.map((p) => p.period), NOW) }, goals: base.goals.rows }),
     headlines: over.headlines ?? sectionHeadlines(base),
   };
 }

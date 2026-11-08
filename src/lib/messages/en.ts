@@ -733,6 +733,8 @@ export const en = {
   "committee.complaints.openNow": "Open now",
   "committee.complaints.safety.warnOne": "1 safety complaint is open and not yet seen by the duty manager.",
   "committee.complaints.safety.warnMany": "{n} safety complaints are open and not yet seen by the duty manager.",
+  "committee.weekly.soFar": "this week so far",
+  "committee.weekly.partWeek": "part week",
   "committee.recon.none": "No bank statement was imported in the last 30 days.",
   "committee.recon.accountedOne": "The rows of the 1 import all add up.",
   "committee.recon.accountedMany": "The rows of all {n} imports add up.",
