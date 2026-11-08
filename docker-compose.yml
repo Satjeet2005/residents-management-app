@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: township_local_only
       POSTGRES_DB: township
     ports:
-      - "5436:5432"
+      - "${DB_PORT:-5436}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
