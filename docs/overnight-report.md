@@ -804,3 +804,48 @@ Commit 2e70171 as recorded does not build on its own (the hook ran the checks on
 - Real scrollbar gutter on a desktop; iOS Safari behaviour of the position-fixed lock (Chromium only).
 - A flaky wall-clock test (`safety-benchmark/evaluate.test.ts`, 0.5 s per 1,000 items) and a random-collision test (`server/redact.test.ts`) each failed once under load and passed on re-run; not touched.
 - The row card name is the visible words behind "Review" (the brief's "Review 46,445 rupees from 21 October" failed axe label-content-name-mismatch); the narration is 14px; the touch swipe uses `Input.dispatchTouchEvent` (synthesizeScrollGesture scrolled nothing).
+
+## OVERNIGHT RUN 2
+
+- Start: Mon Nov 9 01:30:35 IST 2026 (epoch in /tmp/overnight-start-epoch)
+- BUDGET_HOURS: 11
+- START_COMMIT: 670144060808742bf2fd37646c95b398d2db6903 (branch master)
+- Staged at start: nothing. Untracked files at start: none. Modified: only files under docs/screenshots (left unstaged).
+- Disk: 14 GB free. Database container take-home-assignment-db-1 healthy on port 5436.
+
+### Phase table
+
+| Phase | Status | Reason | Elapsed |
+|---|---|---|---|
+| 01 preflight | DONE | baseline check was red once (PV7), fixed by the ladder, attempt A | about 5 min |
+| 01b safety stage 1 | DONE (earlier run) | normalizeForSafety exists; commit fe89698 "feat(domain): safety text normalisation" | |
+| 02 UI batch 1 | DONE (earlier run) | all listed commits in log, up to 6701440 | |
+| 03 UI batch 2 | PENDING | goal-bar.tsx and reports/collections missing | |
+| 04 Jev | PENDING | scripts/jev-e2e-check.ts and docs/classifier-benchmark.md missing | |
+| 05 docs | PENDING | docs/README.md exists; scripts/verify-doc-references.mjs missing | |
+| 06 submission kit | PENDING | docs/tdd-source and scripts/build-submission-zip.sh missing | |
+| 07 final verification | PENDING | | |
+
+### Detection (PRESENT or MISSING)
+
+- T14c committee audit: PRESENT (docs/committee-audit-disposition.md, commits 88c41f9, a9891db, 637d151)
+- Safety normalisation: PRESENT (grep finds src/domain/complaints/safety-normalize.ts; commit fe89698)
+- UI batch 1: PRESENT (src/lib/scroll-lock.ts, docs/ui-fix-protocol.md, src/domain/auth/role-title.ts)
+- UI batch 2: MISSING
+- Jev: MISSING
+- Docs: PARTIAL (docs/README.md present, checker missing)
+- Submission kit: MISSING
+- docs/committee-audit-report.md: PRESENT
+- Design skills: ~/.claude/skills listing returned "synced" only; the four named skills are UNKNOWN in this tool.
+
+### Assumptions made tonight
+
+- Phase 01b and Phase 02 were completed in an earlier run and are skipped.
+- Baseline `npm run check`: first run 1 failed, 5158 passed (`classifier-jev.test.ts` PV7: `RangeError: The value of "delay" is out of range. It must be an integer. Received 299.5` from `AbortSignal.timeout`). Root cause: a share of the caller's budget can be fractional. Fixed in commit 0d853f3 with a regression test that fails without the fix. After the fix: 5160 passed, 1 skipped.
+- Plan: skip 01b and 02 (done earlier). Run 03, 04, 05, 06, 07 in order, applying the time rule in the master (section 6).
+
+### Commits tonight
+
+| Hash | Subject | check | scan:secrets |
+|---|---|---|---|
+| 0d853f3 | fix(server): round the provider timeout to a whole millisecond | passed (5160 tests) | passed |
