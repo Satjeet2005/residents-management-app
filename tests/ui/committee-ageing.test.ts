@@ -37,8 +37,8 @@ describe("CA1 the ageing block", () => {
 
   it("says it is ALL open dues of ALL months, shows the total due and the five buckets in order with flats, bills and amount due", () => {
     expect(text).toContain("All open dues, all months, as of the date above.");
-    expect(text).toContain("Total due 520 flats, 700 bills ₹55,65,000");
-    const list = text.slice(text.lastIndexOf("Show as a table"));
+    expect(text).toContain("Total owed 520 flats, 700 bills ₹55,65,000");
+    const list = text.slice(text.lastIndexOf("See the numbers behind this chart"));
     const positions = ["Not yet due", "1 to 30 days", "31 to 60 days", "61 to 90 days", "Over 90 days"].map((label) => list.indexOf(label));
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
     expect(positions.every((p) => p > 0)).toBe(true);
@@ -54,7 +54,7 @@ describe("CA1 the ageing block", () => {
     expect(out).not.toContain("md:hidden");
     for (const label of ["Not yet due", "1 to 30 days", "31 to 60 days", "61 to 90 days", "Over 90 days"]) expect(out).toContain(`>${label}</text>`);
     expect(out).toContain(">₹5.0 lakh</text>");
-    expect(out).toContain("Show as a table");
+    expect(out).toContain("See the numbers behind this chart");
     expect(words(out)).toContain("Over 90 days 50 60 ₹5,00,000");
   });
 

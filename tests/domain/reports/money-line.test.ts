@@ -89,7 +89,7 @@ describe("RP1 collection quality", () => {
   const month = (flats: FlatSpec[], asOf = AS_OF) => collectionQuality(positionsOf(flats, asOf), asOf);
 
   it("no bills: nothing is counted and there is no median", () => {
-    expect(month([])).toEqual({ due: 0, dueOnTime: 0, paidOnTime: 0, paid: 0, paidLate: 0, medianDaysToPay: null });
+    expect(month([])).toEqual({ bills: 0, due: 0, dueOnTime: 0, paidOnTime: 0, paid: 0, paidLate: 0, medianDaysToPay: null });
   });
 
   it("a bill paid on its due date is on time (the boundary), the day after is late", () => {

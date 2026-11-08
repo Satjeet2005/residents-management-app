@@ -3,12 +3,12 @@ import { t } from "@/lib/messages";
 import { dateWords } from "@/lib/reports/period";
 
 /**
- * "About these numbers", at the very bottom: the as-of date, one plain sentence defining every metric of the page (including the denominators of Paid on time and
- * the rules of the SLA), and, only when the committee_goals setting is not set, the note that the built-in targets are shown.
+ * "About these numbers", at the very bottom (and linked from "What these words mean" under the headline cards): the as-of date and one plain sentence defining
+ * every metric of the page, including the denominators of the on-time figures, the same-age month measure and the rules of the promised reply time.
  */
-export function AboutBlock({ asOf, goalsAreDefaults }: { asOf: CalendarDate; goalsAreDefaults: boolean }) {
+export function AboutBlock({ asOf }: { asOf: CalendarDate }) {
   return (
-    <section aria-labelledby="committee-about" className="flex flex-col gap-3 border-t border-hairline pt-6">
+    <section id="about" aria-labelledby="committee-about" className="flex flex-col gap-3 border-t border-hairline pt-6">
       <h2 id="committee-about" className="text-title font-semibold">
         {t("committee.about.heading")}
       </h2>
@@ -21,12 +21,12 @@ export function AboutBlock({ asOf, goalsAreDefaults }: { asOf: CalendarDate; goa
         <li>{t("committee.about.ofPaid")}</li>
         <li>{t("committee.about.median")}</li>
         <li>{t("committee.about.curve")}</li>
+        <li>{t("committee.about.monthly")}</li>
         <li>{t("committee.about.sla")}</li>
         <li>{t("committee.about.complaints")}</li>
         <li>{t("committee.about.safety")}</li>
         <li>{t("committee.about.bank")}</li>
       </ul>
-      {goalsAreDefaults && <p className="text-body font-semibold">{t("committee.goals.default")}</p>}
     </section>
   );
 }

@@ -58,6 +58,8 @@ export function moneyLine(positions: readonly ReportPosition[]): MoneyLine {
 }
 
 export type CollectionQuality = {
+  /** ALL the month's bills, due or not, paid or not. `bills - paid` is the number of bills not paid at all. */
+  bills: number;
   /** ALL the month's bills that are due as of the business date (due date on or before it), paid or not: the denominator of the headline on-time rate (D134). */
   due: number;
   /** Of those, the bills whose principal was paid on or before the due date: the numerator of the headline rate. */
@@ -83,6 +85,7 @@ export function collectionQuality(positions: readonly ReportPosition[], asOf: Ca
   const onTime = paid.filter((p) => (p.position.settledOn as CalendarDate) <= p.bill.dueOn);
   const due = positions.filter((p) => p.bill.dueOn <= asOf);
   return {
+    bills: positions.length,
     due: due.length,
     dueOnTime: due.filter((p) => p.position.settledOn !== null && p.position.settledOn <= p.bill.dueOn).length,
     paidOnTime: onTime.length,

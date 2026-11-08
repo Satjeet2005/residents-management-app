@@ -27,12 +27,12 @@ export function collectedBarText(cards: HeadlineCards["collected"], money: Money
         : [
             { header: t("committee.money.billed"), cells: [formatRupees(money.billedPaise)] },
             { header: t("committee.money.collected"), cells: [formatRupees(money.collectedPaise)] },
-            { header: t("committee.money.outstanding"), cells: [formatRupees(money.outstandingPaise)] },
+            { header: t("committee.money.unpaidShort"), cells: [formatRupees(money.outstandingPaise)] },
           ],
   };
   return {
     id: "m1-collected",
-    caption: t("committee.card.collected"),
+    caption: t("committee.progress.caption"),
     captionHidden: true,
     title: t("committee.progress.title"),
     description:

@@ -25,8 +25,8 @@ describe("CC1 the Choose sections control", () => {
   it("has one checkbox per SECTION in page order, labelled in plain words, and none for the headline cards", () => {
     expect(count(out, /type="checkbox"/g)).toBe(SECTION_IDS.length);
     const labels = [...out.matchAll(/<\/label>|<label[^>]*>[\s\S]*?<\/label>/g)].map((m) => words(m[0]).trim()).filter(Boolean);
-    expect(labels).toEqual(["Money", "What is owed", "Collection quality", "Complaints", "Bank reconciliation"]);
-    expect(words(out)).not.toMatch(/Collected this month|Total owed|Replies within the SLA/);
+    expect(labels).toEqual(["Billed and collected", "What is owed", "How fast bills are paid", "Complaints", "Bank statement matching"]);
+    expect(words(out)).not.toMatch(/Money collected for|Total still owed|Complaints answered in time/);
   });
 
   it("every checkbox row is a 48px target with 8px between rows, and they start checked (everything shown)", () => {
@@ -57,7 +57,7 @@ describe("CC2 hidden sections are omitted from the HTML", () => {
     expect(out).not.toContain('<details id="complaints"');
     for (const id of ["money", "quality", "bank"]) expect(out).toContain(`<details id="${id}"`);
     expect(count(out, /<details id=/g)).toBe(3);
-    expect(out).toContain("Collected this month");
+    expect(out).toContain("Money collected for October");
     expect(words(out)).not.toContain("No complaints were raised in this month.");
   });
 

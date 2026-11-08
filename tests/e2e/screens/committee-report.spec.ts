@@ -78,7 +78,7 @@ test.describe("the committee report at one width", () => {
       await expect(svg.locator("title")).not.toBeEmpty();
       await expect(svg.locator("desc")).not.toBeEmpty();
       await expect(figure.locator("figcaption")).toHaveCount(1);
-      await expect(figure.locator("details > summary")).toHaveText("Show as a table");
+      await expect(figure.locator("details > summary")).toHaveText("See the numbers behind this chart");
       await figure.locator("details > summary").click();
       await expect(figure.locator("table caption")).toBeVisible();
       await expect(figure.locator("table th[scope='col']").first()).toBeVisible();

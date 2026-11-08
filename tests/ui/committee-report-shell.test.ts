@@ -65,25 +65,27 @@ describe("CR1 the period selector", () => {
 
 describe("CR2 the money section", () => {
   const series = emptyReport().series.monthly;
-  const out = html(h(MoneyBlock, { money, series }));
+  const out = html(h(MoneyBlock, { money, series, period: "2026-10-01" }));
   const text = words(out);
 
-  it("shows Billed, Collected and Outstanding in rupees with Indian grouping, and says they add up", () => {
+  it("shows Billed, Collected and Still unpaid in rupees with Indian grouping, and says they add up", () => {
     expect(text).toContain("Billed ₹1,80,52,190");
-    expect(text).toContain("Collected Principal paid, as of the date above. A late fee is not in it. ₹1,48,42,714");
-    expect(text).toContain("Outstanding Principal still owed. ₹32,09,476");
-    expect(text).toContain("Billed equals Collected plus Outstanding.");
+    expect(text).toContain("Collected Bill amount without late fee, paid so far. Late fees are not in it. ₹1,48,42,714");
+    expect(text).toContain("Still unpaid (October bills) Bill amount without late fee, still owed. ₹32,09,476");
+    expect(text).toContain("Billed equals Collected plus Still unpaid.");
   });
 
   it("puts a double rule under the three lines, as a ledger does", () => {
     expect(out).toContain('class="h-[7px] border-y-2 border-ink"');
-    expect(out.indexOf("Outstanding")).toBeLessThan(out.indexOf("h-[7px]"));
-    expect(out.indexOf("h-[7px]")).toBeLessThan(out.indexOf("Late fees:"));
+    expect(out.indexOf("Still unpaid")).toBeLessThan(out.indexOf("h-[7px]"));
+    expect(out.indexOf("h-[7px]")).toBeLessThan(out.indexOf("Late fees received"));
   });
 
-  it("says the late fees and the flats in two sentences, in full Indian grouping", () => {
-    expect(text).toContain("Late fees: ₹3,800 paid, ₹1,900 owing, ₹1,23,456 accruing.");
-    expect(text).toContain("2,399 flats billed: 1915 paid in full, 484 with principal outstanding.");
+  it("says the late fees in three lines, real money apart from a calculation, and the flats in a sentence, in full Indian grouping", () => {
+    expect(text).toContain("Late fees received: ₹3,800 (real money).");
+    expect(text).toContain("Late fees charged but unpaid: ₹1,900.");
+    expect(text).toContain("Late fees building up on unpaid bills, not yet charged: ₹1,23,456 (a calculation, not money received).");
+    expect(text).toContain("2,399 flats billed: 1,915 paid in full, 484 with part of the bill amount still unpaid.");
   });
 
   it("uses tabular figures for every amount, right-aligned, in one definition list", () => {
@@ -93,8 +95,8 @@ describe("CR2 the money section", () => {
   });
 
   it("shows a fee as paise when it has any, and whole rupees otherwise", () => {
-    const odd = html(h(MoneyBlock, { money: { ...money, fees: { ...money.fees, postedPaidPaise: 380_050n } }, series }));
-    expect(words(odd)).toContain("Late fees: ₹3,800.50 paid");
+    const odd = html(h(MoneyBlock, { money: { ...money, fees: { ...money.fees, postedPaidPaise: 380_050n } }, series, period: "2026-10-01" }));
+    expect(words(odd)).toContain("Late fees received: ₹3,800.50 (real money).");
   });
 
   it("shows the monthly collection as bars below 768px and as columns from 768px: one set of numbers, one table each, never both at once", () => {

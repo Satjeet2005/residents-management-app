@@ -1,3 +1,4 @@
+import { monthName } from "@/lib/format-date";
 import { t } from "@/lib/messages";
 import { dateWords } from "@/lib/reports/period";
 import { SECTION_IDS, type SectionId } from "@/lib/reports/sections";
@@ -26,6 +27,15 @@ function EmptyMonth() {
   );
 }
 
+/** The one short line under each section's title that says which period it covers (the month chosen, all months as of a date, or the last 30 days). */
+const PERIODS: Record<SectionId, (report: CommitteeReport) => string> = {
+  money: (r) => t("committee.card.period.bills", { month: monthName(r.period) }),
+  owed: (r) => t("committee.card.period.owed", { date: dateWords(r.asOf) }),
+  quality: (r) => t("committee.card.period.bills", { month: monthName(r.period) }),
+  complaints: (r) => t("committee.card.period.complaints", { month: monthName(r.period) }),
+  bank: () => t("committee.period.last30"),
+};
+
 const TITLES: Record<SectionId, () => string> = {
   money: () => t("committee.section.money"),
   owed: () => t("committee.section.owed"),
@@ -43,15 +53,15 @@ const TITLES: Record<SectionId, () => string> = {
  */
 export function ReportView({ report, hidden = [] }: { report: CommitteeReport; hidden?: readonly SectionId[] }) {
   const bodies: Record<SectionId, React.ReactNode> = {
-    money: report.money === null ? <EmptyMonth /> : <MoneyBlock money={report.money} series={report.series.monthly} />,
+    money: report.money === null ? <EmptyMonth /> : <MoneyBlock money={report.money} series={report.series.monthly} period={report.period} />,
     owed: (
       <>
         <AgeingBlock ageing={report.ageing} period={report.period} selected={report.drilldown?.bucket ?? null} />
         {report.drilldown !== null && <AgeingDetail page={report.drilldown} period={report.period} />}
       </>
     ),
-    quality: report.quality === null ? <EmptyMonth /> : <QualityBlock quality={report.quality} curve={report.series.curve} goal={report.cards.onTime.goal} />,
-    complaints: <ComplaintsBlock complaints={report.complaints} goals={report.goals.rows} slaGoal={report.cards.sla.goal} weeks={report.series.weeklySla} period={report.period} asOf={report.asOf} unseenAllMonths={report.safetyUnacknowledged} />,
+    quality: report.quality === null ? <EmptyMonth /> : <QualityBlock quality={report.quality} curve={report.series.curve} goal={report.cards.onTime.goal} period={report.period} />,
+    complaints: <ComplaintsBlock complaints={report.complaints} goals={report.goals.rows} slaGoal={report.cards.sla.goal} weeks={report.series.weeklySla} period={report.period} asOf={report.asOf} unseenAllMonths={report.safetyUnacknowledged} slaMinutes={report.slaMinutes} />,
     bank: <ReconciliationBlock line={report.reconciliation} />,
   };
   return (
@@ -66,12 +76,12 @@ export function ReportView({ report, hidden = [] }: { report: CommitteeReport; h
       <HeadlineCards report={report} />
       <div className="grid items-start gap-4 xl:grid-cols-2">
         {SECTION_IDS.filter((id) => !hidden.includes(id)).map((id, index) => (
-          <ReportSection key={id} id={id} title={TITLES[id]()} headline={report.headlines[id]} defaultOpen={index < 2} forceOpen={id === "owed" && report.drilldown !== null}>
+          <ReportSection key={id} id={id} title={TITLES[id]()} period={PERIODS[id](report)} headline={report.headlines[id]} defaultOpen={index < 2} forceOpen={id === "owed" && report.drilldown !== null}>
             {bodies[id]}
           </ReportSection>
         ))}
       </div>
-      <AboutBlock asOf={report.asOf} goalsAreDefaults={report.goals.source === "DEFAULT"} />
+      <AboutBlock asOf={report.asOf} />
       <ResponsiveDefaults />
     </main>
   );

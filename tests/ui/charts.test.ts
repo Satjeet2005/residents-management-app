@@ -43,7 +43,7 @@ const progress = h(ProgressBar, { text: text("prog"), percent: 82 });
 const all: [string, ReturnType<typeof h>][] = [["ProgressBar", progress], ["Sparkline", spark], ["HorizontalBars", bars], ["StackedBars", stacked], ["LineChart", line]];
 
 describe("CH1 every chart is a figure with a title, a description and a table", () => {
-  it.each(all)("%s: <figure>, <figcaption>, <svg role=img> named by its title and description, and a 'Show as a table' details", (_name, element) => {
+  it.each(all)("%s: <figure>, <figcaption>, <svg role=img> named by its title and description, and a 'See the numbers behind this chart' details", (_name, element) => {
     const out = renderToStaticMarkup(element);
     const id = /aria-labelledby="([a-z]+)-title \1-desc"/.exec(out)?.[1] as string;
     expect(id).toBeTruthy();
@@ -53,7 +53,7 @@ describe("CH1 every chart is a figure with a title, a description and a table", 
     expect(out).toContain(`<title id="${id}-title">Title of ${id}</title>`);
     expect(out).toContain(`<desc id="${id}-desc">Description of ${id}: the takeaway</desc>`);
     expect(out).toContain("<details");
-    expect(out).toContain("Show as a table");
+    expect(out).toContain("See the numbers behind this chart");
   });
 
   it.each(all)("%s: the table is a real table with a caption, column and row header scopes, and every value", (_name, element) => {

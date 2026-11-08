@@ -15,7 +15,9 @@ import { type SectionHeadlines, sectionHeadlines } from "@/lib/reports/headlines
 import { choosePeriod, monthStart, periodOptions } from "@/lib/reports/period";
 import type { Db } from "@/server/auth/db";
 import type { SessionUser } from "@/server/auth/session-service";
+import type { SlaMinutes } from "@/domain/complaints/lifecycle";
 import { countUnacknowledgedSafety } from "@/server/complaints/board-views";
+import { parseSlaMinutes } from "@/server/complaints/context";
 import { requirePermission } from "@/server/statements/ui-data";
 import { type AgeingPage, ageingPageOf } from "./ageing-page";
 import { loadComplaintsBetween } from "./complaints";
@@ -52,6 +54,8 @@ export type CommitteeReport = {
   series: { monthly: MonthlyPoint[]; onTime: OnTimePoint[]; monthlySla: MonthlySlaPoint[]; weeklySla: WeeklyPoint[]; curve: PaymentCurve | null };
   /** Safety complaints of any month that are not closed and have no acknowledgement by the duty manager: the alert at the top of the page. */
   safetyUnacknowledged: number;
+  /** The promised first-reply minutes by urgency (the `sla_minutes` setting), for the line under "Replies within our promised time". */
+  slaMinutes: SlaMinutes;
   /** Does the viewer hold complaints:manage (the alert links to the safety view only for them)? */
   canManageComplaints: boolean;
 };
@@ -78,17 +82,18 @@ export async function loadCommitteeReport(input: { db: Db; user: Viewer; request
   const chartEnd = minDate([asOf, addDays(until, -1)]);
   const months = lastPeriods(period, asOf);
   const from = minDate([addDays(isoWeekStart(chartEnd), -7 * (WEEKS - 1)), months[0]]);
-  const [window, reconciliation, goalSetting, safetyUnacknowledged] = await Promise.all([
+  const [window, reconciliation, settings, safetyUnacknowledged] = await Promise.all([
     loadComplaintsBetween(input.db, from, until),
     loadReconciliationLine(input.db, asOf),
-    input.db.societySetting.findUnique({ where: { key: "committee_goals" }, select: { value: true } }),
+    input.db.societySetting.findMany({ where: { key: { in: ["committee_goals", "sla_minutes"] } }, select: { key: true, value: true } }),
     countUnacknowledgedSafety(input.db),
   ]);
   const inMonth = (start: CalendarDate) => window.filter((c) => c.createdAt >= dayStartInstant(start) && c.createdAt < dayStartInstant(monthStart(addDays(start, 31))));
   const complaints = inMonth(period);
   const quality = monthPositions.length === 0 ? null : collectionQuality(monthPositions, asOf);
   const metrics = complaintMetrics(complaints, input.now);
-  const { goals, source } = goalsFromSetting(goalSetting?.value);
+  const settingOf = (key: string): unknown => settings.find((s) => s.key === key)?.value;
+  const { goals, source } = goalsFromSetting(settingOf("committee_goals"));
   const goalRows = evaluateGoals(goals, {
     onTime: { n: quality?.dueOnTime ?? 0, d: quality?.due ?? 0 },
     firstReply: { n: metrics.firstReply.withinSla, d: metrics.firstReply.decided },
@@ -129,6 +134,7 @@ export async function loadCommitteeReport(input: { db: Db; user: Viewer; request
             }),
     },
     safetyUnacknowledged,
+    slaMinutes: parseSlaMinutes(settingOf("sla_minutes")),
     canManageComplaints: input.user.permissions.includes("complaints:manage"),
   };
 }

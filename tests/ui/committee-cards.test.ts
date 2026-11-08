@@ -47,9 +47,12 @@ const ageing = { buckets: AGE_BUCKETS.map((bucket) => ({ bucket, flats: 1, bills
 describe("HC1 the four headline cards", () => {
   const out = html(h(HeadlineCards, { report: emptyReport({ money, ageing }) }));
 
-  it("has four cards in the order Collected, Total owed, Paid on time, Replies within the SLA, each with an h2 label", () => {
+  it("has four cards in the order Money collected, Total still owed, Bills paid by the due date, Complaints answered in time, each with an h2 label that names its period", () => {
     const labels = [...out.matchAll(/<h2[^>]*>([^<]*)<\/h2>/g)].map((m) => m[1]);
-    expect(labels).toEqual(["Collected this month", "Total owed", "Paid on time", "Replies within the SLA"]);
+    expect(labels).toEqual(["Money collected for October", "Total still owed, all months", "Bills paid by the due date, October bills", "Complaints answered in time, October"]);
+    expect(words(out)).toContain("October bills");
+    expect(words(out)).toContain("All months, as of 27 October 2026");
+    expect(words(out)).toContain("Complaints raised in October");
   });
 
   it("the collected card shows the percent, both amounts in short form, the exact figure in full grouping, a progress bar and no goal", () => {
@@ -76,7 +79,7 @@ describe("HC1 the four headline cards", () => {
       expect(card).not.toContain("Not met");
       expect(card).not.toMatch(/>Met</);
       expect(card).toContain("<svg");
-      expect(card).toContain("Show as a table");
+      expect(card).toContain("See the numbers behind this chart");
     }
   });
 });
@@ -117,5 +120,21 @@ describe("HC3 the computed takeaway of a trend", () => {
   it("a single value, and no value at all", () => {
     expect(trendDescription([{ label: "Oct", value: 70 }], { ...goal, status: "NO_DATA" })).toBe("Oct was 70%.");
     expect(trendDescription([{ label: "Sep", value: null }, { label: "Oct", value: null }], goal)).toBe("No data in this period.");
+  });
+});
+
+describe("HC4 the pointer to the definitions and the targets note", () => {
+  const out = html(h(HeadlineCards, { report: emptyReport() }));
+
+  it("links 'What these words mean' to About these numbers, a 48px target", () => {
+    expect(out).toContain('href="#about"');
+    expect(words(out)).toContain("What these words mean");
+    expect(out).toMatch(/<a href="#about" class="[^"]*min-h-12/);
+  });
+
+  it("says the targets are standard starting targets only when the committee has not set its own, with no developer wording", () => {
+    expect(words(html(h(HeadlineCards, { report: emptyReport({ goals: { ...emptyReport().goals, source: "DEFAULT" } }) })))).toContain("Targets shown are standard starting targets (90%, 90%, 8%). The committee has not set its own.");
+    expect(words(out)).not.toContain("standard starting targets");
+    expect(words(out)).not.toContain("committee_goals");
   });
 });

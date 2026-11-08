@@ -27,6 +27,7 @@ export function emptyReport(over: Partial<CommitteeReport> = {}): CommitteeRepor
     reconciliation: reconciliationLine({ states: { QUEUED: 0, AUTO_MATCHED: 0, AWAITING_APPROVAL: 0, MANUALLY_MATCHED: 0, IGNORED: 0 }, imports: [], decisions: [] }),
     goals: { rows: evaluateGoals(defaultGoals, { onTime: { n: 0, d: 0 }, firstReply: { n: 0, d: 0 }, reopened: { n: 0, d: 0 } }), source: "SETTING" as const },
     safetyUnacknowledged: 0,
+    slaMinutes: { CRITICAL: 15, HIGH: 120, NORMAL: 1440, LOW: 4320 },
     canManageComplaints: false,
     ...over,
   };

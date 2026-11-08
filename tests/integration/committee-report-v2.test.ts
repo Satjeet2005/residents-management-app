@@ -245,7 +245,7 @@ describe("V2-7 the page from the real report", () => {
     const hidden = parseHiddenSections("owed,complaints");
     const out = renderToStaticMarkup(h(ReportView, { report, hidden }));
     for (const id of SECTION_IDS) expect(out.includes(`<details id="${id}"`), id).toBe(!hidden.includes(id));
-    expect(out).toContain("Collected this month");
+    expect(out).toContain("Money collected for October");
     expect(renderToStaticMarkup(h(ReportView, { report, hidden: parseHiddenSections("owed,nonsense") })).match(/<details id=/g)).toHaveLength(5);
   });
 

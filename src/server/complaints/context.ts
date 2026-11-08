@@ -33,14 +33,19 @@ export type ComplaintSettings = { slaMinutes: SlaMinutes; lifecycle: LifecycleSe
 const slaSchema = z.object({ CRITICAL: z.number().int().positive(), HIGH: z.number().int().positive(), NORMAL: z.number().int().positive(), LOW: z.number().int().positive() });
 const daysSchema = z.number().int().positive().max(365);
 
+/** The promised first-reply minutes of the `sla_minutes` setting; a missing or invalid value gives the documented default (15 / 120 / 1,440 / 4,320 minutes). */
+export function parseSlaMinutes(value: unknown): SlaMinutes {
+  const sla = slaSchema.safeParse(value);
+  return sla.success ? sla.data : defaultSlaMinutes;
+}
+
 /** The `sla_minutes` and `auto_close_days` settings. A missing or invalid value falls back to the documented default (15 / 120 / 1,440 / 4,320 minutes, 7 days). */
 export async function loadComplaintSettings(db: DbOrTx): Promise<ComplaintSettings> {
   const rows = await db.societySetting.findMany({ where: { key: { in: ["sla_minutes", "auto_close_days"] } }, select: { key: true, value: true } });
   const value = (key: string): unknown => rows.find((r) => r.key === key)?.value;
-  const sla = slaSchema.safeParse(value("sla_minutes"));
   const days = daysSchema.safeParse(value("auto_close_days"));
   return {
-    slaMinutes: sla.success ? sla.data : defaultSlaMinutes,
+    slaMinutes: parseSlaMinutes(value("sla_minutes")),
     lifecycle: { ...defaultLifecycleSettings, autoCloseDays: days.success ? days.data : defaultLifecycleSettings.autoCloseDays },
   };
 }

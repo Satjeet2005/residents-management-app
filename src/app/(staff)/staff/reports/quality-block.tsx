@@ -1,8 +1,10 @@
 import { LineChart } from "@/components/charts/line-chart";
 import type { CollectionQuality } from "@/domain/reports/money-line";
 import type { PaymentCurve } from "@/domain/reports/payment-curve";
+import type { CalendarDate } from "@/domain/time/calendar";
+import { monthName } from "@/lib/format-date";
 import { t } from "@/lib/messages";
-import type { GoalMark } from "@/lib/reports/cards";
+import { type GoalMark, countText } from "@/lib/reports/cards";
 import { daysText, shareText } from "@/lib/reports/share";
 import { curvePlainNumbers, curveVisual } from "@/lib/reports/visuals";
 import { GoalLine } from "./goal-mark";
@@ -14,23 +16,24 @@ import { StatRow } from "./stat-row";
  * and, from 768px, the payment curve. There is no "paid late" row: it is the other side of "on time" and would say the same thing twice. A share with nothing to
  * measure says "No data", never 0%.
  */
-export function QualityBlock({ quality, curve, goal }: { quality: CollectionQuality; curve: PaymentCurve | null; goal: GoalMark }) {
+export function QualityBlock({ quality, curve, goal, period }: { quality: CollectionQuality; curve: PaymentCurve | null; goal: GoalMark; period: CalendarDate }) {
   const visual = curveVisual(curve, goal.targetPercent);
   const plain = curve === null ? null : curvePlainNumbers(curve);
+  const month = monthName(period);
   return (
     <>
       <dl className="flex flex-col border-t border-hairline">
-        <StatRow label={t("committee.quality.onTime")} detail={quality.due === 0 ? undefined : t("committee.quality.onTime.detail", { n: quality.dueOnTime, d: quality.due })} extra={<GoalLine mark={goal} />}>
+        <StatRow label={t("committee.quality.onTime")} detail={quality.due === 0 ? undefined : t("committee.quality.onTime.detail", { n: countText(quality.dueOnTime), d: countText(quality.due) })} extra={<GoalLine mark={goal} />}>
           {shareText(quality.dueOnTime, quality.due)}
         </StatRow>
-        <StatRow label={t("committee.quality.onTimeOfPaid")} detail={quality.paid === 0 ? undefined : t("committee.quality.onTimeOfPaid.detail", { n: quality.paidOnTime, d: quality.paid })}>
+        <StatRow label={t("committee.quality.onTimeOfPaid")} detail={quality.paid === 0 ? undefined : t("committee.quality.onTimeOfPaid.detail", { n: countText(quality.paidOnTime), d: countText(quality.paid), u: countText(quality.bills - quality.paid) })}>
           {shareText(quality.paidOnTime, quality.paid)}
         </StatRow>
-        <StatRow label={t("committee.quality.median")} detail={quality.paid === 0 ? undefined : t("committee.quality.median.detail", { n: quality.paid })}>
+        <StatRow label={t("committee.quality.median")} detail={quality.paid === 0 ? undefined : t("committee.quality.median.detail", { n: countText(quality.paid) })}>
           {daysText(quality.medianDaysToPay)}
         </StatRow>
       </dl>
-      {plain !== null && <p className="tnum text-body">{plain.day20 === null ? t("committee.quality.plainEarly", { due: plain.due, now: plain.now }) : t("committee.quality.plain", { due: plain.due, day20: plain.day20, now: plain.now })}</p>}
+      {plain !== null && <p className="tnum text-body">{plain.day20 === null ? t("committee.quality.plainEarly", { month, due: plain.due, now: plain.now }) : t("committee.quality.plain", { month, due: plain.due, day20: plain.day20, now: plain.now })}</p>}
       {curve !== null && (
         <div className="hidden md:block">
           <LineChart text={visual.text} series={visual.series} xMax={visual.xMax} xTicks={visual.ticks} xLabel={visual.xLabel} goal={visual.goal} marker={visual.marker} />

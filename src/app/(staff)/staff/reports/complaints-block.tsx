@@ -1,5 +1,6 @@
 import { LineChart } from "@/components/charts/line-chart";
 import { WarningIcon } from "@/components/icons";
+import type { SlaMinutes } from "@/domain/complaints/lifecycle";
 import type { ComplaintMetrics } from "@/domain/reports/complaints";
 import type { GoalRow } from "@/domain/reports/goals";
 import type { WeeklyPoint } from "@/domain/reports/weekly-sla";
@@ -7,7 +8,7 @@ import type { CalendarDate } from "@/domain/time/calendar";
 import { monthName } from "@/lib/format-date";
 import { t } from "@/lib/messages";
 import { type GoalMark, countText, goalMark } from "@/lib/reports/cards";
-import { minutesText, shareText } from "@/lib/reports/share";
+import { minutesText, promiseText, shareText } from "@/lib/reports/share";
 import { weeklyVisual } from "@/lib/reports/visuals";
 import { GoalLine } from "./goal-mark";
 import { StatRow } from "./stat-row";
@@ -19,7 +20,7 @@ import { StatRow } from "./stat-row";
 function SafetyLine({ safety, period, unseenAllMonths }: { safety: ComplaintMetrics["safety"]; period: CalendarDate; unseenAllMonths: number }) {
   if (safety.count === 0) return <p className="text-body">{t("committee.complaints.safetyNone")}</p>;
   const month = monthName(period);
-  const raised = t("committee.complaints.safetyRaised", { month, n: countText(safety.count), a: safety.closedByDutyManager, b: safety.openSeen, c: safety.openNotSeen });
+  const raised = t("committee.complaints.safetyRaised", { month, n: countText(safety.count), a: countText(safety.closedByDutyManager), b: countText(safety.openSeen), c: countText(safety.openNotSeen) });
   return (
     <div className="flex flex-col gap-2">
       <p className="text-body">{raised}</p>
@@ -42,7 +43,7 @@ function SafetyLine({ safety, period, unseenAllMonths }: { safety: ComplaintMetr
  * met); the time to marked resolved; the reopened share with its goal; who closed them; how many are open now. Then ONE safety line, and from 768px the weekly SLA
  * chart. Every share and median says "No data" when it has nothing to measure; a month with no complaints says so once.
  */
-export function ComplaintsBlock({ complaints, goals, slaGoal, weeks, period, asOf, unseenAllMonths }: { complaints: ComplaintMetrics; goals: readonly GoalRow[]; slaGoal: GoalMark; weeks: readonly WeeklyPoint[]; period: CalendarDate; asOf: CalendarDate; unseenAllMonths: number }) {
+export function ComplaintsBlock({ complaints, goals, slaGoal, weeks, period, asOf, unseenAllMonths, slaMinutes }: { complaints: ComplaintMetrics; goals: readonly GoalRow[]; slaGoal: GoalMark; weeks: readonly WeeklyPoint[]; period: CalendarDate; asOf: CalendarDate; unseenAllMonths: number; slaMinutes: SlaMinutes }) {
   const visual = weeklyVisual(weeks, slaGoal, asOf);
   const chart = weeks.some((w) => w.sharePercent !== null) && (
     <div className="hidden md:block">
@@ -62,19 +63,26 @@ export function ComplaintsBlock({ complaints, goals, slaGoal, weeks, period, asO
   const closedSum = t("committee.complaints.sum", { raised: countText(complaints.raised), closed: countText(closedTotal), open: countText(complaints.openNow) });
   return (
     <>
+      <div className="flex flex-col">
+        <p className="text-body font-semibold">{t("committee.complaints.promiseTitle")}</p>
+        <p className="text-body text-ink-2">{promiseText(slaMinutes)}</p>
+      </div>
       <dl className="flex flex-col border-t border-hairline">
         <StatRow label={t("committee.complaints.raisedLabel")}>{countText(complaints.raised)}</StatRow>
-        <StatRow label={t("committee.complaints.firstReplyLabel")} detail={firstReply.decided === 0 ? undefined : t("committee.complaints.withinSla.detail", { n: firstReply.withinSla, d: firstReply.decided })} extra={<GoalLine mark={slaGoal} />}>
-          {t("committee.complaints.firstReplyValue", { median: minutesText(firstReply.medianMinutes), share: shareText(firstReply.withinSla, firstReply.decided) })}
+        <StatRow label={t("committee.complaints.typicalReply")} detail={firstReply.replied === 0 ? undefined : t("committee.complaints.typicalReply.detail", { n: countText(firstReply.replied) })}>
+          {minutesText(firstReply.medianMinutes)}
         </StatRow>
-        <StatRow label={t("committee.complaints.resolved")} detail={resolved.count === 0 ? undefined : t("committee.complaints.resolved.detail", { n: resolved.count })}>
+        <StatRow label={t("committee.complaints.repliedInTime")} detail={firstReply.decided === 0 ? undefined : t("committee.complaints.withinSla.detail", { n: countText(firstReply.withinSla), d: countText(firstReply.decided) })} extra={<GoalLine mark={slaGoal} />}>
+          {shareText(firstReply.withinSla, firstReply.decided)}
+        </StatRow>
+        <StatRow label={t("committee.complaints.resolved")} detail={resolved.count === 0 ? undefined : t("committee.complaints.resolved.detail", { n: countText(resolved.count) })}>
           {minutesText(resolved.medianMinutes)}
         </StatRow>
-        <StatRow label={t("committee.complaints.reopened")} detail={resolved.count === 0 ? undefined : t("committee.complaints.reopened.detail", { n: resolved.reopened, d: resolved.count })} extra={<GoalLine mark={goalMark(goals, "reopenedMax")} />}>
+        <StatRow label={t("committee.complaints.reopened")} detail={resolved.count === 0 ? undefined : t("committee.complaints.reopened.detail", { n: countText(resolved.reopened), d: countText(resolved.count) })} extra={<GoalLine mark={goalMark(goals, "reopenedMax")} />}>
           {shareText(resolved.reopened, resolved.count)}
         </StatRow>
         <StatRow label={t("committee.complaints.closed")} detail={closedSum}>
-          {t("committee.complaints.closedSplit", { a: closed.byResident, b: closed.automatically, c: closed.byDutyManager })}
+          {t("committee.complaints.closedSplit", { a: countText(closed.byResident), b: countText(closed.automatically), c: countText(closed.byDutyManager) })}
           {closed.other > 0 && `, ${t("committee.complaints.closedOther", { n: closed.other })}`}
         </StatRow>
         <StatRow label={t("committee.complaints.openNow")}>{countText(complaints.openNow)}</StatRow>

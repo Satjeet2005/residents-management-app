@@ -87,7 +87,7 @@ describe("CD2 the section headlines", () => {
   const states = { QUEUED: 70, AUTO_MATCHED: 24, AWAITING_APPROVAL: 2, MANUALLY_MATCHED: 4, IGNORED: 6 };
   const reconciliation = reconciliationLine({ states, imports: [{ rowsRead: 106, stored: 106, invalidRows: 0, alreadyImported: 0 }], decisions: [] });
   const complaints = { ...complaintMetrics([], 0), raised: 1603, firstReply: { replied: 1400, medianMinutes: 60, decided: 1500, withinSla: 1275 } };
-  const quality = { due: 100, dueOnTime: 70, paid: 80, paidOnTime: 70, paidLate: 10, medianDaysToPay: 6 };
+  const quality = { bills: 100, due: 100, dueOnTime: 70, paid: 80, paidOnTime: 70, paidLate: 10, medianDaysToPay: 6 };
   const headlines = sectionHeadlines({ money, ageing, quality, complaints, reconciliation });
 
   it("says each one in a sentence from the data", () => {
