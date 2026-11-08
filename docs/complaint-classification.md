@@ -64,6 +64,13 @@ MODEL_UNAVAILABLE, FALLBACK_USED, NO_CLASSIFICATION, EMPTY_TEXT, SINGLE_ARM_NOT_
   only ones with any chance of being complete.
 - **It never throws** on any input (empty, emoji, control characters, 5,000 characters, right-to-left text, lone surrogates), tested with 2,000 seeded random strings.
 
+## How robust the safety words are to spelling variation
+
+Measured, not changed: `docs/safety-benchmark.md` damages the safety words of every rule in 17 ways (a left-out or doubled letter, a stretched vowel, a space inside a word,
+digits for letters, another romanisation, a changed Devanagari vowel sign, and so on) and counts how often the rules still fire. On the holdout the single-operation recall is
+36.0%; the rules are fully robust only to case, zero-width characters, the nukta and the chandrabindu. The method, tables, the 25 most fragile rules, the false alarms and a staged
+recommendation (for the human to approve, D164) are in that file; `npm run safety:benchmark` recomputes the numbers.
+
 ## De-identification
 
 Human decision (D88): complaint text goes to a third party only after personal data is taken out; the safety rules and the people read the original.
