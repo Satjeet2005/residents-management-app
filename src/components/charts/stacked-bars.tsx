@@ -9,6 +9,49 @@ const RIGHT = 128;
 const TOP = 36;
 const BOTTOM = 36;
 
+/** The longest series name, in characters, that fits the space at the right of the last column (116 units at 14px). */
+const SERIES_CHARS = 16;
+const SERIES_LINE = CHART_TEXT * 1.2;
+
+/** One line when the name fits, else two lines split at the word boundary that makes the longer line shortest ("Not yet paid" and "by day 20"). */
+export function wrapSeriesName(name: string): string[] {
+  if (name.length <= SERIES_CHARS) return [name];
+  const words = name.split(" ");
+  let best: string[] = [name];
+  let widest = name.length;
+  for (let cut = 1; cut < words.length; cut++) {
+    const lines = [words.slice(0, cut).join(" "), words.slice(cut).join(" ")];
+    const longer = Math.max(lines[0].length, lines[1].length);
+    if (longer < widest) {
+      best = lines;
+      widest = longer;
+    }
+  }
+  return best;
+}
+
+/** A series name written beside the last column, centred on `y`, so that it is never cut by the edge of the chart. */
+function SeriesName({ name, x, y }: { name: string; x: number; y: number }) {
+  const lines = wrapSeriesName(name);
+  if (lines.length === 1) {
+    return (
+      <text x={x} y={y} fontSize={CHART_TEXT} fontWeight={600} className="fill-ink">
+        {name}
+      </text>
+    );
+  }
+  const first = y - ((lines.length - 1) * SERIES_LINE) / 2;
+  return (
+    <text x={x} fontSize={CHART_TEXT} fontWeight={600} className="fill-ink">
+      {lines.map((line, index) => (
+        <tspan key={line} x={x} y={first + index * SERIES_LINE}>
+          {line}
+        </tspan>
+      ))}
+    </text>
+  );
+}
+
 export type StackColumn = {
   label: string;
   /** For drawing only: the heights are in any one unit (paise as a number). Both zero with `hasData` false is a gap. */
@@ -81,12 +124,8 @@ export function StackedBars({ text, columns, labels }: { text: ChartText; column
         })}
         {lastWithData >= 0 && (
           <g>
-            <text x={LEFT + plotWidth + 12} y={base - (columns[lastWithData].collected * plotHeight) / tallest / 2 + 5} fontSize={CHART_TEXT} fontWeight={600} className="fill-ink">
-              {labels.collected}
-            </text>
-            <text x={LEFT + plotWidth + 12} y={base - (columns[lastWithData].collected * plotHeight) / tallest - (columns[lastWithData].outstanding * plotHeight) / tallest / 2 + 5} fontSize={CHART_TEXT} fontWeight={600} className="fill-ink">
-              {labels.outstanding}
-            </text>
+            <SeriesName name={labels.collected} x={LEFT + plotWidth + 12} y={base - (columns[lastWithData].collected * plotHeight) / tallest / 2 + 5} />
+            <SeriesName name={labels.outstanding} x={LEFT + plotWidth + 12} y={base - (columns[lastWithData].collected * plotHeight) / tallest - (columns[lastWithData].outstanding * plotHeight) / tallest / 2 + 5} />
           </g>
         )}
       </ChartSvg>

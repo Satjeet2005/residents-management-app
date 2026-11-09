@@ -9,7 +9,7 @@ import { HorizontalBars, MAX_BARS } from "@/components/charts/horizontal-bars";
 import { LineChart, MAX_SERIES } from "@/components/charts/line-chart";
 import { ProgressBar } from "@/components/charts/progress-bar";
 import { Sparkline } from "@/components/charts/sparkline";
-import { StackedBars } from "@/components/charts/stacked-bars";
+import { StackedBars, wrapSeriesName } from "@/components/charts/stacked-bars";
 
 const text = (id: string): ChartText => ({
   id,
@@ -71,6 +71,51 @@ describe("CH1 every chart is a figure with a title, a description and a table", 
 });
 
 describe("CH2 direct labels, patterns and no interaction", () => {
+  it("the goal label sits at the right end of the dashed line, outside the plot, and the line is drawn before (behind) the data", () => {
+    const out = renderToStaticMarkup(line);
+    const plotRight = Number(/<line x1="52" x2="(\d+)"/.exec(out)?.[1]);
+    const label = /<text x="(\d+)"[^>]*>Goal 90%<\/text>/.exec(out);
+    expect(Number(label?.[1])).toBeGreaterThan(plotRight);
+    expect(out.indexOf('stroke-dasharray="8 5"')).toBeLessThan(out.indexOf("<polyline"));
+    expect(Number(label?.[1])).toBeLessThan(560);
+  });
+
+  it("a series name is written to the right of its last point when it fits, so the line never runs under its own label, and right-aligned under the point when it does not", () => {
+    const fits = renderToStaticMarkup(line);
+    expect(fits).toMatch(/<text x="\d+(\.\d+)?" y="[\d.]+" font-size="14" font-weight="600" class="fill-ink">Collected 90%<\/text>/);
+    const edge = renderToStaticMarkup(h(LineChart, { text: text("edge"), series: [{ label: "Replies", points: [{ x: 0, y: 40 }, { x: 10, y: 60 }] }], xMax: 10, xTicks: [], xLabel: "x", goal: null, marker: null }));
+    expect(edge).toContain('text-anchor="end"');
+  });
+
+  it("a chart with value labels writes every value in one row above the plot, insets its points from the axes, and names a part-finished last point under its tick", () => {
+    const weekly = renderToStaticMarkup(
+      h(LineChart, {
+        text: text("weekly"),
+        series: [{ label: "Replies", points: [{ x: 0, y: 87 }, { x: 1, y: 81 }, { x: 2, y: 93 }], dots: true, valueLabels: true, partialIndex: 2, partialLabel: "this week so far" }],
+        xMax: 2,
+        xTicks: [{ x: 0, label: "7 Sep" }, { x: 2, label: "26 Oct" }],
+        xLabel: "Week starting",
+        goal: { percent: 90, label: "Goal 90%" },
+        marker: null,
+      }),
+    );
+    for (const value of ["87", "81", "93"]) expect(weekly).toMatch(new RegExp(`<text x="[\\d.]+" y="14" font-size="14" text-anchor="middle" class="fill-ink">${value}(<!-- -->)?%</text>`));
+    expect(weekly).toContain(">this week so far</text>");
+    expect(weekly).not.toMatch(/>Replies 93/);
+    const firstX = Number(/<text x="([\d.]+)" y="14"/.exec(weekly)?.[1]);
+    expect(firstX).toBeGreaterThan(52 + 14);
+    expect(weekly).toContain('viewBox="0 0 560 318"');
+  });
+
+  it("a series name that does not fit beside the last column is written on two lines, and a short one stays on one", () => {
+    expect(wrapSeriesName("Within 20 days")).toEqual(["Within 20 days"]);
+    expect(wrapSeriesName("Not yet paid by day 20")).toEqual(["Not yet paid", "by day 20"]);
+    const long = renderToStaticMarkup(h(StackedBars, { text: text("wrap"), labels: { collected: "Within 20 days", outstanding: "Not yet paid by day 20" }, columns: [{ label: "Oct", collected: 60, outstanding: 40, hasData: true, percentText: "60%" }] }));
+    expect(long).toContain(">Not yet paid</tspan>");
+    expect(long).toContain(">by day 20</tspan>");
+    expect(long).toContain(">Within 20 days</text>");
+  });
+
   it("the stacked bars name both series beside the last column and differ by a hatch pattern, with a percent over every column", () => {
     const out = renderToStaticMarkup(stacked);
     expect(out).toContain(">Collected</text>");

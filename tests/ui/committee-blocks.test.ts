@@ -311,12 +311,12 @@ describe("CB6 the payment curve says what it shows (S-08) and the weekly chart w
     expect(out.indexOf("Line stops at today.")).toBeGreaterThan(out.indexOf("</figure>") - 1);
   });
 
-  it("the weekly chart writes the value above the points before the last", () => {
+  it("the weekly chart writes every value in one row above the plot, the last one too", () => {
     const week = (weekStart: string, share: number) => ({ weekStart, raised: 3, decided: 3, met: 2, sharePercent: share, partial: false });
     const weeks = [week("2026-10-12", 67), week("2026-10-19", 80), week("2026-10-26", 75)];
     const props = { complaints: complaintMetrics([], NOW), goals: evaluateGoals(defaultGoals, { onTime: { n: 0, d: 0 }, firstReply: { n: 0, d: 0 }, reopened: { n: 0, d: 0 } }), slaGoal: goal, weeks, period: "2026-10-01", asOf: "2026-10-27", unseenAllMonths: 0, slaMinutes: { CRITICAL: 15, HIGH: 120, NORMAL: 1440, LOW: 4320 } };
     const chart = html(h(ComplaintsBlock, props));
     const svg = chart.slice(chart.indexOf('aria-labelledby="weekly-title weekly-desc"'));
-    expect(words(svg.slice(0, svg.indexOf("</svg>")))).toContain("67% 80% Replied in time 75%");
+    expect(words(svg.slice(0, svg.indexOf("</svg>")))).toContain("67% 80% 75%");
   });
 });
