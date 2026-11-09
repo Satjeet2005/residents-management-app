@@ -102,3 +102,11 @@ dashboard, then Redeploy; nobody can then sign in (there is no SMS sender). The 
 - **Directory-walk mode** (`scan mode: directory walk`): with no git (a copy made by `scripts/verify-clean-clone.sh --local-copy` has no `.git`) it walks the directory and scans everything, including `.env` files, as before.
 - Patterns, labels and exit codes are unchanged. A match prints the file and the pattern label, never the matched value. `.env.example` and `package-lock.json` are skipped by name.
 - Not covered: history already committed (CI runs gitleaks over it, D67) and secrets in formats the six patterns do not know.
+
+## Two secret scanners
+
+Two scanners watch for secrets, and they look at different things.
+
+- **Local: `npm run scan:secrets`.** It scans what git could commit and checks that every `.env` file is ignored and untracked. It falls back to a directory walk when there is no git. See "Secret scanning scope" above.
+- **GitHub: gitleaks over the full history.** CI runs it on every commit ever made (440 commits when this was written). It has one finding: a fake credential in `tests/server/redact.test.ts`, recorded by fingerprint in `.gitleaksignore`. The value is fake test data for the log redaction tests. The test now builds that value at run time, so no new commit adds a key-like literal.
+- **Policy for a new ignore entry.** Use the fingerprint only, after a person has reviewed the finding. Never add a path or a regex allowlist.
