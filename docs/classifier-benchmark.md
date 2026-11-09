@@ -198,7 +198,7 @@ Latency of the answers: p50 n/a ms, p95 n/a ms. Availability (answers over attem
 - **Urgency is weaker.** Of the answers accepted, 80.5% to 88.9% had the right urgency, and every group is under the 90% bar. Urgency should not be trusted without a person.
 - **Keywords alone** were right on 92.3% of the 77.5% they classify. Marathi fails the bar for keywords (89.7%). Keywords and Jev together (production) classified 98.5% and were right on 97.5% of those.
 - **Speed and reliability.** The typical answer took 530 ms (95% under 975 ms). 198 of 200 requests were answered; two timed out at the 3-second limit.
-- **Secondary provider.** It could not be measured. All 60 requests failed: 54 were refused with a 400 status, 4 timed out and 2 had no network answer. This is why there are no numbers for it. The cause was not known when this was written; it was investigated afterwards (`jev-integration.md`, "The second provider's 400"). Original note: the app never logs what was sent or received, and this run did not change that.
+- **Secondary provider.** It could not be measured. All 60 requests failed: 54 were refused with a 400 status, 4 timed out and 2 had no network answer. This is why there are no numbers for it. The cause was not known when this was written; it was explained afterwards: the configuration was wrong and has been corrected (`jev-integration.md`, "The second provider"). Original note: the app never logs what was sent or received, and this run did not change that.
 - **The dry run proves the code path, not accuracy.** The local fake provider used for tests says nothing about a real model.
 
 ## Recommendation (for the human to approve; nothing was changed)
@@ -206,7 +206,7 @@ Latency of the answers: p50 n/a ms, p95 n/a ms. Availability (answers over attem
 1. Keep the production gating as it is. The thresholds (0.70 and 0.60) and the order (first provider, then second, then keywords) were not changed by this work.
 2. On this synthetic evidence the primary provider could be enabled for all four language groups. Before trusting that for Hindi and Marathi, have a native speaker review a sample of real, de-identified complaints, and run this benchmark again on them.
 3. Do not rely on the model's urgency. Keep the keyword urgency words and the person in the loop.
-4. The secondary provider's 400 was investigated: it answers `INVALID_JEV_REQUEST` and the cause is not in our request as far as we can tell (`jev-integration.md`). Do not count on it as a second source.
+4. The secondary's 400s came from a configuration the human has since corrected; it then answered three samples and timed out on a second try (`jev-integration.md`). It still has no benchmark numbers: run it on the stratified 60 when the primary is not rate-limited.
 
 Awaiting approval: not applied.
 
@@ -228,3 +228,7 @@ The urgency answers failed the D87 bar in every language group, so the request t
 | Share of urgency errors that under-rate | 50.0% (3/6) | 100.0% (8/8) |
 
 Clause (a) failed (-22.2 points, no extra group passing), clause (b) held (56.3%), clause (c) failed (category accepted share fell 22.2 points in the Hinglish group of 9 items). **v2 is not adopted; `CLASSIFIER_PROMPT_VERSION` stays `'v1'`.** The per-group tables, the urgency confusion matrices and the rule table are in `jev-prompt.md` and are printed by `npm run classifier:benchmark -- --from-fixture`. With 6 to 10 items per group this is weak evidence; the rule was applied as written and nothing was rerun. Because v1 still fails the urgency bar in every group, the urgency floor was applied (D199): a model answer of LOW is stored as NORMAL.
+
+### The full run could not be repeated (JEV-PROMPT-FULL, 2026-11-09)
+
+A later task asked for the full v2 run on all 200 items plus the secondary on the stratified 60. Before any benchmark request, `npm run llm:check` was run twice: the primary answered 429 to all three samples both times, so the task's rule (skip every network step when the primary does not answer) applied and no benchmark request was sent. The 32-item comparison above is therefore still the only v2 evidence, the decision (v1 stays the default) is unchanged, and the full v2 run, and the secondary's v1 and v2 runs, are **not done**.

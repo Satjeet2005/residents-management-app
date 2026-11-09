@@ -58,7 +58,7 @@ A wrong setting never blocks a complaint: that provider is skipped and the name 
 | Provider | Result |
 |---|---|
 | Primary | Three answers, status 200, 915, 600 and 408 ms. Categories PLUMBING, ELECTRICAL and HOUSEKEEPING, each at 1.00. Urgency HIGH 0.94, NORMAL 0.63 and NORMAL 0.67. |
-| Secondary | No answer: two timeouts at about 3 seconds and one network failure. |
+| Secondary | No answer: two timeouts at about 3 seconds and one network failure (2026-11-07, before its configuration was corrected; see "The second provider" below for 2026-11-09). |
 
 **2. Through the real service (`npm run jev:e2e`)**: eight complaints raised as the seeded resident Swati Joshi through `createComplaint`, on a scratch database that the script creates and drops. It counts the requests the app makes and prints no address or key.
 
@@ -78,11 +78,12 @@ Both safety cases (g: "I can smell gas near the lift lobby", h: a declared dange
 
 **Not checked live:** the script does not read the provider keys, so it does not scan the stored rows for them. That is covered by the unit tests in `tests/server/complaints/providers/privacy.test.ts`, which check requests and logs, not by this run.
 
-## The second provider's 400 (investigated 2026-11-09)
+## The second provider (checked 2026-11-09, after the human corrected its configuration)
 
-Six requests were sent to the secondary provider (five with the configured model, one with the model left out). Every one answered HTTP 400 with the body `{"code":-1,"message":"INVALID_JEV_REQUEST"}`. Leaving the model out changed nothing. The message does not say which field is wrong, and its docs are not available (the operator is unverified, D140), so **the cause is not known and was not guessed at**: it could be the request shape, a model name the account does not have or a protocol that differs from the primary's. No change was made to the request builder for the secondary. Earlier, 4 of the 60 benchmark requests timed out and 2 had no network answer; the rest were the same 400.
-
-**In practice the chain is the primary provider plus the keyword fallback:** the secondary is tried only when the primary fails or is skipped, answers 400 every time, and counts as a failure for its breaker. Next step for a human: ask the operator, or read the provider's real API description, for the request it expects.
+- **Earlier today** (before the correction) six debug requests to the secondary all got HTTP 400 `{"code":-1,"message":"INVALID_JEV_REQUEST"}`, with or without a model. In the first benchmark, 54 of 60 requests were also 400. The cause was a configuration problem on the human's side; no change was made to our request builder.
+- **After the correction**, `npm run llm:check` was run twice. First run: the secondary answered all three fixed samples with status 200 (PLUMBING 1.00 with urgency HIGH 0.96, ELECTRICAL 1.00 with NORMAL 0.66, HOUSEKEEPING 1.00 with NORMAL 0.67; 1442, 812 and 819 ms). Second run, a few minutes later: all three timed out at the 3-second limit. So the secondary **can answer, but it was not reliable in two checks**; this is two checks of three requests, not a measurement.
+- The secondary was NOT benchmarked on the 200 or 60 synthetic complaints (the task's rule skips every benchmark step unless the primary answers, and the primary was rate-limited, see below), so there are no accuracy numbers for it.
+- **The primary** answered HTTP 429 (rate limited) to all three samples in both checks. The full v2 benchmark could not be run.
 
 ## The prompt
 
@@ -99,5 +100,6 @@ The request text and a reviewed v2 are in [`jev-prompt.md`](jev-prompt.md). v1 s
 
 ## Caveats
 
-- Both are free or limited tiers and may rate-limit.
+- Both providers are free tiers that can rate-limit or time out. On 2026-11-09 the primary answered 429 to every check; the secondary answered the first check and timed out on the second. The app then degrades to the second provider and then to the keyword fallback (a person triages the rest).
+- The prompt v2 evidence is a 32-item run, stopped by the primary's rate limit. The full v2 run and the secondary's benchmark are not done for the same reason.
 - The operator of the second endpoint is unverified (D140). Only de-identified text is ever sent to it.

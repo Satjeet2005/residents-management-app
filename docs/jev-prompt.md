@@ -63,7 +63,7 @@ Size: v2's part that is not the complaint is 1,244 characters against 1,082 for 
 
 ## The measurement
 
-ONE run of v2 on the primary provider, paced one request per second, in a seeded shuffle (seed 42) so a partial run is a fair sample. **It was stopped by the provider's rate limit (429) at item 33: 32 of 200 items were completed** (36 requests, the last four being the retries after the 429). It was not rerun: the rule allows exactly one run. v1 is evaluated on the same 32 items, from the committed v1 results. The fixture is `tests/fixtures/classifier-benchmark/results-v2.json`; `npm run classifier:benchmark -- --from-fixture` prints the comparison below with no network.
+ONE run of v2 on the primary provider, paced one request per second, in a seeded shuffle (seed 42) so a partial run is a fair sample. **It was stopped by the provider's rate limit (429) at item 33: 32 of 200 items were completed** (36 requests, the last four being the retries after the 429). It was not rerun: the rule allows exactly one run. A later attempt to complete it was blocked: the primary answered 429 to every check request (`classifier-benchmark.md`, "The full run could not be repeated"). v1 is evaluated on the same 32 items, from the committed v1 results. The fixture is `tests/fixtures/classifier-benchmark/results-v2.json`; `npm run classifier:benchmark -- --from-fixture` prints the comparison below with no network.
 
 32 items are very few (6 to 10 per language group), so every rate has a wide interval and a single item moves a group by 10 points or more.
 

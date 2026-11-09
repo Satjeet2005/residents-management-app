@@ -64,6 +64,7 @@ An index of every document in this folder, grouped by purpose, with a status. St
 | [`matching-benchmark.md`](matching-benchmark.md) | The matcher benchmark: method and results | current |
 | [`safety-benchmark.md`](safety-benchmark.md) | The safety-word spelling benchmark | current |
 | [`classifier-benchmark.md`](classifier-benchmark.md) | The classifier benchmark on synthetic complaints | current |
+| [`classifier-urgency-errors.md`](classifier-urgency-errors.md) | What the classifier benchmark says about urgency, and whether it could be a same-day detector | current |
 | [`safety-words-review.md`](safety-words-review.md) | The safety word list for a native speaker to review | current |
 | [`overnight-report.md`](overnight-report.md) | Reports of the overnight runs | historical |
 
