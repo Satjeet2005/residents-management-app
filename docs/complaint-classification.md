@@ -1,5 +1,7 @@
 # Complaint classification (T10a)
 
+> Updated 2026-11-09: the adapters, the database writes and the screens described as missing in this paragraph now exist; see `docs/jev-integration.md`.
+
 How a resident's complaint gets a category and an urgency, as pure code in `src/domain/complaints/`. No adapter, database, network or screen
 exists yet: those come later and plug into the types here. Decisions: D2, D9, D15, D73, D86, D87, D88 (`docs/decisions.md`). The list of Hindi and
 Marathi safety words for a native speaker to check is `docs/safety-words-review.md`.
@@ -136,7 +138,7 @@ numbers are quoted, and every result will be reported as coming from synthetic d
 - `looksRomanisedIndic` is a heuristic: a single Hindi word in an English sentence is missed, and an English sentence with two of the short words is taken for Hinglish.
 - De-identification reduces personal data; it does not remove all of it.
 - Only the first 2,000 characters of a complaint are classified.
-- The thresholds are guesses until the benchmark runs. No adapter, no database write and no screen exist yet; the `Classification` rows and the complaint fields they
+- The thresholds are guesses until the benchmark runs. Updated 2026-11-09: the adapters, the database writes and the screens now exist (`docs/jev-integration.md`). The thresholds are still guesses; a synthetic benchmark was run once (`docs/classifier-benchmark.md`). Originally: no adapter, no database write and no screen existed; the `Classification` rows and the complaint fields they
   fill are written by a later task.
 
 ## Assumptions (labelled)

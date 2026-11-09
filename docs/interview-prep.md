@@ -143,3 +143,35 @@ Every API route file must export each method through `withPermission(need, handl
 The code is 6 digits made without bias, valid for 300 seconds, and stored only as an HMAC with a secret pepper. A request needs 30 seconds since the last one, and a phone gets 5 codes an hour and an address 30 an hour (`src/domain/auth/policy.ts`). Each code allows 5 wrong guesses, counted by one atomic SQL statement so parallel guesses cannot exceed it: `tests/integration/otp-service.test.ts :: "V3 ten concurrent wrong guesses never push attempts past 5 and lose none"`. A registered, inactive and unknown phone get the same answer, so the endpoint does not reveal who has an account. Sessions store only the SHA-256 of a 32-byte token, and staff sessions end after 30 minutes idle or 12 hours overall: `tests/domain/auth/session.test.ts :: "a staff session is 30 minutes idle and 12 hours overall; a resident's is 14 days idle and 30 days overall"`. A revoked session or deactivated user is refused on the next request.
 
 **Do not claim:** production-grade authentication. There is no real SMS sender; the sender is a mock. With `DEMO_MODE=true` the code is returned to the caller, so anyone who knows a demo phone number can log in as that person, staff included. There is no per-account lockout and no limit on the verify route, so an attacker can burn a victim's 5 codes an hour. A fresh code before big approvals is a documented next step and not built.
+
+## Additions, 2026-11-09 (final state)
+
+Facts here come from `src/lib/messages/en.ts` (`committee.about.*`), `docs/decisions.md`, `docs/classifier-benchmark.md`, `docs/jev-integration.md` and `docs/observability.md`. Each answer ends with a "Do not claim" line.
+
+### A1. Why is the on-time rate measured against all bills that are due?
+
+The card counts bills of the month paid in full by the due date, out of ALL that month's bills that are due so far. An unpaid bill past its due date counts against the rate. The "of bills that were paid" figure uses only paid bills, so it ignores the unpaid ones and is always the higher number. Each denominator hides something: the first hides nothing about non-payers but moves as bills fall due; the second hides everyone who has not paid. Do not claim: that the higher figure is the committee's headline, or that either figure predicts next month.
+
+### A2. Why is a safety acknowledgement not "any staff action"?
+
+An earlier version let a plain manager's comment, assignment or status change set the first response time, and the resident was told someone had seen their danger report. That was a defect. Now only the duty manager's acknowledge action records the acknowledgement (D149), and a safety complaint also counts as seen when the duty manager closed it. Do not claim: that the earlier defect never reached a user; it was found in review, and no real resident used the app.
+
+### A3. Where do you look when something fails in production, and why can only the developer read the log?
+
+Each error page shows a reference. The developer looks the reference up with `npm run logs:errors` using a separate read-only logs role (`docs/observability.md`). The app's own database role can insert error rows but cannot read them, so a stolen app credential cannot read the log. Do not claim: that errors are always stored; the store is best effort and flood-limited in memory per server instance (R73).
+
+### A4. Why was a fifth safety category added?
+
+The first four categories were fire, gas, a stuck lift and shock. A test sentence about someone being killed was not escalated, so MEDICAL_VIOLENCE was added (D153) with words such as ambulance, unconscious, bleeding and stabbed. Its limits: words, not meaning, and everyday phrases that use these words can raise a false alarm. Do not claim: that it finds every emergency.
+
+### A5. What does the safety benchmark measure, and what does it not prove?
+
+It damages known safety phrases with typing errors and checks whether the detector still hits, and it checks benign sentences for false alarms. Fresh run: 46.14% of single-damage misspellings found on the newest holdout (2307 of 5000), 20.80% with two damages, 3.39% false alarms on its negatives (54 of 1594). It proves nothing about real residents' writing, and there is no pass threshold. Do not claim: that safety detection is robust to misspellings; the declared-danger question and the Emergency control are the main safety nets.
+
+### A6. Why do phones get simple visuals and laptops get charts, and why an overview with section pages?
+
+A phone is for checking status and a laptop for investigating. A phone shows the headline cards and bars; the line charts and columns appear from 768px. A long page of nine cards served neither use, so the report became an overview with four section pages (D194). Do not claim: that the structure was tested with committee members; the audit was a document review.
+
+### A7. What does Jev do in the complaint flow, what may it never do, and what does the benchmark show?
+
+After the safety rules and de-identification, a provider returns a category and an urgency as probabilities. The app accepts them only above 0.70 and 0.60. A model can never produce CRITICAL, and a safety complaint never reaches a provider. On failure the keyword fallback answers or a person does. The synthetic benchmark of 200 items showed 92.5% accepted and 99.5% right among the accepted on the primary provider, and the second provider answered none of 60 requests (`docs/classifier-benchmark.md`). Do not claim: that these numbers are accuracy on real complaints, that urgency is reliable (it failed the bar), or that Hindi and Marathi are verified (no native speaker reviewed the data).

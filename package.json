@@ -17,6 +17,7 @@
     "check": "npm run lint && npm run typecheck && npm run test:unit",
     "scan:secrets": "node scripts/scan-secrets.mjs",
     "docs:verify": "node scripts/verify-doc-references.mjs",
+    "tdd:data-model": "tsx scripts/tdd-data-model.ts",
     "submission:zip": "bash scripts/build-submission-zip.sh",
     "safety:benchmark": "tsx scripts/safety-benchmark.ts",
     "db:generate": "prisma generate",

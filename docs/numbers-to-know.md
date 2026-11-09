@@ -1,5 +1,8 @@
 # Numbers to know
 
+> **Updated 2026-11-09 (final state).** Since this file was written: the committee report is an overview with four section pages and no "Choose sections" (D194, `docs/committee-report.md`); the headline cards have goal bars and no sparklines; the classifier was benchmarked on synthetic data (D195, `docs/classifier-benchmark.md`, `docs/jev-integration.md`). Counts from runs of 2026-11-09: `npm run check` 5196 passed and 1 skipped (the last hook run); the full `npm run e2e` 156 passed, 18 skipped, 1 failed (a stale spec, fixed and re-run alone: passed); the integration tests and `npm run test:ci-parity` were NOT run in this last run. Counts in the body below may lag.
+
+
 Written 2026-11-07. Thirty numbers an interviewer may ask for. Each row has the value, what it means and the file it comes from. Test counts are from a fresh run on 2026-11-07: `npm run check` (exit 0) and `npm run test:ci-parity` (exit 0, unit then integration suite). Everything else was read from the file named in the row. `UNVERIFIED` means I could not confirm it from the repository.
 
 | # | Number | What it is | Source |

@@ -1,5 +1,8 @@
 # Walkthrough: how the Township app works, area by area
 
+> **Updated 2026-11-09 (final state).** Since this file was written: the committee report is an overview with four section pages and no "Choose sections" (D194, `docs/committee-report.md`); the headline cards have goal bars and no sparklines; the classifier was benchmarked on synthetic data (D195, `docs/classifier-benchmark.md`, `docs/jev-integration.md`). Counts from runs of 2026-11-09: `npm run check` 5196 passed and 1 skipped (the last hook run); the full `npm run e2e` 156 passed, 18 skipped, 1 failed (a stale spec, fixed and re-run alone: passed); the integration tests and `npm run test:ci-parity` were NOT run in this last run. Counts in the body below may lag.
+
+
 Written 2026-11-07 from the repository (branch `master`, after commit 9efa6d6). Every number, rule name, file path and test name below was copied from the repository and checked in the session that wrote this file.
 
 How to read it:

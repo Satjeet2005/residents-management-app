@@ -190,18 +190,17 @@ npm run db:seed -- --yes && npm run build && npm run start     # http://localhos
 
 1. Log in as **Meera Kapoor** (`5000000003`, `reports:view`; the code is in the banner). `/staff` lists **Committee report**; open it. A resident, or staff without `reports:view`, ends at `/forbidden`.
 2. The top says "As of 27 October 2026 · read only", and the month box changes the page as soon as you choose a month. Under it are four cards, each naming its period: **Money collected for October** (82%, "₹1.48 crore of ₹1.81 crore billed", October within 20 days and September at the same age), **Total still owed, all months**, **Bills paid by the due date** and **Complaints answered in time** (each against its goal with the gap in points, Met or Not met in words with an icon, and a small six-month line you can open as a table). A strip above them appears only while a safety complaint is open and not yet seen by the duty manager. "What these words mean" under the cards leads to About.
-3. Below the cards are five sections; each title has a one-sentence summary that adds something the cards do not say. At 360px they start closed: tap one to open it. At 768px and wider the first two (**Billed and collected**, **What is owed**) start open.
-   **Billed and collected**: Billed = Collected + Still unpaid, the late fees in three lines (real money apart from a calculation), and the month-by-month collection measured at the same age (within 20 days).
-   **What is owed** says "All open dues, all months": Total owed = unpaid bills + late fees, one list of age groups, **See the flats** beside each group opens its flats (flat codes only, largest first, a switch to oldest first, 25 at a time, a way back at the top and bottom), and the towers that owe the most.
-4. **How fast bills are paid** (three rows, three plain numbers and, from 768px, the payment curve), **Complaints** (six lines, one safety line, and from 768px the weekly SLA chart) and **Bank statement matchingon** (three lines;
-   it says no statement was imported until you import the sample statement as Priya Nair). Every chart has a **Show as a table** link with the same numbers as text. **About these numbers** at the bottom defines every figure.
-5. **Choose sections** (at the bottom, above About) opens a sheet: untick a section and it is gone from the page at once, and stays gone after a reload on this device and browser; tick it again to bring it back, then press Done. The four cards cannot be hidden. The choice is a cookie, not a setting in the database.
+3. Below the cards is **Look closer**: four rows, **Collections**, **Dues**, **Complaints** and **Bank statement matching**, each with one line of new information. Tap one to open its page; every page has a back link "Committee report" at the top.
+   **Collections**: the Billed and collected ledger (Collected plus Still unpaid equals Billed, one bar, two facts), how fast bills are paid, and the collection by month measured at the same age (within 20 days).
+   **Dues** says "all months": Total owed = unpaid bills + late fees, one list of age groups, **See the flats** beside each group opens its flats (flat codes only, largest first, a switch to oldest first, 25 at a time), and the three late-fee figures.
+4. **Complaints** (six lines, one safety line, and from 768px the weekly SLA chart) and **Bank statement matching** (three lines; it says no statement was imported until you import the sample statement as Priya Nair). Every chart has a **See the numbers behind this chart** link with the same numbers as text. **About these numbers** at the bottom of the overview defines every figure.
+5. From 1024px wide a list of the report's pages sits at the left of each page, so switching is one click. There is no "Choose sections" any more (D194).
 6. The targets are assumptions in the setting `committee_goals`. On a hosted database that was seeded before this task, the owner inserts the row once (`docs/deploy-checklist.md`, E8); until then the built-in targets are shown and
    the page says so.
 
 To look at it at phone and laptop width, open the page in Chrome or Firefox, press F12 and then Ctrl+Shift+M (device toolbar), choose Responsive and type 360 x 800, then 768 x 1024, then 1280 x 800. At 360px it is one
-column: four cards, five closed sections, and only bars and small trend lines (no line charts). At 768px the cards are two by two, the first two sections are open and the line charts and columns appear, full width. At 1280px the cards
-are four in a row and the sections two columns. Tab through the page: every control shows a ring, and Enter or Space opens a section. The pictures taken by the browser checks are in `docs/screenshots/committee-report-*.png`.
+column: four cards and four rows, and only bars (no line charts). At 768px the cards are two by two and the line charts and columns appear on the section pages. At 1280px the cards
+are four in a row. Tab through the page: every control shows a ring, and Enter opens a row. The pictures taken by the browser checks are in `docs/screenshots/committee-report-*.png`.
 
 ## Raising a complaint (resident)
 

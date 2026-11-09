@@ -1,5 +1,8 @@
 # Demo script: 5 minutes
 
+> **Updated 2026-11-09 (final state).** Since this file was written: the committee report is an overview with four section pages and no "Choose sections" (D194, `docs/committee-report.md`); the headline cards have goal bars and no sparklines; the classifier was benchmarked on synthetic data (D195, `docs/classifier-benchmark.md`, `docs/jev-integration.md`). Counts from runs of 2026-11-09: `npm run check` 5196 passed and 1 skipped (the last hook run); the full `npm run e2e` 156 passed, 18 skipped, 1 failed (a stale spec, fixed and re-run alone: passed); the integration tests and `npm run test:ci-parity` were NOT run in this last run. Counts in the body below may lag.
+
+
 Written 2026-11-07. Button and screen words below were copied from `src/lib/messages/en.ts`; logins and the sequence from `README.md`; numbers from the tests named next to them. `UNVERIFIED` means I could not confirm it from the repository, and I did not run the app in a browser to write this script. Do one full dry run before the real demo.
 
 ## Before you start (do this 10 minutes early, not on stage)

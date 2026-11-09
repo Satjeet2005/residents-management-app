@@ -820,11 +820,11 @@ Commit 2e70171 as recorded does not build on its own (the hook ran the checks on
 | 01 preflight | DONE | baseline check was red once (PV7), fixed by the ladder, attempt A | about 5 min |
 | 01b safety stage 1 | DONE (earlier run) | normalizeForSafety exists; commit fe89698 "feat(domain): safety text normalisation" | |
 | 02 UI batch 1 | DONE (earlier run) | all listed commits in log, up to 6701440 | |
-| 03 UI batch 2 | PENDING | goal-bar.tsx and reports/collections missing | |
-| 04 Jev | PENDING | scripts/jev-e2e-check.ts and docs/classifier-benchmark.md missing | |
-| 05 docs | PENDING | docs/README.md exists; scripts/verify-doc-references.mjs missing | |
-| 06 submission kit | PENDING | docs/tdd-source and scripts/build-submission-zip.sh missing | |
-| 07 final verification | PENDING | | |
+| 03 UI batch 2 | DONE | goal bars, headline cards, overlap check, overview and four section pages, ledger; 2dfd09a, eb26408 |  |
+| 04 Jev | DONE (secondary unmeasured) | 9c1ab6d |  |
+| 05 docs | PARTIAL | D1, D2, D4 (notes), D5, D6, D7, D8 done; D3 not done (fast mode) |  |
+| 06 submission kit | PARTIAL | 6.1, 6.5, 6.7 done; 6.2, 6.3, 6.4, 6.6 SKIPPED (time: 544 min elapsed, limit 504) |  |
+| 07 final verification | DONE (limited) | one npm run check (by the hook), one full e2e |  |
 
 ### Detection (PRESENT or MISSING)
 
@@ -849,3 +849,76 @@ Commit 2e70171 as recorded does not build on its own (the hook ran the checks on
 | Hash | Subject | check | scan:secrets |
 |---|---|---|---|
 | 0d853f3 | fix(server): round the provider timeout to a whole millisecond | passed (5160 tests) | passed |
+
+### Commits tonight (the pre-commit hook ran `npm run check` and `npm run scan:secrets` on each; both passed)
+
+| Hash | Subject |
+|---|---|
+| 0d853f3 | fix(server): round the provider timeout to a whole millisecond |
+| 5cff6dd | docs: overnight run 2 plan and baseline |
+| b0a196a | feat(ui): goal bar component |
+| 48bf272 | test: text overlap check as a reusable helper |
+| 6b30fe0 | feat(ui): goal line labels at the right end of large charts |
+| 2dfd09a | feat(ui): headline cards with one visual and one trend line |
+| eb26408 | feat(ui): committee overview with four section pages, and the billed and collected ledger |
+| 9c1ab6d | feat: Jev integration proof and classifier benchmark |
+| e4ad097 | feat: verify documentation references automatically |
+| 6cc7c0a | feat: submission zip builder with placeholder and link checks |
+| (final) | docs: the final documentation commit (see git log) |
+
+### Fast mode (human override, mid-run)
+
+Fewer commits, no hand-run checks, no mutations, no BEFORE screenshots beyond the card pair, no new independent-SQL tests, no `test:ci-parity`. Parts 1 to 3 of Phase 03 were developed as one unit and committed as several by restoring each commit's own files, so the checks ran on the exact state of each commit; the e2e specs ran on the final state only.
+
+### Measured
+
+- Headline cards at 360px: 176, 177, 178 and 178 px tall (limit 190); two whole cards and part of a third on the 360x800 first screen.
+- Overview at 360px: at most 3 screens (asserted in `tests/e2e/screens/committee-report.spec.ts`); Look closer rows at least 56 px.
+- Phase 03 browser run on the committee projects: 53 passed, 4 skipped (the skips are width-specific). Full e2e: 156 passed, 18 skipped, 1 failed (the stale `staff-flows` ageing spec, fixed; passed alone).
+- Live proof of the providers: `docs/jev-integration.md`. Primary 200 requests, secondary 60 requests, all under the 250 cap.
+- Classifier benchmark headline (primary): category accepted 92.5% (185/200), right 99.5% (184/185), D87 PASS in all four groups; urgency D87 FAIL in all four; keyword baseline accepted 77.5%, right 92.3%, Marathi FAIL; production arm 98.5% automatic, 97.5% right. Secondary: 0 of 60 answered.
+- Baseline `npm run check` was red once (PV7): fixed in 0d853f3 (D196).
+
+### Existing tests edited, and why
+
+`tests/lib/reports/cards.test.ts`, `tests/lib/reports/visuals.test.ts`, `tests/ui/committee-cards.test.ts` (the card model changed: gap, previous month, no sparkline, no exact line); `tests/ui/charts.test.ts` (Sparkline and ProgressBar removed; new label tests); `tests/ui/committee-text.test.ts` (chart file list; the count of chart files 5 to 4 because two files were deleted and one added); `tests/ui/committee-layout.test.ts`, `tests/ui/committee-blocks.test.ts`, `tests/ui/committee-states.test.ts`, `tests/ui/committee-ageing.test.ts`, `tests/ui/committee-report-shell.test.ts`, `tests/ui/committee-choose.test.ts`, `tests/lib/reports/sections.test.ts`, `tests/lib/reports/period.test.ts`, `tests/server/view-cookie.test.ts` (the five-section page and Choose sections were replaced by the overview and section pages; the retired tests now assert the retirement); `tests/server/page-guards.test.ts` (the new `[section]` page); `tests/integration/committee-report-v2.test.ts` (the hidden-sections test replaced; NOT run, integration); `tests/e2e/screens/committee-report.spec.ts` (rewritten for the new structure); `tests/e2e/flows/staff-flows.spec.ts` (the ageing list is on the Dues page). The weekly chart test now expects every value in one row. No assertion on a number or a limit was loosened.
+
+### Assumptions made tonight
+
+- Elapsed time is read from the system clock (544 minutes at the stop), which jumped during the run; the master's rule was applied to it.
+- The 250-request cap is enforced by the runner itself; `JEV_DAILY_CAP` is not read by the runner.
+- Urgency "accepted" in the benchmark means the answer was accepted and the reason URGENCY_UNCERTAIN is absent.
+- The 10 MB warning and 25 MB failure of the zip builder are assumptions; the real upload limit is unknown.
+- In the TDD pack, effort hours are the agent's reading of S, M, L (UNVERIFIED).
+
+### SKIPPED, BLOCKED and UNVERIFIED
+
+- SKIPPED (time): 6.2 diagrams, 6.3 `smoke:app` repair, 6.4 hygiene report, 6.6 reviewer-path test; Phase 05 D3 (open verification items) and D4's click-path re-verification.
+- `smoke:app` was run once on a scratch database: 34 of 166 checks failed (stale expectations for the committee report, staff home, reconciliation workspace and complaints board; plus 4 role checks that cannot pass on an owner-connected scratch database). Evidence kept only in the run log. Not repaired.
+- Integration tests and `npm run test:ci-parity`: not run. UNVERIFIED: `tests/integration/committee-report-v2.test.ts` after its edit.
+- The stored-row key scan of `jev:e2e` was not run live (the permission system blocked a version that read key values; the script was changed to not read keys).
+- The second provider answers 400 to every request: cause not investigated.
+- Real scrollbar and iOS behaviour: unchanged from the earlier report.
+- Mistake recorded: I ran `git rm --cached` once on a file already deleted; it only staged a deletion and was undone with `git restore --staged`. It is not on the allowlist.
+- The `docs/screenshots` folder has many untracked and modified files from e2e runs (not staged, not mine to decide).
+
+### CLAUDE.md and AGENTS.md: lines that disagree with the code (not edited)
+
+| File and line | Says | Suggested replacement |
+|---|---|---|
+| `CLAUDE.md:58` | "Every route handler and server action goes through `withPermission(permission, handler)`" | "Every route handler goes through `withPermission(need, handler)` or an allowlisted `publicRoute(handler)` (seven routes); every server action through `withPermissionAction`; pages call `requireUser`." |
+| `CLAUDE.md:62` | "a Postgres outbox and one idempotent `processOutbox()`" | "A Postgres outbox table exists; no processor is built (`docs/known-limitations.md`)." |
+| `CLAUDE.md:66` | "whole rupees" | "`formatRupees` shows whole rupees and paise when the amount is not whole; the short forms (lakh, crore) are for cards." |
+| `CLAUDE.md:81` | "amounts of ₹25,000 or more need a second approver" | "The matcher's default threshold is ₹25,000; the demo setting is ₹10,000 (D116)." |
+| `AGENTS.md` | (no matching lines found by grep) | n/a |
+
+### Morning checklist for the human
+
+1. Look at the log: `git log --oneline 670144060808742bf2fd37646c95b398d2db6903..HEAD`. Nothing was pushed.
+2. Run `npm run check`, `npm run docs:verify`, `npm run test:ci-parity` and `npm run test:integration` (not run tonight).
+3. Run `npm run e2e` once (tonight: 156 passed, 18 skipped, 1 stale spec fixed).
+4. Read `docs/classifier-benchmark.md` and decide on its recommendation (D195, awaiting your approval); look into why the second provider answers 400.
+5. Decide on `smoke:app` (34 stale checks) and the skipped Phase 06 items.
+6. Fill `<LIVE_URL>` and `<REPO_URL>` in `deployment.md` (see "Placeholders to fill" in `docs/submission-checklist.md`), write the TDD from `docs/tdd-source/`, then `npm run submission:zip -- <tdd file>`.
+7. Review the CLAUDE.md lines above.
+8. The untracked screenshots in `docs/screenshots` are e2e output: decide what to keep.

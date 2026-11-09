@@ -250,7 +250,7 @@ installed Next.js 16.4.2 at `node_modules/next/dist/docs/01-app/02-guides/authen
 ### The guards (`src/server/auth/guard.ts`)
 
 `withPermission(need, handler)` for route handlers; `need` is a permission, `STAFF`, `RESIDENT` or `ANY_USER`.
-`publicRoute(handler)` for the four routes that are open on purpose. Every route file exports each method as
+`publicRoute(handler)` for the seven routes that are open on purpose (the allowlist in `tests/server/route-guards.test.ts`; updated 2026-11-09: it was four before the readiness, ops error-test, logout and health routes were counted). Every route file exports each method as
 `export const METHOD = withPermission(...)` or `publicRoute(...)`.
 
 | Order | Step | Result |

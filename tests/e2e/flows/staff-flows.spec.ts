@@ -26,7 +26,7 @@ test.describe("committee report", () => {
   test.use({ storageState: authFile("meera") });
 
   test("the ageing block opens the flats behind a bucket", async ({ page }) => {
-    await page.goto("/staff/reports?period=2026-10");
+    await page.goto("/staff/reports/dues?period=2026-10");
     await page.getByRole("link", { name: /^See the flats: Over 90 days/ }).click();
     await expect(page.getByRole("heading", { name: /\d+ flats owe .* \(Over 90 days\)/ })).toBeVisible();
     await expect(page.locator("#ageing-detail tbody tr").first()).toBeVisible();

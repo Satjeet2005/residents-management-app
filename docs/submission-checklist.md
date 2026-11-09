@@ -44,3 +44,35 @@ Written 2026-11-08. Tick each box yourself; the agent cannot do these for you. I
 - [ ] **The owner reset of the hosted database done LAST** (`docs/hosted-reset-procedure.md`), after every rehearsal and check above, if the demo data was consumed. Afterwards run only `smoke:auth` against the live site.
 - [ ] **The DEMO_MODE decision after the review window.** While reviewers need to sign in it stays `true`. When the window ends, decide: set `DEMO_MODE=false` in the Vercel dashboard and Redeploy (nobody can sign in then), or take the site down (`docs/deploy-checklist.md`, Part G). Write the date you will decide in your calendar.
 - [ ] **Keep it alive.** A reminder every 14 days to open the Vercel and Neon consoles and the live site (`docs/deploy-checklist.md`, Part F).
+
+
+## Placeholders to fill
+
+Found with `grep -rn "<LIVE_URL>\|<REPO_URL>" README.md deployment.md docs` on 2026-11-09, leaving out this file and `docs/overnight-report.md` (which only discuss them). `deployment.md` MUST have none before `npm run submission:zip` will build an archive; `README.md` only warns. The others are usage examples and instructions in runbooks: decide for each whether to fill it.
+
+| File | Line | Placeholder | Must be filled for the zip |
+|---|---|---|---|
+| `README.md` | 5 | `<LIVE_URL>` | no (README warns only) |
+| `README.md` | 5 | `<REPO_URL>` | no (README warns only) |
+| `deployment.md` | 10 | `<LIVE_URL>` | yes |
+| `deployment.md` | 11 | `<REPO_URL>` | yes |
+| `deployment.md` | 35 | `<REPO_URL>` | yes |
+| `deployment.md` | 164 | `<LIVE_URL>` | yes |
+| `deployment.md` | 170 | `<LIVE_URL>` | yes |
+| `deployment.md` | 186 | `<REPO_URL>` | yes |
+| `deployment.md` | 194 | `<LIVE_URL>` | yes |
+| `deployment.md` | 216 | `<LIVE_URL>` | yes |
+| `deployment.md` | 217 | `<REPO_URL>` | yes |
+| `deployment.md` | 218 | `<LIVE_URL>` | yes |
+| `deployment.md` | 218 | `<REPO_URL>` | yes |
+| `docs/assumptions.md` | 93 | `<LIVE_URL>` | no |
+| `docs/assumptions.md` | 93 | `<REPO_URL>` | no |
+| `docs/hosted-reset-procedure.md` | 7 | `<LIVE_URL>` | no |
+| `docs/hosted-reset-procedure.md` | 115 | `<LIVE_URL>` | no |
+| `docs/hosted-reset-procedure.md` | 116 | `<LIVE_URL>` | no |
+| `docs/live-refresh-runbook.md` | 6 | `<LIVE_URL>` | no |
+| `docs/live-refresh-runbook.md` | 140 | `<LIVE_URL>` | no |
+| `docs/live-refresh-runbook.md` | 205 | `<LIVE_URL>` | no |
+| `docs/live-refresh-runbook.md` | 220 | `<LIVE_URL>` | no |
+| `docs/live-refresh-runbook.md` | 221 | `<LIVE_URL>` | no |
+| `docs/live-refresh-runbook.md` | 229 | `<LIVE_URL>` | no |

@@ -243,7 +243,7 @@ Statement processor (`processor-invariants.test.ts`, `processor-order.test.ts`, 
 | Y6 | The same input, or the rows reversed, give equal output |
 | Y7 | Invalid rows are counted and never dropped |
 | Y8 | Entries reconcile to the auto-matched total, with unique idempotency keys |
-| Y9 | 5,000 rows against the 2,400-flat demo society, about 0.9 s (the test budget is 6 s) |
+| Y9 | 5,000 rows against the 2,400-flat demo society, about 0.9 s (the test budget is 20 s; measured 0.9 s alone and 5.4 s under load, `tests/domain/matching/processor-invariants.test.ts`) |
 | Y10 | `processor.ts` is pure |
 | Z1 | Any row order gives the same automatic matches when no two rows touch a bill |
 | Z2 | Any row order: nothing auto-posted exceeds what was due or lands before a payment already on the bill |
