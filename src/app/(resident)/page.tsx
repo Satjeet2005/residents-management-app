@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/server/auth/current-user";
 import { defaultDeps } from "@/server/auth/default-deps";
 import { businessNow } from "@/server/clock";
+import { demoNoteState } from "@/server/demo-note";
 import { getHomeData } from "@/server/home/home-data";
 import { HomeView } from "./home-view";
 
@@ -13,5 +14,5 @@ export default async function HomePage() {
   const user = await requireUser({ returnTo: "/" });
   if (user.role === "STAFF") redirect("/staff");
   const data = await getHomeData({ db: defaultDeps().db, user, now: businessNow() });
-  return <HomeView data={data} />;
+  return <HomeView data={data} demoNote={demoNoteState()} />;
 }

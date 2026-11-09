@@ -161,7 +161,7 @@ and Marathi text has not been written or reviewed by a native speaker, so none
 is included.**
 
 "Now" is `DEMO_NOW` = 2026-10-27 12:00 IST (epoch milliseconds, built from
-`dayStartInstant`). `DEMO_AS_OF` stays `2026-10-27`. Every timestamp is epoch
+`dayStartInstant`). `DEMO_AS_OF` stays `2026-10-27`. Only the three flats of the client's brief (T07-1203, T12-0408, T21-1601) come from the brief; every other flat, resident, bill, payment, complaint and bank row is generated (D227). Phones count up from 5000000001 in creation order (five staff, then the five residents of the brief's flats, then every generated resident), so 5000000011 to 5000000018 are generated residents of tower T01 and are not free. The eight spare demo logins for paying a bill are existing generated residents chosen by rule, not new rows (D233). At run time the environment variable of the same name freezes the business clock in demo mode only (`docs/demo-clock.md`). Every timestamp is epoch
 milliseconds and lies between 2026-09-01 00:00 IST and `DEMO_NOW`; the only later
 times are visitors expected later today.
 

@@ -59,7 +59,7 @@ Each step shows what you should see. The outputs were taken from a real run of `
    fs.writeFileSync(".env", t);
    '
    ```
-   Expected: no output. The names you must have set: `OTP_PEPPER` and `PAYMENT_WEBHOOK_SECRET` (both at least 32 characters in a production build, and not the `replace-with...` placeholders: the app refuses those), `DEMO_MODE=true` (already in the example), `DATABASE_URL` (already points at the local database on `DB_PORT`). Leave `DEMO_AS_OF` commented out (see "Demo logins"), `LOGS_DATABASE_URL` and `OPS_TEST_TOKEN` unset, and the `JEV_*` lines commented (without them a keyword fallback classifies complaints). `SESSION_SECRET` and `LLM_API_KEY` are in the example but unused.
+   Expected: no output. The names you must have set: `OTP_PEPPER` and `PAYMENT_WEBHOOK_SECRET` (both at least 32 characters in a production build, and not the `replace-with...` placeholders: the app refuses those), `DEMO_MODE=true` (already in the example), `DATABASE_URL` (already points at the local database on `DB_PORT`). `DEMO_AS_OF=2026-10-27` is optional locally (see "Demo date" under "Demo logins"); leave `LOGS_DATABASE_URL` and `OPS_TEST_TOKEN` unset, and the `JEV_*` lines commented (without them a keyword fallback classifies complaints). `SESSION_SECRET` and `LLM_API_KEY` are in the example but unused.
    If port 5436 is taken, set `DB_PORT=<free port>` in `.env` and use the same port inside `DATABASE_URL`.
 
 5. **Start the database.**
@@ -108,7 +108,8 @@ Each step shows what you should see. The outputs were taken from a real run of `
 | Login fails with a server error, or `config.otpPepper` / `config.webhookSecret` is `false` in the readiness report | `OTP_PEPPER` or `PAYMENT_WEBHOOK_SECRET` is missing, shorter than 32 characters, or still starts `replace-with` | Re-run the secret command of step 4 and restart the app (`.env` is read at start) |
 | The seed says `DEMO_MODE is not "true", so nothing was changed`, or the login page shows no code | `DEMO_MODE` is not exactly `true` | Set `DEMO_MODE=true` in `.env`, restart |
 | The seed says `The database is not empty` | It was seeded already | Use it as it is, or start over: `npm run db:reset-demo -- --yes --confirm-database=township` (local only; destroys the local data) |
-| Dues, overdue days and replies look frozen at 27 October 2026 | `DEMO_AS_OF` is set in `.env` (it freezes the business date) | Remove or comment the line and restart. It belongs only to local runs that want the brief's sample numbers, never to the live site |
+| Dues, overdue days and replies look frozen at 27 October 2026 | `DEMO_AS_OF` is set (it freezes the business date; the demo screens say so) | This is the intended demo state. To use today's date, remove the variable and restart |
+| The readiness report has `"warnings": ["demoAsOfIgnored"]` | `DEMO_AS_OF` is set but `DEMO_MODE` is not `true`, so the date is ignored | Set `DEMO_MODE=true`, or remove `DEMO_AS_OF` |
 | `smoke:auth` stops with `FAIL appRole.isSuperuser` and no login is tried | The server connects as the owner, as it does locally | Add `--allow-owner-role` (localhost only). On the hosted site, never: fix the grants instead (`docs/live-refresh-runbook.md`) |
 | `smoke:auth` says 429 | One code per 30 seconds and 5 per hour per phone | Use another demo phone from the table below |
 
@@ -117,22 +118,42 @@ Each step shows what you should see. The outputs were taken from a real run of `
 Login is a one-time code. With `DEMO_MODE=true` and a demo phone (ten digits, starting with 5; real mobile numbers do not start with 5), the code appears **on the login screen in a banner** ("Demo mode: your code is ...") and in the `demoCode` field of the API's answer, and nothing is sent. Without demo mode no code is shown and nobody can sign in.
 The numbers below are read from `src/domain/seed/people.ts`.
 
-| Phone | Name | Role and permissions | Good for |
-|---|---|---|---|
-| 5000000001 | Priya Nair | staff: `payments:match` | Import the sample bank statement, review a row, post a manual match, ask for a second approver |
-| 5000000002 | Rahul Menon | staff: `payments:match`, `payments:approve` | The second approver of a large manual match (never the one who asked) |
-| 5000000003 | Meera Kapoor | staff: `reports:view` | The committee report |
-| 5000000004 | Kavita Rao | staff: `complaints:manage` | The complaints board: assign, comment, resolve; has no "I have seen this" on a safety complaint |
-| 5000000005 | Sanjay Pawar | staff: `complaints:manage`, `complaints:duty_manager` | The duty manager: acknowledges a safety complaint ("I have seen this") |
-| 5000000006 | Neeraj Kulkarni | resident, flat T07-1203 (owner) | A resident with the plain Home; raising an ordinary complaint |
-| 5000000007 | Swati Joshi | resident, flat T12-0408 (tenant) | Overdue dues with a late fee; paying on the demo page; raising a danger complaint |
-| 5000000008 | Anil Joshi | resident, flat T12-0408 (owner) | The second person of Swati's flat |
-| 5000000009 | Aamir Shaikh | resident, flat T21-1601 (owner) | A part-paid flat; the late fee that stays due after a principal-only bank payment |
-| 5000000010 | Rohit Deshmukh | resident, flat T15-0902 (owner) | The "Copy payment note" button |
+| Phone | Name | Role and permissions | From the brief? | Good for |
+|---|---|---|---|---|
+| 5000000001 | Priya Nair | staff: `payments:match` | No | Import the sample bank statement, review a row, post a manual match, ask for a second approver |
+| 5000000002 | Rahul Menon | staff: `payments:match`, `payments:approve` | No | The second approver of a large manual match (never the one who asked) |
+| 5000000003 | Meera Kapoor | staff: `reports:view` | No | The committee report |
+| 5000000004 | Kavita Rao | staff: `complaints:manage` | No | The complaints board: assign, comment, resolve; has no "I have seen this" on a safety complaint |
+| 5000000005 | Sanjay Pawar | staff: `complaints:manage`, `complaints:duty_manager` | No | The duty manager: acknowledges a safety complaint ("I have seen this") |
+| 5000000006 | Neeraj Kulkarni | resident, flat T07-1203 (owner) | Yes | A resident with the plain Home; raising an ordinary complaint |
+| 5000000007 | Swati Joshi | resident, flat T12-0408 (tenant) | Yes | Overdue dues with a late fee; paying on the demo page; raising a danger complaint |
+| 5000000008 | Anil Joshi | resident, flat T12-0408 (owner) | No | The second person of Swati's flat |
+| 5000000009 | Aamir Shaikh | resident, flat T21-1601 (owner) | Yes | A part-paid flat; the late fee that stays due after a principal-only bank payment |
+| 5000000010 | Rohit Deshmukh | resident, flat T15-0902 (owner) | No | The "Copy payment note" button |
+| 5000000265 | Mahesh Mehta | resident, flat T03-0104 (owner) | No | Spare logins for paying a bill: one open October bill, Rs 8,628 due at the demo date, no complaint |
+| 5000000304 | Rashmi Sharma | resident, flat T03-0603 (owner) | No | Spare logins for paying a bill: one open October bill, Rs 5,556 due at the demo date, no complaint |
+| 5000000349 | Divya Kapoor | resident, flat T03-1104 (owner) | No | Spare logins for paying a bill: one open October bill, Rs 7,517 due at the demo date, no complaint |
+| 5000000467 | Priya Menon | resident, flat T04-1107 (owner) | No | Spare logins for paying a bill: one open October bill, Rs 7,517 due at the demo date, no complaint |
+| 5000000650 | Sunita Kulkarni | resident, flat T06-0306 (owner) | No | Spare logins for paying a bill: one open October bill, Rs 6,406 due at the demo date, no complaint |
+| 5000000763 | Kiran Verma | resident, flat T07-0104 (owner) | No | Spare logins for paying a bill: one open October bill, Rs 7,517 due at the demo date, no complaint |
+| 5000000821 | Ishaan Desai | resident, flat T07-0904 (owner) | No | Spare logins for paying a bill: one open October bill, Rs 6,406 due at the demo date, no complaint |
+| 5000000976 | Sunil Mehta | resident, flat T08-1405 (owner) | No | Spare logins for paying a bill: one open October bill, Rs 8,628 due at the demo date, no complaint |
+
+**Spare logins.** The ledger never loses an entry, so the first reviewer who pays a sample flat's bill leaves the next one with "No dues". The eight logins marked "Spare logins for paying a bill" are there so that several reviewers can each pay a bill without using up the three flats of the brief. They are existing generated residents (the seed was not changed): each is the only resident of a flat that has exactly one open bill (October 2026), no complaint, and a flat code that is not in the sample bank statement, so importing the statement does not pay it. The amounts above are at the demo date (27 October 2026, 17 days overdue); checked by `tests/integration/spare-logins.test.ts` and `tests/domain/seed/spare-logins.test.ts`. The phones 5000000011 to 5000000018 were not used for them: they already belong to generated residents of the first tower.
 
 **Limits.** The app asks for one code per phone every **30 seconds** and at most **5 per hour per phone** (and 30 per hour per address). If you see "Try again in N seconds" wait, or use another demo phone. Staff sessions end after 30 minutes idle (12 hours overall); residents' after 14 days idle (30 days overall).
 
-**The date.** The app uses TODAY's date, while the seed was made as of **27 October 2026**. So overdue days, late fees and reply times are larger than the client brief's sample table (for example T12-0408: 57 days overdue on 6 November 2026, from `tests/integration/home.test.ts`; the brief says 47 on 27 October). To reproduce the brief's numbers on your own machine set `DEMO_AS_OF=2026-10-27` in `.env` and restart. The live site leaves it unset.
+**Demo date.** The demo's business date is 27 October 2026 (`DEMO_AS_OF=2026-10-27`, which works only with `DEMO_MODE=true`), so the numbers match the client's sample table; sign-in codes and sessions use real time. The login screen, the resident Home and the Profile say so. Without the variable the app uses today's date and the numbers move (for example T12-0408 is 57 days overdue on 6 November 2026; the brief says 47 on 27 October), and the notes say that instead. The live demo sets `DEMO_AS_OF` in the hosting dashboard (`docs/live-refresh-runbook.md`); the clock is described in `docs/demo-clock.md`.
+
+**The three flats of the brief, at the demo date** (checked by `tests/integration/demo-date-sample-flats.test.ts`, which reads the resident Home and its dues sheet under `DEMO_AS_OF=2026-10-27`, and by a scratch server in this round):
+
+| Flat | Resident | Expected at 27 October 2026 |
+|---|---|---|
+| T07-1203 | Neeraj Kulkarni | Nothing due ("No dues") |
+| T12-0408 | Swati Joshi | 47 days overdue, amount due Rs 6,468 |
+| T21-1601 | Aamir Shaikh | 18 days overdue, amount due Rs 5,698 |
+
+All other flats, residents, bills, payments, complaints and bank rows are generated by the seed, not taken from the brief (`docs/seed-data.md`).
 
 ## A five-minute reviewer path
 
@@ -155,7 +176,7 @@ Order matters for the numbers: a payment changes what the bank import sees. The 
 | Database | **Neon, Free plan**, Postgres, region AWS Asia Pacific 1 (Singapore, `aws-ap-southeast-1`), database `neondb` (the region cannot be changed later) |
 | Why Singapore | Neon has no Mumbai region; the function sits in the same AWS region as the database (`docs/deployment-plan.md`, Decision 2) |
 | Two database roles | **`neondb_owner`** owns the tables and is used only on the developer's laptop, for migrations, the seed and the grants: it can switch off the append-only triggers, so it is never given to the app. **`township_app`** is what the app uses: it does not own the tables and has only the privileges generated from one matrix (`src/server/db-roles/app-role.ts`), so a bug or an attack in the web app cannot rewrite the ledger or the audit log. A third, read-only role `township_logs` reads the error log from the developer's machine |
-| Environment variables (names only) | Secrets, set only in the Vercel dashboard (Production): `DATABASE_URL` (the pooled `township_app` string ending `?sslmode=verify-full`), `OTP_PEPPER`, `PAYMENT_WEBHOOK_SECRET`, `OPS_TEST_TOKEN` (optional), and `JEV_PRIMARY_KEY` / `JEV_SECONDARY_KEY` (optional classifier keys). Not secret: `DEMO_MODE`, `SHOW_DESIGN_PAGE`, `JEV_*_URL`, `JEV_*_MODEL`, `DB_POOL_MAX`. Never in Vercel: the owner's string and `LOGS_DATABASE_URL` (laptop only). Must be unset on the live site: `DEMO_AS_OF` |
+| Environment variables (names only) | Secrets, set only in the Vercel dashboard (Production): `DATABASE_URL` (the pooled `township_app` string ending `?sslmode=verify-full`), `OTP_PEPPER`, `PAYMENT_WEBHOOK_SECRET`, `OPS_TEST_TOKEN` (optional), and `JEV_PRIMARY_KEY` / `JEV_SECONDARY_KEY` (optional classifier keys). Not secret: `DEMO_MODE`, `SHOW_DESIGN_PAGE`, `JEV_*_URL`, `JEV_*_MODEL`, `DB_POOL_MAX`. Never in Vercel: the owner's string and `LOGS_DATABASE_URL` (laptop only). `DEMO_AS_OF` (not secret; the live demo sets it to `2026-10-27`; it needs `DEMO_MODE=true` and is ignored otherwise) |
 | Demo mode | `DEMO_MODE=true` during the review window so a reviewer can sign in with the code shown on screen. **Kill switch:** set `DEMO_MODE=false` in the Vercel dashboard and Redeploy (variables apply only to new deployments); nobody can sign in then |
 | Terms and disclosure | Vercel's Hobby plan is for **non-commercial use**; this is an unpaid take-home demo, with fictional data, and the site **may be paused**. Vercel's terms (as read on 2026-11-06, `docs/deployment-plan.md`, Decision 11) say Hobby content may be used to train AI models; only the code and fictional data are there |
 | The live ledger is append-only | Paying on the live site settles a sample bill for good, so reviewers consume demo data |

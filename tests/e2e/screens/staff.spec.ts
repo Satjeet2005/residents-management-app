@@ -84,3 +84,16 @@ test.describe("staff screens: Meera Kapoor, the committee report", () => {
     await checkScreen(page, watch, "report", "drilldown");
   });
 });
+
+test.describe("unknown addresses: Priya Nair, staff", () => {
+  test.use({ storageState: authFile("priya") });
+
+  test("/nope shows the branded page (a real 404) and its link opens the staff landing page", async ({ page }) => {
+    const response = await page.goto("/nope");
+    expect(response?.status()).toBe(404);
+    await expect(page.getByRole("heading", { level: 1, name: "This page does not exist." })).toBeVisible();
+    await page.getByRole("link", { name: "Go to the home page" }).click();
+    await expect(page).toHaveURL(/\/staff$/);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  });
+});

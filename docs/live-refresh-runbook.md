@@ -125,7 +125,7 @@ Vercel > the project > Settings > Environment Variables. Scope every row to **Pr
 | `OPS_TEST_TOKEN` | Set, at least 32 characters (`openssl rand -hex 32`); it enables the error-test route. Dashboard only. | Secret |
 | `DEMO_MODE` | `true` during the review window (the login code is shown on screen); `false` is the kill switch. | Config |
 | `SHOW_DESIGN_PAGE` | `false`. | Config |
-| `DEMO_AS_OF` | Must be **UNSET**: if the name is in the list, delete it, so the live site uses today's date. | n/a |
+| `DEMO_AS_OF` | **SET** to `2026-10-27` (the demo's business date, so the numbers match the client's sample table). It works only while `DEMO_MODE` is `true`; with demo mode off it is ignored. Not secret. | Config |
 | `LOGS_DATABASE_URL` | Must **not** exist in Vercel, ever. | n/a |
 | "Enable access to System Environment Variables" | Ticked (without it the address limit breaks). | n/a |
 
@@ -147,6 +147,7 @@ curl -s "<LIVE_URL>/api/health/ready"
 | `config.otpPepper` | `true` | Login fails with a 500 | Step 5, `OTP_PEPPER`, Redeploy |
 | `config.webhookSecret` | `true` | Payments cannot be verified | Step 5, `PAYMENT_WEBHOOK_SECRET`, Redeploy |
 | `config.demoMode` | `true` while reviewers use the site | No demo code is shown | Step 5, `DEMO_MODE`, Redeploy |
+| `config.demoAsOf` | `true` (and `warnings` is `[]`) | `false`: the date is not frozen and the numbers differ from the sample table. A warning `demoAsOfIgnored` means `DEMO_MODE` is not `true` | Step 5, `DEMO_AS_OF` and `DEMO_MODE`, Redeploy |
 | `config.opsTestEnabled` | `true` after step 5 | The error-test route is a 404 | Step 5, `OPS_TEST_TOKEN`, Redeploy |
 | `config.vercelSystemVars` | `true` on Vercel | The address limit breaks | Tick the System Environment Variables box, Redeploy |
 | `config.nodeMajor` | `24` | Another Node version | Settings > Build and Deployment > Node.js Version 24.x, Redeploy |
@@ -156,6 +157,8 @@ curl -s "<LIVE_URL>/api/health/ready"
 | `appRole.canInsertOtp`, `canInsertErrorEvents` | `true` | Grants missing | Step 3 |
 | `appRole.canReadErrorEvents` | `false` | `true` makes the report degraded: the app role was given SELECT | Step 3 |
 | `data.seeded` | `true` | Database is empty | `docs/deploy-checklist.md`, C5 (or the reset in `docs/hosted-reset-procedure.md`) |
+
+**Then check the demo date on the page.** Open `<LIVE_URL>/login`. **Expected:** the note "About this demo data" says "This demo's business date is fixed at 27 October 2026". Sign in as `5000000007`: the Home says 47 days overdue and Rs 6,468 (the brief's numbers), and the last line of the Home repeats the date note. If the note says "created as of 27 October 2026" instead, `DEMO_AS_OF` is missing: set it and Redeploy.
 
 ### 7. Create and verify the read-only logs role (SQL only, never the Neon console)
 

@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 const READY = {
   status: "ok",
   checks: {
-    config: { otpPepper: true, webhookSecret: true, demoMode: true, opsTestEnabled: false, vercelSystemVars: false, nodeMajor: 24 },
+    config: { otpPepper: true, webhookSecret: true, demoMode: true, demoAsOf: true, opsTestEnabled: false, vercelSystemVars: false, nodeMajor: 24 },
     database: "ok",
     schema: { missingTables: [] },
     appRole: { isSuperuser: false, canInsertOtp: true, canUpdateLedger: false, canDeleteAuditLog: false, canInsertErrorEvents: true, canReadErrorEvents: false },
@@ -120,11 +120,24 @@ describe("D112 the smoke scripts check readiness first", () => {
     expect(out).toContain("READY: the deployment can sign someone in");
     expect(out).toMatch(/PASS\s+appRole.canUpdateLedger\s+false/);
     expect(out).toMatch(/INFO\s+config.demoMode\s+true/);
+    expect(out).toMatch(/INFO\s+config.demoAsOf\s+true/);
+    expect(out).not.toMatch(/WARN/);
     expect(out).toMatch(/INFO\s+config.opsTestEnabled\s+false/);
     expect(out).toMatch(/PASS\s+appRole.canInsertErrorEvents\s+true/);
     expect(out).toMatch(/PASS\s+appRole.canReadErrorEvents\s+false/);
     expect(seen.length).toBeGreaterThan(1);
     expect(seen.some((line) => line.includes("/api/auth/otp/request") || line.includes("/api/health"))).toBe(true);
+  });
+});
+
+describe("D229 a DEMO_AS_OF that is ignored shows as a warning row, not a failure", () => {
+  it.each(SCRIPTS)("%s: prints WARN and still goes on", async (script, args) => {
+    report = { ...READY, checks: { ...READY.checks, config: { ...READY.checks.config, demoMode: false, demoAsOf: false } }, warnings: ["demoAsOfIgnored"] };
+    reportStatus = 200;
+    seen = [];
+    const { out } = await run(script, args());
+    expect(out).toMatch(/WARN\s+warning\s+DEMO_AS_OF is set but demo mode is off/);
+    expect(out).toContain("READY: the deployment can sign someone in");
   });
 });
 

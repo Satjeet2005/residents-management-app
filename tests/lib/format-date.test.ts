@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { MONTHS_LONG, MONTHS_SHORT, formatDay, formatClockIst, formatDayYear, formatTimeIst, monthName } from "@/lib/format-date";
+import { MONTHS_LONG, MONTHS_SHORT, formatDay, formatClockIst, formatDayLong, formatDayYear, formatTimeIst, monthName } from "@/lib/format-date";
 
 describe("HM3 format-date (no Intl)", () => {
   it.each([["2026-10-27", "27 Oct"], ["2026-01-01", "1 Jan"], ["2026-09-10", "10 Sep"], ["2028-02-29", "29 Feb"], ["2026-12-31", "31 Dec"]])("formatDay %s is %s", (date, text) => {
     expect(formatDay(date)).toBe(text);
+  });
+
+  it.each([["2026-10-27", "27 October 2026"], ["2027-01-05", "5 January 2027"], ["2028-02-29", "29 February 2028"]])("formatDayLong %s is %s", (date, text) => {
+    expect(formatDayLong(date)).toBe(text);
   });
 
   it.each([["2026-10-27", "27 Oct 2026"], ["2027-03-05", "5 Mar 2027"]])("formatDayYear %s is %s", (date, text) => {

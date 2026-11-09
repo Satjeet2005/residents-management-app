@@ -16,6 +16,7 @@ import {
   reasonSchema,
 } from "./manual-core";
 import { loadPolicy } from "./positions";
+import { withoutNul } from "@/server/request-text";
 
 export type MatchResult =
   | {
@@ -29,7 +30,7 @@ export type MatchResult =
   | { status: "AWAITING_APPROVAL"; thresholdPaise: string }
   | ManualFailure;
 
-const inputSchema = z.object({ flatCode: z.string().trim().min(3).max(20), reason: reasonSchema, rememberPayer: z.boolean(), expectedVersion: z.number().int().min(1) });
+const inputSchema = z.object({ flatCode: withoutNul(z.string().trim().min(3).max(20)), reason: reasonSchema, rememberPayer: z.boolean(), expectedVersion: z.number().int().min(1) });
 
 /**
  * Staff match a QUEUED bank row to a flat by hand (D7, D14, D107, D110). ONE transaction:

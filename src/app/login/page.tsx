@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/server/auth/current-user";
 import { safeReturnPath } from "@/server/auth/return-url";
-import { isDemoMode } from "@/server/clock";
+import { demoNoteState } from "@/server/demo-note";
 import { LoginScreen } from "./login-screen";
 
 export const metadata = { title: "Log in" };
@@ -15,5 +15,5 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
   const returnTo = requested === undefined ? null : safeReturnPath(requested);
   const user = await getCurrentUser();
   if (user !== null) redirect(user.role === "STAFF" ? "/staff" : (returnTo ?? "/"));
-  return <LoginScreen returnTo={returnTo === "/" ? null : returnTo} showDemoNote={isDemoMode()} />;
+  return <LoginScreen returnTo={returnTo === "/" ? null : returnTo} demoNote={demoNoteState()} />;
 }

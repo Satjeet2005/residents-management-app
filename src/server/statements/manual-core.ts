@@ -9,6 +9,7 @@ import { lockBill } from "@/server/payments/bill-lock";
 import type { Prisma } from "../../../generated/prisma/client";
 import { loadPositions, openOnly } from "./positions";
 import { bankReferences } from "./reference";
+import { withoutNul } from "@/server/request-text";
 
 export type Tx = Prisma.TransactionClient;
 
@@ -33,7 +34,7 @@ export type ManualFailure = { status: "ERROR"; error: ManualError };
 export const failure = (error: ManualError): ManualFailure => ({ status: "ERROR", error });
 
 /** A reason or note a person writes: 5 to 500 characters after trimming. */
-export const reasonSchema = z.string().trim().min(5).max(500);
+export const reasonSchema = withoutNul(z.string().trim().min(5).max(500));
 
 export type PayerNotice = "ADDED" | "ALREADY_KNOWN" | "VPA_ON_OTHER_FLAT";
 

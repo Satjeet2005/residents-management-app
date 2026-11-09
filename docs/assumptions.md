@@ -127,7 +127,11 @@ Decision numbers (D4, D14 and so on) refer to `docs/decisions.md`.
 | R121 | A sort alone counts as an active choice (a chip and the number on the Filters button) but does not say "(filtered)", because it only reorders. | `activeFilters`, `narrowsRows`. | None. |
 | R122 | The empty filtered state was not reachable in the demo data (no combination of amount and reason is empty); it is covered by a render test and, when the data has such a combination, by the browser spec. | `tests/ui/reconciliation-workspace.test.ts` (WS8). | None. |
 | R123 | Phone numbers: ten digits (or 91 and ten, or 0 and a mobile number) are shown as +91 xxxxx xxxxx; anything else (112, a landline with its STD code) is shown as written. | `formatPhone`. | Check with the society's real numbers. |
-
+| R134 | In the fixed-date demo the payment attempt's start time and the ledger date follow the business clock, while its `resolved_at`, the audit rows and the mock checkout page follow the real clock (D97). | `docs/demo-clock.md` (inventory). | Not shown on any page; make `resolved_at` follow the business clock if a page ever shows it. |
+| R135 | A `DEMO_AS_OF` that is set while demo mode is off is ignored with a readiness warning, not an error; an INVALID value in demo mode still throws (fail loud). | `src/server/clock.ts`, `src/server/health/readiness.ts`. | Make the app refuse to start instead. |
+| R136 | The Home's demo note is one line below Recent activity (the safer place: it cannot move the Pay button). The demo note's wording now depends on the frozen date and the live site sets `DEMO_AS_OF` (D226, D230), which replaces the last sentence of R35 and the message key `demo.note.body` (now `demo.note.frozen` and `demo.note.live`). | `src/app/(resident)/home-view.tsx`. | Move it above the dues, then re-measure the first screen. |
+| R137 | The staff board's own demo note ("Demo data is dated 27 October ...") is hidden when the clock is frozen, because it would be false then. | `src/app/(staff)/staff/complaints/page.tsx`. | Show it again. |
+| R138 | The three sample flats' expected values at the demo date were taken from the brief and CHECKED by running the app (47 days and Rs 6,468; 18 days and Rs 5,698; nothing due). | `tests/integration/demo-date-sample-flats.test.ts`. | Change the expectations if the seed changes. |
 
 ## Assumptions kept in other documents
 

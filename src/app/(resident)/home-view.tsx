@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DemoNoteLine } from "@/components/demo-note";
 import { EmergencyButton } from "@/components/emergency-sheet";
 import { ComplaintStatusMark, ComplaintTracker, complaintSteps } from "@/components/complaint-progress";
 import { Money } from "@/components/ui/money";
@@ -8,6 +9,7 @@ import { StatusTag } from "@/components/ui/status-tag";
 import { stepNumber } from "@/components/ui/tracker";
 import { DoubleRule, Hairline } from "@/components/ui/rules";
 import { formatRupees } from "@/domain/money/money";
+import type { DemoNoteState } from "@/lib/demo-note";
 import { formatDay } from "@/lib/format-date";
 import { complaintStepLine, dueTag, entryLabel, otherComplaintsText, partlyPaidText, visitorTimesText, visitorsText } from "@/lib/home-text";
 import { t } from "@/lib/messages";
@@ -100,7 +102,7 @@ function ActivityRow({ entry }: { entry: RecentEntry }) {
  * the server to lock the amount. While the flat has an open safety complaint, the safety alert sits above the dues and Pay is outlined (D126).
  * The complaint card opens the complaint; "Raise a complaint" opens the form. No View ledger, no Receipt: those arrive with their features.
  */
-export function HomeView({ data }: { data: HomeData }) {
+export function HomeView({ data, demoNote = null }: { data: HomeData; demoNote?: DemoNoteState | null }) {
   if (data.kind === "NO_FLAT") {
     return (
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4">
@@ -155,6 +157,8 @@ export function HomeView({ data }: { data: HomeData }) {
           </ul>
         )}
       </section>
+
+      {demoNote !== null && <DemoNoteLine note={demoNote} />}
     </main>
   );
 }

@@ -5,6 +5,7 @@ import { approveRequest, ignoreRow, rejectRequest } from "./approval";
 import { type ManualError } from "./manual-core";
 import { postManualMatch } from "./manual";
 import { LANES, getRowReview, listImports, listRows, searchFlats } from "./review";
+import { withoutNul } from "@/server/request-text";
 
 type Context = Pick<GuardContext, "user" | "deps" | "request">;
 type Env = Readonly<Record<string, string | undefined>>;
@@ -46,10 +47,10 @@ async function readBody(request: Request): Promise<unknown> {
 }
 
 const decimal = z.string().regex(/^[0-9]{1,18}$/);
-const matchBody = z.strictObject({ flatCode: z.string().min(1).max(20), reason: z.string().max(2000), rememberPayer: z.boolean().default(false), expectedVersion: z.number().int().min(1).max(1_000_000), expectedAmountDuePaise: decimal.optional() });
-const ignoreBody = z.strictObject({ reason: z.string().max(2000), expectedVersion: z.number().int().min(1).max(1_000_000) });
-const approveBody = z.strictObject({ note: z.string().max(2000).optional() });
-const rejectBody = z.strictObject({ reason: z.string().max(2000) });
+const matchBody = z.strictObject({ flatCode: withoutNul(z.string().min(1).max(20)), reason: withoutNul(z.string().max(2000)), rememberPayer: z.boolean().default(false), expectedVersion: z.number().int().min(1).max(1_000_000), expectedAmountDuePaise: decimal.optional() });
+const ignoreBody = z.strictObject({ reason: withoutNul(z.string().max(2000)), expectedVersion: z.number().int().min(1).max(1_000_000) });
+const approveBody = z.strictObject({ note: withoutNul(z.string().max(2000)).optional() });
+const rejectBody = z.strictObject({ reason: withoutNul(z.string().max(2000)) });
 
 /** GET /api/statements: the latest imports, newest first. */
 export async function handleListImports(context: Context): Promise<Response> {
@@ -78,7 +79,7 @@ export async function handleReview(context: Context, options: { env?: Env; now?:
 
 /** GET /api/flats/search?q=: at most 10 flats. */
 export async function handleSearchFlats(context: Context, options: { env?: Env; now?: number } = {}): Promise<Response> {
-  const q = z.string().max(100).safeParse(new URL(context.request.url).searchParams.get("q") ?? "");
+  const q = withoutNul(z.string().max(100)).safeParse(new URL(context.request.url).searchParams.get("q") ?? "");
   if (!q.success) return json(400, { error: "INVALID_REQUEST" });
   return json(200, { flats: await searchFlats({ db: context.deps.db, q: q.data, now: options.now ?? businessNow(options.env ?? process.env) }) });
 }

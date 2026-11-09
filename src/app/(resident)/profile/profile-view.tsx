@@ -1,4 +1,5 @@
 import { DemoNote } from "@/components/demo-note";
+import type { DemoNoteState } from "@/lib/demo-note";
 import { SignOutButtons } from "@/components/sign-out-buttons";
 import { SectionHeader } from "@/components/ui/section-header";
 import { t } from "@/lib/messages";
@@ -28,7 +29,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 }
 
 /** The Profile page for one person: who they are, which flats, sign out, and (in demo mode) the note about the demo data. */
-export function ProfileView({ data, showDemoNote }: { data: ProfileData; showDemoNote: boolean }) {
+export function ProfileView({ data, demoNote }: { data: ProfileData; demoNote: DemoNoteState | null }) {
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4">
       <h1 className="text-heading font-semibold">{t("profile.title")}</h1>
@@ -53,7 +54,7 @@ export function ProfileView({ data, showDemoNote }: { data: ProfileData; showDem
         )}
       </section>
       <SignOutButtons showAll />
-      {showDemoNote && <DemoNote />}
+      {demoNote !== null && <DemoNote note={demoNote} />}
     </main>
   );
 }

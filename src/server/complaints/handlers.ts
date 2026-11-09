@@ -17,6 +17,7 @@ import { confirmFixed, reopen } from "./resident";
 import { acknowledgeSafety, closeSafety } from "./safety";
 import { getStaffComplaint, listStaffUsers } from "./staff-read";
 import { addComment, assign, correctCategory, setStatus } from "./staff-actions";
+import { withoutNul } from "@/server/request-text";
 
 type Context = Pick<GuardContext, "user" | "deps" | "request">;
 type Options = { now?: number; classifier?: Classifier };
@@ -63,12 +64,12 @@ async function readBody(request: Request): Promise<unknown> {
 const version = z.number().int().min(1).max(1_000_000);
 const raiseBody = z.strictObject({ body: z.string().max(MAX_BODY_CHARS), declaredDanger: z.boolean().default(false) });
 const confirmBody = z.strictObject({ rating: z.number().int().min(1).max(5).optional() });
-const reopenBody = z.strictObject({ reason: z.string().max(5000) });
+const reopenBody = z.strictObject({ reason: withoutNul(z.string().max(5000)) });
 const assignBody = z.strictObject({ assigneeUserId: z.uuid(), expectedVersion: version });
-const statusBody = z.strictObject({ status: z.enum(["IN_PROGRESS", "PENDING_CONFIRMATION"]), note: z.string().max(5000).optional(), expectedVersion: version });
-const commentBody = z.strictObject({ text: z.string().max(5000), visibleToResident: z.boolean() });
+const statusBody = z.strictObject({ status: z.enum(["IN_PROGRESS", "PENDING_CONFIRMATION"]), note: withoutNul(z.string().max(5000)).optional(), expectedVersion: version });
+const commentBody = z.strictObject({ text: withoutNul(z.string().max(5000)), visibleToResident: z.boolean() });
 const categoryBody = z.strictObject({ category: z.enum(CATEGORY_CODES), expectedVersion: version });
-const closeBody = z.strictObject({ note: z.string().max(5000) });
+const closeBody = z.strictObject({ note: withoutNul(z.string().max(5000)) });
 const emptyBody = z.strictObject({});
 
 /** Lazy auto-close (D120): the lists call it as they load. */
@@ -125,7 +126,7 @@ const boardFilters = z.object({
   category: z.enum(CATEGORY_CODES).optional(),
   assignee: z.enum(ASSIGNEE_FILTERS).default("anyone"),
   urgency: z.enum(URGENCIES).optional(),
-  q: z.string().max(8).optional(),
+  q: withoutNul(z.string().max(8)).optional(),
 });
 
 /**
