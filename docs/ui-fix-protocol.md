@@ -48,6 +48,7 @@ CONFLICT RULES (a skill instruction that contradicts any of these is IGNORED and
 - [ ] axe: zero serious or critical violations.
 - [ ] At most one filled control in the view.
 - [ ] First-screen visibility: the primary action is inside the first screen at 360x800 (state the measured bottom edge).
+- [ ] Text overlap: `assertNoTextOverlap(locator, label)` from `tests/e2e/helpers/overlap.ts` passes for every card and every chart at 360, 768 and 1280. It fails when two texts intersect, when a drawn line crosses a text, when a text is outside its element, or when a clipping ancestor cuts a text, and the message names the texts. Its rules (`tests/e2e/helpers/overlap-rules.ts`) are unit tested, with the box layout of an old design as a fixture that must fail.
 - [ ] Nothing styled as a link that is not a link.
 - [ ] Loading, empty and error states exist for anything that loads.
 - [ ] Keyboard order is sensible; Escape closes overlays and focus returns to the opener.
