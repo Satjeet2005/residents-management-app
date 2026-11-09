@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -45,6 +46,68 @@ beforeAll(async () => {
   );
 });
 afterAll(() => rmSync(root, { recursive: true, force: true }));
+
+/** A temporary git repository whose docs/a.md cites the given paths; `tracked` files are committed, the others are only on disk. */
+function gitFixture(cited: string[], tracked: string[], untracked: string[], ignore = ""): { dir: string; problems: string[] } {
+  const dir = mkdtempSync(path.join(tmpdir(), "docs-verify-git-"));
+  const git = (...args: string[]): void => void execFileSync("git", args, { cwd: dir, stdio: "ignore" });
+  const write = (relative: string): void => {
+    mkdirSync(path.dirname(path.join(dir, relative)), { recursive: true });
+    writeFileSync(path.join(dir, relative), "x\n");
+  };
+  git("init", "-q");
+  git("config", "user.name", "Test");
+  git("config", "user.email", "test@example.invalid");
+  writeFileSync(path.join(dir, "package.json"), "{}");
+  writeFileSync(path.join(dir, ".gitignore"), ignore);
+  mkdirSync(path.join(dir, "docs"), { recursive: true });
+  writeFileSync(path.join(dir, "docs/a.md"), cited.map((c) => `See \`${c}\`.`).join("\n"));
+  for (const f of tracked) write(f);
+  git("add", "package.json", ".gitignore", "docs/a.md", ...tracked);
+  git("commit", "-q", "-m", "fixture");
+  for (const f of untracked) write(f);
+  return { dir, problems: checker.verify(dir).map((p) => `${p.line} ${p.problem}`) };
+}
+
+describe("DV2 the documentation checker counts only committed files", () => {
+  const dirs: string[] = [];
+  const run = (...args: Parameters<typeof gitFixture>): string[] => {
+    const result = gitFixture(...args);
+    dirs.push(result.dir);
+    return result.problems;
+  };
+  afterAll(() => dirs.forEach((d) => rmSync(d, { recursive: true, force: true })));
+
+  it("accepts a cited tracked file", () => {
+    expect(run(["docs/shot.png"], ["docs/shot.png"], [])).toEqual([]);
+  });
+
+  it("fails a cited file that is on disk but untracked", () => {
+    expect(run(["docs/shot.png"], [], ["docs/shot.png"])).toEqual(["1 path exists but is not committed: docs/shot.png"]);
+  });
+
+  it("fails a cited ignored file", () => {
+    expect(run(["docs/shot.png"], [], ["docs/shot.png"], "docs/shot.png\n")).toEqual(["1 path exists but is not committed: docs/shot.png"]);
+  });
+
+  it("accepts a cited local-only path that is allowlisted", () => {
+    expect(run(["submission/notes.md"], [], ["submission/notes.md"], "submission/\n")).toEqual([]);
+  });
+
+  it("reports a cited file that exists nowhere as path not found", () => {
+    expect(run(["docs/gone.png"], [], [])).toEqual(["1 path not found: docs/gone.png"]);
+  });
+
+  it("falls back to the disk check outside a git work tree", () => {
+    const plain = mkdtempSync(path.join(tmpdir(), "docs-verify-plain-"));
+    dirs.push(plain);
+    writeFileSync(path.join(plain, "package.json"), "{}");
+    mkdirSync(path.join(plain, "docs"));
+    writeFileSync(path.join(plain, "docs/shot.png"), "x");
+    writeFileSync(path.join(plain, "docs/a.md"), "See `docs/shot.png` and `docs/gone.png`.");
+    expect(checker.verify(plain).map((p) => p.problem)).toEqual(["path not found: docs/gone.png"]);
+  });
+});
 
 describe("DV1 the documentation checker", () => {
   it("reads backticked paths, citations and npm scripts from a line", () => {
