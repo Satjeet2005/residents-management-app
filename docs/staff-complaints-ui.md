@@ -95,7 +95,7 @@ never an error and never in the SQL as text (`parseBoardQuery`, `src/lib/staff-c
 | a closed complaint, or a user without `complaints:manage` | no bar |
 
 **More** and **Update** open the **actions sheet**: a short menu of rows, each opening its own small form, one at a time: Assign, Mark in progress, Mark resolved
-(a note is required; never offered for a safety complaint), Add comment (the box "Visible to the resident" is unchecked), Correct category, and for the duty
+(a note is required; never offered for a safety complaint), Add comment (the box "Visible to the resident" is unchecked), and for the duty
 manager on a safety complaint Close this safety complaint (a note is required). Every validation, the version check and the 409 "This complaint changed. Reload
 to see it." are those of the side panel (both use `useStaffActions`). After a success the sheet closes, the page refreshes, a live message in the bar says what
 changed, and focus returns to the control that opened the sheet.
@@ -111,7 +111,7 @@ as a table test; the services refuse the rest again.
 | Mark in progress | NEW, ASSIGNED, REOPENED |
 | Mark resolved (asks for a note of 5 to 500 characters first) | NEW, ASSIGNED, IN_PROGRESS, REOPENED, and **never for a safety complaint** |
 | Comment, with the box "Visible to the resident" (**OFF** until ticked) | every status |
-| Correct the category (a select of the five, Save; off while it is the same category, unless the complaint waits for review) | every status |
+| The category: five chips on the Details tab (not in the panel; see "One-tap category" below) | every status; disabled on a closed complaint |
 | **I have seen this** (acknowledge) | **the duty manager only**, a safety complaint that is not closed and not yet acknowledged; the ONE filled control while offered |
 | **Close this safety complaint** (asks for a note of 5 to 500 characters first) | **the duty manager only**, a safety complaint in NEW, ASSIGNED, IN_PROGRESS or REOPENED |
 
@@ -162,7 +162,7 @@ error; a not-found page for a complaint address that matches nothing (a missing 
 - **SU14.** (T13h) The counts of the views follow the filters (so a total and a list agree); the alert strip does not.
 - **SU15.** (T13h) A one-digit tower in the flat search is zero-padded ("t5" is "T05"), and a three-digit unit part too ("t12 408" is "T12-0408"), as the flat-code parser pads them.
 - **SU16.** (T13h) The bar's safe-area padding uses `env(safe-area-inset-bottom)`; the app does not set `viewport-fit=cover`, so the inset is zero in most browsers and the bar sits above the system area.
-- **SU17.** (T13h) A phone gets no way to comment or correct the category of a closed complaint (there is no bar for it); the side panel from 1024px still offers both.
+- **SU17.** (T13h) A phone gets no way to comment on a closed complaint (there is no bar for it); the side panel from 1024px still offers it. The category chips of a closed complaint are disabled on every screen (D239).
 - **SU12.** The limits (a comment of 1,000 characters, a note of 5 to 500) are constants in `src/lib/staff-complaints/panel.ts` that the services also enforce; the sentence "Write a note of 5 to 500 characters." in the message catalog states the same numbers, so a change to them is made in both places.
 
 ## How the data is read
@@ -181,3 +181,7 @@ The look at 1280px and 360px, where focus lands, the arrow keys on the tabs and 
 "Walking the complaints board"). The render tests (`tests/ui/staff-complaint*.test.ts`, `staff-complaints-*.test.ts`) check the markup of every component and
 state; the reducer, the control table and the timeline are unit tested; the loaders run as the app role (`tests/integration/staff-complaints-data.test.ts`);
 the screens in a browser are `tests/e2e` (the old HTTP script `smoke:app` is retired). A click is not simulated anywhere: no DOM library is installed and none was added.
+
+## One-tap category (D239, audit A-009)
+
+The category is five chips in the Details tab (Plumbing, Electrical, Housekeeping, Lift, Other; 48px high, 8px apart, two rows on a phone). The complaint's category is pressed (`aria-pressed`, a 2px ink border and a paper-2 tint). One tap on another chip calls the existing category route at once with the version the page was shown with (no Save, no confirmation); a live message says "Category changed to X." and, for six seconds, "Undo" puts the category back with the new version. A stale version answers 409 and the page says "This complaint changed. Reload to see it." with Reload. Every change is audited (a CATEGORY_CORRECTED event and a MANUAL classification row, an Undo is a second change) and only `complaints:manage` may make it. The chips of a closed complaint are disabled (`aria-disabled`). Pure logic: `src/lib/staff-complaints/category-chips.ts`; markup: `category-chips-view.tsx`; tests CC1 to CC3, CL3c and the phone check in `tests/e2e/screens/staff-complaints.spec.ts`. Screenshot: `docs/screenshots/complaint-category-chips-360x800.png`.
