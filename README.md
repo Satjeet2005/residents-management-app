@@ -2,7 +2,7 @@
 
 A resident app (an installable web app) and a staff console for a fictional gated township in Pune with 2,400 flats: residents see and pay maintenance dues, raise complaints and see visitors; accounts staff match bank payments to flats; a committee reads a monthly report. Money is whole paise in an append-only ledger, and the safety words of a complaint escalate by fixed rules before any AI runs. Everything is demo data, and the SMS sender and the payment gateway are mocked. See `CLAUDE.md` for the rules this repo follows.
 
-**Live app:** `<LIVE_URL>` (placeholder: the hosted address, to be filled in by the owner). **Repository:** `<REPO_URL>` (placeholder). The list of placeholders is at the end of [deployment.md](deployment.md).
+**Live app:** https://residents-management-app.vercel.app **Repository:** https://github.com/Satjeet2005/residents-management-app
 
 ## Start here
 

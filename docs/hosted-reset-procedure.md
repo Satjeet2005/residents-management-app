@@ -4,7 +4,7 @@ Restores the HOSTED demo database to a clean, freshly seeded state. Written 2026
 command of the app: the app's own guards (`src/server/seed/guards.ts`) refuse any reset on a remote host, so a mistake or an attacker cannot wipe the live data
 with the repository's tools. This procedure uses the owner's own connection instead.
 
-`<LIVE_URL>` is the hosted address. Names used: owner role `neondb_owner`, database `neondb`, application role `township_app`, logs role `township_logs`.
+`https://residents-management-app.vercel.app` is the hosted address. Names used: owner role `neondb_owner`, database `neondb`, application role `township_app`, logs role `township_logs`.
 
 ## What it DESTROYS
 
@@ -112,8 +112,8 @@ A fresh seed already writes both (D116 and the goals), so the statements change 
 ### 9. Readiness and a login smoke test
 
 ```bash
-curl -s "<LIVE_URL>/api/health/ready"
-node scripts/smoke-auth.mjs <LIVE_URL> 5000000006
+curl -s "https://residents-management-app.vercel.app/api/health/ready"
+node scripts/smoke-auth.mjs https://residents-management-app.vercel.app 5000000006
 ```
 
 **Expected:** `"status":"ok"` with `"data":{"seeded":true}` and `canInsertErrorEvents: true`, `canReadErrorEvents: false`; then `ALL 13 CHECKS PASSED`. If `appRole` shows false for `canInsertOtp`, step 5 did not run. Open the site and sign in as `5000000007` to see Home dues: the app uses today's date, so the figures differ from the brief's sample (see `deployment.md`).

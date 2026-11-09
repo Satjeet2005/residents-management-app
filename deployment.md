@@ -7,8 +7,8 @@ this file; anything that could not be checked is marked **UNVERIFIED** with the 
 
 1. **Township** is a resident app (an installable web app) and a staff console for a fictional gated township in Pune with 2,400 flats: residents see and pay maintenance dues, raise complaints and see visitors; accounts staff match bank payments to flats; a committee reads a monthly report.
 2. It is a six-day take-home. Money is whole paise (BigInt) in an append-only ledger; the safety words of a complaint escalate by fixed rules before any AI runs. All names and numbers are fictional, and the SMS sender and the payment gateway are mocked.
-3. **Live app:** `<LIVE_URL>` (the likely address is https://residents-management-app.vercel.app; **confirm with the human**, it is not asserted here).
-4. **Repository:** `<REPO_URL>` (`docs/deploy-checklist.md` names the GitHub repository `Satjeet2005/residents-management-app`; confirm).
+3. **Live app:** https://residents-management-app.vercel.app
+4. **Repository:** https://github.com/Satjeet2005/residents-management-app
 5. Start with this file, then `docs/walkthrough.md` (a tour of every area), `docs/demo-script.md` (a five-minute demo), `docs/decisions.md` and `docs/assumptions.md`; the other documents are linked from `README.md`.
 
 ## Run it locally from a clean clone
@@ -32,7 +32,7 @@ Each step shows what you should see. The outputs were taken from a real run of `
 
 1. **Clone.**
    ```bash
-   git clone <REPO_URL> township && cd township
+   git clone https://github.com/Satjeet2005/residents-management-app township && cd township
    ```
    Expected: `Cloning into 'township'...` and no error. **UNVERIFIED:** this exact `git clone` was not run in the session that wrote this file (it was told not to clone anything); the script's `--local-copy` form, which copies the working tree instead, was run, and its `git clone` branch was only read.
 
@@ -157,7 +157,7 @@ All other flats, residents, bills, payments, complaints and bank rows are genera
 
 ## A five-minute reviewer path
 
-At a phone width (Chrome: F12, then Ctrl+Shift+M, choose Responsive, 360 x 800) for the resident steps, and at 1280 x 800 for the staff steps. Each step was taken from the walkthroughs in `README.md` and from the click sequences of the browser tests (`tests/e2e/flows/*.spec.ts`, `tests/e2e/screens/*.spec.ts`, which passed 79 of 79 at the end of Phase A: see `docs/overnight-report.md`). **I did not click through the site by hand in this session**; where a label is read from the page source, not a test, it is marked (source).
+At a phone width (Chrome: F12, then Ctrl+Shift+M, choose Responsive, 360 x 800) for the resident steps, and at 1280 x 800 for the staff steps. Each step was taken from the walkthroughs in `README.md` and from the click sequences of the browser tests (`tests/e2e/flows/*.spec.ts`, `tests/e2e/screens/*.spec.ts`, which passed 79 of 79 at the end of Phase A: see `docs/overnight-report.md`). An audit also followed this path in a browser.
 
 Order matters for the numbers: a payment changes what the bank import sees. The import figures below (25 posted, 43 need you) assume Swati has NOT paid yet; after she pays through the demo gateway they read 24 and 44 (`docs/statement-import-design.md`, S9).
 
@@ -182,13 +182,13 @@ Order matters for the numbers: a payment changes what the bank import sees. The 
 | The live ledger is append-only | Paying on the live site settles a sample bill for good, so reviewers consume demo data |
 | Restoring the data | `docs/hosted-reset-procedure.md` (owner only; destroys everything; run it last). Bringing a deployment up to date: `docs/live-refresh-runbook.md` |
 
-The hosted readiness report (`<LIVE_URL>/api/health/ready`) should read HTTP 200 and, as captured from a local server connecting as a non-owner role (the same shape the hosted one has):
+The hosted readiness report (`https://residents-management-app.vercel.app/api/health/ready`) should read HTTP 200 and, as captured from a local server connecting as a non-owner role (the same shape the hosted one has):
 `{"status":"ok","checks":{"config":{"otpPepper":true,"webhookSecret":true,"demoMode":true,"opsTestEnabled":false,"vercelSystemVars":false,"nodeMajor":24},"database":"ok","schema":{"missingTables":[]},"appRole":{"isSuperuser":false,"canInsertOtp":true,"canUpdateLedger":false,"canDeleteAuditLog":false,"canInsertErrorEvents":true,"canReadErrorEvents":false},"data":{"seeded":true}}}`
 On Vercel `vercelSystemVars` is `true`; `opsTestEnabled` is `true` once `OPS_TEST_TOKEN` is set. **UNVERIFIED:** the hosted deployment itself was not reached from the session that wrote this file.
 
 ## Install it on a phone
 
-Open `<LIVE_URL>` over HTTPS. Chrome on Android: menu, **Install app** (or **Add to Home screen**). iPhone: Safari, Share, **Add to Home Screen**. It opens without the browser bars. Only the **offline page** works without a network ("You're offline. You can't pay right now."): the money and the complaints always come from the server, and the service worker stores only that page and the icons, never anything after login (`docs/installable-app.md`). Over plain HTTP on a LAN address Chrome will not install it; `localhost` does.
+Open `https://residents-management-app.vercel.app` over HTTPS. Chrome on Android: menu, **Install app** (or **Add to Home screen**). iPhone: Safari, Share, **Add to Home Screen**. It opens without the browser bars. Only the **offline page** works without a network ("You're offline. You can't pay right now."): the money and the complaints always come from the server, and the service worker stores only that page and the icons, never anything after login (`docs/installable-app.md`). Over plain HTTP on a LAN address Chrome will not install it; `localhost` does.
 
 ## Testing
 
@@ -204,7 +204,7 @@ Run `npm run test:ci-parity` (unit and integration) and `npm run e2e` (browser);
 | `smoke:app` (retired) | RETIRED. It checked screens as they were before the redesigns of the committee report, the staff home, the reconciliation workspace and the complaints board, and failed 34 of 166 checks. Use `npm run e2e` (browser tests on a scratch database), the unit and integration suites, `npm run smoke:auth` and `scripts/verify-clean-clone.sh` instead. Do not run the old script against any deployment: it mutates data | Not part of the reviewer path |
 | `npm run llm:check` | that your own classifier keys answer (three fictional complaints per provider) | **Not run: it needs your keys and uses the free quota** |
 | `npm run scan:secrets` | no secret pattern in the tree | `scan:secrets: no secrets found` |
-| `scripts/verify-clean-clone.sh <REPO_URL> [--quick]` | the whole path above, from an empty directory, with its own database container | 12 of 12 steps PASS on a copy of the working tree (`--local-copy`); the `git clone` branch is UNVERIFIED |
+| `scripts/verify-clean-clone.sh https://github.com/Satjeet2005/residents-management-app [--quick]` | the whole path above, from an empty directory, with its own database container | 12 of 12 steps PASS on a copy of the working tree (`--local-copy`); the `git clone` branch is UNVERIFIED |
 
 ## When something breaks
 
@@ -212,7 +212,7 @@ Run `npm run test:ci-parity` (unit and integration) and `npm run e2e` (browser);
 
 1. **Vercel live logs** (Project > Logs): every failure is one JSON line with its reference; **Vercel Hobby keeps only the last hour**.
 2. **The error log** in our own database, read from the developer's machine: `npm run logs:errors -- --ref=E-XXXXXX --paste` (the `E-XXXXXX` reference is in the "Something went wrong" answer; the number on an error page is a digest: `--digest=N`). It needs `LOGS_DATABASE_URL`, the read-only role, on that machine only. Options are written `--name=value`.
-3. **The readiness page** `<LIVE_URL>/api/health/ready`: booleans and table names only, safe to paste.
+3. **The readiness page** `https://residents-management-app.vercel.app/api/health/ready`: booleans and table names only, safe to paste.
 
 | Failing readiness check | Likely cause | First fix |
 |---|---|---|
@@ -232,11 +232,9 @@ Short: one-time codes stored as an HMAC, database sessions with idle and absolut
 
 The candid list, with why, impact, fix and effort for each, is `docs/known-limitations.md`. The ones a reviewer meets first: SMS and the payment gateway are mocked; payment hold and release states, fee waivers, undo, duplicate-complaint linking, the notifications bell, the ledger page, receipts and the Hindi and Marathi screens are not built; the Hindi and Marathi safety words are not yet reviewed by a native speaker; the classifier's accuracy is not benchmarked; breakers and caps are per serverless instance; only Chromium was tested.
 
-## Placeholders for the human
+## Placeholders
 
-- [ ] `<LIVE_URL>`: the hosted address (likely https://residents-management-app.vercel.app; confirm in the Vercel dashboard). Fill it in this file (the first lines, "Install it on a phone", "How it is deployed"), in `README.md`, and in `docs/submission-checklist.md`.
-- [ ] `<REPO_URL>`: the public repository address (the checklist names `Satjeet2005/residents-management-app`; confirm). Same places, and the clone step above.
-- [ ] Run `grep -rn "<LIVE_URL>\|<REPO_URL>" README.md deployment.md docs` before submitting and decide for each hit whether it should stay.
+The live address and the repository address are filled in everywhere in this file and in `README.md`.
 
 ## Checking the documents
 

@@ -3,7 +3,7 @@
 For the human (the owner of the Vercel and Neon accounts). It is ONE ordered list. Do the steps in order and stop at the first one that does not give its
 expected result. Written 2026-11-08. It goes with `docs/deploy-checklist.md` (the first-time setup) and `docs/observability.md`.
 
-`<LIVE_URL>` is the hosted address, for example `https://residents-management-app.vercel.app` (confirm yours in the Vercel dashboard). The database owner role on Neon is
+`https://residents-management-app.vercel.app` is the hosted address. The database owner role on Neon is
 `neondb_owner`, the application role is `township_app`, the logs role is `township_logs` (the Neon defaults and the names used throughout this repository).
 
 ## Rules for the whole runbook
@@ -137,7 +137,7 @@ Then Deployments > the latest > the "..." menu > **Redeploy**. **Expected:** the
 ### 6. Open the readiness report and read each check (browser or terminal)
 
 ```bash
-curl -s "<LIVE_URL>/api/health/ready"
+curl -s "https://residents-management-app.vercel.app/api/health/ready"
 ```
 
 **Expected:** HTTP 200 and `"status":"ok"`. HTTP 503 means a check failed. Read the checks (booleans and fixed words only; safe to paste into a chat):
@@ -158,7 +158,7 @@ curl -s "<LIVE_URL>/api/health/ready"
 | `appRole.canReadErrorEvents` | `false` | `true` makes the report degraded: the app role was given SELECT | Step 3 |
 | `data.seeded` | `true` | Database is empty | `docs/deploy-checklist.md`, C5 (or the reset in `docs/hosted-reset-procedure.md`) |
 
-**Then check the demo date on the page.** Open `<LIVE_URL>/login`. **Expected:** the note "About this demo data" says "This demo's business date is fixed at 27 October 2026". Sign in as `5000000007`: the Home says 47 days overdue and Rs 6,468 (the brief's numbers), and the last line of the Home repeats the date note. If the note says "created as of 27 October 2026" instead, `DEMO_AS_OF` is missing: set it and Redeploy.
+**Then check the demo date on the page.** Open `https://residents-management-app.vercel.app/login`. **Expected:** the note "About this demo data" says "This demo's business date is fixed at 27 October 2026". Sign in as `5000000007`: the Home says 47 days overdue and Rs 6,468 (the brief's numbers), and the last line of the Home repeats the date note. If the note says "created as of 27 October 2026" instead, `DEMO_AS_OF` is missing: set it and Redeploy.
 
 ### 7. Create and verify the read-only logs role (SQL only, never the Neon console)
 
@@ -205,7 +205,7 @@ runsql "SELECT 1 FROM users LIMIT 1"
 ### 8. Call the ops test route and find the reference (terminal)
 
 ```bash
-read -rs T && curl -s -H "x-ops-token: $T" "<LIVE_URL>/api/ops/error-test"; unset T
+read -rs T && curl -s -H "x-ops-token: $T" "https://residents-management-app.vercel.app/api/ops/error-test"; unset T
 ```
 
 **Expected:** `{"ref":"E-XXXXXX"}` (six characters after `E-`). Without the header the route is a plain 404. At most 5 calls an hour per server instance.
@@ -220,8 +220,8 @@ npm run logs:errors -- --ref=E-XXXXXX --paste
 ### 9. Smoke test the login over HTTPS (terminal)
 
 ```bash
-node scripts/smoke-auth.mjs <LIVE_URL> 5000000006      # a resident
-node scripts/smoke-auth.mjs <LIVE_URL> 5000000001      # a staff member
+node scripts/smoke-auth.mjs https://residents-management-app.vercel.app 5000000006      # a resident
+node scripts/smoke-auth.mjs https://residents-management-app.vercel.app 5000000001      # a staff member
 ```
 
 **Expected:** it prints the readiness table (every line PASS or INFO), then `ALL 13 CHECKS PASSED` for each (the cookie checks expect `__Host-session` with `Secure` over https). Each run asks for one code per phone: the app allows one code per 30 seconds and 5 an hour per phone, so use another demo phone if you see "429".
@@ -229,7 +229,7 @@ node scripts/smoke-auth.mjs <LIVE_URL> 5000000001      # a staff member
 
 ### 10. Check installability and the offline page (phone or Chrome)
 
-In Chrome open `<LIVE_URL>/manifest.webmanifest`. **Expected:** JSON with name "Township". In Chrome on Android use "Install app" (menu); on iPhone use Safari > Share > Add to Home Screen. Then turn the network off and reload.
+In Chrome open `https://residents-management-app.vercel.app/manifest.webmanifest`. **Expected:** JSON with name "Township". In Chrome on Android use "Install app" (menu); on iPhone use Safari > Share > Add to Home Screen. Then turn the network off and reload.
 **Expected:** the page "You're offline." (the only thing the service worker keeps, besides the icons).
 
 ### 11. If a readiness check is degraded
