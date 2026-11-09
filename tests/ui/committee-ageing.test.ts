@@ -1,13 +1,14 @@
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { AgeingDetail } from "@/app/(staff)/staff/reports/ageing-detail";
 import { AgeingRows } from "@/app/(staff)/staff/reports/ageing-rows";
+import { FlatsView } from "@/app/(staff)/staff/reports/flats-view";
 import { SectionPage } from "@/app/(staff)/staff/reports/section-page";
 import type { Ageing } from "@/domain/reports/age";
+import { flatsHref, legacyFlatsTarget } from "@/lib/reports/ageing";
+import { PAGE_SUPPORT_WORDS, blockViolations, supportWords, textOf } from "@/lib/reports/text-budget";
 import type { AgeingPage, AgeingRowView } from "@/server/reports/ageing-page";
-import { emptyReport } from "./committee-fixtures";
-import type { CommitteeReport } from "@/server/reports/report-data";
+import { emptyReport, richReport } from "./committee-fixtures";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: () => {}, refresh: () => {}, push: () => {} }), usePathname: () => "/", redirect: () => {} }));
 // The server action is only called on a click; rendering needs the module to exist.
@@ -17,16 +18,6 @@ const html = renderToStaticMarkup;
 const count = (text: string, pattern: RegExp) => (text.match(pattern) ?? []).length;
 const words = (markup: string) => markup.replace(/<[^>]*>/g, " ").replace(/&#x27;/g, "'").replace(/\s+/g, " ");
 
-const ageing: Ageing = {
-  buckets: [
-    { bucket: "NOT_YET_DUE", flats: 10, bills: 10, unpaidBillsPaise: 6_500_000n, lateFeesPaise: 0n, amountDuePaise: 6_500_000n },
-    { bucket: "DAYS_1_30", flats: 200, bills: 200, unpaidBillsPaise: 150_000_000n, lateFeesPaise: 0n, amountDuePaise: 150_000_000n },
-    { bucket: "DAYS_31_60", flats: 300, bills: 310, unpaidBillsPaise: 250_000_000n, lateFeesPaise: 0n, amountDuePaise: 250_000_000n },
-    { bucket: "DAYS_61_90", flats: 100, bills: 120, unpaidBillsPaise: 100_000_000n, lateFeesPaise: 0n, amountDuePaise: 100_000_000n },
-    { bucket: "OVER_90", flats: 50, bills: 60, unpaidBillsPaise: 50_000_000n, lateFeesPaise: 0n, amountDuePaise: 50_000_000n },
-  ],
-  total: { flats: 520, bills: 700, unpaidBillsPaise: 556_500_000n, lateFeesPaise: 0n, amountDuePaise: 556_500_000n },
-};
 const row = (over: Partial<AgeingRowView> = {}): AgeingRowView => ({ flatCode: "T12-0408", bills: 1, oldestDaysPastDue: 47, amountDuePaise: "646800", ...over });
 const page = (over: Partial<AgeingPage> = {}): AgeingPage => ({
   bucket: "DAYS_31_60",
@@ -37,50 +28,35 @@ const page = (over: Partial<AgeingPage> = {}): AgeingPage => ({
   nextCursor: "abc",
   ...over,
 });
+const view = (over: Partial<AgeingPage> = {}, sort: "LARGEST" | "OLDEST" = "LARGEST") => html(h(FlatsView, { page: page(over), bucket: "DAYS_31_60", sort, asOf: "2026-10-27" }));
 
-describe("CA2 the drill-down rows: per FLAT", () => {
-  const out = html(h(AgeingRows, { rows: page().rows, caption: "Flats that owe in 31 to 60 days, largest first" }));
+describe("CA2 the rows of the flats page: ONE line each, per FLAT (D217)", () => {
+  const out = html(h(AgeingRows, { rows: page().rows }));
 
-  it("is a real table from 768px with a caption, scope on every header, and the flat as the row header", () => {
-    expect(out).toContain('<div class="hidden md:block">');
-    expect(out).toContain('<caption class="sr-only">Flats that owe in 31 to 60 days, largest first</caption>');
-    expect(count(out, /<th scope="col"/g)).toBe(4);
-    expect(count(out, /<th scope="row"/g)).toBe(2);
-    for (const heading of ["Flat", "Bills", "Days overdue (oldest bill)", "Total owed in this group"]) expect(out).toContain(`>${heading}</th>`);
+  it("is a list at every width, one line per flat: the flat code, the days overdue of its oldest bill, and the total owed in the group at the right", () => {
+    expect(count(out, /<li /g)).toBe(2);
+    expect(count(out, /<table/g)).toBe(0);
+    expect(words(out)).toContain("T12-0408 47 days ₹6,468");
+    expect(words(out)).toContain("T07-1203 40 days ₹10,660");
   });
 
-  it("each row has the flat code, its bills, the days overdue of its oldest bill and its total", () => {
-    const first = out.slice(out.indexOf("<tbody>")).split("<tr ")[1];
-    const text = words(first);
-    for (const part of ["T12-0408", "47", "₹6,468"]) expect(text).toContain(part);
-    expect(words(out.slice(out.indexOf("<tbody>")).split("<tr ")[2])).toContain("T07-1203 2 40 ₹10,660");
+  it("each row is a single line: no second line for the bills, and a height of 48px at least and no more than 56px by its classes", () => {
+    for (const li of out.match(/<li [^>]*>/g) ?? []) {
+      expect(li).toContain("min-h-12");
+      expect(li).toContain("items-center");
+      expect(li).not.toMatch(/flex-col|min-h-1[4-9]/);
+    }
+    expect(words(out)).not.toMatch(/bills|overdue/);
+    expect(words(out)).not.toMatch(/(^|\s)bill\b/);
   });
 
-  it("numbers are right-aligned in tabular figures", () => {
-    expect(out).toMatch(/<th scope="col" class="py-2 pr-4 text-right font-semibold">Days overdue \(oldest bill\)<\/th>/);
-    expect(out).toMatch(/<td class="tnum py-2 pr-4 text-right">47<\/td>/);
-    expect(out).toMatch(/<td class="py-2 text-right"><span class="tnum text-body">₹6,468<\/span><\/td>/);
-  });
-
-  it("stacked cards below 768px give the bills only when a flat has more than one", () => {
-    const cards = out.slice(out.indexOf('<ul class="flex list-none flex-col p-0 md:hidden">'));
-    expect(words(cards)).toContain("T12-0408 ₹6,468 47 days overdue");
-    expect(words(cards)).toContain("T07-1203 ₹10,660 2 bills 40 days overdue");
+  it("the days are 14px secondary ink and the amount is bold in tabular figures", () => {
+    expect(out).toContain('<span class="tnum text-caption text-ink-2">47 days</span>');
+    expect(out).toMatch(/<span class="tnum text-body font-semibold">₹6,468<\/span>/);
   });
 
   it("a flat not yet due says so instead of a number of days", () => {
-    const notDue = html(h(AgeingRows, { rows: [row({ oldestDaysPastDue: -3 })], caption: "c" }));
-    expect(notDue).toMatch(/<td class="tnum py-2 pr-4 text-right">Not yet due<\/td>/);
-  });
-
-  it("every table row has exactly four cells: there is no cell for a name", () => {
-    const body = out.slice(out.indexOf("<tbody>"), out.indexOf("</tbody>"));
-    const tableRows = body.split("<tr ").slice(1);
-    expect(tableRows).toHaveLength(2);
-    for (const r of tableRows) {
-      expect(count(r, /<th /g)).toBe(1);
-      expect(count(r, /<td /g)).toBe(3);
-    }
+    expect(words(html(h(AgeingRows, { rows: [row({ oldestDaysPastDue: -3 })] })))).toContain("T12-0408 Not yet due");
   });
 
   it("carries no name and no phone number: the row type has none", () => {
@@ -89,64 +65,100 @@ describe("CA2 the drill-down rows: per FLAT", () => {
   });
 });
 
-describe("CA3 the drill-down section", () => {
-  const out = html(h(AgeingDetail, { page: page(), period: "2026-10-01" }));
+describe("CA3 the flats page", () => {
+  const out = view();
 
-  it("has a heading with the flats and the amount of the group, and the hint that there are no names", () => {
-    expect(out).toContain('id="ageing-detail"');
-    expect(words(out)).toContain("120 flats owe ₹25.0 lakh (31 to 60 days)");
-    expect(out).toMatch(/<h2 id="committee-drill" tabindex="-1"/);
-    expect(words(out)).toContain("Flat codes only: no names and no phone numbers.");
-    expect(words(html(h(AgeingDetail, { page: page({ flats: 1 }), period: "2026-10-01" })))).toContain("1 flat owes ₹25.0 lakh (31 to 60 days)");
+  it("has the back link 'Dues' with an arrow and the name 'Back to dues' at the TOP only, and no 'Close this list' or 'Back to age groups'", () => {
+    const back = /<a [^>]*href="\/staff\/reports\/dues"[^>]*>[\s\S]*?<\/a>/.exec(out)?.[0] ?? "";
+    expect(back).toContain('aria-label="Back to dues"');
+    expect(back).toContain("min-h-12");
+    expect(back).toContain("<svg");
+    expect(back).toMatch(/Dues<\/a>$/);
+    expect(count(out, /Back to dues/g)).toBe(1);
+    expect(words(out)).not.toMatch(/Close this list|Back to age groups/);
+    expect(out.indexOf("Back to dues")).toBeLessThan(out.indexOf("<h1"));
   });
 
-  it("offers a way back to the age groups at the TOP and at the bottom, 48px, to the list", () => {
-    const links = out.match(/<a [^>]*>← Back to age groups<\/a>/g) ?? [];
+  it("has the h1 '<n> flats owe <amount>' (which takes the focus), ONE line '<age group> · as of <date>' and ONE line 'Flat codes only.'", () => {
+    expect(out).toMatch(/<h1[^>]*tabindex="-1"[^>]*>120 flats owe ₹25.0 lakh<\/h1>/);
+    expect(words(out)).toContain("31 to 60 days · as of 27 October 2026");
+    expect(words(out)).toContain("Flat codes only.");
+    expect(words(view({ flats: 1 }))).toContain("1 flat owes ₹25.0 lakh");
+    expect(words(out)).not.toMatch(/no names and no phone numbers/);
+  });
+
+  it("offers Largest first and Oldest first as two equal 48px links: the chosen one current with a 2px ink border and the tint, the other a 1px hairline, the same weight, no underline", () => {
+    const nav = out.slice(out.indexOf("<nav"), out.indexOf("</nav>"));
+    const links = nav.match(/<a [^>]*>[^<]*<\/a>/g) ?? [];
     expect(links).toHaveLength(2);
-    for (const link of links) expect(link).toContain("min-h-12");
-    expect(out).toContain('href="/staff/reports/dues?period=2026-10#owed"');
-    expect(out.indexOf("Back to age groups")).toBeLessThan(out.indexOf('id="committee-drill"'));
-    expect(out.lastIndexOf("Back to age groups")).toBeGreaterThan(out.indexOf("</table>"));
-  });
-
-  it("offers Largest first (the default, current) and Oldest first as links that keep the group", () => {
-    expect(out).toContain('aria-current="true"');
-    expect(out).toMatch(/<a aria-current="true"[^>]*href="\/staff\/reports\/dues\?period=2026-10&amp;bucket=31-60&amp;sort=largest#ageing-detail">Largest first<\/a>/);
-    expect(out).toContain('href="/staff/reports/dues?period=2026-10&amp;bucket=31-60&amp;sort=oldest#ageing-detail"');
-    const oldest = html(h(AgeingDetail, { page: page({ sort: "OLDEST" }), period: "2026-10-01" }));
-    expect(oldest).toMatch(/<a aria-current="true"[^>]*>Oldest first<\/a>/);
-    expect(oldest).not.toMatch(/<a aria-current="true"[^>]*>Largest first/);
-    expect(words(oldest)).toContain("Flats that owe in 31 to 60 days, oldest first");
+    expect(links[0]).toContain('aria-current="true"');
+    expect(links[0]).toMatch(/border-2 border-ink bg-paper-2/);
+    expect(links[1]).not.toContain("aria-current");
+    expect(links[1]).toContain("border-hairline");
+    for (const link of links) {
+      expect(link).toContain("min-h-12");
+      expect(link).not.toMatch(/(?<!no-)underline|font-semibold|text-accent/);
+      expect(link).toContain("no-underline");
+    }
+    expect(nav).toContain('class="grid grid-cols-2 gap-2"');
+    expect(nav).toContain('href="/staff/reports/dues/flats?bucket=31-60"');
+    expect(nav).toContain('href="/staff/reports/dues/flats?bucket=31-60&amp;sort=oldest"');
+    expect(view({}, "OLDEST")).toMatch(/aria-current="true"[^>]*>Oldest first/);
   });
 
   it("says how many are shown of how many, and offers Show 25 more only when there is a next page: outlined, 48px", () => {
     expect(words(out)).toContain("Showing 2 of 120");
     expect(out).toMatch(/<button[^>]*min-h-12[^>]*>Show 25 more<\/button>/);
     expect(out).not.toContain("bg-accent");
-    expect(html(h(AgeingDetail, { page: page({ nextCursor: null }), period: "2026-10-01" }))).not.toContain("Show 25 more");
+    expect(view({ nextCursor: null, flats: 2 })).not.toContain("Show 25 more");
   });
 
-  it("an empty group says so in words and draws no table", () => {
-    const empty = html(h(AgeingDetail, { page: page({ rows: [], flats: 0, nextCursor: null }), period: "2026-10-01" }));
+  it("an empty group says so in words and draws no list", () => {
+    const empty = view({ flats: 0, rows: [], nextCursor: null, amountDuePaise: "0" });
     expect(words(empty)).toContain("No flat owes anything in this age group.");
-    expect(empty).not.toContain("<table");
+    expect(empty).not.toContain("<li ");
+  });
+
+  it("is within the text budget: its two header lines are the supporting text and nothing else is", () => {
+    expect(supportWords(out)).toBe(8);
+    expect(supportWords(out)).toBeLessThanOrEqual(PAGE_SUPPORT_WORDS);
+    expect(count(out, /<h1/g)).toBe(1);
+    expect(blockViolations(out)).toEqual([]);
+  });
+
+  it("names no flat's owner and no phone number, and nothing is filled", () => {
+    expect(textOf(out)).not.toMatch(/\d{10}/);
+    for (const control of out.match(/<(button|a) [^>]*>/g) ?? []) expect(control).not.toContain("bg-accent");
   });
 });
 
-describe("CA4 the Dues page with the drill-down", () => {
-  const report = (drilldown: AgeingPage | null): CommitteeReport => emptyReport({ ageing, drilldown });
+describe("CA4 the addresses of the flats page and the redirect of the old inline ones", () => {
+  it("the flats page of a group in an order", () => {
+    expect(flatsHref("DAYS_31_60")).toBe("/staff/reports/dues/flats?bucket=31-60");
+    expect(flatsHref("OVER_90", "OLDEST")).toBe("/staff/reports/dues/flats?bucket=over-90&sort=oldest");
+  });
 
-  it("the Dues page always has the owed list, with the drill-down after it only when a group is chosen", () => {
-    const without = html(h(SectionPage, { slug: "dues", report: report(null) }));
-    expect(without).toContain('<section id="owed"');
-    expect(without).not.toContain('id="ageing-detail"');
-    const withDrill = html(h(SectionPage, { slug: "dues", report: report(page()) }));
-    expect(withDrill.indexOf('<section id="owed"')).toBeLessThan(withDrill.indexOf('id="ageing-detail"'));
-    expect(count(withDrill, /<h1/g)).toBe(1);
+  it("an old address with ?bucket= goes to the flats page of the same group and order; hostile values go nowhere", () => {
+    expect(legacyFlatsTarget({ bucket: "over-90", sort: "oldest", period: "2026-10" })).toBe("/staff/reports/dues/flats?bucket=over-90&sort=oldest");
+    expect(legacyFlatsTarget({ bucket: "31-60" })).toBe("/staff/reports/dues/flats?bucket=31-60");
+    expect(legacyFlatsTarget({ bucket: "61-90", sort: "newest" })).toBe("/staff/reports/dues/flats?bucket=61-90");
+    for (const bucket of [undefined, "", "all", "<script>", "31-60,61-90", "NOT_YET_DUE"]) expect(legacyFlatsTarget({ bucket }), String(bucket)).toBeNull();
+    expect(legacyFlatsTarget({})).toBeNull();
+  });
+});
+
+describe("CA5 the Dues page has no inline list of flats", () => {
+  const ageing: Ageing = richReport().ageing;
+
+  it("renders the age list, the late fees and at most five towers, and never the flats of a group", () => {
+    const out = html(h(SectionPage, { slug: "dues", report: richReport() }));
+    expect(out).not.toMatch(/id="ageing-detail"|T\d\d-\d{4}|Show 25 more|Showing \d+ of|Close this list|Back to age groups/);
+    expect(count(out, /href="\/staff\/reports\/dues\/flats\?bucket=/g)).toBe(ageing.buckets.filter((b) => b.bills > 0).length);
+    expect(count(out, /href="[^"]*#ageing-detail"/g)).toBe(0);
   });
 
   it("at most one filled control: none", () => {
-    const out = html(h(SectionPage, { slug: "dues", report: report(page()) }));
+    const out = html(h(SectionPage, { slug: "dues", report: emptyReport({ ageing }) }));
     for (const control of out.match(/<(button|a) [^>]*>/g) ?? []) expect(control).not.toContain("bg-accent");
   });
 });

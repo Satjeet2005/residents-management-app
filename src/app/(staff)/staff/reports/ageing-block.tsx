@@ -4,12 +4,10 @@ import { Support } from "@/components/committee/support";
 import { cx } from "@/components/ui/cx";
 import { Money } from "@/components/ui/money";
 import { formatRupees } from "@/domain/money/money";
-import type { AgeBucket, Ageing } from "@/domain/reports/age";
-import type { CalendarDate } from "@/domain/time/calendar";
+import type { Ageing } from "@/domain/reports/age";
 import { t } from "@/lib/messages";
-import { ageingTableOf, barWidthPercent, bucketLabel, bucketQuery, groupShares, listedBuckets, rowCountText } from "@/lib/reports/ageing";
+import { ageingTableOf, barWidthPercent, bucketLabel, flatsHref, groupShares, listedBuckets, rowCountText } from "@/lib/reports/ageing";
 import { flatsText } from "@/lib/reports/cards";
-import { reportHref } from "@/lib/reports/period";
 
 /** "Total owed": the figure, ONE line that splits it ("Unpaid bills ₹x + late fees ₹y", the total is not said again) and the number of different flats ("838 flats"). */
 export function TotalBlock({ ageing }: { ageing: Ageing }) {
@@ -37,9 +35,9 @@ export function TotalBlock({ ageing }: { ageing: Ageing }) {
 /**
  * "How old are the dues?" (D214): ONE list of the age groups, each with its label, a bar scaled to the TOTAL so the bars compare, its amount, one grey line (its bills,
  * or the flats for "Over 90 days", and its share of the total, the shares adding to 100) and the link "See the flats" (set beside the bar: nothing in a bar is tappable).
- * "Not yet due" is left out when it is empty. The numbers behind the list are one real table, four columns on a phone, with a total row. Nothing here when nothing is owed.
+ * "See the flats" opens the flats page of the group (D217), never an inline list. "Not yet due" is left out when it is empty. The numbers behind the list are one real table, four columns on a phone, with a total row. Nothing here when nothing is owed.
  */
-export function AgeBlock({ ageing, period, selected }: { ageing: Ageing; period: CalendarDate; selected: AgeBucket | null }) {
+export function AgeBlock({ ageing }: { ageing: Ageing }) {
   if (ageing.total.bills === 0) return null;
   const shares = groupShares(ageing);
   const table = ageingTableOf(ageing);
@@ -54,7 +52,7 @@ export function AgeBlock({ ageing, period, selected }: { ageing: Ageing; period:
           return (
             <li key={b.bucket} className="flex flex-col gap-1 border-b border-hairline py-3">
               <div className="flex items-baseline justify-between gap-4">
-                <span className={cx("text-body", selected === b.bucket && "font-semibold")}>{bucketLabel(b.bucket)}</span>
+                <span className="text-body">{bucketLabel(b.bucket)}</span>
                 <Money amount={b.amountDuePaise} size="strong" />
               </div>
               <div aria-hidden="true" className="h-3.5 w-full rounded-control border-2 border-hairline bg-paper">
@@ -66,10 +64,9 @@ export function AgeBlock({ ageing, period, selected }: { ageing: Ageing; period:
                 </Support>
                 {b.bills > 0 && (
                   <Link
-                    href={reportHref({ period, bucket: bucketQuery(b.bucket) })}
+                    href={flatsHref(b.bucket)}
                     aria-label={t("committee.ageing.seeLabel", { bucket: bucketLabel(b.bucket) })}
-                    aria-current={selected === b.bucket ? "true" : undefined}
-                    className="inline-flex min-h-12 items-center text-body font-semibold text-accent underline underline-offset-4 aria-[current=true]:text-ink"
+                    className="inline-flex min-h-12 items-center text-body font-semibold text-accent underline underline-offset-4"
                   >
                     {t("committee.ageing.see")}
                   </Link>

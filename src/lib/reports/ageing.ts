@@ -22,6 +22,15 @@ export const sortQuery = (sort: AgeingSort): string => (sort === "OLDEST" ? "old
 
 export const bucketQuery = (bucket: AgeBucket): string => QUERY_OF[bucket];
 
+/** The address of the flats page of an age group, in the order asked for (the default, largest first, is left out). */
+export const flatsHref = (bucket: AgeBucket, sort: AgeingSort = "LARGEST"): string => `/staff/reports/dues/flats?bucket=${QUERY_OF[bucket]}${sort === "OLDEST" ? "&sort=oldest" : ""}`;
+
+/** Where an old inline address (`/staff/reports/dues?bucket=...`, or the overview's) now goes: the flats page of the same group and order; null when it names no group. */
+export function legacyFlatsTarget(query: Record<string, string | string[] | undefined>): string | null {
+  const bucket = bucketFromQuery(query.bucket);
+  return bucket === null ? null : flatsHref(bucket, sortFromQuery(query.sort));
+}
+
 export function bucketLabel(bucket: AgeBucket): string {
   switch (bucket) {
     case "NOT_YET_DUE":

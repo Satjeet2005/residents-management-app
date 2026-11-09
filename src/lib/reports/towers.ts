@@ -44,3 +44,6 @@ export function sortTowers(towers: readonly TowerRow[], sort: "owed" | "tower"):
 
 /** The order named by `?sort=`: "tower" is by tower name; anything else, or nothing, is the default, the most owed first. */
 export const towerSortFromQuery = (value: string | string[] | undefined): "owed" | "tower" => ((Array.isArray(value) ? value[0] : value) === "tower" ? "tower" : "owed");
+
+/** The address of the towers page in the order asked for (the default, the most owed first, is left out). */
+export const towersHref = (sort: "owed" | "tower"): string => `/staff/reports/dues/towers${sort === "tower" ? "?sort=tower" : ""}`;

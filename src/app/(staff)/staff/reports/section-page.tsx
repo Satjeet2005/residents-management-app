@@ -8,7 +8,6 @@ import { dateWords, periodLabel } from "@/lib/reports/period";
 import { SECTIONS, type SectionSlug, overviewHref, sectionHref } from "@/lib/reports/sections";
 import type { CommitteeReport } from "@/server/reports/report-data";
 import { AgeBlock, TotalBlock } from "./ageing-block";
-import { AgeingDetail } from "./ageing-detail";
 import { AlertStrip } from "./alert-strip";
 import { ArrivalHeading } from "./arrival-heading";
 import { ComplaintsBlock } from "./complaints-block";
@@ -85,10 +84,9 @@ function Content({ slug, report }: { slug: SectionSlug; report: CommitteeReport 
   }
   if (slug === "dues") {
     return (
-      <section id="owed" aria-label={t("committee.look.dues")} className="flex flex-col gap-6">
+      <section aria-label={t("committee.look.dues")} className="flex flex-col gap-6">
         <TotalBlock ageing={report.ageing} />
-        <AgeBlock ageing={report.ageing} period={report.period} selected={report.drilldown?.bucket ?? null} />
-        {report.drilldown !== null && <AgeingDetail page={report.drilldown} period={report.period} />}
+        <AgeBlock ageing={report.ageing} />
         <LateFeeFigures fees={report.lateFees} />
         <TowersBlock rollup={report.towers} />
       </section>

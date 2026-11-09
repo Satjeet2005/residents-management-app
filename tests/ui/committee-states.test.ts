@@ -55,6 +55,9 @@ describe("CS3 the empty month", () => {
     expect(words(out)).toContain("Choose another month above.");
     expect(out).toContain('id="report-period"');
     expect(words(out)).toContain("October 2026 March 2026");
-    expect(html(h(SectionPage, { slug: "dues", report }))).toContain('<section id="owed"');
+    // The Dues page ignores the month: it still shows what is owed (all months) and has no month control.
+    const dues = html(h(SectionPage, { slug: "dues", report }));
+    expect(words(dues)).toContain("Total owed");
+    expect(dues).not.toContain('id="report-period"');
   });
 });

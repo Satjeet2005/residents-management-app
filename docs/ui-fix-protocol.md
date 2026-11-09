@@ -79,3 +79,8 @@ It supersedes the Money-only rule of D182 and applies to EVERY committee page. E
 - Per page: at most 40 supporting words (15 on Complaints, 12 on Dues) and ONE expander ("What do these mean?") with one line per figure, at most 9 lines of at most 25 words.
 - A figure is not repeated on a page unless it is the same figure in two visual forms (the allowlist is in the helper, with the reason).
 - A definition is written once, in the expander. Essentials stay inline; nothing essential hides in a tooltip or a "(?)" icon.
+
+## 7. Long lists get their own page (standing rule, D217)
+
+A list of more than 12 rows is NEVER expanded inline: it gets its own page with a back link at the top. A control that reveals more content is never left in the middle of that content. A phone table has at most FOUR columns (more from 768px) and a table never falls back to stacked blocks (`src/components/committee/data-table.tsx`; the tests count the visible header cells). A sort control is two equal 48px links built by `SortChoice`: the chosen one has `aria-current`, a 2px ink border and the tint, the other a 1px hairline, the same weight and no underline. The Dues page applies it: the flats of an age group are on `/staff/reports/dues/flats`, all the towers on `/staff/reports/dues/towers`.
+

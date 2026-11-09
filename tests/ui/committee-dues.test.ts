@@ -28,7 +28,7 @@ const ageing: Ageing = {
   total: { flats: 520, bills: 700, unpaidBillsPaise: 556_500_000n, lateFeesPaise: 0n, amountDuePaise: 556_500_000n },
 };
 const zero = (b: Ageing["buckets"][number]) => ({ ...b, flats: 0, bills: 0, unpaidBillsPaise: 0n, lateFeesPaise: 0n, amountDuePaise: 0n });
-const age = html(h(AgeBlock, { ageing, period: "2026-10-01", selected: null }));
+const age = html(h(AgeBlock, { ageing }));
 const total = html(h(TotalBlock, { ageing }));
 
 describe("DU1 the header (D214)", () => {
@@ -55,7 +55,7 @@ describe("DU2 the total", () => {
   it("nothing owed says so in words and has no list, no link and no table", () => {
     const none: Ageing = { buckets: ageing.buckets.map(zero), total: { flats: 0, bills: 0, unpaidBillsPaise: 0n, lateFeesPaise: 0n, amountDuePaise: 0n } };
     expect(textOf(html(h(TotalBlock, { ageing: none })))).toContain("Nothing is owed.");
-    expect(html(h(AgeBlock, { ageing: none, period: "2026-10-01", selected: null }))).toBe("");
+    expect(html(h(AgeBlock, { ageing: none }))).toBe("");
   });
 });
 
@@ -84,7 +84,7 @@ describe("DU3 the age list: bills on each row, flats only on 'Over 90 days', sha
 
   it("'Not yet due' is hidden when it is zero, and a group with no bills has no link", () => {
     const sparse: Ageing = { ...ageing, buckets: ageing.buckets.map((b) => (b.bucket === "OVER_90" || b.bucket === "NOT_YET_DUE" ? zero(b) : b)) };
-    const sparseOut = html(h(AgeBlock, { ageing: sparse, period: "2026-10-01", selected: null }));
+    const sparseOut = html(h(AgeBlock, { ageing: sparse }));
     expect(textOf(sparseOut)).not.toContain("Not yet due");
     expect(count(sparseOut, />See the flats<\/a>/g)).toBe(3);
   });
@@ -93,6 +93,7 @@ describe("DU3 the age list: bills on each row, flats only on 'Over 90 days', sha
     expect(age).not.toContain("<svg");
     expect(age).toContain("width:44.9%");
     expect(age).toContain('aria-label="See the flats: 31 to 60 days"');
+    expect(age).toContain('href="/staff/reports/dues/flats?bucket=31-60"');
     for (const link of age.match(/<a [^>]*>/g) ?? []) expect(link).toContain("min-h-12");
   });
 
