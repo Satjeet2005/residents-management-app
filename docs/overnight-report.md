@@ -937,3 +937,14 @@ Started 2026-11-09 11:39 IST (START_COMMIT 0bee8c0). Baseline `npm run check` pa
 
 - RP6, RP7 and the V3 safety-strip test rendered only the overview, so they looked for blocks that moved to the four section pages. They now render every page and assert the same facts (`c12371c`). No application change.
 - `smoke:app` is retired from the reviewer path (D204): no npm script, a STALE header on `scripts/smoke-app.mjs`, and every reviewer-facing mention reworded.
+
+## CI-FIX: documents cite only committed files (2026-11-09)
+
+GitHub's CI failed in `test:unit` on one test, the documentation checker (DV1): ten cited screenshots in `docs/tdd-source/10-screens.md` were untracked, so a clean checkout did not have them. The checks after `test:unit` had not run on GitHub.
+
+- Reproduced the failure in a copy made only from `git ls-files`: the same 10 "path not found" problems.
+- Committed the ten screenshots, each viewed and matching its row (D205).
+- The checker now counts only tracked or staged files inside a git work tree (allowlist: `.env`, `submission/`); tests DV2 cover tracked, untracked, ignored, allowlisted, missing and non-git cases.
+- `verify-clean-clone.sh --tracked-only` imitates CI. Its first full run failed one test (`build-submission-zip`, which assumed a `.git` directory); the test now builds its own git repository, and the second run passed 12 of 12 steps.
+- The gitleaks step of the workflow downloads from GitHub and was not run here.
+
