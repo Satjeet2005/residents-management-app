@@ -17,7 +17,7 @@ const FORBIDDEN: [string, RegExp][] = [
 
 describe("AU7 auth purity", () => {
   it("covers the auth modules", () => {
-    expect(FILES).toEqual(["otp.ts", "permissions.ts", "phone.ts", "policy.ts", "role-title.ts", "session.ts"]);
+    expect(FILES).toEqual(["otp.ts", "permissions.ts", "phone.ts", "policy.ts", "role-title.ts", "session.ts", "staff-landing.ts"]);
   });
 
   it.each(FILES)("%s uses no Node built-in, Intl, randomness or clock", (file) => {

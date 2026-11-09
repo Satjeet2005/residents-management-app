@@ -19,7 +19,8 @@ export type RowSummary = {
   notice: RowNotice | null;
 };
 
-function noticeOf(row: BoardRow, now: number): RowNotice | null {
+/** The notable fact of a row's reply time: overdue, due within 4 hours or answered late; null otherwise. */
+export function noticeOf(row: Pick<BoardRow, "responseDueAt" | "sla">, now: number): RowNotice | null {
   if (row.responseDueAt === null) return null;
   switch (row.sla) {
     case "OVERDUE":

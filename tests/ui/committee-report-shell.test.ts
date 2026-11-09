@@ -180,7 +180,7 @@ describe("CR4 the staff landing tool", () => {
   it("lists the Committee report for reports:view", () => {
     const out = html(h(StaffView, { name: "Meera Kapoor", permissions: ["reports:view"] }));
     expect(out).toMatch(/<a [^>]*href="\/staff\/reports"[^>]*>Open the report<\/a>/);
-    expect(words(out)).toContain("Collections, what is owed, complaints and bank matching, month by month.");
+    expect(words(out)).toContain("Committee report");
   });
 
   it("does not list it for anyone else", () => {
