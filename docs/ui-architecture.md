@@ -12,7 +12,7 @@ the Emergency sheet (the call link there is the large accent link the task descr
 | Address | File | Who | What it shows |
 |---|---|---|---|
 | `/login` | `src/app/login/` | anyone | Phone, then one code field. Handles every answer of `/api/auth/otp/*`. A signed-in person is sent on. |
-| `/` | `src/app/(resident)/page.tsx` | resident (a staff member is sent to `/staff`) | The Home: flat, dues with Pay, complaint, visitors (times only), recent activity, Emergency. |
+| `/` | `src/app/(resident)/page.tsx` | resident (a staff member is sent to `/staff`) | The Home: flat, dues with Pay, complaint, recent activity, Emergency. |
 | `/complaints` | `src/app/(resident)/complaints/` | resident | The complaints list: open first, closed collapsed (T13b, `docs/complaints-ui.md`). |
 | `/complaints/new` | `.../complaints/new/` | resident | The form with the danger question (D121, D127). |
 | `/complaints/[id]` | `.../complaints/[id]/` | resident, own flat (another flat's id is the not-found page) | One complaint: tracker, timeline, confirm or reopen. |
@@ -56,7 +56,7 @@ requireUser()  ->  getHomeData({ db, user, now: businessNow() })  ->  HomeView(d
 1. `requireUser` (src/server/auth/current-user.ts) reads the session from the database. No session: redirect to
    `/login?returnTo=<safe path>`. Wrong role: `/forbidden`.
 2. `getHomeData` (`src/server/home/home-data.ts`) reads the person's **own** current memberships (`queries.ts`, one file, SELECTs only),
-   takes the first flat by code, then that flat's bills, ledger entries, open complaints, today's visitors, and the settings. The flat
+   takes the first flat by code, then that flat's bills, ledger entries, open complaints, and the settings. The flat
    id comes from nothing but the session user's memberships: no flat code or id from a request is accepted.
 3. The pure mapper `assembleHome` (`mapper.ts`) turns the rows into plain data (`types.ts`): strings, numbers, bigint paise, date
    texts, epoch milliseconds. Dues come from `computeDues` (`src/domain/billing/dues.ts`) which calls `computeLateFee` on the
@@ -69,7 +69,7 @@ requireUser()  ->  getHomeData({ db, user, now: businessNow() })  ->  HomeView(d
 
 The queries run with the SELECT grants of the app role only (`docs/deployment-plan.md`, matrix); `tests/integration/home.test.ts` runs
 them through a client that logs in as that role. T11b adds two more reads (the newest payment attempt of the flat and the
-`society_bank_account` setting) and no privilege for them. A visitor's name is not read at all: the Home shows a count and the times.
+`society_bank_account` setting) and no privilege for them. Visitor rows exist in the seed only: the Home does not read them and no resident screen shows them.
 
 ## The Pay flow (T11b, D98 to D102)
 
@@ -101,7 +101,7 @@ demo page button -> server action -> signed event -> verifyWebhook -> applyGatew
 ## Two clocks (D97)
 
 - **Real clock**: login, sessions, rate limits, audit rows. Always `Date.now()`.
-- **Business clock** (`businessNow()` in `src/server/clock.ts`): what is due today, days overdue, today's visitors, reply times. It is
+- **Business clock** (`businessNow()` in `src/server/clock.ts`): what is due today, days overdue, reply times. It is
   the real India date, unless the optional `DEMO_AS_OF` (YYYY-MM-DD) is set, and then it is 12:00 India time on that date. `DEMO_AS_OF` is
   for tests, for local runs and for the live demo, where it is set to 2026-10-27 so the numbers match the brief's table (D226; `docs/demo-clock.md`). It works only in demo mode. The screens always
   say the date used ("As of 27 Oct"; "Amount as of 27 Oct 2026" in the sheet).
@@ -109,7 +109,7 @@ demo page button -> server action -> signed event -> verifyWebhook -> applyGatew
 ### The demo data note
 
 The seed is anchored to 27 October 2026 (`DEMO_AS_OF` in `src/domain/seed/types.ts`). The live demo freezes its business date there. If the date is not
-frozen, the numbers move: more days overdue, a bigger late fee, visitor passes of 27 October are no longer "today", some replies show as overdue. So, **only when `DEMO_MODE` is exactly
+frozen, the numbers move: more days overdue, a bigger late fee, some replies show as overdue. So, **only when `DEMO_MODE` is exactly
 `"true"`**, a calm note ("About this demo data") is shown under the login form, on Home and on Profile. Its wording depends on whether the date is frozen and it names no
 variable (`docs/demo-clock.md`). It is never shown otherwise (tests: `tests/ui/login-view.test.ts`, `tests/ui/shell-view.test.ts`, and the smoke test).
 

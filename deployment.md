@@ -5,7 +5,7 @@ this file; anything that could not be checked is marked **UNVERIFIED** with the 
 
 ## What this is
 
-1. **Township** is a resident app (an installable web app) and a staff console for a fictional gated township in Pune with 2,400 flats: residents see and pay maintenance dues, raise complaints and see visitors; accounts staff match bank payments to flats; a committee reads a monthly report.
+1. **Township** is a resident app (an installable web app) and a staff console for a fictional gated township in Pune with 2,400 flats: residents see and pay maintenance dues, raise complaints; accounts staff match bank payments to flats; a committee reads a monthly report.
 2. It is a six-day take-home. Money is whole paise (BigInt) in an append-only ledger; the safety words of a complaint escalate by fixed rules before any AI runs. All names and numbers are fictional, and the SMS sender and the payment gateway are mocked.
 3. **Live app:** https://residents-management-app.vercel.app
 4. **Repository:** https://github.com/Satjeet2005/residents-management-app

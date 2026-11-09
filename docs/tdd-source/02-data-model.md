@@ -34,7 +34,7 @@ How the script counts: a column is a field whose type is not a model. Enum field
 | OutboxJob | outbox_jobs | 10 | 0 | Outbox job rows. Nothing in `src` reads or writes them; `docs/known-limitations.md` says nothing processes the outbox. |
 | Notification | notifications | 9 | 1 | A notification row, written for a safety complaint (`src/server/complaints/create.ts`). |
 | AuditLog | audit_log | 7 | 1 | Append-only audit trail (`src/server/auth/audit.ts`). |
-| VisitorPass | visitor_passes | 6 | 1 | Read-only visitor rows shown on the home screen (`src/server/home/queries.ts`). |
+| VisitorPass | visitor_passes | 6 | 1 | Seed data only: no resident screen shows these rows and no code reads them. |
 | ErrorEvent | error_events | 20 | 0 | Unexpected-error log, insert-only for the app (`src/server/error-log.ts`). |
 
 ## Database-enforced rules

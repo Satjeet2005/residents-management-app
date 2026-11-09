@@ -1,6 +1,6 @@
 # Township
 
-A resident app (an installable web app) and a staff console for a fictional gated township in Pune with 2,400 flats: residents see and pay maintenance dues, raise complaints and see visitors; accounts staff match bank payments to flats; a committee reads a monthly report. Money is whole paise in an append-only ledger, and the safety words of a complaint escalate by fixed rules before any AI runs. Everything is demo data, and the SMS sender and the payment gateway are mocked. See `CLAUDE.md` for the rules this repo follows.
+A resident app (an installable web app) and a staff console for a fictional gated township in Pune with 2,400 flats: residents see and pay maintenance dues, raise complaints; accounts staff match bank payments to flats; a committee reads a monthly report. Money is whole paise in an append-only ledger, and the safety words of a complaint escalate by fixed rules before any AI runs. Everything is demo data, and the SMS sender and the payment gateway are mocked. See `CLAUDE.md` for the rules this repo follows.
 
 **Live app:** https://residents-management-app.vercel.app **Repository:** https://github.com/Satjeet2005/residents-management-app
 
@@ -119,7 +119,7 @@ Over plain http the session cookie is `session` (a browser will not store a Secu
 https it is `__Host-session` (D94), so both work.
 
 - `/login`: log in with a demo phone (below). With `DEMO_MODE=true` the code is shown in a banner.
-- `/` is the resident Home (dues, complaint, visitors, recent activity). A staff member is sent to `/staff`.
+- `/` is the resident Home (dues, complaint, recent activity). A staff member is sent to `/staff`.
 - `/profile` is the resident's profile; `/staff` is the staff landing page; a resident who opens `/staff` ends at `/forbidden`.
 - The live demo runs in demo mode with its business date fixed at 27 October 2026, so the numbers match the client brief's sample table
   (T07-1203 nothing due; T12-0408 owes ₹6,468, 47 days overdue; T21-1601 owes ₹5,698, 18 days overdue). Sign-in codes and sessions use real time.
