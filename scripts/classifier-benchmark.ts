@@ -11,13 +11,15 @@
 //   --pace-ms=1000                 the least time between two requests
 //   --dry-run                      a local fake provider answers (no network, no key)
 //   --write-fixture                write the compact results of the caches to tests/fixtures/classifier-benchmark/results.json (results-v2.json with --prompt=v2)
-//   --from-fixture                 recompute and print the numbers from the fixtures (v1, and v1 against v2 when results-v2.json exists), with no network
+//   --from-fixture                 recompute and print the numbers from the fixtures (v1, the same-day detector block, and v1 against v2 when results-v2.json exists), with no network
 import { createServer } from "node:http";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { BENCHMARK_ITEMS, type BenchmarkItem } from "../src/domain/complaints/classifier-benchmark/dataset";
 import { type ItemResult, evaluate } from "../src/domain/complaints/classifier-benchmark/evaluate";
+import { scoreItems } from "../src/domain/complaints/classifier-benchmark/binary-high";
+import { formatBinaryHigh } from "../src/domain/complaints/classifier-benchmark/binary-high-report";
 import { formatComparison } from "../src/domain/complaints/classifier-benchmark/compare";
 import { formatProvider } from "../src/domain/complaints/classifier-benchmark/report";
 import { createRng } from "../src/domain/complaints/safety-benchmark/prng";
@@ -173,6 +175,7 @@ async function main(): Promise<number> {
   if (options.fromFixture) {
     const v1 = JSON.parse(readFileSync(FIXTURE_PATH, "utf8")) as Fixture;
     print(reportOf(v1));
+    print(`\n${formatBinaryHigh(scoreItems({ items: BENCHMARK_ITEMS, results: v1.providers.primary ?? [] }))}`);
     if (existsSync(FIXTURE_V2_PATH)) {
       const v2 = JSON.parse(readFileSync(FIXTURE_V2_PATH, "utf8")) as Fixture;
       print(`\n${formatComparison({ items: BENCHMARK_ITEMS, v1: v1.providers.primary ?? [], v2: v2.providers.primary ?? [] })}`);
