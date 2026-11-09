@@ -105,7 +105,7 @@ describe("CP5 decideClassification: the rules as a table", () => {
 
   it("the rules table names R1 to R5 in order, and the reason codes are the ten of the design", () => {
     expect(DECISION_RULES.map((r) => r.id)).toEqual(["R1", "R2", "R3", "R4", "R5"]);
-    expect([...REASON_CODES].sort()).toEqual(["ARMS_DISAGREE", "EMPTY_TEXT", "FALLBACK_USED", "INVALID_MODEL_OUTPUT", "LOW_CONFIDENCE", "MODEL_UNAVAILABLE", "NO_CLASSIFICATION", "SAFETY_WORD", "SINGLE_ARM_NOT_ALLOWED", "URGENCY_UNCERTAIN"]);
+    expect([...REASON_CODES].sort()).toEqual(["ARMS_DISAGREE", "EMPTY_TEXT", "FALLBACK_USED", "INVALID_MODEL_OUTPUT", "LOW_CONFIDENCE", "MODEL_UNAVAILABLE", "NO_CLASSIFICATION", "SAFETY_WORD", "SINGLE_ARM_NOT_ALLOWED", "URGENCY_FLOORED", "URGENCY_UNCERTAIN"]);
   });
 
   it("the default policy is the assumed one", () => {
@@ -270,5 +270,45 @@ describe("CP5 never throws", () => {
   it("a throwing arm beside a safety word still escalates", () => {
     const decision = decideClassification({ rawText: "fire", arms: [{ arm: "DIRECT", get categories() { throw new Error("boom"); }, urgencies: [] } as unknown as ArmResult] });
     expect(decision).toMatchObject({ urgency: "CRITICAL", source: "RULE" });
+  });
+});
+
+describe("CP9 the urgency floor (D199)", () => {
+  const decide = (urgency: ModelUrgency, urgencyP = 0.95, rawText = "the corridor paint is peeling") => decideClassification({ rawText, arms: [arm("DIRECT", "OTHER", 0.95, urgency, urgencyP)], policy: single });
+
+  it("a model LOW with high confidence is stored as NORMAL, with the reason and the model's own answer", () => {
+    const decision = decide("LOW");
+    expect(decision).toMatchObject({ source: "LLM", urgency: "NORMAL", floorFrom: "LOW" });
+    expect(decision.reasons).toContain("URGENCY_FLOORED");
+  });
+
+  it("a model NORMAL or HIGH is unchanged and carries no floor reason", () => {
+    for (const urgency of ["NORMAL", "HIGH"] as const) {
+      const decision = decide(urgency);
+      expect(decision.urgency).toBe(urgency);
+      expect(decision.reasons).not.toContain("URGENCY_FLOORED");
+      expect(decision.floorFrom).toBeUndefined();
+    }
+  });
+
+  it("an uncertain urgency stays NORMAL for the old reason, not the floor", () => {
+    const decision = decide("LOW", 0.5);
+    expect(decision.urgency).toBe("NORMAL");
+    expect(decision.reasons).toContain("URGENCY_UNCERTAIN");
+    expect(decision.reasons).not.toContain("URGENCY_FLOORED");
+  });
+
+  it("the floor never applies to the keyword fallback or the rules path", () => {
+    const fallback = decideClassification({ rawText: "the lift button does not work", arms: [] });
+    expect(fallback).toMatchObject({ source: "FALLBACK" });
+    expect(fallback.reasons).not.toContain("URGENCY_FLOORED");
+    const rule = decideClassification({ rawText: "fire in tower 3", arms: [arm("DIRECT", "OTHER", 0.95, "LOW", 0.99)], policy: single });
+    expect(rule).toMatchObject({ source: "RULE", urgency: "CRITICAL" });
+    expect(rule.reasons).not.toContain("URGENCY_FLOORED");
+  });
+
+  it("an urgent word still raises a floored LOW to HIGH, and no CRITICAL can result from a model", () => {
+    expect(decide("LOW", 0.95, "the water tank is overflowing and it is urgent").urgency).not.toBe("LOW");
+    for (const urgency of MODEL_URGENCIES) expect(decide(urgency).urgency).not.toBe("CRITICAL");
   });
 });

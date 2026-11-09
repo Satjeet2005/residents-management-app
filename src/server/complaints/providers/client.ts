@@ -1,5 +1,5 @@
 import type { ProviderConfig } from "./config";
-import { buildRequest, parseResponse, type SystemOneDistributions } from "./system-one";
+import { buildRequest, parseResponse, type PromptVersion, type SystemOneDistributions } from "./system-one";
 
 /** The largest response body read, in bytes (D140). A System One answer for two questions is a few hundred bytes. */
 export const MAX_RESPONSE_BYTES = 64 * 1024;
@@ -16,7 +16,7 @@ export type CallOutcome =
   | { ok: false; failure: FailureKind; status?: number; latencyMs: number; retryAfterSeconds?: number };
 
 export type CallOptions = { timeoutMs: number; signal?: AbortSignal };
-export type ClientDeps = { fetch?: typeof fetch; now?: () => number };
+export type ClientDeps = { fetch?: typeof fetch; now?: () => number; promptVersion?: PromptVersion };
 
 /** `Retry-After` as a whole number of seconds; an HTTP date or anything else is "not given". */
 function retryAfter(header: string | null): number | undefined {
@@ -72,7 +72,7 @@ export class JevClient {
       const response = await (this.deps.fetch ?? fetch)(this.config.url, {
         method: "POST",
         headers: { authorization: `Bearer ${this.config.key}`, "content-type": "application/json", accept: "application/json" },
-        body: JSON.stringify(buildRequest(deidentifiedText, this.config.model)),
+        body: JSON.stringify(buildRequest(deidentifiedText, this.config.model, this.deps.promptVersion)),
         redirect: "manual",
         signal,
       });

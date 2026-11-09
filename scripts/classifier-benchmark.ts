@@ -4,36 +4,43 @@
 // keeps answering 429. It never prints a key or an address and never logs a request or a response body; it keeps only the provider label, the item id, the status, the
 // latency, the validated distributions and a failure code.
 //   --provider=primary|secondary   (default primary)
+//   --prompt=v1|v2                 the request text (default v1); the cache of each provider and version is kept apart (D197)
+//   --cap=N                        the most requests of one run (default 250, retries included)
 //   --limit=N                      the first N items
 //   --sample=stratified60          3 items per cell, chosen with the fixed seed 42
 //   --pace-ms=1000                 the least time between two requests
 //   --dry-run                      a local fake provider answers (no network, no key)
-//   --write-fixture                write the compact results of the caches to tests/fixtures/classifier-benchmark/results.json
-//   --from-fixture                 recompute and print the numbers from that file, with no network
+//   --write-fixture                write the compact results of the caches to tests/fixtures/classifier-benchmark/results.json (results-v2.json with --prompt=v2)
+//   --from-fixture                 recompute and print the numbers from the fixtures (v1, and v1 against v2 when results-v2.json exists), with no network
 import { createServer } from "node:http";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { BENCHMARK_ITEMS, type BenchmarkItem } from "../src/domain/complaints/classifier-benchmark/dataset";
 import { type ItemResult, evaluate } from "../src/domain/complaints/classifier-benchmark/evaluate";
+import { formatComparison } from "../src/domain/complaints/classifier-benchmark/compare";
 import { formatProvider } from "../src/domain/complaints/classifier-benchmark/report";
 import { createRng } from "../src/domain/complaints/safety-benchmark/prng";
 import { JevClient } from "../src/server/complaints/providers/client";
 import { type ProviderConfig, readJevConfig } from "../src/server/complaints/providers/config";
+import type { PromptVersion } from "../src/server/complaints/providers/system-one";
 
 export const REQUEST_CAP = 250;
 export const MAX_RETRIES = 3;
 export const MAX_RETRY_AFTER_SECONDS = 60;
 export const FIXTURE_PATH = path.join("tests", "fixtures", "classifier-benchmark", "results.json");
+export const FIXTURE_V2_PATH = path.join("tests", "fixtures", "classifier-benchmark", "results-v2.json");
 export const CACHE_DIR = path.join(".cache", "classifier-benchmark");
 
 export type Label = "primary" | "secondary";
-export type Options = { provider: Label; limit: number | null; sample: "stratified60" | null; paceMs: number; dryRun: boolean; writeFixture: boolean; fromFixture: boolean };
+export type Options = { provider: Label; prompt: PromptVersion; cap: number; limit: number | null; sample: "stratified60" | null; paceMs: number; dryRun: boolean; writeFixture: boolean; fromFixture: boolean };
 
 export function parseArgs(argv: readonly string[]): Options {
   const value = (name: string): string | undefined => argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
   const provider = value("provider") ?? "primary";
   if (provider !== "primary" && provider !== "secondary") throw new Error("--provider must be primary or secondary");
+  const prompt = value("prompt") ?? "v1";
+  if (prompt !== "v1" && prompt !== "v2") throw new Error("--prompt must be v1 or v2");
   const sample = value("sample");
   if (sample !== undefined && sample !== "stratified60") throw new Error("--sample must be stratified60");
   const number = (name: string, fallback: number | null): number | null => {
@@ -43,10 +50,10 @@ export function parseArgs(argv: readonly string[]): Options {
     if (!Number.isInteger(n) || n < 0) throw new Error(`--${name} must be a whole number`);
     return n;
   };
-  return { provider, limit: number("limit", null), sample: sample ?? null, paceMs: number("pace-ms", 1000) ?? 1000, dryRun: argv.includes("--dry-run"), writeFixture: argv.includes("--write-fixture"), fromFixture: argv.includes("--from-fixture") };
+  return { provider, prompt, cap: number("cap", REQUEST_CAP) ?? REQUEST_CAP, limit: number("limit", null), sample: sample ?? null, paceMs: number("pace-ms", 1000) ?? 1000, dryRun: argv.includes("--dry-run"), writeFixture: argv.includes("--write-fixture"), fromFixture: argv.includes("--from-fixture") };
 }
 
-/** The items to send: the whole set, or 3 per (category, language group) cell with seed 42, then at most `limit`. Always in dataset order. */
+/** The items to send: the whole set, or 3 per (category, language group) cell with seed 42, in a seeded shuffle (seed 42) so that a partial run is a fair sample, then at most `limit`. */
 export function selectItems(items: readonly BenchmarkItem[], options: Pick<Options, "limit" | "sample">): BenchmarkItem[] {
   let chosen: BenchmarkItem[] = [...items];
   if (options.sample === "stratified60") {
@@ -57,7 +64,16 @@ export function selectItems(items: readonly BenchmarkItem[], options: Pick<Optio
     for (const cell of cells.values()) for (const item of rng.shuffle(cell).slice(0, 3)) keep.add(item.id);
     chosen = chosen.filter((i) => keep.has(i.id));
   }
+  chosen = createRng(42).shuffle(chosen);
   return options.limit === null ? chosen : chosen.slice(0, options.limit);
+}
+
+/** The cache file of a provider and prompt version: `<provider>-<version>.jsonl`. The v1 cache written before the versions existed (`<provider>.jsonl`) is used while the new name is absent. */
+export function cacheFileFor(label: Label, version: PromptVersion, dryRun = false): string {
+  const prefix = dryRun ? "dry-run-" : "";
+  const named = path.join(CACHE_DIR, `${prefix}${label}-${version}.jsonl`);
+  const legacy = path.join(CACHE_DIR, `${prefix}${label}.jsonl`);
+  return version === "v1" && !existsSync(named) && existsSync(legacy) ? legacy : named;
 }
 
 export function readCache(file: string): ItemResult[] {
@@ -66,7 +82,7 @@ export function readCache(file: string): ItemResult[] {
 }
 
 export type RunDeps = { now: () => number; sleep: (ms: number) => Promise<void>; print: (line: string) => void; fetch?: typeof fetch };
-export type RunInput = { label: Label; items: readonly BenchmarkItem[]; config: ProviderConfig; timeoutMs: number; paceMs: number; cap: number; cacheFile: string };
+export type RunInput = { label: Label; prompt?: PromptVersion; items: readonly BenchmarkItem[]; config: ProviderConfig; timeoutMs: number; paceMs: number; cap: number; cacheFile: string };
 export type RunSummary = { requests: number; fromCache: number; stopped: string | null };
 
 /**
@@ -76,7 +92,7 @@ export type RunSummary = { requests: number; fromCache: number; stopped: string 
 export async function runProvider(input: RunInput, deps: RunDeps): Promise<RunSummary> {
   const cached = new Map(readCache(input.cacheFile).map((r) => [r.id, r]));
   mkdirSync(path.dirname(input.cacheFile), { recursive: true });
-  const client = new JevClient(input.config, { fetch: deps.fetch, now: deps.now });
+  const client = new JevClient(input.config, { fetch: deps.fetch, now: deps.now, promptVersion: input.prompt });
   let requests = 0;
   let lastAt = Number.NEGATIVE_INFINITY;
   let stopped: string | null = null;
@@ -155,13 +171,19 @@ async function main(): Promise<number> {
   const options = parseArgs(process.argv.slice(2));
   const print = (line: string): void => console.log(line);
   if (options.fromFixture) {
-    print(reportOf(JSON.parse(readFileSync(FIXTURE_PATH, "utf8")) as Fixture));
+    const v1 = JSON.parse(readFileSync(FIXTURE_PATH, "utf8")) as Fixture;
+    print(reportOf(v1));
+    if (existsSync(FIXTURE_V2_PATH)) {
+      const v2 = JSON.parse(readFileSync(FIXTURE_V2_PATH, "utf8")) as Fixture;
+      print(`\n${formatComparison({ items: BENCHMARK_ITEMS, v1: v1.providers.primary ?? [], v2: v2.providers.primary ?? [] })}`);
+    }
     return 0;
   }
   if (options.writeFixture) {
-    const fixture = buildFixture((label) => readCache(path.join(CACHE_DIR, `${label}.jsonl`)));
-    mkdirSync(path.dirname(FIXTURE_PATH), { recursive: true });
-    writeFileSync(FIXTURE_PATH, `${JSON.stringify(fixture)}\n`);
+    const fixture = buildFixture((label) => readCache(cacheFileFor(label, options.prompt)));
+    const target = options.prompt === "v2" ? FIXTURE_V2_PATH : FIXTURE_PATH;
+    mkdirSync(path.dirname(target), { recursive: true });
+    writeFileSync(target, `${JSON.stringify(fixture)}\n`);
     print(`wrote the fixture: ${Object.entries(fixture.providers).map(([label, rows]) => `${label} ${rows?.length ?? 0} items`).join(", ")}`);
     return 0;
   }
@@ -187,8 +209,8 @@ async function main(): Promise<number> {
       return 1;
     }
     const items = selectItems(BENCHMARK_ITEMS, options);
-    const cacheFile = path.join(CACHE_DIR, options.dryRun ? `dry-run-${options.provider}.jsonl` : `${options.provider}.jsonl`);
-    const summary = await runProvider({ label: options.provider, items, config: provider, timeoutMs: config.timeoutMs, paceMs: options.paceMs, cap: REQUEST_CAP, cacheFile }, { now: Date.now, sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)), print });
+    const cacheFile = cacheFileFor(options.provider, options.prompt, options.dryRun);
+    const summary = await runProvider({ label: options.provider, prompt: options.prompt, items, config: provider, timeoutMs: config.timeoutMs, paceMs: options.paceMs, cap: options.cap, cacheFile }, { now: Date.now, sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)), print });
     print(`${options.provider}: ${summary.requests} requests sent, ${summary.fromCache} items already cached${summary.stopped === null ? "" : `, stopped: ${summary.stopped}`}`);
     const results = readCache(cacheFile).filter((r) => items.some((i) => i.id === r.id));
     print(reportOf({ note: "", providers: { [options.provider]: results } }, BENCHMARK_ITEMS.filter((i) => items.some((s) => s.id === i.id))));

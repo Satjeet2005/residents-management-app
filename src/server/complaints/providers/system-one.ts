@@ -22,24 +22,37 @@ const CATEGORY_CRITERIA: Record<CategoryCode, string> = {
   OTHER: "Anything else: noise, parking, security, pets, neighbours, or something that fits none of the above.",
 };
 
+/** The version of the request text. v1 is the text shipped first and measured in D195; v2 is the urgency revision (D197). The default stays v1 unless the pre-registered rule adopted v2. */
+export type PromptVersion = "v1" | "v2";
+export const CLASSIFIER_PROMPT_VERSION: PromptVersion = "v1";
+
 const URGENCY_CRITERIA: Record<ModelUrgency, string> = {
   HIGH: "Needs action today: a service is fully out, or the problem is getting worse quickly.",
   NORMAL: "An ordinary problem that should be fixed in the next day or two.",
   LOW: "A small matter, a suggestion, or something that can wait several days.",
 };
 
+const URGENCY_CRITERIA_V2: Record<ModelUrgency, string> = {
+  HIGH: "Someone must act TODAY: water entering a home, a whole wing or tower without power or water, a lift out of service, a blocked main drain, or a gate or access failure.",
+  NORMAL: "A routine repair that can be done within a day or two.",
+  LOW: "Cosmetic, convenience, noise, parking or a suggestion.",
+};
+
+const LANGUAGES_V2 = " The text may be in English, Hindi, Marathi or a mix.";
+
 /**
  * The request for one complaint (D140). TWO questions in one call: the category over exactly the five codes, and the urgency over HIGH, NORMAL and
  * LOW (never CRITICAL: only the safety rules produce it). The body holds ONLY the model, the de-identified text and the questions: no user id, no flat.
  * Without a model the `model` key is left out entirely, not empty and not null, and the provider chooses its default (D144).
  */
-export function buildRequest(deidentifiedText: string, model?: string): SystemOneRequest {
+export function buildRequest(deidentifiedText: string, model?: string, version: PromptVersion = CLASSIFIER_PROMPT_VERSION): SystemOneRequest {
+  const v2 = version === "v2";
   return {
     ...(model === undefined ? {} : { model }),
     state: deidentifiedText,
     questions: {
-      category: { type: "choice", instructions: "Which kind of problem does this complaint from a resident of a housing society describe?", criteria: { ...CATEGORY_CRITERIA } },
-      urgency: { type: "choice", instructions: "How urgent is this complaint from a resident of a housing society?", criteria: { ...URGENCY_CRITERIA } },
+      category: { type: "choice", instructions: `Which kind of problem does this complaint from a resident of a housing society describe?${v2 ? LANGUAGES_V2 : ""}`, criteria: { ...CATEGORY_CRITERIA } },
+      urgency: { type: "choice", instructions: `How urgent is this complaint from a resident of a housing society?${v2 ? LANGUAGES_V2 : ""}`, criteria: { ...(v2 ? URGENCY_CRITERIA_V2 : URGENCY_CRITERIA) } },
     },
   };
 }

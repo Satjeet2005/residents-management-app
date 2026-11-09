@@ -4,7 +4,8 @@ import path from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { BENCHMARK_ITEMS } from "@/domain/complaints/classifier-benchmark/dataset";
 import type { ProviderConfig } from "@/server/complaints/providers/config";
-import { FIXTURE_PATH, type Fixture, MAX_RETRIES, REQUEST_CAP, buildFixture, parseArgs, readCache, reportOf, runProvider, selectItems, startFakeProvider } from "../../scripts/classifier-benchmark";
+import { formatComparison } from "@/domain/complaints/classifier-benchmark/compare";
+import { FIXTURE_PATH, FIXTURE_V2_PATH, type Fixture, MAX_RETRIES, REQUEST_CAP, buildFixture, cacheFileFor, parseArgs, readCache, reportOf, runProvider, selectItems, startFakeProvider } from "../../scripts/classifier-benchmark";
 import { FakeProvider, respondJson } from "./complaints/providers/fake-provider";
 
 const KEY = "test-key-not-a-secret-123";
@@ -41,21 +42,44 @@ const good = (): void => {
 
 describe("BR1 the options and the sample", () => {
   it("has defaults, and refuses a provider or a number it does not know", () => {
-    expect(parseArgs([])).toEqual({ provider: "primary", limit: null, sample: null, paceMs: 1000, dryRun: false, writeFixture: false, fromFixture: false });
+    expect(parseArgs([])).toEqual({ provider: "primary", prompt: "v1", cap: 250, limit: null, sample: null, paceMs: 1000, dryRun: false, writeFixture: false, fromFixture: false });
     expect(parseArgs(["--provider=secondary", "--limit=5", "--sample=stratified60", "--pace-ms=0", "--dry-run"])).toMatchObject({ provider: "secondary", limit: 5, sample: "stratified60", paceMs: 0, dryRun: true });
     expect(() => parseArgs(["--provider=other"])).toThrow();
     expect(() => parseArgs(["--limit=-1"])).toThrow();
     expect(() => parseArgs(["--sample=all"])).toThrow();
+    expect(parseArgs(["--prompt=v2", "--cap=220"])).toMatchObject({ prompt: "v2", cap: 220 });
+    expect(() => parseArgs(["--prompt=v3"])).toThrow();
   });
 
-  it("stratified60 is 3 items per cell, the same every time, in dataset order", () => {
+  it("stratified60 is 3 items per cell, the same every time, in the seeded shuffle order, a different order from the dataset", () => {
     const a = selectItems(BENCHMARK_ITEMS, { limit: null, sample: "stratified60" });
     const b = selectItems(BENCHMARK_ITEMS, { limit: null, sample: "stratified60" });
     expect(a).toHaveLength(60);
     expect(a.map((i) => i.id)).toEqual(b.map((i) => i.id));
     for (const category of ["PLUMBING", "ELECTRICAL", "HOUSEKEEPING", "LIFT", "OTHER"]) for (const group of ["EN", "HI", "MR", "HINGLISH"]) expect(a.filter((i) => i.category === category && i.languageGroup === group)).toHaveLength(3);
-    expect(a.map((i) => i.id)).toEqual(BENCHMARK_ITEMS.filter((i) => a.some((x) => x.id === i.id)).map((i) => i.id));
+    expect(a.map((i) => i.id)).not.toEqual(BENCHMARK_ITEMS.filter((i) => a.some((x) => x.id === i.id)).map((i) => i.id));
     expect(selectItems(BENCHMARK_ITEMS, { limit: 7, sample: null })).toHaveLength(7);
+  });
+});
+
+describe("BR1b the order and the caches", () => {
+  it("the whole set is sent in a seeded shuffle (seed 42): every item once, the same order every time, not the dataset order", () => {
+    const a = selectItems(BENCHMARK_ITEMS, { limit: null, sample: null });
+    expect(a.map((i) => i.id)).toEqual(selectItems(BENCHMARK_ITEMS, { limit: null, sample: null }).map((i) => i.id));
+    expect([...a.map((i) => i.id)].sort()).toEqual(BENCHMARK_ITEMS.map((i) => i.id).sort());
+    expect(a.map((i) => i.id)).not.toEqual(BENCHMARK_ITEMS.map((i) => i.id));
+  });
+
+  it("a partial run is a fair sample: the first 40 items are not all of one language group", () => {
+    const first = selectItems(BENCHMARK_ITEMS, { limit: 40, sample: null });
+    expect(new Set(first.map((i) => i.languageGroup)).size).toBe(4);
+  });
+
+  it("each provider and version has its own cache file, and the v1 cache written before the versions existed is still used", () => {
+    expect(cacheFileFor("primary", "v2")).toBe(path.join(".cache", "classifier-benchmark", "primary-v2.jsonl"));
+    expect(cacheFileFor("secondary", "v2")).toBe(path.join(".cache", "classifier-benchmark", "secondary-v2.jsonl"));
+    expect(cacheFileFor("primary", "v1")).toMatch(/primary(-v1)?\.jsonl$/);
+    expect(cacheFileFor("primary", "v1", true)).toContain("dry-run-primary");
   });
 });
 
@@ -180,5 +204,18 @@ describe("BR4 the committed results and the document", () => {
   it("the cache folder is ignored by git, and no cache file is committed", () => {
     expect(readFileSync(".gitignore", "utf8")).toMatch(/^\.cache\/$/m);
     expect(existsSync(FIXTURE_PATH)).toBe(true);
+  });
+});
+
+describe("BR9 the v2 fixture (D197)", () => {
+  it("is compact like the v1 fixture: item ids, statuses and distributions only, and the comparison prints from it with no network", () => {
+    const text = readFileSync(FIXTURE_V2_PATH, "utf8");
+    const fixture = JSON.parse(text) as Fixture;
+    const rows = fixture.providers.primary ?? [];
+    expect(rows.length).toBeGreaterThan(0);
+    expect(text).not.toMatch(/https?:|bearer/i);
+    for (const item of BENCHMARK_ITEMS) expect(text).not.toContain(item.text);
+    const v1 = JSON.parse(readFileSync(FIXTURE_PATH, "utf8")) as Fixture;
+    expect(formatComparison({ items: BENCHMARK_ITEMS, v1: v1.providers.primary ?? [], v2: rows })).toContain(`(${rows.length} items, the same items for both)`);
   });
 });

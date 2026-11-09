@@ -24,7 +24,7 @@ export type TranslatorPort = { translate(text: string): Promise<string | null> }
 export type ClassificationPolicy = { minCategoryProbability: number; minUrgencyProbability: number; requireAgreement: boolean; allowSingleArm: boolean };
 export const defaultClassificationPolicy: ClassificationPolicy = { minCategoryProbability: 0.7, minUrgencyProbability: 0.6, requireAgreement: true, allowSingleArm: false };
 
-export const REASON_CODES = ["SAFETY_WORD", "INVALID_MODEL_OUTPUT", "ARMS_DISAGREE", "LOW_CONFIDENCE", "URGENCY_UNCERTAIN", "MODEL_UNAVAILABLE", "FALLBACK_USED", "NO_CLASSIFICATION", "EMPTY_TEXT", "SINGLE_ARM_NOT_ALLOWED"] as const;
+export const REASON_CODES = ["SAFETY_WORD", "INVALID_MODEL_OUTPUT", "ARMS_DISAGREE", "LOW_CONFIDENCE", "URGENCY_UNCERTAIN", "URGENCY_FLOORED", "MODEL_UNAVAILABLE", "FALLBACK_USED", "NO_CLASSIFICATION", "EMPTY_TEXT", "SINGLE_ARM_NOT_ALLOWED"] as const;
 export type ReasonCode = (typeof REASON_CODES)[number];
 
 export type Decision = {
@@ -38,13 +38,15 @@ export type Decision = {
   escalateToDutyManager: boolean;
   reasons: ReasonCode[];
   safetyHits: SafetyHit[];
+  /** Set only when the urgency floor raised a model answer of LOW to NORMAL (D199): the model's own answer, kept for the record. */
+  floorFrom?: "LOW";
 };
 
 /** The rules, in the order they are documented. They are applied as: R2 validates, R3 accepts or refuses the model, R4 falls back, R1 then overrides for safety, R5 holds throughout. */
 export const DECISION_RULES = [
   { id: "R1", summary: "Any safety hit: CRITICAL, source RULE, escalate, no triage; the category comes from an accepted model result or the fallback; nothing can lower it." },
   { id: "R2", summary: "Every arm is validated (finite probabilities in [0,1], non-empty unique labels summing to 1, no CRITICAL); an invalid arm is treated as no answer." },
-  { id: "R3", summary: "With valid arms: agreement and the thresholds decide; one arm alone only when allowed; confidence is the lowest top probability; urgency never goes below an urgent word." },
+  { id: "R3", summary: "With valid arms: agreement and the thresholds decide; one arm alone only when allowed; confidence is the lowest top probability; urgency never goes below an urgent word; an accepted model urgency of LOW is stored as NORMAL (URGENCY_FLOORED, D199)." },
   { id: "R4", summary: "With no valid arm: the keyword fallback, else triage." },
   { id: "R5", summary: "Deterministic, never throws; an empty text goes to triage." },
 ] as const;
@@ -177,6 +179,7 @@ export function decideClassification(input: { rawText: string; arms: readonly (A
   let source: Decision["source"] = "NONE";
   let confidence: number | null = null;
   let needsTriage = false;
+  let floorFrom: "LOW" | undefined;
 
   if (valid.length > 0) {
     const outcome = acceptArms(valid, policy);
@@ -184,7 +187,13 @@ export function decideClassification(input: { rawText: string; arms: readonly (A
       category = outcome.accepted.category;
       confidence = outcome.accepted.confidence;
       source = "LLM";
-      urgency = urgentWords ? higherUrgency(outcome.accepted.urgency, "HIGH") : outcome.accepted.urgency;
+      let modelUrgency: ModelUrgency = outcome.accepted.urgency;
+      if (modelUrgency === "LOW") {
+        modelUrgency = "NORMAL";
+        floorFrom = "LOW";
+        reasons.push("URGENCY_FLOORED");
+      }
+      urgency = urgentWords ? higherUrgency(modelUrgency, "HIGH") : modelUrgency;
       if (outcome.accepted.urgencyUncertain) reasons.push("URGENCY_UNCERTAIN");
     } else {
       reasons.push(outcome.refusal);
@@ -207,7 +216,7 @@ export function decideClassification(input: { rawText: string; arms: readonly (A
       category = keywords.category;
       reasons.push("FALLBACK_USED");
     }
-    return { category, urgency: "CRITICAL", safetyFlag: true, source: "RULE", confidence, needsTriage: false, escalateToDutyManager: true, reasons: ordered(reasons), safetyHits };
+    return { category, urgency: "CRITICAL", safetyFlag: true, source: "RULE", confidence, needsTriage: false, escalateToDutyManager: true, reasons: ordered(reasons.filter((r) => r !== "URGENCY_FLOORED")), safetyHits };
   }
-  return { category, urgency, safetyFlag: false, source, confidence, needsTriage: needsTriage || category === null, escalateToDutyManager: false, reasons: ordered(reasons), safetyHits: [] };
+  return { category, urgency, safetyFlag: false, source, confidence, needsTriage: needsTriage || category === null, escalateToDutyManager: false, reasons: ordered(reasons), safetyHits: [], ...(floorFrom === undefined ? {} : { floorFrom }) };
 }

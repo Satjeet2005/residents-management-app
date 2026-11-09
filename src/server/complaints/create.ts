@@ -127,7 +127,7 @@ export async function createComplaint(input: { db: Db; user: Actor; body: unknow
 
           const events: NewEvent[] = [
             { eventType: "CREATED", actorId: user.id, payload: declaredDanger ? { declaredDanger: true, ...(noDescription ? { note: "NO_DESCRIPTION" } : {}) } : {} },
-            { eventType: "CLASSIFIED", actorId: null, payload: { source: rowSource(decision), category: category?.code ?? null, urgency: decision.urgency, confidence: decision.confidence, reasons: decision.reasons } },
+            { eventType: "CLASSIFIED", actorId: null, payload: { source: rowSource(decision), category: category?.code ?? null, urgency: decision.urgency, confidence: decision.confidence, reasons: decision.reasons, ...(decision.floorFrom === undefined ? {} : { modelUrgency: decision.floorFrom }) } },
           ];
           if (decision.safetyFlag) {
             const reason = decision.safetyHits.length > 0 ? "SAFETY_RULE" : "DECLARED";

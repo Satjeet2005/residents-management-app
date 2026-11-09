@@ -1,7 +1,7 @@
 import { type ArmResult, defaultClassificationPolicy, decideClassification } from "../decision";
 import { classifyByKeywords } from "../fallback";
 import { type Interval, wilson } from "../safety-benchmark/wilson";
-import { CATEGORY_CODES, type CategoryCode, type ModelUrgency } from "../taxonomy";
+import { CATEGORY_CODES, type CategoryCode, MODEL_URGENCIES, type ModelUrgency, urgencyRank } from "../taxonomy";
 import { type BenchmarkItem, LANGUAGE_GROUPS, type LanguageGroup } from "./dataset";
 
 /** What the runner stored for one item and provider: the validated distributions, or a failure (no distributions). No URL, no key, no text. */
@@ -67,13 +67,14 @@ type Row = {
 function rowOf(item: BenchmarkItem, result: ItemResult): Row {
   const arm: ArmResult | null = result.categories === null || result.urgencies === null ? null : { arm: "DIRECT", categories: result.categories, urgencies: result.urgencies };
   const decision = decideClassification({ rawText: item.text, arms: [arm], policy: productionPolicy });
+  const modelUrgency = decision.floorFrom ?? decision.urgency;
   const accepted = decision.source === "LLM";
   const top = result.categories === null ? 0 : Math.max(...result.categories.map((c) => c.probability));
   return {
     item,
     jevCategory: accepted ? decision.category : null,
     jevCategoryProbability: top,
-    jevUrgency: accepted ? decision.urgency : null,
+    jevUrgency: accepted ? modelUrgency : null,
     urgencyAccepted: accepted && !decision.reasons.includes("URGENCY_UNCERTAIN"),
     keywordCategory: classifyByKeywords(item.text).category,
   };
@@ -99,6 +100,33 @@ function groupOf(rows: readonly Row[]): GroupEval {
     keyword: { category: { accepted: proportion(kw.length, n), accuracyAmongAccepted: proportion(kwCorrect, kw.length), verdict: d87Verdict(kwCorrect, kw.length, n) } },
     production: { autoClassified: proportion(auto.length, n), accuracyAmongAuto: proportion(autoCorrect, auto.length), sentToPerson: proportion(n - auto.length, n), verdict: d87Verdict(autoCorrect, auto.length, n) },
   };
+}
+
+export type UrgencyConfusion = Record<ModelUrgency, Record<ModelUrgency, number>>;
+/** The accepted urgencies of a group: the confusion matrix (truth by answer), the errors and how many of them UNDER-rate (true HIGH answered NORMAL or LOW, true NORMAL answered LOW). The model's own answer, before any safety floor. */
+export type UrgencyDetail = { confusion: UrgencyConfusion; errors: number; underRated: number };
+
+/** The urgency detail per language group and overall, on the items that have a result. */
+export function urgencyDetail(input: { items: readonly BenchmarkItem[]; results: readonly ItemResult[] }): Record<"ALL" | LanguageGroup, UrgencyDetail> {
+  const byId = new Map(input.results.map((r) => [r.id, r]));
+  const detail = (items: readonly BenchmarkItem[]): UrgencyDetail => {
+    const confusion = Object.fromEntries(MODEL_URGENCIES.map((t) => [t, Object.fromEntries(MODEL_URGENCIES.map((a) => [a, 0]))])) as UrgencyConfusion;
+    let errors = 0;
+    let underRated = 0;
+    for (const item of items) {
+      const result = byId.get(item.id);
+      if (result === undefined) continue;
+      const row = rowOf(item, result);
+      if (!row.urgencyAccepted || row.jevUrgency === null || row.jevUrgency === "CRITICAL") continue;
+      confusion[item.urgency][row.jevUrgency] += 1;
+      if (row.jevUrgency !== item.urgency) {
+        errors += 1;
+        if (urgencyRank(row.jevUrgency) < urgencyRank(item.urgency)) underRated += 1;
+      }
+    }
+    return { confusion, errors, underRated };
+  };
+  return { ALL: detail(input.items), ...Object.fromEntries(LANGUAGE_GROUPS.map((g) => [g, detail(input.items.filter((i) => i.languageGroup === g))])) } as Record<"ALL" | LanguageGroup, UrgencyDetail>;
 }
 
 /**
