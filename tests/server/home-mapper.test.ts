@@ -180,14 +180,12 @@ describe("HM1 the other parts of the Home data", () => {
     expect(data.kind === "OK" && data.moreThanOneFlat).toBe(false);
   });
 
-  it("T12-0408: the open complaint is ASSIGNED, step 2, reply due today, and two visitors are expected", () => {
+  it("T12-0408: the open complaint is ASSIGNED, step 2, and reply due today", () => {
     const data = home("T12-0408");
     expect(data.complaint).toMatchObject({ title: "Water leak under the kitchen sink", status: "ASSIGNED", current: 1, needsAnswer: false });
     expect(data.complaint?.reply).toMatchObject({ kind: "DUE", today: true });
     expect(replyDueText(data.complaint?.reply as never)).toBe("Reply due today, 5 pm");
     expect(data.otherOpenComplaints).toBe(0);
-    expect(data.visitors.length).toBe(2);
-    expect(data.visitors.every((v) => Object.keys(v).join() === "expectedAt")).toBe(true);
     expect(JSON.stringify(data, (_k, v) => (typeof v === "bigint" ? v.toString() : v))).not.toMatch(/Ramesh|Anita/);
   });
 

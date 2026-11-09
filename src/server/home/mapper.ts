@@ -24,7 +24,6 @@ export type EntryRow = {
   createdAt: Date;
 };
 export type ComplaintRow = { id: string; safetyFlag: boolean; body: string; status: ComplaintStatus; createdAt: Date; responseDueAt: Date | null; firstResponseAt: Date | null; acknowledgedAt: Date | null };
-export type VisitorRow = { expectedAt: Date };
 /** The newest payment attempt of the flat. */
 export type AttemptRow = { status: "INITIATED" | "PROCESSING" | "SUCCEEDED" | "FAILED" | "RELEASED"; startedAt: Date };
 export type SettingsRow = { key: string; value: unknown };
@@ -37,7 +36,6 @@ export type HomeInput = {
   bills: readonly BillRow[];
   entries: readonly EntryRow[];
   complaints: readonly ComplaintRow[];
-  visitors: readonly VisitorRow[];
   settings: readonly SettingsRow[];
   /** The flat's newest payment attempt, or null when it has none. */
   latestAttempt: AttemptRow | null;
@@ -178,7 +176,6 @@ export function assembleHome(input: HomeInput): HomeData {
     complaint,
     otherOpenComplaints: Math.max(0, open.length - 1),
     safetyAlert: safetyAlertOf(input.complaints, input.settings, input.now),
-    visitors: [...input.visitors].sort((a, b) => a.expectedAt.getTime() - b.expectedAt.getTime()).map((v) => ({ expectedAt: v.expectedAt.getTime() })),
     recent: recentEntries(input.entries, today),
     hasActivity: input.entries.length > 0,
     bankAccount: parseBankAccount(input.settings),

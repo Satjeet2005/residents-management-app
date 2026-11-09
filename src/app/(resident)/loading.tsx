@@ -1,7 +1,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { t } from "@/lib/messages";
 
-/** Shown while a resident page loads: plain bars where the dues, complaints and visitors will be. No shimmer, no spinner. */
+/** Shown while a resident page loads: plain bars where the dues and complaints will be. No shimmer, no spinner. */
 export default function Loading() {
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4">

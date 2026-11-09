@@ -3,7 +3,7 @@ import type { Db } from "@/server/auth/db";
 import type { SessionUser } from "@/server/auth/session-service";
 import { autoCloseQuietly } from "@/server/complaints/auto-close";
 import { assembleHome } from "./mapper";
-import { findCurrentMemberships, loadBills, loadEntries, loadLatestAttempt, loadOpenComplaints, loadSettings, loadTodaysVisitors } from "./queries";
+import { findCurrentMemberships, loadBills, loadEntries, loadLatestAttempt, loadOpenComplaints, loadSettings } from "./queries";
 import type { HomeData } from "./types";
 
 /**
@@ -17,14 +17,13 @@ export async function getHomeData({ db, user, now }: { db: Db; user: Pick<Sessio
   const today = istDateOf(now);
   const memberships = (await findCurrentMemberships(db, user.id, today)).sort((a, b) => (a.flatCode < b.flatCode ? -1 : a.flatCode > b.flatCode ? 1 : 0));
   const shown = memberships[0];
-  if (shown === undefined) return assembleHome({ userName: user.name, now, memberships, bills: [], entries: [], complaints: [], visitors: [], settings: [], latestAttempt: null });
-  const [bills, entries, complaints, visitors, settings, latestAttempt] = await Promise.all([
+  if (shown === undefined) return assembleHome({ userName: user.name, now, memberships, bills: [], entries: [], complaints: [], settings: [], latestAttempt: null });
+  const [bills, entries, complaints, settings, latestAttempt] = await Promise.all([
     loadBills(db, shown.flatId),
     loadEntries(db, shown.flatId),
     loadOpenComplaints(db, shown.flatId),
-    loadTodaysVisitors(db, shown.flatId, today),
     loadSettings(db),
     loadLatestAttempt(db, shown.flatId),
   ]);
-  return assembleHome({ userName: user.name, now, memberships, bills, entries, complaints, visitors, settings, latestAttempt });
+  return assembleHome({ userName: user.name, now, memberships, bills, entries, complaints, settings, latestAttempt });
 }

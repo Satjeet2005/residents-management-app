@@ -81,15 +81,6 @@ describe("HM5 Home: T12-0408, overdue (₹6,468, 47 days)", () => {
     expect(html).toMatch(/Your complaints<\/h2><a [^>]*>Raise a complaint<\/a><\/div><hr class="m-0 border-0 border-t border-hairline"\/>/);
   });
 
-  it("visitors: one bold summary line and one line with the times only, between hairlines, and no name", () => {
-    const section = /<section aria-label="Visitors">[\s\S]*?<\/section>/.exec(html)?.[0] ?? "";
-    expect(section).toMatch(/^<section aria-label="Visitors"><hr[^>]*\/>/);
-    expect(section).toMatch(/<hr[^>]*\/><\/section>$/);
-    expect(section).toContain('<p class="text-body font-semibold">2 visitors expected today</p>');
-    expect(text(section)).toContain("11:00 am and 4:30 pm");
-    expect(html).not.toMatch(/Ramesh|Anita/);
-  });
-
   it("recent activity: hairline-ruled rows, date at the left, particulars, the amount in semibold, and no links under it", () => {
     expect(words).toContain("Recent activity");
     expect(words).toContain("1 Sep");
@@ -223,26 +214,12 @@ describe("HM5 Home: variants built by hand", () => {
     expect(words).toContain("Showing T07-1203");
   });
 
-  it("three visitors read as a list of times", () => {
-    const at = (h: number) => new Date(DEMO_NOW + h * 3_600_000);
-    expect(text(render(assembleHome({ ...inputFor("T12-0408"), visitors: [{ expectedAt: at(-2) }, { expectedAt: at(1) }, { expectedAt: at(3) }] })))).toContain("3 visitors expected today 10:00 am, 1:00 pm and 3:00 pm");
-  });
-
   it("a complaint that has had its first reply shows only the step", () => {
     const base = inputFor("T12-0408");
     const data = assembleHome({ ...base, complaints: base.complaints.map((c) => ({ ...c, firstResponseAt: new Date(DEMO_NOW - 3_600_000) })) });
     const words = text(render(data));
     expect(words).toContain("Step 2 of 4");
     expect(words).not.toContain("Step 2 of 4. Reply");
-  });
-
-  it("one visitor reads in the singular, and none reads 'No visitors expected today'", () => {
-    const one = text(render(assembleHome({ ...inputFor("T12-0408"), visitors: [{ expectedAt: new Date(DEMO_NOW + 3_600_000) }] })));
-    expect(one).toContain("1 visitor expected today");
-    expect(one).toContain("1:00 pm");
-    const none = text(render(home("T07-1203")));
-    expect(none).toContain("No visitors expected today");
-    expect(none).not.toMatch(/ am| pm/);
   });
 
   it("a day overdue is singular", () => {

@@ -11,7 +11,7 @@ import { DoubleRule, Hairline } from "@/components/ui/rules";
 import { formatRupees } from "@/domain/money/money";
 import type { DemoNoteState } from "@/lib/demo-note";
 import { formatDay } from "@/lib/format-date";
-import { complaintStepLine, dueTag, entryLabel, otherComplaintsText, partlyPaidText, visitorTimesText, visitorsText } from "@/lib/home-text";
+import { complaintStepLine, dueTag, entryLabel, otherComplaintsText, partlyPaidText } from "@/lib/home-text";
 import { t } from "@/lib/messages";
 import type { FlatRelation, HomeComplaint, HomeData, RecentEntry } from "@/server/home/types";
 import { DuesActions } from "./dues-sheet";
@@ -97,7 +97,7 @@ function ActivityRow({ entry }: { entry: RecentEntry }) {
 
 /**
  * The resident Home for one set of data (D23): the flat and who is signed in, the dues card with the breakdown sheet, the
- * newest open complaint with its tracker, a summary of today's visitors (times only, no names), and the last two ledger
+ * newest open complaint with its tracker, and the last two ledger
  * lines. It draws data and decides nothing about money: the Pay button's amount comes from the dues, and tapping it asks
  * the server to lock the amount. While the flat has an open safety complaint, the safety alert sits above the dues and Pay is outlined (D126).
  * The complaint card opens the complaint; "Raise a complaint" opens the form. No View ledger, no Receipt: those arrive with their features.
@@ -111,7 +111,6 @@ export function HomeView({ data, demoNote = null }: { data: HomeData; demoNote?:
       </main>
     );
   }
-  const times = visitorTimesText(data.visitors.map((visitor) => visitor.expectedAt));
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4">
       <header className="flex items-start justify-between gap-4">
@@ -134,15 +133,6 @@ export function HomeView({ data, demoNote = null }: { data: HomeData; demoNote?:
         <SectionHeader title={t("complaints.title")} action={{ label: t("complaints.raise"), href: "/complaints/new" }} />
         <Hairline />
         {data.complaint === null ? <p className="text-body text-ink-2">{t("complaint.none")}</p> : <ComplaintCard complaint={data.complaint} others={data.otherOpenComplaints} />}
-      </section>
-
-      <section aria-label={t("visitors.title")}>
-        <Hairline />
-        <div className="py-3">
-          <p className="text-body font-semibold">{visitorsText(data.visitors.length)}</p>
-          {times !== null && <p className="tnum text-body">{times}</p>}
-        </div>
-        <Hairline />
       </section>
 
       <section className="flex flex-col gap-2">

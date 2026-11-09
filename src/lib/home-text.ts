@@ -3,7 +3,7 @@ import type { FeeWorking } from "@/domain/billing/working";
 import { formatRupees, formatRupeesRounded } from "@/domain/money/money";
 import { istDateOf } from "@/domain/time/calendar";
 import type { EntryType, ReplyDue } from "@/server/home/types";
-import { formatClockIst, formatDay, formatTimeIst, monthName } from "./format-date";
+import { formatDay, formatTimeIst, monthName } from "./format-date";
 import { t } from "./messages";
 
 /** "Reply due today, 5 pm", "Reply due 28 Oct, 5 pm" or "Reply overdue". The times are India time. */
@@ -13,7 +13,7 @@ export function replyDueText(reply: ReplyDue): string {
   return reply.today ? t("complaint.reply.dueToday", { time }) : t("complaint.reply.dueOn", { date: formatDay(istDateOf(reply.dueAt)), time });
 }
 
-// --- Dues, entries, visitors and complaints, in words (no Intl, no plural library: a plural is a second key) ---
+// --- Dues, entries and complaints, in words (no Intl, no plural library: a plural is a second key) ---
 
 
 export const overdueText = (days: number): string => (days === 1 ? t("dues.overdueOne", { days: 1 }) : t("dues.overdue", { days }));
@@ -51,19 +51,6 @@ export function entryLabel(type: EntryType): string {
     case "ADJUSTMENT":
       return t("entry.adjustment");
   }
-}
-
-export function visitorsText(count: number): string {
-  if (count === 0) return t("visitors.none");
-  return count === 1 ? t("visitors.one", { n: 1 }) : t("visitors.many", { n: count });
-}
-
-/** "11:00 am", "11:00 am and 4:30 pm", "9:00 am, 11:00 am and 4:30 pm": the times only, in order. Null when nobody is expected. */
-export function visitorTimesText(expectedAt: readonly number[]): string | null {
-  const times = expectedAt.map(formatClockIst);
-  if (times.length === 0) return null;
-  if (times.length === 1) return times[0];
-  return t("visitors.and", { rest: times.slice(0, -1).join(", "), last: times[times.length - 1] });
 }
 
 /** "Step 2 of 4. Reply due today, 5 pm", or just "Step 2 of 4" once someone has replied. */

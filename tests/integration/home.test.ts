@@ -78,7 +78,7 @@ describe("HM6 the connection is the app role, not the owner", () => {
 });
 
 describe("HM6 getHomeData for the sample residents (27 Oct 2026, 12:00 IST)", () => {
-  it("HM6 T12-0408 (Swati Joshi, 5000000007): ₹6,468, 47 days overdue, the water-leak complaint, two visitors", async () => {
+  it("HM6 T12-0408 (Swati Joshi, 5000000007): ₹6,468, 47 days overdue, the water-leak complaint", async () => {
     const data = ok(await homeFor("5000000007"));
     expect(data.flat.code).toBe("T12-0408");
     expect(data.dues.status).toBe("OVERDUE");
@@ -87,8 +87,6 @@ describe("HM6 getHomeData for the sample residents (27 Oct 2026, 12:00 IST)", ()
     expect(data.dues.openBills[0]).toMatchObject({ outstandingPaise: 637_000n, feePaise: 9_800n });
     expect(data.complaint).toMatchObject({ title: "Water leak under the kitchen sink", status: "ASSIGNED", current: 1 });
     expect(data.complaint?.reply).toMatchObject({ kind: "DUE", today: true });
-    expect(data.visitors).toHaveLength(2);
-    expect(Object.keys(data.visitors[0])).toEqual(["expectedAt"]);
     expect(asText(data)).not.toMatch(/Ramesh|Anita/);
     expect(data.recent[0]).toEqual({ entryType: "BILL", date: "2026-09-01", amountPaise: 637_000n });
     expect(data.emergency).toEqual({ dutyManagerPhone: "5900000001", emergencyServicesPhone: null });
@@ -110,7 +108,6 @@ describe("HM6 getHomeData for the sample residents (27 Oct 2026, 12:00 IST)", ()
     expect(data.dues.status).toBe("ALL_PAID");
     expect(data.dues.lastPayment).toEqual({ amountPaise: 747_500n, date: "2026-10-03" });
     expect(data.complaint).toMatchObject({ status: "PENDING_CONFIRMATION", current: 3, needsAnswer: true, reply: null });
-    expect(data.visitors).toEqual([]);
   });
 
   it("HM6 T15-0902 (Rohit Deshmukh, 5000000010): two open bills, ₹17,341 in all, and a NEW complaint", async () => {
@@ -192,9 +189,8 @@ describe("HM6 the business clock moves the numbers (a later real date)", () => {
     expect(diffDays("2026-09-10", "2026-11-06")).toBe(57);
   });
 
-  it("HM6 the visitors of 27 Oct are not 'today' on 6 Nov, and the reply is overdue", async () => {
+  it("HM6 on 6 Nov the reply is overdue", async () => {
     const data = ok(await homeFor("5000000007", Date.UTC(2026, 10, 6, 6, 30)));
-    expect(data.visitors).toEqual([]);
     expect(data.complaint?.reply).toEqual({ kind: "OVERDUE" });
   });
 });

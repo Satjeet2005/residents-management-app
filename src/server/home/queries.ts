@@ -1,6 +1,6 @@
-import { dayStartInstant, addDays, type CalendarDate } from "@/domain/time/calendar";
+import type { CalendarDate } from "@/domain/time/calendar";
 import type { Db } from "@/server/auth/db";
-import type { AttemptRow, BillRow, ComplaintRow, EntryRow, MembershipRow, SettingsRow, VisitorRow } from "./mapper";
+import type { AttemptRow, BillRow, ComplaintRow, EntryRow, MembershipRow, SettingsRow } from "./mapper";
 
 /**
  * Every database read the resident Home makes, in one file. They are all SELECTs (the app role has no more than that on
@@ -45,15 +45,6 @@ export async function loadOpenComplaints(db: Db, flatId: string): Promise<Compla
     },
   });
   return rows.map(({ events, ...row }) => ({ ...row, acknowledgedAt: events[0]?.createdAt ?? null }));
-}
-
-/** The expected times of the visitors of the flat on the India day `today`, not cancelled. Names are personal data and are not read. */
-export async function loadTodaysVisitors(db: Db, flatId: string, today: CalendarDate): Promise<VisitorRow[]> {
-  return db.visitorPass.findMany({
-    where: { flatId, status: { not: "CANCELLED" }, expectedAt: { gte: new Date(dayStartInstant(today)), lt: new Date(dayStartInstant(addDays(today, 1))) } },
-    orderBy: { expectedAt: "asc" },
-    select: { expectedAt: true },
-  });
 }
 
 export async function loadSettings(db: Db): Promise<SettingsRow[]> {

@@ -33,11 +33,9 @@ export type HomeSafetyAlert = {
   callPhone: string | null;
 };
 
-/** A visitor expected today. Only the time: the name is personal data and the Home does not show it. */
 /** The society's account for a bank transfer, from the society_bank_account setting, shown as given. */
 export type BankAccount = { name: string; number: string; ifsc: string };
 
-export type HomeVisitor = { expectedAt: number };
 export type RecentEntry = { entryType: EntryType; date: CalendarDate; amountPaise: Paise };
 
 /**
@@ -60,7 +58,6 @@ export type HomeData =
       otherOpenComplaints: number;
       /** Present while the flat has an open safety complaint, above the dues. */
       safetyAlert: HomeSafetyAlert | null;
-      visitors: readonly HomeVisitor[];
       recent: readonly RecentEntry[];
       /** False when the flat has no ledger entry at all (a first-run flat). */
       hasActivity: boolean;
