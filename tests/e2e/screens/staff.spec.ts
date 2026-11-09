@@ -76,11 +76,18 @@ test.describe("staff screens: Meera Kapoor, the committee report", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Committee report" })).toBeVisible();
     await checkScreen(page, watch, "report", "top");
     await page.goto("/staff/reports?period=2026-10&bucket=over-90");
-    await expect(page.getByRole("heading", { name: /\d+ flats owe .* \(Over 90 days\)/ })).toBeVisible();
+    await expect(page).toHaveURL(/\/staff\/reports\/dues\/flats\?bucket=over-90/);
+    await expect(page.getByRole("heading", { level: 1, name: /^\d+ flats owe / })).toBeVisible();
     await checkScreen(page, watch, "report", "ageing");
-    await page.goto("/staff/reports?period=2026-10&bucket=31-60");
+    await page.goto("/staff/reports/dues/flats?bucket=31-60");
     await page.getByRole("button", { name: "Show 25 more" }).click();
-    await expect(page.locator("#ageing-detail tbody tr")).toHaveCount(50);
+    await expect(page.locator("main ul > li")).toHaveCount(50);
+    // The browser keeps the clicked button, the last control of the page, as the starting point of the next Tab; the first-Tab check starts from the top of the page.
+    await page.evaluate(() => {
+      document.body.setAttribute("tabindex", "-1");
+      document.body.focus();
+      document.body.removeAttribute("tabindex");
+    });
     await checkScreen(page, watch, "report", "drilldown");
   });
 });

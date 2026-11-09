@@ -160,7 +160,7 @@ test.describe("the committee report at one width", () => {
 
   test("an address that is not one of the four pages is a 404", async ({ page }) => {
     await page.goto("/staff/reports/money");
-    await expect(page.getByText(/could not be found/i)).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "This page does not exist." })).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: /Collections|Committee report/ })).toHaveCount(0);
   });
 

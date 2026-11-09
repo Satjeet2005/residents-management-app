@@ -28,7 +28,9 @@ test.describe("committee report", () => {
   test("the ageing block opens the flats behind a bucket", async ({ page }) => {
     await page.goto("/staff/reports/dues?period=2026-10");
     await page.getByRole("link", { name: /^See the flats: Over 90 days/ }).click();
-    await expect(page.getByRole("heading", { name: /\d+ flats owe .* \(Over 90 days\)/ })).toBeVisible();
-    await expect(page.locator("#ageing-detail tbody tr").first()).toBeVisible();
+    await expect(page).toHaveURL(/\/staff\/reports\/dues\/flats\?bucket=over-90/);
+    await expect(page.getByRole("heading", { level: 1, name: /^\d+ flats owe / })).toBeVisible();
+    await expect(page.getByText(/^Over 90 days · as of /)).toBeVisible();
+    await expect(page.locator("main ul > li").first()).toBeVisible();
   });
 });
