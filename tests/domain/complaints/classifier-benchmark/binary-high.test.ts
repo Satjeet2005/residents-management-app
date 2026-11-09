@@ -112,11 +112,12 @@ describe("BH3 the baseline is the production decision function", () => {
     }
   });
 
-  it("stores HIGH at 0.60 and not at 0.59, never stores a LOW answer, and loses a HIGH when the category is refused", () => {
+  it("stores HIGH at 0.60 and not at 0.59, never stores a LOW answer, and keeps a confident HIGH when the category is refused (D203)", () => {
     const stored = (p: number, categoryP = 0.95) => scoreItems({ items: [item("X", "EN", "HIGH")], results: [result("X", p, categoryP)] }).scored[0].productionHigh;
     expect(stored(0.6)).toBe(true);
     expect(stored(0.59)).toBe(false);
-    expect(stored(0.83, 0.63)).toBe(false);
+    expect(stored(0.83, 0.63)).toBe(true);
+    expect(stored(0.59, 0.63)).toBe(false);
     const low: ItemResult = { ...result("X", 0), urgencies: [{ label: "LOW", probability: 0.95 }, { label: "NORMAL", probability: 0.05 }, { label: "HIGH", probability: 0 }] };
     expect(scoreItems({ items: [item("X", "EN", "LOW")], results: [low] }).scored[0].productionHigh).toBe(false);
   });

@@ -23,6 +23,7 @@ type Case = { name: string; text: string; arms: (ArmResult | null)[]; policy?: C
 const bad = (mutate: (a: ArmResult) => unknown): ArmResult => mutate(arm("NATIVE", "PLUMBING", 0.9)) as ArmResult;
 
 const CASES: Case[] = [
+  { name: "R3 a refused category keeps a confident HIGH (D203)", text: "the corridor paint is peeling", arms: [arm("DIRECT", "ELECTRICAL", 0.63, "HIGH", 0.83)], policy: single, expect: { urgency: "HIGH", category: null, needsTriage: true, source: "NONE" } },
   // R1: safety
   { name: "R1 safety word, no arms: CRITICAL by rule, category from the fallback", text: "gas leak in the kitchen", arms: [], expect: { urgency: "CRITICAL", safetyFlag: true, source: "RULE", escalateToDutyManager: true, needsTriage: false, category: "PLUMBING", confidence: null }, reasons: ["SAFETY_WORD", "MODEL_UNAVAILABLE", "FALLBACK_USED"] },
   { name: "R1 safety word with no category anywhere: category null and still no triage", text: "आग", arms: [], expect: { urgency: "CRITICAL", safetyFlag: true, source: "RULE", needsTriage: false, category: null } },
@@ -103,9 +104,9 @@ describe("CP5 decideClassification: the rules as a table", () => {
     expect([...REASON_CODES].filter((r) => !seen.has(r))).toEqual([]);
   });
 
-  it("the rules table names R1 to R5 in order, and the reason codes are the ten of the design", () => {
+  it("the rules table names R1 to R5 in order, and the reason codes are the eleven of the design", () => {
     expect(DECISION_RULES.map((r) => r.id)).toEqual(["R1", "R2", "R3", "R4", "R5"]);
-    expect([...REASON_CODES].sort()).toEqual(["ARMS_DISAGREE", "EMPTY_TEXT", "FALLBACK_USED", "INVALID_MODEL_OUTPUT", "LOW_CONFIDENCE", "MODEL_UNAVAILABLE", "NO_CLASSIFICATION", "SAFETY_WORD", "SINGLE_ARM_NOT_ALLOWED", "URGENCY_FLOORED", "URGENCY_UNCERTAIN"]);
+    expect([...REASON_CODES].sort()).toEqual(["ARMS_DISAGREE", "EMPTY_TEXT", "FALLBACK_USED", "INVALID_MODEL_OUTPUT", "LOW_CONFIDENCE", "MODEL_UNAVAILABLE", "NO_CLASSIFICATION", "SAFETY_WORD", "SINGLE_ARM_NOT_ALLOWED", "URGENCY_FLOORED", "URGENCY_KEPT_ON_REFUSAL", "URGENCY_UNCERTAIN"]);
   });
 
   it("the default policy is the assumed one", () => {

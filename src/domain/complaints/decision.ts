@@ -24,7 +24,7 @@ export type TranslatorPort = { translate(text: string): Promise<string | null> }
 export type ClassificationPolicy = { minCategoryProbability: number; minUrgencyProbability: number; requireAgreement: boolean; allowSingleArm: boolean };
 export const defaultClassificationPolicy: ClassificationPolicy = { minCategoryProbability: 0.7, minUrgencyProbability: 0.6, requireAgreement: true, allowSingleArm: false };
 
-export const REASON_CODES = ["SAFETY_WORD", "INVALID_MODEL_OUTPUT", "ARMS_DISAGREE", "LOW_CONFIDENCE", "URGENCY_UNCERTAIN", "URGENCY_FLOORED", "MODEL_UNAVAILABLE", "FALLBACK_USED", "NO_CLASSIFICATION", "EMPTY_TEXT", "SINGLE_ARM_NOT_ALLOWED"] as const;
+export const REASON_CODES = ["SAFETY_WORD", "INVALID_MODEL_OUTPUT", "ARMS_DISAGREE", "LOW_CONFIDENCE", "URGENCY_UNCERTAIN", "URGENCY_FLOORED", "URGENCY_KEPT_ON_REFUSAL", "MODEL_UNAVAILABLE", "FALLBACK_USED", "NO_CLASSIFICATION", "EMPTY_TEXT", "SINGLE_ARM_NOT_ALLOWED"] as const;
 export type ReasonCode = (typeof REASON_CODES)[number];
 
 export type Decision = {
@@ -46,7 +46,7 @@ export type Decision = {
 export const DECISION_RULES = [
   { id: "R1", summary: "Any safety hit: CRITICAL, source RULE, escalate, no triage; the category comes from an accepted model result or the fallback; nothing can lower it." },
   { id: "R2", summary: "Every arm is validated (finite probabilities in [0,1], non-empty unique labels summing to 1, no CRITICAL); an invalid arm is treated as no answer." },
-  { id: "R3", summary: "With valid arms: agreement and the thresholds decide; one arm alone only when allowed; confidence is the lowest top probability; urgency never goes below an urgent word; an accepted model urgency of LOW is stored as NORMAL (URGENCY_FLOORED, D199)." },
+  { id: "R3", summary: "With valid arms: agreement and the thresholds decide; one arm alone only when allowed; confidence is the lowest top probability; urgency never goes below an urgent word; an accepted model urgency of LOW is stored as NORMAL (URGENCY_FLOORED, D199); when the category is refused, an accepted model urgency of HIGH is still stored (URGENCY_KEPT_ON_REFUSAL, D203)." },
   { id: "R4", summary: "With no valid arm: the keyword fallback, else triage." },
   { id: "R5", summary: "Deterministic, never throws; an empty text goes to triage." },
 ] as const;
@@ -97,37 +97,39 @@ function sanitize(policy: ClassificationPolicy): ClassificationPolicy {
 
 type Accepted = { category: CategoryCode; confidence: number; urgency: ModelUrgency; urgencyUncertain: boolean };
 type Refusal = "ARMS_DISAGREE" | "LOW_CONFIDENCE" | "SINGLE_ARM_NOT_ALLOWED";
+type Top = { category: { label: CategoryCode; probability: number }; urgency: { label: ModelUrgency; probability: number } };
+
+/** The model urgency of the arms in `used`: their label when they all say it with at least the urgency threshold, else NORMAL (uncertain). */
+function acceptUrgency(used: Top[], policy: ClassificationPolicy): { urgency: ModelUrgency; uncertain: boolean } {
+  const urgencies = used.map((t) => t.urgency);
+  const certain = urgencies.every((u) => u.label === urgencies[0].label) && urgencies.every((u) => u.probability >= policy.minUrgencyProbability);
+  return { urgency: certain ? urgencies[0].label : "NORMAL", uncertain: !certain };
+}
+
+/** D203: a refused category does not discard a confident HIGH. Only HIGH, only when the existing urgency rule accepts it; every other urgency of a refused answer is dropped. */
+const keepsHigh = (tops: Top[], policy: ClassificationPolicy): boolean => acceptUrgency(tops, policy).urgency === "HIGH";
 
 /** R3: accept or refuse the valid arms. */
-function acceptArms(valid: ArmResult[], policy: ClassificationPolicy): { accepted: Accepted } | { refusal: Refusal } {
+function acceptArms(valid: ArmResult[], policy: ClassificationPolicy): { accepted: Accepted } | { refusal: Refusal; keptHigh: boolean } {
   const tops = valid.map((arm) => ({ category: top(arm.categories, CATEGORY_CODES), urgency: top(arm.urgencies, MODEL_URGENCIES) }));
-  let used: typeof tops;
+  let used: Top[];
 
   if (valid.length === 1) {
-    if (!policy.allowSingleArm) return { refusal: "SINGLE_ARM_NOT_ALLOWED" };
-    if (tops[0].category.probability < policy.minCategoryProbability) return { refusal: "LOW_CONFIDENCE" };
+    if (!policy.allowSingleArm) return { refusal: "SINGLE_ARM_NOT_ALLOWED", keptHigh: false };
+    if (tops[0].category.probability < policy.minCategoryProbability) return { refusal: "LOW_CONFIDENCE", keptHigh: keepsHigh(tops, policy) };
     used = tops;
   } else if (policy.requireAgreement) {
-    if (!tops.every((t) => t.category.label === tops[0].category.label)) return { refusal: "ARMS_DISAGREE" };
-    if (!tops.every((t) => t.category.probability >= policy.minCategoryProbability)) return { refusal: "LOW_CONFIDENCE" };
+    if (!tops.every((t) => t.category.label === tops[0].category.label)) return { refusal: "ARMS_DISAGREE", keptHigh: keepsHigh(tops, policy) };
+    if (!tops.every((t) => t.category.probability >= policy.minCategoryProbability)) return { refusal: "LOW_CONFIDENCE", keptHigh: keepsHigh(tops, policy) };
     used = tops;
   } else {
     const leader = tops.reduce((best, t) => (t.category.probability > best.category.probability ? t : best));
     used = tops.filter((t) => t.category.label === leader.category.label && t.category.probability >= policy.minCategoryProbability);
-    if (used.length === 0) return { refusal: "LOW_CONFIDENCE" };
+    if (used.length === 0) return { refusal: "LOW_CONFIDENCE", keptHigh: keepsHigh(tops, policy) };
   }
 
-  const urgencies = used.map((t) => t.urgency);
-  const sameUrgency = urgencies.every((u) => u.label === urgencies[0].label);
-  const certain = sameUrgency && urgencies.every((u) => u.probability >= policy.minUrgencyProbability);
-  return {
-    accepted: {
-      category: used[0].category.label,
-      confidence: Math.min(...used.map((t) => t.category.probability)),
-      urgency: certain ? urgencies[0].label : "NORMAL",
-      urgencyUncertain: !certain,
-    },
-  };
+  const { urgency, uncertain } = acceptUrgency(used, policy);
+  return { accepted: { category: used[0].category.label, confidence: Math.min(...used.map((t) => t.category.probability)), urgency, urgencyUncertain: uncertain } };
 }
 
 const unique = <T>(items: T[]): T[] => [...new Set(items)];
@@ -198,7 +200,8 @@ export function decideClassification(input: { rawText: string; arms: readonly (A
     } else {
       reasons.push(outcome.refusal);
       needsTriage = true;
-      urgency = urgentWords ? "HIGH" : "NORMAL";
+      urgency = urgentWords || outcome.keptHigh ? "HIGH" : "NORMAL";
+      if (outcome.keptHigh) reasons.push("URGENCY_KEPT_ON_REFUSAL");
     }
   } else if (keywords.category !== null) {
     category = keywords.category;
@@ -216,7 +219,7 @@ export function decideClassification(input: { rawText: string; arms: readonly (A
       category = keywords.category;
       reasons.push("FALLBACK_USED");
     }
-    return { category, urgency: "CRITICAL", safetyFlag: true, source: "RULE", confidence, needsTriage: false, escalateToDutyManager: true, reasons: ordered(reasons.filter((r) => r !== "URGENCY_FLOORED")), safetyHits };
+    return { category, urgency: "CRITICAL", safetyFlag: true, source: "RULE", confidence, needsTriage: false, escalateToDutyManager: true, reasons: ordered(reasons.filter((r) => r !== "URGENCY_FLOORED" && r !== "URGENCY_KEPT_ON_REFUSAL")), safetyHits };
   }
   return { category, urgency, safetyFlag: false, source, confidence, needsTriage: needsTriage || category === null, escalateToDutyManager: false, reasons: ordered(reasons), safetyHits: [], ...(floorFrom === undefined ? {} : { floorFrom }) };
 }
