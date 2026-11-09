@@ -121,10 +121,10 @@ https it is `__Host-session` (D94), so both work.
 - `/login`: log in with a demo phone (below). With `DEMO_MODE=true` the code is shown in a banner.
 - `/` is the resident Home (dues, complaint, visitors, recent activity). A staff member is sent to `/staff`.
 - `/profile` is the resident's profile; `/staff` is the staff landing page; a resident who opens `/staff` ends at `/forbidden`.
-- The Home works out "today" with the real India date. The demo data was created as of 27 October 2026, so overdue days and late fees are
-  higher than in the client brief's sample table, and some replies show as overdue. **To reproduce the brief's numbers locally** (T12-0408 owes
-  ₹6,468, 47 days overdue), set `DEMO_AS_OF=2026-10-27` in `.env` (it is in `.env.example`, commented out) and restart. Leave it unset on a live deployment.
-  When `DEMO_MODE=true` a note on the login page and on Profile says this too.
+- The live demo runs in demo mode with its business date fixed at 27 October 2026, so the numbers match the client brief's sample table
+  (T07-1203 nothing due; T12-0408 owes ₹6,468, 47 days overdue; T21-1601 owes ₹5,698, 18 days overdue). Sign-in codes and sessions use real time.
+  **To get the same numbers locally**, set `DEMO_MODE=true` and `DEMO_AS_OF=2026-10-27` in `.env` (`DEMO_AS_OF` is in `.env.example`, commented out) and restart.
+  If you leave `DEMO_AS_OF` unset, the Home shows today's date, so overdue days and late fees are higher. The demo note says which case you are in (`docs/demo-clock.md`).
 - `npm run e2e` runs the browser tests against a scratch database; `npm run smoke:auth` checks sign-in over HTTP. The older HTTP script `smoke:app` is retired (see `docs/known-limitations.md`).
   Design notes: `docs/ui-architecture.md`.
 

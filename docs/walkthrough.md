@@ -507,7 +507,7 @@ A valid but low-confidence answer goes to a person, not to the fallback (`tests/
 - Production secrets (`OTP_PEPPER`, `PAYMENT_WEBHOOK_SECRET`) at least 32 characters, not starting `replace-with`.
 - Vendor limits quoted by the plan (Vercel Hobby, Neon Free: 1 GB, 100 compute hours a month, sleep after 5 minutes idle, 6 hours of restore history) were fetched on 2026-11-06 by an earlier agent. I did not re-fetch them: UNVERIFIED.
 
-**Environment variable names only** (`.env.example` and `docs/deployment-plan.md`): `DATABASE_URL` (app role, pooled), `OTP_PEPPER`, `PAYMENT_WEBHOOK_SECRET`, `DEMO_MODE`, `DEMO_AS_OF` (leave unset on a live site), `SHOW_DESIGN_PAGE`, `JEV_*` (classifier), `OPS_TEST_TOKEN` (optional), `LOGS_DATABASE_URL` (the developer's machine only, never Vercel). The owner connection string never goes into Vercel.
+**Environment variable names only** (`.env.example` and `docs/deployment-plan.md`): `DATABASE_URL` (app role, pooled), `OTP_PEPPER`, `PAYMENT_WEBHOOK_SECRET`, `DEMO_MODE`, `DEMO_AS_OF` (`2026-10-27` on the live demo, with `DEMO_MODE=true`), `SHOW_DESIGN_PAGE`, `JEV_*` (classifier), `OPS_TEST_TOKEN` (optional), `LOGS_DATABASE_URL` (the developer's machine only, never Vercel). The owner connection string never goes into Vercel.
 
 **Failure modes.**
 

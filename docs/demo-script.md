@@ -7,7 +7,7 @@ Written 2026-11-07. Button and screen words below were copied from `src/lib/mess
 
 ## Before you start (do this 10 minutes early, not on stage)
 
-1. Set `DEMO_MODE=true` and `DEMO_AS_OF=2026-10-27` in your own `.env`, plus a 32-character `PAYMENT_WEBHOOK_SECRET` (a production build refuses the placeholder: `README.md`, "Paying in the demo"). `DEMO_AS_OF` freezes "today" so the numbers below match. Do not open or paste your `.env` on screen.
+1. Set `DEMO_MODE=true` and `DEMO_AS_OF=2026-10-27` in your own `.env`, plus a 32-character `PAYMENT_WEBHOOK_SECRET` (a production build refuses the placeholder: `README.md`, "Paying in the demo"). `DEMO_AS_OF` freezes "today" at 27 October 2026 so the numbers below match; the live site is set the same way (`docs/demo-clock.md`). Do not open or paste your `.env` on screen.
 2. Start from a clean database and the production build:
    `npm run db:seed -- --yes && npm run build && npm run start` (`README.md`, "Walking the reconciliation"). Open `http://localhost:3000`.
 3. Open three separate browser profiles (or one normal and two private windows), because a login replaces the cookie in the same profile: **A** for staff Priya, **B** for staff Rahul, **C** for residents and the duty manager. Open `/login` in each.

@@ -103,15 +103,15 @@ demo page button -> server action -> signed event -> verifyWebhook -> applyGatew
 - **Real clock**: login, sessions, rate limits, audit rows. Always `Date.now()`.
 - **Business clock** (`businessNow()` in `src/server/clock.ts`): what is due today, days overdue, today's visitors, reply times. It is
   the real India date, unless the optional `DEMO_AS_OF` (YYYY-MM-DD) is set, and then it is 12:00 India time on that date. `DEMO_AS_OF` is
-  for tests and for a reviewer who wants the brief's sample numbers locally. **The live deployment leaves it unset.** The screens always
+  for tests, for local runs and for the live demo, where it is set to 2026-10-27 so the numbers match the brief's table (D226; `docs/demo-clock.md`). It works only in demo mode. The screens always
   say the date used ("As of 27 Oct"; "Amount as of 27 Oct 2026" in the sheet).
 
 ### The demo data note
 
-The seed is anchored to 27 October 2026 (`DEMO_AS_OF` in `src/domain/seed/types.ts`). With today's real date the numbers move: more days overdue,
-a bigger late fee, visitor passes of 27 October are no longer "today", some replies show as overdue. So, **only when `DEMO_MODE` is exactly
-`"true"`**, a calm note ("About this demo data") is shown under the login form and on Profile, saying so and how to reproduce the brief's
-numbers (`DEMO_AS_OF=2026-10-27`). It is never shown otherwise (tests: `tests/ui/login-view.test.ts`, `tests/ui/shell-view.test.ts`, and the smoke test).
+The seed is anchored to 27 October 2026 (`DEMO_AS_OF` in `src/domain/seed/types.ts`). The live demo freezes its business date there. If the date is not
+frozen, the numbers move: more days overdue, a bigger late fee, visitor passes of 27 October are no longer "today", some replies show as overdue. So, **only when `DEMO_MODE` is exactly
+`"true"`**, a calm note ("About this demo data") is shown under the login form, on Home and on Profile. Its wording depends on whether the date is frozen and it names no
+variable (`docs/demo-clock.md`). It is never shown otherwise (tests: `tests/ui/login-view.test.ts`, `tests/ui/shell-view.test.ts`, and the smoke test).
 
 ## What is deliberately absent, and who adds it
 
