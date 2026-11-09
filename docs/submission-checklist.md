@@ -18,7 +18,7 @@ Written 2026-11-08. Tick each box yourself; the agent cannot do these for you. I
 - [ ] **Readiness is ok.** `curl -s "<LIVE_URL>/api/health/ready"`. **Expected:** `"status":"ok"`, `"data":{"seeded":true}`; read every line against the table in `docs/live-refresh-runbook.md`, step 6.
 - [ ] **Demo logins verified on the LIVE site** (not only locally): for each phone in the "Demo logins" table of `deployment.md`, open `<LIVE_URL>/login`, enter the phone, press "Send code", and sign in with the code shown in the banner. At least: `5000000001` (staff, matching), `5000000002` (staff, approving), `5000000003` (committee), `5000000005` (duty manager), `5000000006` and `5000000007` (residents). One code per 30 seconds and 5 an hour per phone: use another phone if you see "Try again in ...".
 - [ ] **The five-minute path works on the live site** (`deployment.md`, "A five-minute reviewer path"), in a private window at phone width and at laptop width. This consumes demo data, so the reset below comes after it.
-- [ ] **Hosted data is current.** The steps of `docs/live-refresh-runbook.md` are done (migrations, grants, the two settings, variables, redeploy). In particular `DEMO_AS_OF` is not set in Vercel, and `LOGS_DATABASE_URL` is not set in Vercel.
+- [ ] **Hosted data is current.** The steps of `docs/live-refresh-runbook.md` are done (migrations, grants, the two settings, variables, redeploy). In particular `DEMO_AS_OF` is set to `2026-10-27` in Vercel (the readiness report shows `config.demoAsOf` true and the login note says the business date is fixed), and `LOGS_DATABASE_URL` is not set in Vercel.
 - [ ] **Installable.** On a phone, Add to Home Screen works; offline shows the offline page (`docs/live-refresh-runbook.md`, step 10).
 
 ## A clean clone works
