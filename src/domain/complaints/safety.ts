@@ -23,6 +23,8 @@ type Rule = {
   except?: RegExp;
   /** Terms of `terms` that name only the electricity "current" (a bare करंट or "current"): they hit only when the same text has a shock word (D169). */
   needsShockContext?: readonly string[];
+  /** Set on a rule added after the frozen safety benchmark was built (A-002): the benchmark's base list leaves it out, unit tests cover it. */
+  since?: string;
 };
 
 const rule = (id: string, category: SafetyCategory, language: SafetyLanguage, kind: Kind, terms: readonly string[], except?: RegExp, needsShockContext?: readonly string[]): Rule => ({
@@ -34,6 +36,9 @@ const rule = (id: string, category: SafetyCategory, language: SafetyLanguage, ki
   except,
   needsShockContext,
 });
+
+/** A rule added after the audit (A-002). The frozen benchmark's base list ignores every rule with `since`, so its committed numbers stay valid. */
+const afterAudit = (id: string, language: SafetyLanguage, kind: Kind, terms: readonly string[]): Rule => ({ ...rule(id, "LIFT_STUCK", language, kind, terms), since: "audit-A-002" });
 
 /**
  * THE RULES. HIGH RECALL over precision: a missed fire is worse than a false alarm, so a rule may also hit a sentence that is not an incident
@@ -101,6 +106,8 @@ export const SAFETY_RULES: readonly Rule[] = [
   rule("LIFT_MR_THAMBLI", "LIFT_STUCK", "mr", "STEM", ["लिफ्ट मध्येच थांबल", "लिफ्ट मध्येच बंद", "लिफ्ट मधेच", "लिफ्टमध्येच थांबल", "लिफ्ट मध्येच अडक"]),
   rule("LIFT_MR_PADLI", "LIFT_STUCK", "mr", "STEM", ["लिफ्ट कोसळ", "लिफ्ट पडली", "लिफ्ट खाली पडल", "लिफ्ट वरून पडल"]),
   rule("LIFT_MR_DAR", "LIFT_STUCK", "mr", "STEM", ["लिफ्टचा दरवाजा उघडत नाही", "लिफ्टचे दार उघडत नाही", "लिफ्टचा दरवाजा उघडत", "लिफ्टचे दार उघडत"]),
+  afterAudit("LIFT_MR_AUDIT_ADAKAL", "mr", "STEM", ["लिफ्ट अडकल"]),
+  afterAudit("LIFT_HI_LATN_AUDIT_PHAS", "hi-Latn", "WORD", ["lift mein phas", "lift me phas", "lift mein atak", "lift me atak", "lift band ho", "log andar fase", "log andar phase", "log andar phans"]),
   rule("LIFT_HI_LATN_ATAK", "LIFT_STUCK", "hi-Latn", "WORD", ["lift atak gayi", "lift atak gaya", "lift atki", "lift atak", "lift ruk gayi", "lift beech mein", "lift beech me ruk"]),
   rule("LIFT_HI_LATN_PHANS", "LIFT_STUCK", "hi-Latn", "WORD", ["lift mein phans", "lift me phans", "lift mein fans", "lift me fas", "lift mein phansa", "lift mein phase", "lift ke andar phans"]),
   rule("LIFT_HI_LATN_BAND", "LIFT_STUCK", "hi-Latn", "WORD", ["lift mein band", "lift me band", "lift ke andar band", "lift ke andar fas", "lift gir gayi", "lift mein log phanse"]),

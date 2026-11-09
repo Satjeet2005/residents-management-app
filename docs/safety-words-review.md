@@ -737,3 +737,19 @@ These sentences hit although nobody is hurt. They are accepted on purpose (high 
 - Hindi and Marathi: `रक्तदान शिविर` (blood donation camp), `गोली` / `गोळी` (also a tablet), and the same typed in Latin letters (`goli leke aana`, `rakt daan`).
 
 No self-harm word (for example "suicide") is in the list: that is a separate human decision.
+
+### Added after the audit (A-002)
+
+These rows were added after the audit found that six everyday phrases for a stuck lift did not escalate. They are marked "added after the audit (A-002)". The frozen safety benchmark ignores them, and unit tests cover them. Please review them like the others.
+
+| Rule id | Language | Script text (as typed) | Transliteration (machine, approximate) | English meaning | Reviewed by / date |
+|---|---|---|---|---|---|
+| `LIFT_MR_AUDIT_ADAKAL` | mr | लिफ्ट अडकल | lipht adakal | lift is stuck, 'lift got stuck' with no 'in' word (added after the audit, A-002) | |
+| `LIFT_HI_LATN_AUDIT_PHAS` | hi-Latn | lift mein phas | lift mein phas | stuck in the lift, or people stuck inside, typed in Latin letters (added after the audit, A-002) | |
+| `LIFT_HI_LATN_AUDIT_PHAS` | hi-Latn | lift me phas | lift me phas | stuck in the lift, or people stuck inside, typed in Latin letters (added after the audit, A-002) | |
+| `LIFT_HI_LATN_AUDIT_PHAS` | hi-Latn | lift mein atak | lift mein atak | stuck in the lift, or people stuck inside, typed in Latin letters (added after the audit, A-002) | |
+| `LIFT_HI_LATN_AUDIT_PHAS` | hi-Latn | lift me atak | lift me atak | stuck in the lift, or people stuck inside, typed in Latin letters (added after the audit, A-002) | |
+| `LIFT_HI_LATN_AUDIT_PHAS` | hi-Latn | lift band ho | lift band ho | stuck in the lift, or people stuck inside, typed in Latin letters (added after the audit, A-002) | |
+| `LIFT_HI_LATN_AUDIT_PHAS` | hi-Latn | log andar fase | log andar fase | stuck in the lift, or people stuck inside, typed in Latin letters (added after the audit, A-002) | |
+| `LIFT_HI_LATN_AUDIT_PHAS` | hi-Latn | log andar phase | log andar phase | stuck in the lift, or people stuck inside, typed in Latin letters (added after the audit, A-002) | |
+| `LIFT_HI_LATN_AUDIT_PHAS` | hi-Latn | log andar phans | log andar phans | stuck in the lift, or people stuck inside, typed in Latin letters (added after the audit, A-002) | |

@@ -14,7 +14,8 @@ const quoted = (block: string) => [...block.matchAll(/^\s*\[("(?:[^"\\]|\\.)*"),
 describe("SB1 base phrases", () => {
   it("every rule has at least one base phrase", () => {
     const covered = new Set(base.phrases.map((p) => p.ruleId));
-    expect(SAFETY_RULES.filter((r) => !covered.has(r.id)).map((r) => r.id)).toEqual([]);
+    // Rules added after the audit (A-002) are left out of the frozen base list on purpose (safety-audit-a002.test.ts covers them).
+    expect(SAFETY_RULES.filter((r) => r.since === undefined && !covered.has(r.id)).map((r) => r.id)).toEqual([]);
   });
 
   it("every base phrase is detected unperturbed, by the rule it names, with that rule's category", () => {

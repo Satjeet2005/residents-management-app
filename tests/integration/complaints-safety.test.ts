@@ -31,6 +31,20 @@ const pendingSince = async (r: Resident, since: number, body: string) => {
   return id;
 };
 
+describe("A-002 lift stuck phrases in Marathi and Hinglish escalate by rule before any model", () => {
+  it.each(["लिफ्ट अडकली", "लिफ्ट अडकली आहे", "लिफ्ट अडकल्यामुळे लोक आत आहेत", "lift mein phas gaye", "lift me atak gaya", "lift band ho gayi aur log andar fase hain"])(
+    "A-002 %j is CRITICAL, flagged for safety, and the provider is never called",
+    async (body) => {
+      const r = await makeResident(world);
+      const classifier = new FakeClassifier({ result: arm("PLUMBING") });
+      const result = await createComplaint({ db: db(), user: r.user, body, now: NOW, classifier });
+      if (result.status !== "OK") throw new Error(result.error);
+      expect(classifier.calls).toBe(0);
+      expect(await loadComplaint(world, result.complaint.id)).toMatchObject({ urgency: "CRITICAL", safetyFlag: true });
+    },
+  );
+});
+
 describe("CL3 the duty manager acknowledges and closes a safety complaint (D15, D39)", () => {
   it("CL3 acknowledge sets first_response_at, records a COMMENT event of kind 'ack' and an audit row; a second acknowledge changes nothing; the resident never sees it", async () => {
     const r = await makeResident(world);

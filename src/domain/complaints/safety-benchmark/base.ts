@@ -19,7 +19,7 @@ export type BaseList = { phrases: readonly BasePhrase[]; dropped: readonly Dropp
  */
 export function buildBase(): BaseList {
   const candidates: { text: string; ruleId: string; source: BasePhrase["source"] }[] = [];
-  for (const rule of SAFETY_RULES) for (const term of rule.terms) candidates.push({ text: term, ruleId: rule.id, source: "RULE_TABLE" });
+  for (const rule of SAFETY_RULES) if (rule.since === undefined) for (const term of rule.terms) candidates.push({ text: term, ruleId: rule.id, source: "RULE_TABLE" });
   for (const [sentence, ruleId] of TEST_POSITIVES) {
     const hit = detectSafetyWords(sentence).find((h) => h.rule === ruleId);
     if (hit !== undefined) candidates.push({ text: hit.matched, ruleId, source: "TEST_CASE" });

@@ -490,6 +490,10 @@ No defect was found: every miss is a spelling the rule table does not list or no
 3. **Short and long vowel signs are different spellings** in Devanagari ("लीफ्ट" is not "लिफ्ट"); the detector folds only the nukta and the chandrabindu.
 4. **Digits for letters are not read as letters** ("f1r3", "g@s").
 
+## Terms added after the audit (A-002)
+
+The audit found six phrases for a stuck lift in Marathi and Hinglish that did not escalate. Two rules (`LIFT_MR_AUDIT_ADAKAL`, `LIFT_HI_LATN_AUDIT_PHAS`) were added. They carry a `since` marker. The benchmark's base list leaves them out, so every frozen set, digest and number stays as it was, and `npm run safety:benchmark` still finds every committed number equal to a fresh computation. They are covered by `tests/domain/complaints/safety-audit-a002.test.ts` and listed in `docs/safety-words-review.md` for the native-speaker review.
+
 ## Limits (read before quoting a number)
 
 - The items are **synthetic and generator-made**, not complaints written by residents. The perturbations are a guess at how people mis-type; the real distribution is not known and the real recall may be higher or lower.
