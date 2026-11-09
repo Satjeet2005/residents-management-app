@@ -2,6 +2,8 @@ import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ReportView } from "@/app/(staff)/staff/reports/report-view";
+import { SectionPage } from "@/app/(staff)/staff/reports/section-page";
+import { SECTIONS } from "@/lib/reports/sections";
 import { computeDues } from "@/domain/billing/dues";
 import { decideAccess } from "@/server/auth/access";
 import { type SessionUser } from "@/server/auth/session-service";
@@ -28,6 +30,10 @@ vi.mock("@/app/(staff)/staff/reports/actions", () => ({ loadMoreAgeing: async ()
 let fx: PaymentsFixture;
 let meera: { id: string; role: "STAFF"; active: true; permissions: string[] };
 const AS_OF = "2026-10-27";
+type Report = Awaited<ReturnType<typeof loadCommitteeReport>>;
+/** The overview and the four section pages of a report, each rendered on its own: the committee report is no longer one page. */
+const pagesOf = (report: Report): string[] => [renderToStaticMarkup(h(ReportView, { report })), ...SECTIONS.map((s) => renderToStaticMarkup(h(SectionPage, { slug: s.slug, report })))];
+const sectionOf = (report: Report, slug: (typeof SECTIONS)[number]["slug"]): string => renderToStaticMarkup(h(SectionPage, { slug, report }));
 const OCTOBER = "2026-10-01";
 
 /** Read once for the whole file (a test that rebuilt the 2,400-flat positions each time would take seconds): the October report, the positions, the Home's own sum, and two drill-down pages. */
@@ -284,7 +290,8 @@ describe("RP7 what is owed by tower, against independent SQL (D182)", () => {
     console.log(`D182 loader towers=${towers.length} top=${towers.slice(0, 3).map((t) => `${t.tower}:${t.unpaidBillsPaise}/${t.amountDuePaise}`).join(" ")}`);
     const t12 = towers.findIndex((t) => t.tower === "T12");
     console.log(`D182 T12 rank=${t12 + 1} of ${towers.length}, ${JSON.stringify({ ...towers[t12], unpaidBillsPaise: String(towers[t12]?.unpaidBillsPaise), lateFeesPaise: String(towers[t12]?.lateFeesPaise), amountDuePaise: String(towers[t12]?.amountDuePaise) })}; median amount ${towers[Math.floor(towers.length / 2)].amountDuePaise}`);
-    const out = renderToStaticMarkup(h(ReportView, { report: october }));
+    // The towers are on the Dues page (D182), not on the overview.
+    const out = sectionOf(october, "dues");
     const block = out.slice(out.indexOf('aria-labelledby="committee-towers"'), out.indexOf("</section>", out.indexOf('aria-labelledby="committee-towers"')));
     expect(block).toContain("Towers with the most unpaid");
     expect(block).not.toMatch(/T\d\d-\d{4}/);
@@ -573,7 +580,7 @@ describe("RP6 access: who may read the report, and what the page never shows", (
   });
 
   it("the committee user sees the whole page, from the real data, with every block", async () => {
-    const out = renderToStaticMarkup(h(ReportView, { report: { ...october, drilldown: firstPage } }));
+    const out = pagesOf({ ...october, drilldown: firstPage }).join("\n");
     for (const part of ["Committee report", "As of 27 October 2026 · read only", "Money collected for October", "Billed and collected", "What is owed", "How fast bills are paid", "Complaints", "Bank statement matching", "About these numbers"]) expect(out).toContain(part);
     expect(words(out)).toMatch(/\d+ flats owe ₹[\d.]+ (lakh|crore) \(31 to 60 days\)/);
     expect(out).not.toMatch(/<h2[^>]*>Goals<\/h2>/);
@@ -585,9 +592,14 @@ describe("RP6 access: who may read the report, and what the page never shows", (
     const people = await fx.owner.user.findMany({ select: { name: true, phone: true } });
     expect(people.length).toBeGreaterThan(2400);
     const pages = AGE_BUCKETS.flatMap((bucket) => (["LARGEST", "OLDEST"] as const).map((sort) => ageingPageOf(seeded, AS_OF, bucket, sort, null)));
-    const outputs = pages.map((drilldown) => renderToStaticMarkup(h(ReportView, { report: { ...october, drilldown } })));
-    outputs.push(renderToStaticMarkup(h(ReportView, { report: october })));
-    expect(outputs.every((out) => out.includes("See the numbers behind this chart") && (out.match(/<table/g) ?? []).length >= 8)).toBe(true);
+    // Every page of the report (the overview and the four section pages), with every drill-down, is searched; the chart and table counts are of the pages together.
+    const outputs = pages.flatMap((drilldown) => pagesOf({ ...october, drilldown }));
+    outputs.push(...pagesOf(october));
+    const together = (drilldown: (typeof pages)[number]): string => pagesOf({ ...october, drilldown }).join("\n");
+    expect(pages.every((drilldown) => {
+      const all = together(drilldown);
+      return all.includes("See the numbers behind this chart") && (all.match(/<table/g) ?? []).length >= 8;
+    })).toBe(true);
     const hits = new Set<string>();
     for (const out of outputs) {
       const text = out.replace(/<[^>]*>/g, " ");

@@ -2,6 +2,7 @@ import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ReportView } from "@/app/(staff)/staff/reports/report-view";
+import { SectionPage } from "@/app/(staff)/staff/reports/section-page";
 import { dayStartInstant } from "@/domain/time/calendar";
 import { loadCommitteeReport } from "@/server/reports/report-data";
 import { type PaymentsFixture, createPaymentsFixture } from "./payments-fixture";
@@ -105,9 +106,11 @@ describe.each(DATES)("V3 the committee report as of %s", (asOf) => {
     const [sql] = await fx.owner.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM complaints c WHERE c.status <> 'CLOSED' AND c.safety_flag
       AND NOT EXISTS (SELECT 1 FROM complaint_events e WHERE e.complaint_id = c.id AND e.event_type = 'COMMENT' AND e.payload->>'kind' = 'ack')`;
     expect(report.safetyUnacknowledged).toBe(sql.n);
-    const out = renderToStaticMarkup(h(ReportView, { report }));
-    const text = out.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
-    expect(text).toContain(`Open and not yet seen, all months: ${sql.n}`);
+    // The line "all months" is in the Complaints section page; the strip is on the overview and on every section page.
+    const flat = (markup: string): string => markup.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
+    const section = flat(renderToStaticMarkup(h(SectionPage, { slug: "complaints", report })));
+    expect(section).toContain(`Open and not yet seen, all months: ${sql.n}`);
+    const text = `${flat(renderToStaticMarkup(h(ReportView, { report })))} ${section}`;
     if (sql.n > 0) expect(text).toContain(sql.n === 1 ? "1 safety complaint is open and not yet seen by the duty manager." : `${sql.n} safety complaints are open and not yet seen by the duty manager.`);
     else expect(text).not.toContain("is open and not yet seen by the duty manager");
   });
