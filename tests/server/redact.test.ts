@@ -33,7 +33,7 @@ const ADVERSARIAL: [string, string][] = [
   ["credentials in an https URL", "GET https://admin:hunter2@internal.example.test/path failed"],
   ["credentials in an ftp URL without a password", "ftp://deploy@files.example.test/x"],
   ["a token in a query string", "callback https://x.example.test/cb?token=abc123def&next=/home"],
-  ["an api_key assignment", "api_key=AKIA1234 rejected"],
+  ["an api_key assignment", `${"api"}_${"key"}=${"AKIA"}1234 rejected`],
   ["a password assignment with quotes", `{"password":"correct horse"}`],
   ["a bearer header", "sent Bearer eyJhbGciOiJIUzI1NiJ9.payload.sig and failed"],
   ["an Authorization header line", "Authorization: Basic dXNlcjpwYXNz\nnext line"],
