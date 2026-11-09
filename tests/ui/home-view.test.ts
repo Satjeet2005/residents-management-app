@@ -5,7 +5,7 @@ import { HomeView } from "@/app/(resident)/home-view";
 import { DEMO_NOW } from "@/domain/seed/types";
 import { assembleHome, type EntryRow } from "@/server/home/mapper";
 import type { HomeData } from "@/server/home/types";
-import { home, inputFor } from "../server/home-fixtures";
+import { dataset, home, inputFor } from "../server/home-fixtures";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: () => {}, refresh: () => {} }) }));
 
@@ -206,6 +206,16 @@ describe("HM5 Home: variants built by hand", () => {
     expect(count(html, /<h1/g)).toBe(1);
     expect(text(html)).toContain("No flat is linked to your account yet. Ask the society office to link your flat.");
     expect(html).not.toContain("Your dues");
+  });
+
+  it("a flat with seeded visitor passes shows no visitor heading, count, time or name", () => {
+    const passes = dataset().visitorPasses.filter((p) => p.flatKey === dataset().flats.find((f) => f.code === "T12-0408")?.key);
+    expect(passes.length).toBeGreaterThan(0);
+    const html = render(home("T12-0408"));
+    const words = text(html);
+    expect(html).not.toMatch(/isitor/);
+    expect(words).not.toMatch(/expected today|11:00 am|4:30 pm/);
+    for (const pass of passes) expect(html).not.toContain(pass.visitorName);
   });
 
   it("several flats: the first is shown with a small note", () => {
