@@ -171,14 +171,14 @@ Open `<LIVE_URL>` over HTTPS. Chrome on Android: menu, **Install app** (or **Add
 
 ## Testing
 
-Counts are from this session on 2026-11-08 unless marked.
+Run `npm run test:ci-parity` (unit and integration) and `npm run e2e` (browser); each prints its own counts.
 
 | Command | What it proves | Result |
 |---|---|---|
-| `npm run check` | lint, TypeScript strict and every unit test: the money, ledger, late-fee, matching, safety-rule and state-machine logic and the UI markup | 197 test files passed, **4,641 tests passed, 1 skipped** |
-| `npm run test:ci-parity` | the unit and integration tests the way CI runs them: no `.env`, only `DATABASE_URL`; the integration tests use a real Postgres, the app role and the database triggers | unit 4,641 passed, 1 skipped; integration **74 files, 1,105 tests passed** (258 s), run by `scripts/verify-clean-clone.sh` on a clean copy |
-| `npm run test:integration` | the integration tests alone (needs the database running) | the 1,105 above |
-| `npm run e2e` | the real-browser checks (Playwright, Chromium only) on the built app and a scratch database, at 360, 768 and 1280 px, with accessibility checks (axe) | **79 passed (3.3 min) at the end of Phase A: carried from `docs/overnight-report.md`, NOT re-run in this session** (it rewrites tracked screenshots). Needs `npx playwright install chromium` once |
+| `npm run check` | lint, TypeScript strict and every unit test: the money, ledger, late-fee, matching, safety-rule and state-machine logic and the UI markup | it prints its own counts |
+| `npm run test:ci-parity` | the unit and integration tests the way CI runs them: no `.env`, only `DATABASE_URL`; the integration tests use a real Postgres, the app role and the database triggers | it prints its own counts; `scripts/verify-clean-clone.sh` also runs it on a clean copy |
+| `npm run test:integration` | the integration tests alone (needs the database running) | it prints its own counts |
+| `npm run e2e` | the real-browser checks (Playwright, Chromium only) on the built app and a scratch database, at 360, 768 and 1280 px, with accessibility checks (axe) | it prints its own counts (it rewrites tracked screenshots). Needs `npx playwright install chromium` once |
 | `npm run smoke:auth -- <BASE_URL> <phone>` | login over real HTTP: the readiness report, the 30-second wait, a generic answer for an unknown phone, the cookie flags, `/api/me`, a refused cross-site `logout-all` | 13 of 13 passed, as a resident and as staff, against a clean-clone build (owner role, `--allow-owner-role`) and against a build using a restricted role (no flag). Safe on the live site |
 | `smoke:app` (retired) | RETIRED. It checked screens as they were before the redesigns of the committee report, the staff home, the reconciliation workspace and the complaints board, and failed 34 of 166 checks. Use `npm run e2e` (browser tests on a scratch database), the unit and integration suites, `npm run smoke:auth` and `scripts/verify-clean-clone.sh` instead. Do not run the old script against any deployment: it mutates data | Not part of the reviewer path |
 | `npm run llm:check` | that your own classifier keys answer (three fictional complaints per provider) | **Not run: it needs your keys and uses the free quota** |

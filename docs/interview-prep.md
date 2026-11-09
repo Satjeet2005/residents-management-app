@@ -84,7 +84,7 @@ It depends on the route. Through the app's Pay button the amount is locked to th
 
 A model may never decide that something is a safety emergency, and it may never lower an urgency that a rule set. In the code, a model's allowed urgencies are HIGH, NORMAL and LOW only (`MODEL_URGENCIES` in `src/domain/complaints/taxonomy.ts`); an answer that says CRITICAL fails validation: `tests/server/complaints/providers/client.test.ts :: "an answer that says CRITICAL is INVALID"`. The pure decision function treats a safety word as an override that gives CRITICAL by rule even if a model answer was passed in: `tests/domain/complaints/decision.test.ts :: "a safety hit ALWAYS gives CRITICAL, source RULE, escalated, safety flagged and no triage"`. A model also never gets the resident's id, flat or complaint id, only the de-identified text and two questions. A model answer below 0.70 confidence for the top category is never accepted. The database adds one more check, K1: a safety flag requires urgency CRITICAL (`tests/integration/complaints-invariants.test.ts :: "K1 rejects safety_flag with urgency %s"`).
 
-**Do not claim:** that the model is verified to be accurate. No accuracy number exists; the benchmark plan in `docs/complaint-classification.md` was not run, and the 0.70 and 0.60 thresholds are labelled guesses.
+**Do not claim:** that the model is verified to be accurate. The measured result is in `docs/classifier-benchmark.md`: on 200 synthetic complaints the model's category was accepted for 92.5 percent and right on 99.5 percent of those accepted; urgency fails the pre-set bar, so a safety floor applies. The set is synthetic, so say so.
 
 ### 12. Why do the rules run before any model?
 
