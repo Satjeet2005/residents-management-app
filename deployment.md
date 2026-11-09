@@ -130,6 +130,16 @@ The numbers below are read from `src/domain/seed/people.ts`.
 | 5000000008 | Anil Joshi | resident, flat T12-0408 (owner) | No | The second person of Swati's flat |
 | 5000000009 | Aamir Shaikh | resident, flat T21-1601 (owner) | Yes | A part-paid flat; the late fee that stays due after a principal-only bank payment |
 | 5000000010 | Rohit Deshmukh | resident, flat T15-0902 (owner) | No | The "Copy payment note" button |
+| 5000000265 | Mahesh Mehta | resident, flat T03-0104 (owner) | No | Spare logins for paying a bill: one open October bill, Rs 8,628 due at the demo date, no complaint |
+| 5000000304 | Rashmi Sharma | resident, flat T03-0603 (owner) | No | Spare logins for paying a bill: one open October bill, Rs 5,556 due at the demo date, no complaint |
+| 5000000349 | Divya Kapoor | resident, flat T03-1104 (owner) | No | Spare logins for paying a bill: one open October bill, Rs 7,517 due at the demo date, no complaint |
+| 5000000467 | Priya Menon | resident, flat T04-1107 (owner) | No | Spare logins for paying a bill: one open October bill, Rs 7,517 due at the demo date, no complaint |
+| 5000000650 | Sunita Kulkarni | resident, flat T06-0306 (owner) | No | Spare logins for paying a bill: one open October bill, Rs 6,406 due at the demo date, no complaint |
+| 5000000763 | Kiran Verma | resident, flat T07-0104 (owner) | No | Spare logins for paying a bill: one open October bill, Rs 7,517 due at the demo date, no complaint |
+| 5000000821 | Ishaan Desai | resident, flat T07-0904 (owner) | No | Spare logins for paying a bill: one open October bill, Rs 6,406 due at the demo date, no complaint |
+| 5000000976 | Sunil Mehta | resident, flat T08-1405 (owner) | No | Spare logins for paying a bill: one open October bill, Rs 8,628 due at the demo date, no complaint |
+
+**Spare logins.** The ledger never loses an entry, so the first reviewer who pays a sample flat's bill leaves the next one with "No dues". The eight logins marked "Spare logins for paying a bill" are there so that several reviewers can each pay a bill without using up the three flats of the brief. They are existing generated residents (the seed was not changed): each is the only resident of a flat that has exactly one open bill (October 2026), no complaint, and a flat code that is not in the sample bank statement, so importing the statement does not pay it. The amounts above are at the demo date (27 October 2026, 17 days overdue); checked by `tests/integration/spare-logins.test.ts` and `tests/domain/seed/spare-logins.test.ts`. The phones 5000000011 to 5000000018 were not used for them: they already belong to generated residents of the first tower.
 
 **Limits.** The app asks for one code per phone every **30 seconds** and at most **5 per hour per phone** (and 30 per hour per address). If you see "Try again in N seconds" wait, or use another demo phone. Staff sessions end after 30 minutes idle (12 hours overall); residents' after 14 days idle (30 days overall).
 
