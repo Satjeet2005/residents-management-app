@@ -4,15 +4,17 @@ import { describe, expect, it } from "vitest";
 import { LoginScreen } from "@/app/login/login-screen";
 import { LoginView, type LoginViewProps } from "@/app/login/login-view";
 import { initialLoginState, type LoginState } from "@/lib/login-state";
-import { isDemoMode } from "@/server/clock";
+import type { DemoNoteState } from "@/lib/demo-note";
+import { demoNoteState } from "@/server/demo-note";
 
 const noop = () => {};
 const view = (over: Partial<LoginState>) => {
   const props: LoginViewProps = { state: { ...initialLoginState, ...over }, onPhoneChange: noop, onCodeChange: noop, onSend: noop, onVerify: noop, onChangeNumber: noop };
   return renderToStaticMarkup(h(LoginView, props));
 };
-const screen = (showDemoNote: boolean, returnTo: string | null = null) => renderToStaticMarkup(h(LoginScreen, { showDemoNote, returnTo }));
+const screen = (demoNote: DemoNoteState | null, returnTo: string | null = null) => renderToStaticMarkup(h(LoginScreen, { demoNote, returnTo }));
 const count = (html: string, pattern: RegExp) => (html.match(pattern) ?? []).length;
+const LIVE_NOTE: DemoNoteState = { frozenOn: null };
 
 describe("HM5 login: the phone step", () => {
   const html = view({});
@@ -111,7 +113,7 @@ describe("HM5 login: the code step", () => {
 });
 
 describe("HM5 login page", () => {
-  const html = screen(false);
+  const html = screen(null);
 
   it("has exactly one h1 and a main landmark, in plain sentence case", () => {
     expect(count(html, /<h1/g)).toBe(1);
@@ -120,25 +122,25 @@ describe("HM5 login page", () => {
   });
 
   it("D97 shows the demo explanation when demo mode is on, and not otherwise", () => {
-    expect(screen(true)).toContain("About this demo data");
-    expect(screen(true)).toContain("DEMO_AS_OF=2026-10-27");
-    expect(screen(true)).toContain("created as of 27 October 2026");
+    expect(screen(LIVE_NOTE)).toContain("About this demo data");
+    expect(screen(LIVE_NOTE)).not.toContain("DEMO_AS_OF");
+    expect(screen(LIVE_NOTE)).toContain("created as of 27 October 2026");
     expect(html).not.toContain("About this demo data");
     expect(html).not.toContain("DEMO_AS_OF");
   });
 
   it.each([undefined, "false", "", "TRUE", "1", "yes"])("D97 with DEMO_MODE %j the note is not rendered (the page passes isDemoMode(env))", (value) => {
-    const html = screen(isDemoMode({ DEMO_MODE: value }));
+    const html = screen(demoNoteState({ DEMO_MODE: value }));
     expect(html).not.toContain("About this demo data");
     expect(html).not.toContain("created as of 27 October 2026");
   });
 
   it("D97 with DEMO_MODE exactly 'true' the note is rendered", () => {
-    expect(screen(isDemoMode({ DEMO_MODE: "true" }))).toContain("About this demo data");
+    expect(screen(demoNoteState({ DEMO_MODE: "true" }))).toContain("About this demo data");
   });
 
   it("the note lists nothing secret: no code, pepper, phone or address", () => {
-    const note = screen(true).split("About this demo data")[1];
+    const note = screen(LIVE_NOTE).split("About this demo data")[1];
     expect(note).not.toMatch(/\b[0-9]{6}\b/);
     expect(note).not.toMatch(/pepper|password|secret|postgres/i);
   });

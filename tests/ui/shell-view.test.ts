@@ -58,7 +58,7 @@ function enabledNavItemsAll() {
 }
 
 describe("HM5 Profile", () => {
-  const out = html(h(ProfileView, { data: profile, showDemoNote: false }));
+  const out = html(h(ProfileView, { data: profile, demoNote: null }));
 
   it("has one h1 and a main landmark, with the name, the masked phone, the role and each flat with its relation", () => {
     expect(count(out, /<h1/g)).toBe(1);
@@ -82,18 +82,18 @@ describe("HM5 Profile", () => {
   });
 
   it("with no flat, says so", () => {
-    expect(html(h(ProfileView, { data: { ...profile, flats: [] }, showDemoNote: false }))).toContain("No flat is linked to your account yet.");
+    expect(html(h(ProfileView, { data: { ...profile, flats: [] }, demoNote: null }))).toContain("No flat is linked to your account yet.");
   });
 
   it("D97 shows the section 'About this demo data' only when asked (demo mode), and not otherwise", () => {
     expect(out).not.toContain("About this demo data");
-    const withNote = html(h(ProfileView, { data: profile, showDemoNote: true }));
+    const withNote = html(h(ProfileView, { data: profile, demoNote: { frozenOn: null } }));
     expect(withNote).toContain("About this demo data");
-    expect(withNote).toContain("set DEMO_AS_OF=2026-10-27");
+    expect(withNote).not.toContain("DEMO_AS_OF");
   });
 
   it("lists several flats in the order given", () => {
-    const two = html(h(ProfileView, { data: { ...profile, flats: [{ code: "T07-1203", relation: "OWNER" }, { code: "T12-0408", relation: "FAMILY" }] }, showDemoNote: false }));
+    const two = html(h(ProfileView, { data: { ...profile, flats: [{ code: "T07-1203", relation: "OWNER" }, { code: "T12-0408", relation: "FAMILY" }] }, demoNote: null }));
     expect(two.indexOf("T07-1203")).toBeLessThan(two.indexOf("T12-0408"));
     expect(two).toContain("Owner");
     expect(two).toContain("Family");

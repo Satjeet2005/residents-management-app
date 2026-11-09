@@ -27,6 +27,14 @@ test.describe("resident screens: Swati Joshi, T12-0408, overdue", () => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1, name: "T12-0408" })).toBeVisible();
     await checkScreen(page, watch, "home", "overdue");
+    // D226: the demo's frozen date is told in one line at the very bottom, so the Pay button stays on the first screen and above the note.
+    const pay = await page.getByRole("button", { name: /^Pay .*₹/ }).first().boundingBox();
+    const note = await page.getByText(/business date is fixed at 27 October 2026/).boundingBox();
+    const height = page.viewportSize()?.height ?? 0;
+    expect(pay).not.toBeNull();
+    expect(note).not.toBeNull();
+    expect((pay?.y ?? Infinity) + (pay?.height ?? 0)).toBeLessThanOrEqual(height);
+    expect(note?.y ?? 0).toBeGreaterThan(pay?.y ?? Infinity);
     await page.getByRole("button", { name: /See what makes up this amount/ }).click();
     await expect(page.getByRole("dialog").or(page.getByRole("heading", { name: "Your dues" })).first()).toBeVisible();
     await checkScreen(page, watch, "dues-sheet", "open");

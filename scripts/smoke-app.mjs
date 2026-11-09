@@ -123,7 +123,7 @@ async function run() {
   check("GET /login: 200, one h1 'Log in', a phone field with a numeric keypad", loginPage.status === 200 && (loginPage.html.match(/<h1/g) ?? []).length === 1 && loginPage.text.includes("Log in") && loginPage.html.includes('inputMode="numeric"') && loginPage.html.includes('autoComplete="tel"'), `status ${loginPage.status}`);
   check(
     expectDemoNote ? "GET /login: the demo explanation is shown (demo mode)" : "GET /login: no demo explanation (not demo mode)",
-    loginPage.text.includes("About this demo data") === expectDemoNote && loginPage.text.includes("DEMO_AS_OF=2026-10-27") === expectDemoNote,
+    loginPage.text.includes("About this demo data") === expectDemoNote && loginPage.text.includes(frozenToTheBrief ? "business date is fixed at 27 October 2026" : "created as of 27 October 2026") === expectDemoNote && !loginPage.text.includes("DEMO_AS_OF"),
     "",
   );
   const anonymous = await get("/");

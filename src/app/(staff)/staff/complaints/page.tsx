@@ -1,7 +1,7 @@
 import { boardHref, parseBoardQuery } from "@/lib/staff-complaints/board-query";
 import { requireUser } from "@/server/auth/current-user";
 import { defaultDeps } from "@/server/auth/default-deps";
-import { businessNow, isDemoMode } from "@/server/clock";
+import { businessNow, isBusinessClockFrozen, isDemoMode } from "@/server/clock";
 import { loadBoardPage } from "@/server/complaints/staff-page-data";
 import { BoardView } from "./board-view";
 
@@ -13,5 +13,5 @@ export default async function ComplaintsBoardPage({ searchParams }: { searchPara
   const query = parseBoardQuery(await searchParams);
   const user = await requireUser({ need: "complaints:manage", returnTo: boardHref(query) });
   const page = await loadBoardPage({ db: defaultDeps().db, user, query, now: businessNow() });
-  return <BoardView page={page} demo={isDemoMode()} />;
+  return <BoardView page={page} demo={isDemoMode() && !isBusinessClockFrozen()} />;
 }
