@@ -337,3 +337,95 @@ describe("CP10 the urgency floor as a property (D199)", () => {
     expect(floored).toBeGreaterThan(50);
   });
 });
+
+describe("CP11 a confident HIGH survives a refused category (D203)", () => {
+  const text = "the corridor paint is peeling";
+  const decide = (categoryP: number, urgency: ModelUrgency, urgencyP: number) => decideClassification({ rawText: text, arms: [arm("DIRECT", "ELECTRICAL", categoryP, urgency, urgencyP)], policy: single });
+
+  const TABLE: { name: string; categoryP: number; urgency: ModelUrgency; urgencyP: number; urgencyOut: "NORMAL" | "HIGH"; kept: boolean; categoryOut: CategoryCode | null }[] = [
+    { name: "category 0.63 with HIGH 0.83: HIGH, category refused", categoryP: 0.63, urgency: "HIGH", urgencyP: 0.83, urgencyOut: "HIGH", kept: true, categoryOut: null },
+    { name: "HIGH exactly at the urgency threshold 0.60 is kept", categoryP: 0.63, urgency: "HIGH", urgencyP: 0.6, urgencyOut: "HIGH", kept: true, categoryOut: null },
+    { name: "HIGH at 0.59 is not kept", categoryP: 0.63, urgency: "HIGH", urgencyP: 0.59, urgencyOut: "NORMAL", kept: false, categoryOut: null },
+    { name: "NORMAL 0.90 with a refused category behaves as today", categoryP: 0.63, urgency: "NORMAL", urgencyP: 0.9, urgencyOut: "NORMAL", kept: false, categoryOut: null },
+    { name: "LOW 0.90 with a refused category behaves as today (no HIGH, no floor)", categoryP: 0.63, urgency: "LOW", urgencyP: 0.9, urgencyOut: "NORMAL", kept: false, categoryOut: null },
+    { name: "both accepted: HIGH, as today, without the new reason", categoryP: 0.9, urgency: "HIGH", urgencyP: 0.83, urgencyOut: "HIGH", kept: false, categoryOut: "ELECTRICAL" },
+  ];
+
+  it.each(TABLE)("$name", ({ categoryP, urgency, urgencyP, urgencyOut, kept, categoryOut }) => {
+    const decision = decide(categoryP, urgency, urgencyP);
+    expect(decision.urgency).toBe(urgencyOut);
+    expect(decision.category).toBe(categoryOut);
+    expect(decision.needsTriage).toBe(categoryOut === null);
+    expect(decision.reasons.includes("URGENCY_KEPT_ON_REFUSAL")).toBe(kept);
+    if (categoryOut === null) expect(decision.reasons).toContain("LOW_CONFIDENCE");
+  });
+
+  it("two arms that disagree on the category but both say HIGH: HIGH is kept; one says NORMAL: it is not", () => {
+    const high = decideClassification({ rawText: text, arms: [arm("NATIVE", "ELECTRICAL", 0.9, "HIGH", 0.8), arm("TRANSLATED", "PLUMBING", 0.9, "HIGH", 0.7)] });
+    expect(high).toMatchObject({ urgency: "HIGH", category: null, needsTriage: true });
+    expect(high.reasons).toEqual(expect.arrayContaining(["ARMS_DISAGREE", "URGENCY_KEPT_ON_REFUSAL"]));
+    const mixed = decideClassification({ rawText: text, arms: [arm("NATIVE", "ELECTRICAL", 0.9, "HIGH", 0.8), arm("TRANSLATED", "PLUMBING", 0.9, "NORMAL", 0.7)] });
+    expect(mixed.urgency).toBe("NORMAL");
+  });
+
+  it("a single arm that the policy does not allow is not read for urgency", () => {
+    const decision = decideClassification({ rawText: text, arms: [arm("DIRECT", "ELECTRICAL", 0.95, "HIGH", 0.95)] });
+    expect(decision).toMatchObject({ urgency: "NORMAL", category: null });
+    expect(decision.reasons).not.toContain("URGENCY_KEPT_ON_REFUSAL");
+  });
+
+  it("a safety word is still CRITICAL and does not carry the new reason", () => {
+    const decision = decideClassification({ rawText: "fire in tower 3", arms: [arm("DIRECT", "ELECTRICAL", 0.63, "HIGH", 0.83)], policy: single });
+    expect(decision.urgency).toBe("CRITICAL");
+    expect(decision.reasons).not.toContain("URGENCY_KEPT_ON_REFUSAL");
+  });
+
+  /** The decision logic BEFORE D203, for one or two arms (agreement required, single arm allowed, the default thresholds), as the oracle. */
+  function oldDecision(arms: ArmResult[]) {
+    const tops = arms.map((a) => ({ category: [...a.categories].sort((x, y) => y.probability - x.probability)[0], urgency: [...a.urgencies].sort((x, y) => y.probability - x.probability)[0] }));
+    const agree = tops.every((t) => t.category.label === tops[0].category.label);
+    const confident = tops.every((t) => t.category.probability >= 0.7);
+    const sameUrgency = tops.every((t) => t.urgency.label === tops[0].urgency.label);
+    const certain = sameUrgency && tops.every((t) => t.urgency.probability >= 0.6);
+    const urgencyLabel = certain ? tops[0].urgency.label : "NORMAL";
+    if (!agree || !confident) return { refused: true as const, urgency: "NORMAL" as const, urgencyLabel, certain, category: null };
+    return { refused: false as const, urgency: urgencyLabel === "LOW" ? ("NORMAL" as const) : urgencyLabel, urgencyLabel, certain, category: tops[0].category.label };
+  }
+
+  /** A random distribution over `labels`: continuous weights, so the top label has no tie. */
+  function distribution<L extends string>(rng: ReturnType<typeof createPrng>, labels: readonly L[]): { label: L; probability: number }[] {
+    const weights = labels.map(() => 0.02 + rng.next() ** 2);
+    const total = weights.reduce((a, b) => a + b, 0);
+    return labels.map((label, i) => ({ label, probability: weights[i] / total }));
+  }
+
+  it("differential: over 2,000 seeded random answers the new decision equals the old one except for (category refused, urgency accepted, top label HIGH), where only urgency and the added reason differ", () => {
+    const rng = createPrng(203);
+    let exceptions = 0;
+    for (let i = 0; i < 2000; i += 1) {
+      const arms: ArmResult[] = Array.from({ length: 1 + (rng.next() < 0.5 ? 1 : 0) }, (_, k) => ({
+        arm: k === 0 ? "NATIVE" : "TRANSLATED",
+        categories: distribution(rng, CATEGORY_CODES),
+        urgencies: distribution(rng, MODEL_URGENCIES),
+      }));
+      const old = oldDecision(arms);
+      const now = decideClassification({ rawText: text, arms, policy: single });
+      const exception = old.refused && old.certain && old.urgencyLabel === "HIGH";
+      if (exception) {
+        exceptions += 1;
+        expect(now.urgency).toBe("HIGH");
+        expect(now.reasons).toContain("URGENCY_KEPT_ON_REFUSAL");
+      } else {
+        expect(now.urgency).toBe(old.urgency);
+        expect(now.reasons).not.toContain("URGENCY_KEPT_ON_REFUSAL");
+      }
+      expect(now.category).toBe(old.category);
+      expect(now.needsTriage).toBe(old.refused);
+      expect(now.source).toBe(old.refused ? "NONE" : "LLM");
+      expect(now.urgency).not.toBe("CRITICAL");
+      if (old.refused && !exception) expect(now.urgency).toBe("NORMAL");
+      expect(now.urgency).not.toBe("LOW");
+    }
+    expect(exceptions).toBeGreaterThan(20);
+  });
+});

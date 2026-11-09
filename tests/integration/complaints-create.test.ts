@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { type CreateResult, createComplaint } from "@/server/complaints/create";
 import { type Classifier, NullClassifier } from "@/server/complaints/classifier";
+import { type BoardRow, listBoardView } from "@/server/complaints/board-views";
 import { DAY, FakeClassifier, NOW, type World, arm, loadComplaint, makeResident, setupWorld } from "./complaints-helpers";
 
 let world: World;
@@ -185,6 +186,32 @@ describe("CL2 the classifier path (D9, D118)", () => {
     expect(Number(saved.classifications[0].confidence)).toBeCloseTo(0.91, 3);
     expect(saved.classifications[0].latencyMs).toBeGreaterThanOrEqual(0);
     expect(saved.classifications[0].outputHash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("CL2 a confident HIGH survives a refused category (D203): urgency HIGH, no category, needs review, the HIGH clock, on the board's Needs action, never CRITICAL", async () => {
+    const { user } = await makeResident(world);
+    const classifier = new FakeClassifier({ result: arm("ELECTRICAL", 0.63, "HIGH", 0.83) });
+    const { complaint } = ok(await raise(user, "The corridor light outside our flat keeps going off and on", classifier));
+    expect(complaint).toMatchObject({ status: "NEW", urgency: "HIGH", category: null, safetyFlag: false, needsReview: true });
+    const saved = await loadComplaint(world, complaint.id);
+    expect(saved.assigneeId).toBeNull();
+    expect(saved.responseDueAt?.getTime()).toBe(NOW + 120 * 60_000);
+    const classified = saved.events.find((e) => e.eventType === "CLASSIFIED");
+    expect(classified?.payload).toMatchObject({ urgency: "HIGH", category: null, reasons: expect.arrayContaining(["LOW_CONFIDENCE", "URGENCY_KEPT_ON_REFUSAL"]) });
+    expect(saved.classifications[0]).toMatchObject({ urgency: "HIGH" });
+
+    let cursor: string | undefined;
+    let row: BoardRow | undefined;
+    for (let page = 0; page < 200 && row === undefined; page += 1) {
+      const board = await listBoardView({ db: world.appPrisma, user: world.staff.kavita, view: "needs_action", cursor, limit: 50, now: NOW });
+      if (board.status !== "OK") throw new Error(board.error);
+      row = board.rows.find((r) => r.id === complaint.id);
+      if (board.nextCursor === null) break;
+      cursor = board.nextCursor;
+    }
+    expect(row).toMatchObject({ urgency: "HIGH", needsReview: true, safety: false });
+    expect(await world.ownerPrisma.complaint.count({ where: { id: complaint.id, urgency: "CRITICAL" } })).toBe(0);
+    expect(await world.ownerPrisma.classification.count({ where: { complaintId: complaint.id, urgency: "CRITICAL" } })).toBe(0);
   });
 
   const FALLBACK_TEXT = "Water leak under the sink";
