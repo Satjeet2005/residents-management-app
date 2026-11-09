@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -146,7 +146,10 @@ describe.skipIf(!hasPython)("SZ1 the submission zip builder", () => {
   it("finds the repository root from any directory inside the repository", () => {
     const tdd = path.join(base, "anywhere.docx");
     docx(tdd, GOOD_TOP);
-    const repo = path.resolve(".");
+    const repo = realpathSync(fixture());
+    mkdirSync(path.join(repo, "scripts"));
+    mkdirSync(path.join(repo, "src", "domain"), { recursive: true });
+    expect(spawnSync("git", ["init", "-q"], { cwd: repo }).status).toBe(0);
     for (const sub of ["scripts", "src/domain"]) {
       const result = run([tdd, "--check-only"], {}, path.join(repo, sub));
       expect(result.out, sub).toContain(`repository root: ${repo}`);
