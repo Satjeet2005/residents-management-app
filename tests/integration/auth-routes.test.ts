@@ -273,7 +273,7 @@ describe("V6 audit", () => {
     await logoutAllRoute(post("logout-all", undefined, { cookie: again.cookie, ip }));
 
     const masked = `******${user.phone.slice(-4)}`;
-    const rows = await prisma.auditLog.findMany({ where: { entityType: "auth", detail: { path: ["phone"], equals: masked } } });
+    const rows = await prisma.auditLog.findMany({ where: { entityType: "auth", entityId: user.id } });
     const actions = new Set(rows.map((r) => r.action));
     for (const action of ["OTP_REQUESTED", "OTP_BLOCKED", "LOGIN_SUCCEEDED", "LOGIN_FAILED", "LOGOUT", "LOGOUT_ALL"]) expect(actions.has(action), action).toBe(true);
     for (const row of rows) {
