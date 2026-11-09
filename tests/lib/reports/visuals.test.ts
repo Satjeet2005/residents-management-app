@@ -85,7 +85,7 @@ describe("VZ3 the payment curve visual", () => {
 
   it("the weekly chart writes the value above every point but the last, which has its name and value at its end", () => {
     const week = (weekStart: string, share: number | null) => ({ weekStart, raised: 3, decided: 3, met: 2, sharePercent: share, partial: false });
-    const goal = { key: "firstReplyWithinSla" as const, status: "NOT_MET" as const, targetPercent: 90, text: "Goal 90%" };
+    const goal = { key: "firstReplyWithinSla" as const, status: "NOT_MET" as const, targetPercent: 90, text: "Goal 90%", gap: "3 points short" };
     expect(weeklyVisual([week("2026-10-12", 67), week("2026-10-19", 80)], goal, "2026-10-27").series[0].valueLabels).toBe(true);
   });
 
@@ -96,7 +96,7 @@ describe("VZ3 the payment curve visual", () => {
 
 describe("VZ4 the weekly SLA visual", () => {
   const week = (weekStart: string, raised: number, decided: number, met: number): WeeklyPoint => ({ weekStart, raised, decided, met, sharePercent: decided === 0 ? null : Math.round((100 * met) / decided), partial: false });
-  const goal = { key: "firstReplyWithinSla" as const, status: "NOT_MET" as const, targetPercent: 90, text: "Goal: At least 90%" };
+  const goal = { key: "firstReplyWithinSla" as const, status: "NOT_MET" as const, targetPercent: 90, text: "Goal: At least 90%", gap: "3 points short" };
   const visual = weeklyVisual([week("2026-10-12", 4, 4, 4), week("2026-10-19", 3, 0, 0), week("2026-10-26", 5, 5, 3)], goal, "2026-10-27");
 
   it("has a gap for the week with nothing due, the table says No data, and the takeaway compares with the last known week", () => {

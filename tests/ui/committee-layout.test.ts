@@ -13,7 +13,7 @@ const out = html(h(ReportView, { report: emptyReport() }));
 
 describe("LY1 the layout at phone, tablet and laptop widths", () => {
   it("cards: one column below 768px, two by two from 768px, four in a row from 1280px", () => {
-    const cards = /<ul class="([^"]*)"><li class="[^"]*"><h2[^>]*>Money collected for October/.exec(out)?.[1] ?? "";
+    const cards = /<ul class="([^"]*)"><li class="[^"]*"><div class="[^"]*"><h2[^>]*>Money collected for October/.exec(out)?.[1] ?? "";
     expect(cards).toContain("grid");
     expect(cards).not.toMatch(/(^| )grid-cols-/);
     expect(cards).toContain("md:grid-cols-2");

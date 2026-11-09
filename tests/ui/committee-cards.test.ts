@@ -47,40 +47,45 @@ const ageing = { buckets: AGE_BUCKETS.map((bucket) => ({ bucket, flats: 1, bills
 describe("HC1 the four headline cards", () => {
   const out = html(h(HeadlineCards, { report: emptyReport({ money, ageing }) }));
 
-  it("has four cards in the order Money collected, Total still owed, Bills paid by the due date, Complaints answered in time, each with an h2 label that names its period", () => {
+  it("has four cards in the order Money collected, Total still owed, Paid on time, Replied in time, each with an h2 label that names its period", () => {
     const labels = [...out.matchAll(/<h2[^>]*>([^<]*)<\/h2>/g)].map((m) => m[1]);
-    expect(labels).toEqual(["Money collected for October", "Total still owed, all months", "Bills paid by the due date, October bills", "Complaints answered in time, October"]);
+    expect(labels).toEqual(["Money collected for October", "Total still owed, all months", "Paid on time, October", "Replied in time, October"]);
     expect(words(out)).toContain("October bills");
     expect(words(out)).toContain("All months, as of 27 October 2026");
     expect(words(out)).toContain("Complaints raised in October");
   });
 
-  it("the collected card shows the percent, both amounts in short form, the exact figure in full grouping, a progress bar and no goal", () => {
+  it("the collected card shows the percent, both amounts in short form, a bar with no goal tick and its sentence", () => {
     const text = words(out);
     expect(text).toContain("₹1.48 crore of ₹1.81 crore");
-    expect(text).toContain("₹1,48,42,714 of ₹1,80,52,190");
-    expect(out).toContain('aria-labelledby="m1-collected-title m1-collected-desc"');
     const card = out.split("<li class=")[1];
+    expect(card).toContain('role="img" aria-label="₹1.48 crore of ₹1.81 crore billed has been collected');
+    expect(card).not.toContain('data-part="tick"');
     expect(card).not.toContain("Goal");
   });
 
-  it("the owed card shows the total, its flats and the flats over 90 days, and no chart", () => {
+  it("the owed card shows the total, its flats with the amount over 90 days, the split into unpaid bills and late fees, and no chart", () => {
     const card = words(out.split("<li class=")[2]);
     expect(card).toContain("₹60.6 lakh");
-    expect(card).toContain("817 flats");
-    expect(card).toContain("1 flat is over 90 days");
+    expect(card).toContain("817 flats · ₹0.01 is over 90 days");
+    expect(card).toContain("Unpaid ₹60.6 lakh + late fees ₹0");
     expect(out.split("<li class=")[2]).not.toContain("<svg");
   });
 
-  it("the two goal cards say 'No data' and show no verdict when there is nothing to measure, and still carry a sparkline with a table", () => {
+  it("the two goal cards say 'No data' and show no verdict when there is nothing to measure, and carry a bar with no goal sentence", () => {
     for (const index of [3, 4]) {
       const card = out.split("<li class=")[index];
       expect(words(card)).toContain("No data");
       expect(card).not.toContain("Not met");
       expect(card).not.toMatch(/>Met</);
-      expect(card).toContain("<svg");
-      expect(card).toContain("See the numbers behind this chart");
+      expect(card).toContain('role="img" aria-label="No data."');
     }
+  });
+
+  it("no headline card has a sparkline or any chart drawing: the only svgs are icons", () => {
+    expect(out).not.toContain("<polyline");
+    expect(out).not.toContain("<figure");
+    expect(out).not.toContain("<title");
   });
 });
 
@@ -91,8 +96,8 @@ describe("HC2 goals in words with an icon", () => {
         report: emptyReport({
           cards: {
             ...emptyReport().cards,
-            onTime: { ...emptyReport().cards.onTime, goal: { key: "onTimeCollection", status: onTime > 0 ? "MET" : "NOT_MET", targetPercent: 90, text: "Goal: At least 90%" } },
-            sla: { ...emptyReport().cards.sla, goal: { key: "firstReplyWithinSla", status: sla > 0 ? "MET" : "NOT_MET", targetPercent: 90, text: "Goal: At least 90%" } },
+            onTime: { ...emptyReport().cards.onTime, goal: { key: "onTimeCollection", status: onTime > 0 ? "MET" : "NOT_MET", targetPercent: 90, text: "Goal: At least 90%", gap: null } },
+            sla: { ...emptyReport().cards.sla, goal: { key: "firstReplyWithinSla", status: sla > 0 ? "MET" : "NOT_MET", targetPercent: 90, text: "Goal: At least 90%", gap: null } },
           },
         }),
       }),
@@ -110,7 +115,7 @@ describe("HC2 goals in words with an icon", () => {
 });
 
 describe("HC3 the computed takeaway of a trend", () => {
-  const goal = { key: "onTimeCollection" as const, status: "NOT_MET" as const, targetPercent: 90, text: "Goal: At least 90%" };
+  const goal = { key: "onTimeCollection" as const, status: "NOT_MET" as const, targetPercent: 90, text: "Goal: At least 90%", gap: null };
   it("names the latest value, its movement from the one before (skipping a gap), and the goal verdict", () => {
     expect(trendDescription([{ label: "Aug", value: 80 }, { label: "Sep", value: null }, { label: "Oct", value: 70 }], goal)).toBe("Oct was 70%, down from Aug (80%). Goal: At least 90%: Not met.");
     expect(trendDescription([{ label: "Sep", value: 60 }, { label: "Oct", value: 70 }], { ...goal, status: "MET" })).toBe("Oct was 70%, up from Sep (60%). Goal: At least 90%: Met.");

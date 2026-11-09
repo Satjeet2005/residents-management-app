@@ -2,20 +2,22 @@ import { statSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { checkScreen, watchPage } from "../helpers/checks";
+import { assertNoTextOverlap } from "../helpers/overlap";
 import { authFile } from "../helpers/people";
 import { MAX_BYTES } from "../helpers/screenshot";
 
 /**
  * Committee report v2 in a real browser at 360, 768 and 1280 (one project each, see playwright.config.ts), as Meera Kapoor (reports:view), on the seeded database
  * with the business date frozen at 27 Oct 2026. Every width runs the same specs: the page checks of `checkScreen` (no overflow, 48 px targets, 8 px between them,
- * focus ring, axe, one h1, text of 14 px), the charts (each with a title, a description and a table; below 768px only the bars and sparklines), the sections with
+ * focus ring, axe, one h1, text of 14 px), the charts (each with a title, a description and a table; below 768px only the bars), the sections with
  * the keyboard, the drill-down, and the Choose sections sheet with its cookie.
  */
 const widthOf = (page: Page): number => page.viewportSize()?.width ?? 0;
 const wide = (page: Page): boolean => widthOf(page) >= 768;
 const SECTIONS = ["money", "owed", "quality", "complaints", "bank"] as const;
-const FIGURES_BELOW_768 = ["m1-collected", "m2-on-time", "m2-sla", "monthly-bars"];
-const FIGURES_FROM_768 = ["m1-collected", "m2-on-time", "m2-sla", "monthly-columns", "curve", "weekly"];
+const FIGURES_BELOW_768 = ["monthly-bars"];
+const FIGURES_FROM_768 = ["monthly-columns", "curve", "weekly"];
+const CARDS = "section[aria-label='Headline figures']";
 
 /** Opens the report and waits for the real page: the first thing the server sends is the loading state, which has no heading. */
 async function openReport(page: Page, query = "?period=2026-10"): Promise<void> {
@@ -71,6 +73,43 @@ test.describe("the committee report at one width", () => {
     expect(whole).toBeGreaterThanOrEqual(2);
   });
 
+  test("the headline cards: no sparkline, one visual, one Met or Not met tag per goal card, a goal bar whose tick is at the goal, and no overlapping text; at 360px each card is at most 190px tall", async ({ page }) => {
+    await openReport(page);
+    const cards = page.locator(`${CARDS} > ul > li`);
+    await expect(cards).toHaveCount(4);
+    await expect(page.locator(`${CARDS} svg[role='img'], ${CARDS} polyline`)).toHaveCount(0);
+    for (const index of [2, 3]) {
+      const card = cards.nth(index);
+      await expect(card.getByText(/^(Met|Not met)$/)).toHaveCount(1);
+      const bar = card.locator("[data-part='tick']");
+      const track = bar.locator("xpath=..");
+      const goalPercent = Number(/Goal (\d+) percent/.exec((await track.getAttribute("aria-label")) ?? "")?.[1]);
+      const [trackBox, tickBox] = [await track.boundingBox(), await bar.boundingBox()];
+      expect(Math.abs((((tickBox?.x ?? 0) + (tickBox?.width ?? 0) / 2 - (trackBox?.x ?? 0)) / (trackBox?.width ?? 1)) * 100 - goalPercent), "the tick is at the goal").toBeLessThan(1);
+      await expect(card.locator("details > summary")).toHaveText(/Last six months/);
+    }
+    if (widthOf(page) === 360) {
+      for (const card of await cards.all()) {
+        const title = (await card.locator("h2").innerText()).trim();
+        expect((await card.boundingBox())?.height ?? 0, `${title}: card height`).toBeLessThanOrEqual(190);
+      }
+    }
+    for (const [index, card] of (await cards.all()).entries()) await assertNoTextOverlap(card, `headline card ${index + 1} at ${widthOf(page)}px`);
+    for (const index of [2, 3]) {
+      await cards.nth(index).locator("details > summary").click();
+      await expect(cards.nth(index).locator("table tbody tr").first()).toBeVisible();
+      await assertNoTextOverlap(cards.nth(index), `headline card ${index + 1} with its table open at ${widthOf(page)}px`);
+    }
+  });
+
+  test("the headline cards after: a close-up at 360 and 1280", async ({ page }) => {
+    test.skip(![360, 1280].includes(widthOf(page)), "the close-ups are for the phone and the laptop");
+    await openReport(page);
+    const file = path.join("docs", "screenshots", `committee-cards-after-${widthOf(page)}x800.png`);
+    await page.locator(CARDS).screenshot({ path: file, scale: "css", animations: "disabled" });
+    expect(statSync(file).size, file).toBeLessThanOrEqual(MAX_BYTES);
+  });
+
   test("choosing a month changes the page with no Show button, and Choose sections sits at the bottom, above About", async ({ page }) => {
     await openReport(page);
     await expect(page.getByRole("button", { name: "Show", exact: true })).toHaveCount(0);
@@ -117,14 +156,15 @@ test.describe("the committee report at one width", () => {
     await expect(page.locator("#ageing-detail")).toHaveCount(0);
   });
 
-  test("the Replies card's figure is the last value of its own line, read from the line's table", async ({ page }) => {
+  test("the Replies card's figure is the last value of its own 'Last six months' table, which lists only months with a figure", async ({ page }) => {
     await openReport(page);
     const card = page.locator("section[aria-label='Headline figures'] > ul > li").nth(3);
     const value = (await card.locator("p.text-hero").innerText()).trim();
-    await card.locator("figure details > summary").click();
-    const last = (await card.locator("figure table tbody tr").last().locator("td").innerText()).trim();
-    expect(last).toBe(value);
-    expect(await card.locator("figure table tbody tr").count()).toBe(6);
+    await card.locator("details > summary").click();
+    const rows = card.locator("details table tbody tr");
+    expect((await rows.last().locator("td").innerText()).trim()).toBe(value);
+    expect(await rows.count()).toBeGreaterThanOrEqual(1);
+    expect(await rows.count()).toBeLessThanOrEqual(6);
   });
 
   test("the strip and the Complaints section give the same count of open safety complaints that nobody has seen", async ({ page }) => {
@@ -171,8 +211,6 @@ test.describe("the committee report at one width", () => {
     await expect(page.locator("details#bank")).toHaveJSProperty("open", true);
     await checkScreen(page, watch, "committee", "report-open");
     if (!wide(page)) {
-      await closeUp(page, "m1-collected", "m1-collected");
-      await closeUp(page, "m2-on-time", "m2-on-time");
       await closeUp(page, "monthly-bars", "m3-monthly");
     }
     if (widthOf(page) === 1280) {
@@ -182,7 +220,7 @@ test.describe("the committee report at one width", () => {
     }
   });
 
-  test("each visible visual has a title, a description and a table; below 768px the only visuals are the bars and sparklines", async ({ page }) => {
+  test("each visible visual has a title, a description and a table; below 768px the only visual is the monthly bars", async ({ page }) => {
     await openReport(page);
     await openAll(page);
     expect((await visibleFigureIds(page)).sort()).toEqual((wide(page) ? FIGURES_FROM_768 : FIGURES_BELOW_768).sort());
@@ -191,6 +229,7 @@ test.describe("the committee report at one width", () => {
       await expect(svg.locator("title")).not.toBeEmpty();
       await expect(svg.locator("desc")).not.toBeEmpty();
       await expect(figure.locator("figcaption")).toHaveCount(1);
+      await assertNoTextOverlap(figure.locator("svg[role='img']"), `chart ${await figure.locator("figcaption").innerText()} at ${widthOf(page)}px`);
       await expect(figure.locator("details > summary")).toHaveText("See the numbers behind this chart");
       await figure.locator("details > summary").click();
       await expect(figure.locator("table caption")).toBeVisible();

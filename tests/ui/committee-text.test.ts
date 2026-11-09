@@ -52,10 +52,10 @@ describe("TX1 text size and contrast of the committee report (D181)", () => {
 
   it("the text of a chart is 14px, and the charts shown on a phone are drawn no wider than the phone's content, so they are never scaled down below 14px", () => {
     expect(CHART_TEXT).toBeGreaterThanOrEqual(14);
-    for (const file of ["horizontal-bars.tsx", "progress-bar.tsx", "sparkline.tsx"]) {
+    for (const file of ["horizontal-bars.tsx"]) {
       const width = Number(/const WIDTH = (\d+);/.exec(readFileSync(path.join(CHARTS_DIR, file), "utf8"))?.[1]);
       expect(width, file).toBeLessThanOrEqual(NARROWEST_CONTENT);
     }
-    expect(sources(CHARTS_DIR).length).toBeGreaterThan(5);
+    expect(sources(CHARTS_DIR).length).toBeGreaterThan(4);
   });
 });

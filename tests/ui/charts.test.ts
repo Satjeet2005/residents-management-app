@@ -7,8 +7,6 @@ import { CHART_TOKENS } from "@/components/charts/chart-tokens";
 import type { ChartText } from "@/components/charts/chart-parts";
 import { HorizontalBars, MAX_BARS } from "@/components/charts/horizontal-bars";
 import { LineChart, MAX_SERIES } from "@/components/charts/line-chart";
-import { ProgressBar } from "@/components/charts/progress-bar";
-import { Sparkline } from "@/components/charts/sparkline";
 import { StackedBars, wrapSeriesName } from "@/components/charts/stacked-bars";
 
 const text = (id: string): ChartText => ({
@@ -19,7 +17,6 @@ const text = (id: string): ChartText => ({
   table: { caption: `Table of ${id}`, columns: ["Month", "Share", "Amount"], rows: [{ header: "September", cells: ["82%", "₹1,48,00,000"] }, { header: "October", cells: ["No data", "₹0"] }] },
 });
 
-const spark = h(Sparkline, { text: text("spark"), points: [{ label: "May", value: 50 }, { label: "Jun", value: null }, { label: "Jul", value: 80 }, { label: "Aug", value: 90 }], goal: { percent: 90, label: "Goal 90%" } });
 const bars = h(HorizontalBars, { text: text("bars"), rows: [{ label: "Not yet due", valueText: "₹4.0 lakh", value: 400 }, { label: "Over 90 days", valueText: "₹1.0 lakh", value: 100, emphasis: "warning" }] });
 const stacked = h(StackedBars, {
   text: text("stack"),
@@ -39,8 +36,7 @@ const line = h(LineChart, {
   goal: { percent: 90, label: "Goal 90%" },
   marker: { x: 9, label: "Due day" },
 });
-const progress = h(ProgressBar, { text: text("prog"), percent: 82 });
-const all: [string, ReturnType<typeof h>][] = [["ProgressBar", progress], ["Sparkline", spark], ["HorizontalBars", bars], ["StackedBars", stacked], ["LineChart", line]];
+const all: [string, ReturnType<typeof h>][] = [["HorizontalBars", bars], ["StackedBars", stacked], ["LineChart", line]];
 
 describe("CH1 every chart is a figure with a title, a description and a table", () => {
   it.each(all)("%s: <figure>, <figcaption>, <svg role=img> named by its title and description, and a 'See the numbers behind this chart' details", (_name, element) => {
@@ -65,12 +61,40 @@ describe("CH1 every chart is a figure with a title, a description and a table", 
   });
 
   it("the caption can be read but not shown when a card around the chart says it", () => {
-    const out = renderToStaticMarkup(h(ProgressBar, { text: { ...text("hidden"), captionHidden: true }, percent: 10 }));
+    const out = renderToStaticMarkup(h(HorizontalBars, { text: { ...text("hidden"), captionHidden: true }, rows: [{ label: "Not yet due", valueText: "₹4.0 lakh", value: 400 }] }));
     expect(out).toMatch(/<figcaption class="[^"]*sr-only/);
   });
 });
 
 describe("CH2 direct labels, patterns and no interaction", () => {
+  it("a series name that does not fit beside the last column is written on two lines, and a short one stays on one", () => {
+    expect(wrapSeriesName("Within 20 days")).toEqual(["Within 20 days"]);
+    expect(wrapSeriesName("Not yet paid by day 20")).toEqual(["Not yet paid", "by day 20"]);
+    const long = renderToStaticMarkup(h(StackedBars, { text: text("wrap"), labels: { collected: "Within 20 days", outstanding: "Not yet paid by day 20" }, columns: [{ label: "Oct", collected: 60, outstanding: 40, hasData: true, percentText: "60%" }] }));
+    expect(long).toContain(">Not yet paid</tspan>");
+    expect(long).toContain(">by day 20</tspan>");
+    expect(long).toContain(">Within 20 days</text>");
+  });
+
+  it("the stacked bars name both series beside the last column and differ by a hatch pattern, with a percent over every column", () => {
+    const out = renderToStaticMarkup(stacked);
+    expect(out).toContain(">Collected</text>");
+    expect(out).toContain(">Outstanding</text>");
+    expect(out).toContain("<pattern");
+    expect(out).toContain('fill="url(#stack-hatch)"');
+    expect(out).toContain(">80%</text>");
+    expect(out).toContain(">No data</text>");
+  });
+
+  it("the line chart writes the goal, the due-day marker and the series name with its last value, and the goal and marker are dashed differently", () => {
+    const out = renderToStaticMarkup(line);
+    expect(out).toContain(">Goal 90%</text>");
+    expect(out).toContain(">Due day</text>");
+    expect(out).toMatch(/>Collected <!-- -->90<!-- -->%<\/text>|>Collected 90%<\/text>/);
+    expect(out).toContain('stroke-dasharray="8 5"');
+    expect(out).toContain('stroke-dasharray="2 4"');
+  });
+
   it("the goal label sits at the right end of the dashed line, outside the plot, and the line is drawn before (behind) the data", () => {
     const out = renderToStaticMarkup(line);
     const plotRight = Number(/<line x1="52" x2="(\d+)"/.exec(out)?.[1]);
@@ -107,42 +131,6 @@ describe("CH2 direct labels, patterns and no interaction", () => {
     expect(weekly).toContain('viewBox="0 0 560 318"');
   });
 
-  it("a series name that does not fit beside the last column is written on two lines, and a short one stays on one", () => {
-    expect(wrapSeriesName("Within 20 days")).toEqual(["Within 20 days"]);
-    expect(wrapSeriesName("Not yet paid by day 20")).toEqual(["Not yet paid", "by day 20"]);
-    const long = renderToStaticMarkup(h(StackedBars, { text: text("wrap"), labels: { collected: "Within 20 days", outstanding: "Not yet paid by day 20" }, columns: [{ label: "Oct", collected: 60, outstanding: 40, hasData: true, percentText: "60%" }] }));
-    expect(long).toContain(">Not yet paid</tspan>");
-    expect(long).toContain(">by day 20</tspan>");
-    expect(long).toContain(">Within 20 days</text>");
-  });
-
-  it("the stacked bars name both series beside the last column and differ by a hatch pattern, with a percent over every column", () => {
-    const out = renderToStaticMarkup(stacked);
-    expect(out).toContain(">Collected</text>");
-    expect(out).toContain(">Outstanding</text>");
-    expect(out).toContain("<pattern");
-    expect(out).toContain('fill="url(#stack-hatch)"');
-    expect(out).toContain(">80%</text>");
-    expect(out).toContain(">No data</text>");
-  });
-
-  it("the line chart writes the goal, the due-day marker and the series name with its last value, and the goal and marker are dashed differently", () => {
-    const out = renderToStaticMarkup(line);
-    expect(out).toContain(">Goal 90%</text>");
-    expect(out).toContain(">Due day</text>");
-    expect(out).toMatch(/>Collected <!-- -->90<!-- -->%<\/text>|>Collected 90%<\/text>/);
-    expect(out).toContain('stroke-dasharray="8 5"');
-    expect(out).toContain('stroke-dasharray="2 4"');
-  });
-
-  it("the sparkline writes its last value and the goal, and a gap breaks the line (no point for the null)", () => {
-    const out = renderToStaticMarkup(spark);
-    expect(out).toContain(">Goal 90%</text>");
-    expect(out).toMatch(/>90<!-- -->%<\/text>|>90%<\/text>/);
-    expect(out).toContain("<circle");
-    expect(out.match(/<polyline/g) ?? []).toHaveLength(1);
-  });
-
   it("the bars write each label and value, and a warning bar is hatched", () => {
     const out = renderToStaticMarkup(bars);
     for (const word of ["Not yet due", "₹4.0 lakh", "Over 90 days", "₹1.0 lakh"]) expect(out).toContain(`>${word}</text>`);
@@ -170,7 +158,7 @@ describe("CH3 sizes", () => {
   });
 
   it("the table text is the 14px caption size or larger", () => {
-    expect(renderToStaticMarkup(spark)).toMatch(/<table class="tnum[^"]*text-caption/);
+    expect(renderToStaticMarkup(bars)).toMatch(/<table class="tnum[^"]*text-caption/);
   });
 });
 

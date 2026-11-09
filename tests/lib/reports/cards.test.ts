@@ -6,7 +6,7 @@ import type { MoneyLine } from "@/domain/reports/money-line";
 import { reconciliationLine } from "@/domain/reports/reconciliation";
 import type { MonthlyPoint, OnTimePoint } from "@/domain/reports/series";
 import type { MonthlySlaPoint } from "@/domain/reports/monthly-sla";
-import { buildCards, countText, goalText } from "@/lib/reports/cards";
+import { buildCards, countText, goalBarLabel, goalGap, goalText } from "@/lib/reports/cards";
 import { sectionHeadlines } from "@/lib/reports/headlines";
 
 const money: MoneyLine = {
@@ -41,17 +41,17 @@ const input = {
 describe("CD1 the four cards", () => {
   const cards = buildCards(input);
 
-  it("Collected this month: the percent, both amounts in the short form, and the exact figure in full Indian grouping", () => {
-    expect(cards.collected).toEqual({ percent: 82, value: "82%", comparison: "₹1.48 crore of ₹1.81 crore billed", exact: "₹1,48,42,714 of ₹1,80,52,190", within20: "October within 20 days: 79%", sameAge: "September, at the same age: 91%" });
+  it("Collected this month: the percent, both amounts in the short form, and the same-age comparison", () => {
+    expect(cards.collected).toEqual({ percent: 82, value: "82%", comparison: "₹1.48 crore of ₹1.81 crore billed", within20: "October within 20 days: 79%", sameAge: "September, at the same age: 91%" });
   });
 
-  it("Total owed: the all-open-dues total in short form, its flats, and the flats over 90 days", () => {
-    expect(cards.owed).toEqual({ value: "₹60.6 lakh", comparison: "817 flats", detail: "24 flats are over 90 days" });
+  it("Total owed: the all-open-dues total in short form, its flats, the amount over 90 days and the split into unpaid bills and late fees", () => {
+    expect(cards.owed).toEqual({ value: "₹60.6 lakh", comparison: "817 flats", detail: "₹12.1 lakh is over 90 days", split: "Unpaid ₹60.6 lakh + late fees ₹0" });
   });
 
   it("Paid on time: the headline against the goal, last month, and six points of trend with a gap", () => {
-    expect(cards.onTime).toMatchObject({ percent: 70, value: "70%", lastMonth: "September: 90%" });
-    expect(cards.onTime.goal).toMatchObject({ status: "NOT_MET", targetPercent: 90, text: "Goal 90% · 20 points short" });
+    expect(cards.onTime).toMatchObject({ percent: 70, value: "70%", previous: { text: "September 90%", direction: "down", change: "down 20 points" } });
+    expect(cards.onTime.goal).toMatchObject({ status: "NOT_MET", targetPercent: 90, text: "Goal 90% · 20 points short", gap: "20 points short" });
     expect(cards.onTime.trend).toEqual([
       { label: "Sep", value: 90 },
       { label: "Oct", value: 70 },
@@ -59,7 +59,7 @@ describe("CD1 the four cards", () => {
   });
 
   it("Replies within the SLA: share against the goal, no previous month without data, and the line's LAST point is the card's figure (D174)", () => {
-    expect(cards.sla).toMatchObject({ percent: 85, value: "85%", lastMonth: null });
+    expect(cards.sla).toMatchObject({ percent: 85, value: "85%", previous: null });
     expect(cards.sla.goal.status).toBe("NOT_MET");
     expect(cards.sla.trend).toEqual([
       { label: "Aug", value: null },
@@ -71,8 +71,8 @@ describe("CD1 the four cards", () => {
 
   it("with nothing to measure the values say No data and the goal has no verdict", () => {
     const none = buildCards({ ...input, money: null, onTime: [point("2026-10-01", 0, 0)], sla: { months: [month("2026-10-01", 0, 0)] }, goals: evaluateGoals(defaultGoals, { onTime: { n: 0, d: 0 }, firstReply: { n: 0, d: 0 }, reopened: { n: 0, d: 0 } }) });
-    expect(none.collected).toMatchObject({ percent: null, value: "No data", exact: null });
-    expect(none.onTime).toMatchObject({ value: "No data", lastMonth: null });
+    expect(none.collected).toMatchObject({ percent: null, value: "No data" });
+    expect(none.onTime).toMatchObject({ value: "No data", previous: null });
     expect(none.onTime.goal.status).toBe("NO_DATA");
     expect(none.sla.value).toBe("No data");
   });
@@ -133,15 +133,47 @@ describe("CD3 goal wording and previous period names (D176, D177)", () => {
     expect(goalText(goal)).toBe(text);
   });
 
-  it("the previous month is named, and left out when it has no figure", () => {
-    expect(buildCards(input).onTime.lastMonth).toBe("September: 90%");
+  it("the previous month is named with the move in points (up, down, same), and left out when it has no figure", () => {
+    expect(buildCards(input).onTime.previous?.text).toBe("September 90%");
     const none = buildCards({ ...input, onTime: [point("2026-09-01", 0, 0), point("2026-10-01", 10, 7)] });
-    expect(none.onTime.lastMonth).toBeNull();
+    expect(none.onTime.previous).toBeNull();
   });
 
   it("Collected compares the month with the previous month at the same age, and says 'so far' for a young month", () => {
     expect(buildCards(input).collected).toMatchObject({ within20: "October within 20 days: 79%", sameAge: "September, at the same age: 91%" });
     const young = buildCards({ ...input, monthly: [input.monthly[0], { ...input.monthly[1], inProgress: true }] });
     expect(young.collected.within20).toBe("October so far: 79%");
+  });
+});
+
+describe("CD4 the previous month's move and the goal bar's sentence", () => {
+  const row = (over: Partial<GoalRow>): GoalRow => ({ key: "onTimeCollection", targetPercent: 90, actualPercent: 70, status: "NOT_MET", gapPoints: 20, ...over });
+  const onTimeWith = (before: OnTimePoint) => buildCards({ ...input, onTime: [before, point("2026-10-01", 10, 7)] }).onTime.previous;
+
+  it("up, down, the same, and one point in the singular", () => {
+    expect(onTimeWith(point("2026-09-01", 10, 6))).toEqual({ text: "September 60%", direction: "up", change: "up 10 points" });
+    expect(onTimeWith(point("2026-09-01", 10, 9))).toEqual({ text: "September 90%", direction: "down", change: "down 20 points" });
+    expect(onTimeWith(point("2026-09-01", 10, 7))).toEqual({ text: "September 70%", direction: "same", change: "same" });
+    expect(onTimeWith(point("2026-09-01", 100, 69))?.change).toBe("up 1 point");
+  });
+
+  it.each([
+    [row({ targetPercent: 90, status: "NOT_MET", gapPoints: 20 }), "20 points short"],
+    [row({ targetPercent: 90, status: "MET", gapPoints: 3 }), "3 points above"],
+    [row({ targetPercent: 90, status: "MET", gapPoints: 0 }), "On the goal"],
+    [row({ key: "reopenedMax", targetPercent: 8, status: "NOT_MET", gapPoints: 2 }), "2 points over"],
+    [row({ key: "reopenedMax", targetPercent: 8, status: "MET", gapPoints: 1 }), "1 point under"],
+    [row({ status: "NO_DATA", gapPoints: null }), null],
+  ])("the gap of %j is %s", (goal, gap) => {
+    expect(goalGap(goal)).toBe(gap);
+  });
+
+  it("the bar's sentence names the value, the goal or limit, and the same gap the card prints", () => {
+    const mark = buildCards(input).onTime.goal;
+    expect(goalBarLabel(70, mark)).toBe("70 percent. Goal 90 percent. 20 points short.");
+    expect(mark.text).toContain(mark.gap as string);
+    expect(goalBarLabel(6, { key: "reopenedMax", status: "MET", targetPercent: 8, text: "Limit 8% · 2 points under", gap: "2 points under" })).toBe("6 percent. Limit 8 percent. 2 points under.");
+    expect(goalBarLabel(null, mark)).toBe("No data.");
+    expect(goalBarLabel(70, { ...mark, gap: null })).toBe("70 percent.");
   });
 });

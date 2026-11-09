@@ -14,31 +14,11 @@ import { formatDay, monthName } from "@/lib/format-date";
 import { t } from "@/lib/messages";
 import { type GoalMark, type HeadlineCards, type TrendPoint, countText, percentText } from "./cards";
 
-/** The words of the collected bar (M1): the title, the takeaway computed from the money line, and the table of the month's three figures in full Indian grouping. */
-export function collectedBarText(cards: HeadlineCards["collected"], money: MoneyLine | null): ChartText {
-  const table = {
-    caption: t("committee.progress.caption"),
-    columns: [t("committee.progress.col.figure"), t("committee.progress.col.amount")],
-    rows:
-      money === null
-        ? []
-        : [
-            { header: t("committee.money.billed"), cells: [formatRupees(money.billedPaise)] },
-            { header: t("committee.money.collected"), cells: [formatRupees(money.collectedPaise)] },
-            { header: t("committee.money.unpaidShort"), cells: [formatRupees(money.outstandingPaise)] },
-          ],
-  };
-  return {
-    id: "m1-collected",
-    caption: t("committee.progress.caption"),
-    captionHidden: true,
-    title: t("committee.progress.title"),
-    description:
-      money === null
-        ? t("committee.progress.none")
-        : t("committee.progress.desc", { collected: formatRupeesShort(money.collectedPaise), billed: formatRupeesShort(money.billedPaise), percent: cards.value, outstanding: formatRupeesShort(money.outstandingPaise) }),
-    table,
-  };
+/** The sentence of the collected bar for assistive technology (M1): the amounts in the short form and the percent, computed from the money line. */
+export function collectedBarLabel(cards: HeadlineCards["collected"], money: MoneyLine | null): string {
+  return money === null
+    ? t("committee.progress.none")
+    : t("committee.progress.desc", { collected: formatRupeesShort(money.collectedPaise), billed: formatRupeesShort(money.billedPaise), percent: cards.value, outstanding: formatRupeesShort(money.outstandingPaise) });
 }
 
 const verdict = (status: GoalStatus): string | null => (status === "MET" ? t("committee.goals.met") : status === "NOT_MET" ? t("committee.goals.notMet") : null);
@@ -64,22 +44,6 @@ export function trendDescription(points: readonly TrendPoint[], goal: GoalMark |
           : t("committee.trend.same", against);
   const word = goal === null ? null : verdict(goal.status);
   return goal === null || word === null ? movement : `${movement} ${t("committee.trend.goal", { goal: goal.text, verdict: word })}`;
-}
-
-/** The words of a sparkline: its title, the computed takeaway, and a table of every point ("No data" for a gap). */
-export function trendText(input: { id: string; caption: string; title: string; points: readonly TrendPoint[]; goal: GoalMark }): ChartText {
-  return {
-    id: input.id,
-    caption: input.caption,
-    captionHidden: true,
-    title: input.title,
-    description: trendDescription(input.points, input.goal),
-    table: {
-      caption: input.title,
-      columns: [t("committee.trend.col.period"), t("committee.trend.col.share")],
-      rows: input.points.map((p) => ({ header: p.label, cells: [percentText(p.value)] })),
-    },
-  };
 }
 
 const monthLabel = (period: string): string => monthName(period).slice(0, 3);
