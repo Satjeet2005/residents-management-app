@@ -198,7 +198,7 @@ Latency of the answers: p50 n/a ms, p95 n/a ms. Availability (answers over attem
 - **Urgency is weaker.** Of the answers accepted, 80.5% to 88.9% had the right urgency, and every group is under the 90% bar. Urgency should not be trusted without a person.
 - **Keywords alone** were right on 92.3% of the 77.5% they classify. Marathi fails the bar for keywords (89.7%). Keywords and Jev together (production) classified 98.5% and were right on 97.5% of those.
 - **Speed and reliability.** The typical answer took 530 ms (95% under 975 ms). 198 of 200 requests were answered; two timed out at the 3-second limit.
-- **Secondary provider.** It could not be measured. All 60 requests failed: 54 were refused with a 400 status, 4 timed out and 2 had no network answer. This is why there are no numbers for it. The cause was not investigated: the app never logs what was sent or received, and this run did not change that.
+- **Secondary provider.** It could not be measured. All 60 requests failed: 54 were refused with a 400 status, 4 timed out and 2 had no network answer. This is why there are no numbers for it. The cause was not known when this was written; it was investigated afterwards (`jev-integration.md`, "The second provider's 400"). Original note: the app never logs what was sent or received, and this run did not change that.
 - **The dry run proves the code path, not accuracy.** The local fake provider used for tests says nothing about a real model.
 
 ## Recommendation (for the human to approve; nothing was changed)
@@ -206,6 +206,25 @@ Latency of the answers: p50 n/a ms, p95 n/a ms. Availability (answers over attem
 1. Keep the production gating as it is. The thresholds (0.70 and 0.60) and the order (first provider, then second, then keywords) were not changed by this work.
 2. On this synthetic evidence the primary provider could be enabled for all four language groups. Before trusting that for Hindi and Marathi, have a native speaker review a sample of real, de-identified complaints, and run this benchmark again on them.
 3. Do not rely on the model's urgency. Keep the keyword urgency words and the person in the loop.
-4. Find out why the secondary provider refuses the request (a 400 for every item) before counting on it as a second source.
+4. The secondary provider's 400 was investigated: it answers `INVALID_JEV_REQUEST` and the cause is not in our request as far as we can tell (`jev-integration.md`). Do not count on it as a second source.
 
 Awaiting approval: not applied.
+
+## Prompt v2: pre-registered rule and result (D197, D198)
+
+The urgency answers failed the D87 bar in every language group, so the request text was reviewed once (`jev-prompt.md`) and ONE change, prompt v2, was measured once on the primary provider. The rule was fixed before the run:
+
+> Adopt v2 only if ALL hold on the items measured: (a) overall urgency accuracy among accepted rises by at least 5 percentage points over v1, OR v2 passes the D87 urgency bar in at least two more language groups than v1; (b) urgency accepted share stays at least 50 percent; (c) category accuracy among accepted falls by no more than 2 percentage points in ANY group and category accepted share by no more than 5 points.
+
+**The run was cut short by the provider's rate limit: 32 of 200 items were completed** (v1 is evaluated on the same 32). Overall, v1 against v2 on those items:
+
+| Measure | v1 | v2 |
+| --- | --- | --- |
+| Urgency accepted | 84.4% (27/32) | 56.3% (18/32) |
+| Urgency accuracy among accepted | 77.8% (21/27) | 55.6% (10/18) |
+| Groups passing the D87 urgency bar | 0 | 0 |
+| Category accepted | 90.6% (29/32) | 84.4% (27/32) |
+| Category accuracy among accepted | 96.6% (28/29) | 100.0% (27/27) |
+| Share of urgency errors that under-rate | 50.0% (3/6) | 100.0% (8/8) |
+
+Clause (a) failed (-22.2 points, no extra group passing), clause (b) held (56.3%), clause (c) failed (category accepted share fell 22.2 points in the Hinglish group of 9 items). **v2 is not adopted; `CLASSIFIER_PROMPT_VERSION` stays `'v1'`.** The per-group tables, the urgency confusion matrices and the rule table are in `jev-prompt.md` and are printed by `npm run classifier:benchmark -- --from-fixture`. With 6 to 10 items per group this is weak evidence; the rule was applied as written and nothing was rerun. Because v1 still fails the urgency bar in every group, the urgency floor was applied (D199): a model answer of LOW is stored as NORMAL.

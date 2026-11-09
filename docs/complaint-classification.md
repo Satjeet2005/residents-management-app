@@ -115,7 +115,11 @@ sends has reduced personal data, never none.
 | `requireAgreement` | true | With two or more valid arms, all must agree. |
 | `allowSingleArm` | false | One valid arm alone is not enough. This is conservative: until the benchmark says otherwise more complaints go to a person. A design that uses one arm sets it to true. |
 
-## The benchmark plan (not run yet)
+## The urgency floor and the prompt (D197 to D199)
+
+An accepted model urgency of LOW is stored as NORMAL, with the reason `URGENCY_FLOORED` (the model's answer is kept as `modelUrgency` in the `CLASSIFIED` event). It does not apply to the keyword fallback or the safety rules, and a model can never produce CRITICAL. Why: urgency fails the D87 bar in every language group, and under-rating is the dangerous error. The request text, the reviewed v2 and its pre-registered rule and result are in `jev-prompt.md`; v2 was not adopted.
+
+## The benchmark plan (partly run: see `classifier-benchmark.md`)
 
 D86: three ways of asking the same model family ("Jev") and one comparator from another family:
 

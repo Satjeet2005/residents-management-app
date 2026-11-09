@@ -78,6 +78,16 @@ Both safety cases (g: "I can smell gas near the lift lobby", h: a declared dange
 
 **Not checked live:** the script does not read the provider keys, so it does not scan the stored rows for them. That is covered by the unit tests in `tests/server/complaints/providers/privacy.test.ts`, which check requests and logs, not by this run.
 
+## The second provider's 400 (investigated 2026-11-09)
+
+Six requests were sent to the secondary provider (five with the configured model, one with the model left out). Every one answered HTTP 400 with the body `{"code":-1,"message":"INVALID_JEV_REQUEST"}`. Leaving the model out changed nothing. The message does not say which field is wrong, and its docs are not available (the operator is unverified, D140), so **the cause is not known and was not guessed at**: it could be the request shape, a model name the account does not have or a protocol that differs from the primary's. No change was made to the request builder for the secondary. Earlier, 4 of the 60 benchmark requests timed out and 2 had no network answer; the rest were the same 400.
+
+**In practice the chain is the primary provider plus the keyword fallback:** the secondary is tried only when the primary fails or is skipped, answers 400 every time, and counts as a failure for its breaker. Next step for a human: ask the operator, or read the provider's real API description, for the request it expects.
+
+## The prompt
+
+The request text and a reviewed v2 are in [`jev-prompt.md`](jev-prompt.md). v1 stays the default (`CLASSIFIER_PROMPT_VERSION`). An accepted model urgency of LOW is stored as NORMAL (D199).
+
 ## The benchmark
 
 200 synthetic complaints, measured on 2026-11-09. See [`classifier-benchmark.md`](classifier-benchmark.md). In short: the primary provider was accepted on 92.5% and right on 99.5% of those on synthetic data, every language group passes the 90% and 60% bar on category, and urgency does not. The secondary provider refused every benchmark request, so it has no numbers. The text there says what the data cannot show.

@@ -39,6 +39,7 @@ Numbers copied from fresh output of 2026-11-09 or from committed files. Limits a
 | Keyword baseline | accepted 77.5%, right 92.3%; Marathi 89.7% is a FAIL |
 | Production arm | classified automatically 98.5%, right 97.5% |
 | Latency, availability | p50 530 ms, p95 975 ms; 198 of 200 answered |
-| Second provider | 0 of 60 answered (54 status 400, 4 timeouts, 2 network failures) |
+| Second provider | 0 of 60 answered (54 status 400, 4 timeouts, 2 network failures); investigated: every request gets 400 `INVALID_JEV_REQUEST`, cause unknown (`docs/jev-integration.md`) |
+| Prompt v2 (D197, D198) | tried once on 32 items (the run hit a rate limit): urgency accuracy among accepted 77.8% to 55.6%; NOT adopted; urgency floor applied (D199) |
 | Reproduce | `npm run classifier:benchmark -- --from-fixture` (no network) |
 | Limits | Synthetic, written by the agent, no native-speaker review, 10 items per cell |
