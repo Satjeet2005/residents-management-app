@@ -33,7 +33,8 @@ describe("CL7 SLA and first response", () => {
     const high = await raise(r, "Corridor light is out", new FakeClassifier({ result: arm("ELECTRICAL", 0.9, "HIGH") }));
     expect((await loadComplaint(world, high)).responseDueAt?.getTime()).toBe(NOW + 120 * 60_000);
     const low = await raise(r, "The garden bench needs paint", new FakeClassifier({ result: arm("OTHER", 0.9, "LOW") }));
-    expect((await loadComplaint(world, low)).responseDueAt?.getTime()).toBe(NOW + 4320 * 60_000);
+    // A model answer of LOW is stored as NORMAL (D199), so it gets the NORMAL clock.
+    expect((await loadComplaint(world, low)).responseDueAt?.getTime()).toBe(NOW + 1440 * 60_000);
     const critical = await raise(r, "fire in tower 3");
     expect((await loadComplaint(world, critical)).responseDueAt?.getTime()).toBe(NOW + 15 * 60_000);
 
