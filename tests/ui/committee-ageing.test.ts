@@ -1,12 +1,10 @@
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { AgeingBlock } from "@/app/(staff)/staff/reports/ageing-block";
 import { AgeingDetail } from "@/app/(staff)/staff/reports/ageing-detail";
 import { AgeingRows } from "@/app/(staff)/staff/reports/ageing-rows";
 import { SectionPage } from "@/app/(staff)/staff/reports/section-page";
 import type { Ageing } from "@/domain/reports/age";
-import type { MoneyLine } from "@/domain/reports/money-line";
 import type { AgeingPage, AgeingRowView } from "@/server/reports/ageing-page";
 import { emptyReport } from "./committee-fixtures";
 import type { CommitteeReport } from "@/server/reports/report-data";
@@ -38,81 +36,6 @@ const page = (over: Partial<AgeingPage> = {}): AgeingPage => ({
   rows: [row(), row({ flatCode: "T07-1203", bills: 2, oldestDaysPastDue: 40, amountDuePaise: "1066000" })],
   nextCursor: "abc",
   ...over,
-});
-const zero = (b: Ageing["buckets"][number]) => ({ ...b, flats: 0, bills: 0, unpaidBillsPaise: 0n, lateFeesPaise: 0n, amountDuePaise: 0n });
-const money: MoneyLine = { billedPaise: 1_000_000_000n, collectedPaise: 850_000_000n, outstandingPaise: 150_000_000n, flatsBilled: 300, flatsPaidInFull: 100, flatsOutstanding: 200, fees: { postedPaidPaise: 0n, postedOwingPaise: 0n, accruingPaise: 0n } };
-
-describe("CA1 the age list: one list instead of bars, a table and a second set of rows (D180)", () => {
-  const out = html(h(AgeingBlock, { ageing, money: null, period: "2026-10-01", selected: null }));
-  const text = words(out);
-
-  it("says it is ALL open dues of ALL months, gives the total with its split and the different flats", () => {
-    expect(text).toContain("All open dues, all months, as of the date above. The month chosen does not change this block.");
-    expect(text).toContain("Total owed ₹55,65,000");
-    expect(text).toContain("₹55,65,000 = unpaid bills ₹55,65,000 + late fees ₹0");
-    expect(text).toContain("520 different flats in total");
-    expect(text).toContain("A flat appears in every age group where it has a bill.");
-  });
-
-  it("lists the five groups in order, each with its amount, its bills and its share of the total; ONE list, no second set of rows", () => {
-    const list = out.slice(out.indexOf("<ul"), out.indexOf("</ul>"));
-    const labels = ["Not yet due", "1 to 30 days", "31 to 60 days", "61 to 90 days", "Over 90 days"];
-    const positions = labels.map((label) => list.indexOf(label));
-    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
-    expect(positions.every((p) => p >= 0)).toBe(true);
-    expect(words(list)).toContain("31 to 60 days ₹25,00,000 310 bills · 45% of the total");
-    expect(words(list)).toContain("Not yet due ₹65,000 10 bills · 1% of the total");
-    expect(count(out.slice(0, out.indexOf("<details")), /<ul/g)).toBe(1);
-  });
-
-  it("each bar is a share of the TOTAL (comparable), drawn by a div, never inside a picture", () => {
-    expect(out).not.toContain("<svg");
-    expect(out).toContain("width:44.9%");
-    expect(out).toContain("width:8.9%");
-  });
-
-  it("each group with bills has a 48px link named by the group to its drill-down, beside the bar", () => {
-    expect(count(out, />See the flats<\/a>/g)).toBe(5);
-    expect(out).toContain('href="/staff/reports/dues?period=2026-10&amp;bucket=31-60#ageing-detail"');
-    expect(out).toContain('aria-label="See the flats: 31 to 60 days"');
-    for (const link of out.match(/<a [^>]*>/g) ?? []) expect(link).toContain("min-h-12");
-  });
-
-  it("an empty 'Not yet due' is left out, a group with no bills has no link, and a selected group is current and bold", () => {
-    const sparse: Ageing = { ...ageing, buckets: ageing.buckets.map((b) => (b.bucket === "OVER_90" || b.bucket === "NOT_YET_DUE" ? zero(b) : b)) };
-    const sparseOut = html(h(AgeingBlock, { ageing: sparse, money: null, period: "2026-10-01", selected: null }));
-    expect(count(sparseOut, />See the flats<\/a>/g)).toBe(3);
-    expect(words(sparseOut)).not.toContain("Not yet due");
-    expect(words(sparseOut)).toContain("Over 90 days ₹0 0 bills · 0% of the total");
-    const chosen = html(h(AgeingBlock, { ageing, money: null, period: "2026-10-01", selected: "DAYS_31_60" }));
-    expect(chosen).toMatch(/aria-current="true"[^>]*>See the flats/);
-    expect(chosen).toContain('font-semibold">31 to 60 days');
-  });
-
-  it("the numbers behind the list are one tap away, in a table with the six columns and a total row", () => {
-    expect(out).toContain("See the numbers behind this chart");
-    expect(text).toContain("Age Bills Flats Unpaid bills Late fees Total");
-    expect(text).toContain("Total owed 700 520 ₹55,65,000 ₹0 ₹55,65,000");
-    expect(words(out.slice(out.indexOf("md:hidden"))).replace(/\s+/g, " ")).toContain("Total owed Bills 700 Flats 520 Unpaid bills ₹55,65,000 Late fees ₹0 Total ₹55,65,000");
-  });
-
-  it("a sentence ties the month's Still unpaid to the group that holds it, when there is a money line", () => {
-    const tied: Ageing = { ...ageing, buckets: ageing.buckets.map((b) => (b.bucket === "DAYS_1_30" ? { ...b, flats: 200, bills: 200, unpaidBillsPaise: 150_000_000n, lateFeesPaise: 3_075_100n, amountDuePaise: 153_075_100n } : b)) };
-    expect(words(html(h(AgeingBlock, { ageing: tied, money, period: "2026-10-01", selected: null })))).toContain("October's unpaid bills are ₹15,00,000 (Billed and collected). The 1 to 30 days group also holds late fees of ₹30,751.");
-  });
-
-  it("nothing owed says so in words and has no list and no link", () => {
-    const none: Ageing = { buckets: ageing.buckets.map(zero), total: { flats: 0, bills: 0, unpaidBillsPaise: 0n, lateFeesPaise: 0n, amountDuePaise: 0n } };
-    const empty = html(h(AgeingBlock, { ageing: none, money: null, period: "2026-10-01", selected: null }));
-    expect(words(empty)).toContain("Nothing is owed.");
-    expect(empty).not.toContain("<ul");
-    expect(empty).not.toContain("See the flats");
-  });
-
-  it("shows no name, no phone number, no button and nothing filled", () => {
-    expect(out).not.toMatch(/<button/);
-    expect(text).not.toMatch(/\d{10}/);
-  });
 });
 
 describe("CA2 the drill-down rows: per FLAT", () => {
@@ -210,7 +133,7 @@ describe("CA3 the drill-down section", () => {
   });
 });
 
-describe("CA4 the page with the ageing", () => {
+describe("CA4 the Dues page with the drill-down", () => {
   const report = (drilldown: AgeingPage | null): CommitteeReport => emptyReport({ ageing, drilldown });
 
   it("the Dues page always has the owed list, with the drill-down after it only when a group is chosen", () => {

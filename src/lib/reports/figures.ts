@@ -2,6 +2,7 @@ import { t } from "@/lib/messages";
 import { percent } from "@/domain/reports/stats";
 import type { CommitteeReport } from "@/server/reports/report-data";
 import { monthName } from "@/lib/format-date";
+import { reconcileLine, reconcilingGroup } from "./ageing";
 import { countText } from "./cards";
 import type { SectionSlug } from "./sections";
 
@@ -26,10 +27,13 @@ export const FIGURE_DEFINITIONS = {
   moneyByDue: () => t("committee.def.moneyByDue"),
   within20: () => t("committee.def.within20"),
   owedTotal: () => t("committee.def.owedTotal"),
+  ageMeaning: () => t("committee.def.ageMeaning"),
   ageGroups: () => t("committee.def.ageGroups"),
+  ageReconcile: (report) => reconcileLine(report.ageing, report.money, report.period) ?? "",
   lateFeesReceived: () => t("committee.def.lateFeesReceived"),
-  lateFeesCharged: () => t("committee.def.lateFeesCharged"),
-  lateFeesBuilding: () => t("committee.def.lateFeesBuilding"),
+  duesReceived: () => t("committee.def.duesReceived"),
+  duesCharged: () => t("committee.def.duesCharged"),
+  duesBuilding: () => t("committee.def.duesBuilding"),
   towers: () => t("committee.def.towers"),
   firstReply: () => t("committee.def.firstReply"),
   repliedInTime: () => t("committee.def.repliedInTime"),
@@ -57,7 +61,7 @@ export type DefinitionLine = { id: FigureId; text: string };
 export const PAGE_FIGURES: Record<PageId, readonly FigureId[]> = {
   overview: ["general", "cardCollected", "cardOwed", "cardOnTime", "cardReplied", "goalsDefault"],
   collections: ["billed", "collected", "unpaid", "lateFeesReceived", "paidByDue", "paidOfPaid", "medianDays", "moneyByDue", "within20"],
-  dues: ["owedTotal", "ageGroups", "lateFeesReceived", "lateFeesCharged", "lateFeesBuilding", "towers"],
+  dues: ["owedTotal", "ageMeaning", "ageGroups", "ageReconcile", "duesReceived", "duesCharged", "duesBuilding", "towers"],
   complaints: ["firstReply", "repliedInTime", "resolved", "reopened", "closedAuto", "closedDuty", "seen", "ledger", "weekly"],
   bank: ["bankWindow", "bankAuto", "bankHand", "bankPerson", "bankApproval", "bankOther", "bankAccounted"],
 };
@@ -65,12 +69,11 @@ export const PAGE_FIGURES: Record<PageId, readonly FigureId[]> = {
 /** The ids the expander of a page lists for this report: the figures the page really shows (a figure that is not drawn has no line). */
 export function shownFigures(page: PageId, report: CommitteeReport): FigureId[] {
   const { complaints, reconciliation: bank, quality } = report;
-  const shown: Record<FigureId, boolean> = Object.fromEntries((Object.keys(FIGURE_DEFINITIONS) as FigureId[]).map((id) => [id, false])) as Record<FigureId, boolean>;
   const money = report.money !== null;
   const hasOwed = report.ageing.total.bills > 0;
   const hasComplaints = complaints.raised > 0;
   const hasBank = bank.imports > 0 && bank.rowsImported > 0;
-  Object.assign(shown, {
+  const flags: Record<FigureId, boolean> = {
     general: true,
     cardCollected: true,
     cardOwed: true,
@@ -86,10 +89,13 @@ export function shownFigures(page: PageId, report: CommitteeReport): FigureId[] 
     moneyByDue: quality !== null,
     within20: money,
     owedTotal: true,
+    ageMeaning: hasOwed,
     ageGroups: hasOwed,
+    ageReconcile: hasOwed && reconcilingGroup(report.ageing, report.money) !== null,
     lateFeesReceived: money,
-    lateFeesCharged: money,
-    lateFeesBuilding: money,
+    duesReceived: true,
+    duesCharged: true,
+    duesBuilding: true,
     towers: report.towers.towers.length > 0,
     firstReply: hasComplaints,
     repliedInTime: hasComplaints,
@@ -107,8 +113,8 @@ export function shownFigures(page: PageId, report: CommitteeReport): FigureId[] 
     bankApproval: hasBank && bank.waitingForApproval > 0,
     bankOther: hasBank,
     bankAccounted: hasBank && bank.allAccounted === true,
-  });
-  return PAGE_FIGURES[page].filter((id) => shown[id]);
+  };
+  return PAGE_FIGURES[page].filter((id) => flags[id]);
 }
 
 /** "Of bills that were paid, 88% were paid on time (1,687 of 1,915). This ignores the 484 bills not yet paid.": computed, shown in the expander only. Empty when there is no quality. */

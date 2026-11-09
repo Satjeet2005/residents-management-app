@@ -36,6 +36,8 @@ export type CommitteeReport = {
   periods: CalendarDate[];
   /** The bills of the month and the money line over them; null when the month has no bills. */
   money: MoneyLine | null;
+  /** The three late-fee figures over the bills of ALL months (the Dues page: a month chosen elsewhere does not change it). Their last two add up to `ageing.total.lateFeesPaise`. */
+  lateFees: MoneyLine["fees"];
   /** What is owed, all open dues of all months, as of the business date. */
   ageing: Ageing;
   /** What is owed by tower: the same open dues as the age groups, so the towers add up to the same total. */
@@ -115,6 +117,7 @@ export async function loadCommitteeReport(input: { db: Db; user: Viewer; request
     period,
     periods,
     money,
+    lateFees: moneyLine(positions).fees,
     ageing,
     towers: towerRollup(positions, asOf),
     drilldown: input.bucket === undefined || input.bucket === null ? null : ageingPageOf(positions, asOf, input.bucket, input.sort ?? "LARGEST", null),

@@ -17,7 +17,7 @@ const CARDS = "section[aria-label='Headline figures']";
 const SLUGS = ["collections", "dues", "complaints", "bank"] as const;
 const TITLES: Record<(typeof SLUGS)[number], RegExp> = {
   collections: /^Collections, October 2026$/,
-  dues: /^Dues, all months, as of 27 October 2026$/,
+  dues: /^Dues, all months$/,
   complaints: /^Complaints, October 2026$/,
   bank: /^Bank statement matching, last 30 days$/,
 };

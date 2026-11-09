@@ -7,7 +7,7 @@ import { ReportView } from "@/app/(staff)/staff/reports/report-view";
 import { SectionPage } from "@/app/(staff)/staff/reports/section-page";
 import { FIGURE_DEFINITIONS, PAGE_FIGURES, type PageId, definitionLinesFor } from "@/lib/reports/figures";
 import { SECTIONS } from "@/lib/reports/sections";
-import { COMPLAINTS_PAGE_SUPPORT_WORDS, DEFINITION_LINES, DEFINITION_WORDS, PAGE_SUPPORT_WORDS, blockViolations, blocksOf, definitionExpanders, definitionLines, elementsWith, figureIds, figureRows, pageViolations, supportWords, takeaways, textOf, withoutExpander, wordCount } from "@/lib/reports/text-budget";
+import { COMPLAINTS_PAGE_SUPPORT_WORDS, DUES_PAGE_SUPPORT_WORDS, DEFINITION_LINES, DEFINITION_WORDS, PAGE_SUPPORT_WORDS, blockViolations, blocksOf, definitionExpanders, definitionLines, elementsWith, figureIds, figureRows, pageViolations, supportWords, takeaways, textOf, withoutExpander, wordCount } from "@/lib/reports/text-budget";
 import { emptyReport, richReport } from "./committee-fixtures";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: () => {}, refresh: () => {}, push: () => {} }), usePathname: () => "/", redirect: () => {} }));
@@ -16,7 +16,7 @@ vi.mock("@/app/(staff)/staff/reports/actions", () => ({ loadMoreAgeing: async ()
 const html = renderToStaticMarkup;
 const PAGES: PageId[] = ["overview", ...SECTIONS.map((s) => s.slug)];
 const render = (page: PageId, report = richReport()): string => html(page === "overview" ? h(ReportView, { report }) : h(SectionPage, { slug: page, report }));
-const limitOf = (page: PageId): number => (page === "complaints" ? COMPLAINTS_PAGE_SUPPORT_WORDS : PAGE_SUPPORT_WORDS);
+const limitOf = (page: PageId): number => (page === "complaints" ? COMPLAINTS_PAGE_SUPPORT_WORDS : page === "dues" ? DUES_PAGE_SUPPORT_WORDS : PAGE_SUPPORT_WORDS);
 
 describe("TB1 the counting rule (D206, text budget v2)", () => {
   it("a word is a piece of text with a letter: numbers and symbols alone are not words", () => {
@@ -55,7 +55,7 @@ describe("TB2 every page is within the budget, rendered from a report that shows
       expect(pageViolations(render(page), limitOf(page))).toEqual([]);
     });
 
-    it(`${page}: the supporting words are measured, at most ${page === "complaints" ? 15 : 40} on the page and at most 12 in a block`, () => {
+    it(`${page}: the supporting words are measured, at most ${page === "complaints" ? 15 : page === "dues" ? 12 : 40} on the page and at most 12 in a block`, () => {
       const out = render(page);
       expect(supportWords(out)).toBeLessThanOrEqual(limitOf(page));
       for (const block of blocksOf(out)) expect(supportWords(block)).toBeLessThanOrEqual(12);
@@ -74,7 +74,8 @@ describe("TB2 every page is within the budget, rendered from a report that shows
     expect(takeaways(render("collections"))).toEqual(["October is 10 points lower than September (83% vs 93%)."]);
   });
 
-  it("the Complaints page has at most 15 supporting words and the other pages at most 40", () => {
+  it("the Dues page has at most 12 supporting words, the Complaints page at most 15 and the others at most 40", () => {
+    expect(DUES_PAGE_SUPPORT_WORDS).toBe(12);
     expect(COMPLAINTS_PAGE_SUPPORT_WORDS).toBe(15);
     expect(PAGE_SUPPORT_WORDS).toBe(40);
   });

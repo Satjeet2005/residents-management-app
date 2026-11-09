@@ -122,12 +122,13 @@ describe("CR2 the Billed and collected ledger", () => {
 });
 
 describe("CR2b the Dues page's late-fee figures and the monthly block", () => {
-  it("the three late-fee figures say real money apart from a calculation", () => {
-    const text = words(html(h(LateFeeFigures, { money })));
-    expect(text).toContain("Late fees received: ₹3,800 (real money).");
-    expect(text).toContain("Late fees charged but unpaid: ₹1,900.");
-    expect(text).toContain("Late fees building up on unpaid bills, not yet charged: ₹1,23,456 (a calculation, not money received).");
-    expect(html(h(LateFeeFigures, { money: null }))).toBe("");
+  it("the three late-fee rows are Received, Charged, not yet paid and Building up, not yet charged: a label and an amount, no sub-line and no parenthesis (D215)", () => {
+    const out = html(h(LateFeeFigures, { fees: money.fees }));
+    const text = words(out);
+    expect(text).toContain("Late fees Received ₹3,800 Charged, not yet paid ₹1,900 Building up, not yet charged ₹1,23,456");
+    expect([...out.matchAll(/<dt[^>]*>([^<]*)<\/dt>/g)].map((m) => m[1])).toEqual(["Received", "Charged, not yet paid", "Building up, not yet charged"]);
+    expect(text).not.toMatch(/\(|real money|calculation/);
+    expect(out).not.toMatch(/<p[ >]|<li|data-support/);
   });
 
   it("the monthly collection is bars below 768px and columns from 768px, one set of numbers, never both at once, with one takeaway of at most 12 words", () => {

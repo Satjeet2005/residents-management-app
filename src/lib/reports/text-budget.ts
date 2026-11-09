@@ -10,6 +10,7 @@ export const BLOCK_SUPPORT_WORDS = 12;
 export const TAKEAWAY_WORDS = 12;
 export const PAGE_SUPPORT_WORDS = 40;
 export const COMPLAINTS_PAGE_SUPPORT_WORDS = 15;
+export const DUES_PAGE_SUPPORT_WORDS = 12;
 export const BLOCK_FIGURE_ROWS = 3;
 export const LEDGER_LINES = 5;
 export const DEFINITION_LINES = 9;

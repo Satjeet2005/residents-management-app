@@ -171,6 +171,20 @@ describe.each(DATES)("V3 the committee report as of %s", (asOf) => {
     console.log(`V3 ${asOf} owed: total ${total.amountDuePaise} = unpaid ${total.unpaidBillsPaise} + fees ${total.lateFeesPaise}; ${total.flats} different flats; ${towers.length} towers (SQL)`);
   });
 
+  it("D215 the late fees of the Dues page, over ALL months: received and charged-not-yet-paid equal SQL, and with building up they add up to the late fees of the age groups", async () => {
+    const [sql] = await fx.owner.$queryRawUnsafe<{ received: string; owing: string }[]>(
+      `WITH paid AS (SELECT bill_id, sum(amount_paise) AS p FROM (${livePayments}) l GROUP BY bill_id),
+            fees AS (SELECT bill_id, sum(amount_paise) AS f FROM ledger_entries WHERE entry_type = 'LATE_FEE' AND direction = 'CHARGE' AND effective_date <= DATE '${asOf}' GROUP BY bill_id)
+       SELECT COALESCE(sum(CASE WHEN p.p >= b.amount_paise THEN p.p - b.amount_paise ELSE 0 END), 0)::text AS received,
+              COALESCE(sum(CASE WHEN p.p >= b.amount_paise AND f.f - (p.p - b.amount_paise) > 0 THEN f.f - (p.p - b.amount_paise) ELSE 0 END), 0)::text AS owing
+       FROM bills b JOIN paid p ON p.bill_id = b.id LEFT JOIN fees f ON f.bill_id = b.id WHERE b.issued_on <= DATE '${asOf}'`,
+    );
+    expect(report.lateFees.postedPaidPaise).toBe(BigInt(sql.received));
+    expect(report.lateFees.postedOwingPaise).toBe(BigInt(sql.owing));
+    expect(report.lateFees.postedOwingPaise + report.lateFees.accruingPaise).toBe(report.ageing.total.lateFeesPaise);
+    console.log(`V3 ${asOf} late fees (all months): received ${report.lateFees.postedPaidPaise} (SQL ${sql.received}), charged not paid ${report.lateFees.postedOwingPaise} (SQL ${sql.owing}), building up ${report.lateFees.accruingPaise}; groups hold ${report.ageing.total.lateFeesPaise}`);
+  });
+
   it("the page reads the database a fixed number of times whatever the date, and its data is ready in under 3 seconds", () => {
     console.log(`V3 ${asOf} operations=${operations} elapsed=${Math.round(elapsedMs)}ms`);
     expect(operations).toBeLessThanOrEqual(11);

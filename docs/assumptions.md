@@ -135,6 +135,8 @@ Decision numbers (D4, D14 and so on) refer to `docs/decisions.md`.
 | R129 | The Dues page keeps its current text in this part and is measured only; Part 5 reworks it. Its expander lists six lines from the registry. | `docs/committee-text-audit.md`. | If Part 5 is cut, its words are a known limitation. |
 | R130 | "Closed automatically" reads its days from the `auto_close_days` setting (default 7) through the report loader, which was extended by one field and one key of an existing settings query. | `parseAutoCloseDays`. | None. |
 | R131 | The BEFORE screenshots are the screenshots of the previous commit (`committee-collections-360x800.png` and its siblings, copied as `-before-` files), not newly shot from an old build. | `docs/screenshots/`. | They are as old as the last time the committee screens were shot. |
+| R132 | The late fees of the Dues page are over all months (a loader addition), not the month of the address; the Collections page keeps the month's. The independent SQL covers Received and Charged, not yet paid; Building up is a computed fee, checked by identity against the late fees of the age groups. | D215. | If the committee wants the month's fees on Dues, the expander line and the loader change together. |
+| R133 | While the flats of an age group are still opened inline (until the flats page of Part 6), "See the flats" keeps its link and the page keeps its drill-down below the list. | `ageing-detail.tsx`. | None after Part 6. |
 
 
 ## Assumptions kept in other documents

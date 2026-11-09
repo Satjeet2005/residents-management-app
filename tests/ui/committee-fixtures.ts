@@ -23,6 +23,7 @@ export function emptyReport(over: Partial<CommitteeReport> = {}): CommitteeRepor
     period: "2026-10-01",
     periods: ["2026-10-01"],
     money: null,
+    lateFees: { postedPaidPaise: 0n, postedOwingPaise: 0n, accruingPaise: 0n },
     ageing: { buckets: [], total: { flats: 0, bills: 0, unpaidBillsPaise: 0n, lateFeesPaise: 0n, amountDuePaise: 0n } },
     towers: towerRollup([], "2026-10-27"),
     drilldown: null,
@@ -62,6 +63,11 @@ export function richReport(over: Partial<CommitteeReport> = {}): CommitteeReport
   const week = (weekStart: string, share: number) => ({ weekStart, raised: 3, decided: 3, met: 2, sharePercent: share, partial: false });
   const base = emptyReport();
   const month = (period: string, byDay20Percent: number | null, inProgress = false) => ({ period, hasBills: byDay20Percent !== null, billedPaise: 1_000_000n, collectedPaise: 800_000n, outstandingPaise: 200_000n, collectedPercent: 80, byDay20Percent, byDay20Paise: 800_000n, inProgress });
+  // The 1 to 30 days group holds exactly the month's Still unpaid (the same bills), as on the demo data, so the Dues expander has its reconciling line.
+  const bucketRow = (bucket: (typeof AGE_BUCKETS)[number], bills: number, unpaid: bigint, fees: bigint) => ({ bucket, flats: bills, bills, unpaidBillsPaise: unpaid, lateFeesPaise: fees, amountDuePaise: unpaid + fees });
+  const buckets = [bucketRow("NOT_YET_DUE", 4, 5_000_000n, 0n), bucketRow("DAYS_1_30", 484, 320_947_600n, 3_075_100n), bucketRow("DAYS_31_60", 5, 5_000_000n, 50_000n), bucketRow("DAYS_61_90", 5, 5_000_000n, 50_000n), bucketRow("OVER_90", 5, 5_000_000n, 50_000n)];
+  const sum = (pick: (b: (typeof buckets)[number]) => bigint): bigint => buckets.reduce((a, b) => a + pick(b), 0n);
+  const ageing = { buckets, total: { flats: 503, bills: 503, unpaidBillsPaise: sum((b) => b.unpaidBillsPaise), lateFeesPaise: sum((b) => b.lateFeesPaise), amountDuePaise: sum((b) => b.amountDuePaise) } };
   const complaints = complaintMetrics(
     [
       complaint({ firstResponseAt: T0 + 30 * minute, resolvedAt: T0 + 120 * minute, status: "CLOSED", closeKind: "CONFIRMED" }),
@@ -75,7 +81,8 @@ export function richReport(over: Partial<CommitteeReport> = {}): CommitteeReport
   return emptyReport({
     periods: ["2026-10-01", "2026-09-01"],
     money: { billedPaise: 1_805_219_000n, collectedPaise: 1_484_271_400n, outstandingPaise: 320_947_600n, flatsBilled: 2399, flatsPaidInFull: 1915, flatsOutstanding: 484, fees: { postedPaidPaise: 380_000n, postedOwingPaise: 190_000n, accruingPaise: 12_345_600n } },
-    ageing: { buckets: AGE_BUCKETS.map((bucket) => ({ bucket, flats: 4, bills: 5, unpaidBillsPaise: 5_000_000n, lateFeesPaise: 50_000n, amountDuePaise: 5_050_000n })), total: { flats: 9, bills: 25, unpaidBillsPaise: 25_000_000n, lateFeesPaise: 250_000n, amountDuePaise: 25_250_000n } },
+    lateFees: { postedPaidPaise: 380_000n, postedOwingPaise: 190_000n, accruingPaise: 12_345_600n },
+    ageing,
     towers: { towers: Array.from({ length: 12 }, (_, i) => towerRow(12 - i)), total: { flats: 100, bills: 100, unpaidBillsPaise: 1n, lateFeesPaise: 0n, amountDuePaise: 1n, flatsOver90: 3 } },
     quality: { bills: 2399, due: 2399, dueOnTime: 1687, paidOnTime: 1687, paid: 1915, paidLate: 228, medianDaysToPay: 3 },
     complaints,

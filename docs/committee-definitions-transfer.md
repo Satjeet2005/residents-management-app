@@ -15,11 +15,11 @@ A destination is a line of the "What do these mean?" expander of ONE page (`<det
 | 5 | `committee.about.money` | Billed is the sum of the month's bills. | Collections expander, line 1 (`committee.def.billed`): "Billed: the maintenance bills raised for the month." |
 | 6 | `committee.about.money` | Collected is the bill amount without late fee that has been paid, never a late fee. | Collections expander, line 2 (`committee.def.collected`): "Collected: payments received for those bills, not counting late fees." |
 | 7 | `committee.about.money` | Still unpaid is the bill amount without late fee still owed, so Billed equals Collected plus Still unpaid. | Collections expander, line 3 (`committee.def.unpaid`): "Still unpaid: the part of those bills not yet paid." ("Billed equals Collected plus Still unpaid" is what the ledger itself shows.) |
-| 8 | `committee.about.fees` | Late fees received is real money: a fee that was charged and has been paid. | Dues expander, line 3 (`committee.def.lateFeesReceived`) and Collections expander, line 4 (`committee.def.lateFeesReceived`) |
-| 9 | `committee.about.fees` | Charged but unpaid is a fee that was charged and is still owed. | Dues expander, line 4 (`committee.def.lateFeesCharged`) |
-| 10 | `committee.about.fees` | Building up is a calculation of what unpaid bills owe today, not yet charged and not money received. | Dues expander, line 5 (`committee.def.lateFeesBuilding`) |
+| 8 | `committee.about.fees` | Late fees received is real money: a fee that was charged and has been paid. | Dues expander, line 5 (`committee.def.duesReceived`) and Collections expander, line 4 (`committee.def.lateFeesReceived`) |
+| 9 | `committee.about.fees` | Charged but unpaid is a fee that was charged and is still owed. | Dues expander, line 6 (`committee.def.duesCharged`) |
+| 10 | `committee.about.fees` | Building up is a calculation of what unpaid bills owe today, not yet charged and not money received. | Dues expander, line 7 (`committee.def.duesBuilding`) |
 | 11 | `committee.about.owed` | Total owed is the unpaid bills plus the late fees owing on every open bill of every month, in age groups counted from each bill's due date. | Dues expander, line 1 (`committee.def.owedTotal`) and Overview expander, line 3 (`committee.def.cardOwed`) |
-| 12 | `committee.about.owed` | A flat appears in every age group where it has a bill, so the flats of the groups add up to more than the different flats in all. | Dues expander, line 2 (`committee.def.ageGroups`) |
+| 12 | `committee.about.owed` | A flat appears in every age group where it has a bill, so the flats of the groups add up to more than the different flats in all. | Dues expander, line 3 (`committee.def.ageGroups`) |
 | 13 | `committee.about.onTime` | Bills paid by the due date is the bills of the month paid in full on or before their due date, out of ALL the month's bills that are due so far (an unpaid bill past its due date counts against it; a bill not yet due is left out). | Collections expander, line 5 (`committee.def.paidByDue`) and Overview expander, line 4 (`committee.def.cardOnTime`). The parenthesis is shortened: "a bill not yet due" is already out of "due so far"; the full rule is in `docs/committee-report.md`. |
 | 14 | `committee.about.ofPaid` | Of bills that were paid, paid on time uses only the bills that have been paid in full as its total, so it ignores the unpaid bills and is always the higher figure. | Collections expander, line 6 (`committee.def.paidOfPaid`), computed: "Of bills that were paid, 88% were paid on time (1,687 of 1,915). This ignores the 484 bills not yet paid." "Always the higher figure" is DROPPED (a consequence, not a definition). |
 | 15 | `committee.about.median` | Typical (the middle value) is the value in the middle when the figures are put in order; with an even count it is the lower of the two middle ones. | Collections expander, line 7 (`committee.def.medianDays`), Complaints expander, line 1 (`committee.def.firstReply`) and Complaints expander, line 3 (`committee.def.resolved`): the words are "Half of ... within" and "the middle value of ..."; the even-count rule (the lower of the two middle ones) stays in `docs/committee-report.md` only. |
@@ -64,9 +64,9 @@ The registry id is the value of `data-figure` on the figure's row; the page's re
 | Collections | Of bills that were paid (secondary, shown only in the expander) | `paidOfPaid` | line 6 |
 | Collections | Collected within 20 days, by month (bars and columns) | `within20` | line 9 |
 | Dues | Total owed | `owedTotal` | line 1 |
-| Dues | The age groups | `ageGroups` | line 2 |
-| Dues | Late fees received, charged but unpaid, building up | `lateFeesReceived`, `lateFeesCharged`, `lateFeesBuilding` | lines 3, 4, 5 |
-| Dues | Towers with the most unpaid | `towers` | line 6 |
+| Dues | The age groups (and the word Age) | `ageGroups`, `ageMeaning` | lines 3 and 2; line 4 (`ageReconcile`) ties the 1 to 30 days row to the Collections page, only when a group holds exactly the month's unpaid bills |
+| Dues | Late fees: Received, Charged, not yet paid, Building up, not yet charged | `duesReceived`, `duesCharged`, `duesBuilding` | lines 5, 6, 7 |
+| Dues | Towers with the most unpaid | `towers` | line 8 |
 | Complaints | Replied in time | `repliedInTime` | line 2 |
 | Complaints | Half of first replies come within | `firstReply` | line 1 |
 | Complaints | Half are marked resolved within | `resolved` | line 3 |

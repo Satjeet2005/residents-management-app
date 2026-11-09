@@ -7,7 +7,7 @@ import { definitionLinesFor } from "@/lib/reports/figures";
 import { dateWords, periodLabel } from "@/lib/reports/period";
 import { SECTIONS, type SectionSlug, overviewHref, sectionHref } from "@/lib/reports/sections";
 import type { CommitteeReport } from "@/server/reports/report-data";
-import { AgeingBlock } from "./ageing-block";
+import { AgeBlock, TotalBlock } from "./ageing-block";
 import { AgeingDetail } from "./ageing-detail";
 import { AlertStrip } from "./alert-strip";
 import { ArrivalHeading } from "./arrival-heading";
@@ -34,7 +34,7 @@ function EmptyMonth() {
 function titleOf(slug: SectionSlug, report: CommitteeReport): string {
   const period = periodLabel(report.period);
   if (slug === "collections") return t("committee.page.collections", { period });
-  if (slug === "dues") return t("committee.page.dues", { date: dateWords(report.asOf) });
+  if (slug === "dues") return t("committee.page.dues");
   if (slug === "complaints") return t("committee.page.complaints", { period });
   return t("committee.page.bank");
 }
@@ -86,9 +86,10 @@ function Content({ slug, report }: { slug: SectionSlug; report: CommitteeReport 
   if (slug === "dues") {
     return (
       <section id="owed" aria-label={t("committee.look.dues")} className="flex flex-col gap-6">
-        <AgeingBlock ageing={report.ageing} money={report.money} period={report.period} selected={report.drilldown?.bucket ?? null} />
+        <TotalBlock ageing={report.ageing} />
+        <AgeBlock ageing={report.ageing} period={report.period} selected={report.drilldown?.bucket ?? null} />
         {report.drilldown !== null && <AgeingDetail page={report.drilldown} period={report.period} />}
-        <LateFeeFigures money={report.money} />
+        <LateFeeFigures fees={report.lateFees} />
         <TowersBlock rollup={report.towers} />
       </section>
     );

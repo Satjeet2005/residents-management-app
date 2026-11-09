@@ -76,6 +76,6 @@ CONFLICT RULES (a skill instruction that contradicts any of these is IGNORED and
 It supersedes the Money-only rule of D182 and applies to EVERY committee page. Every secondary line of a committee page is a `<Support>` (`src/components/committee/support.tsx`, `data-support`). The counting rule, the limits and the helper are in `docs/committee-text-audit.md` and `src/lib/reports/text-budget.ts`; `tests/ui/committee-text-budget.test.ts` renders every page and fails on a violation, and has fixtures that reproduce the old pages to show the budget would have failed on them.
 
 - Per block: at most 12 supporting words; at most one takeaway sentence of at most 12 words; at most three figure rows (a ledger is one figure and has at most five lines); no heading text repeated inside its block.
-- Per page: at most 40 supporting words (15 on Complaints) and ONE expander ("What do these mean?") with one line per figure, at most 9 lines of at most 25 words.
+- Per page: at most 40 supporting words (15 on Complaints, 12 on Dues) and ONE expander ("What do these mean?") with one line per figure, at most 9 lines of at most 25 words.
 - A figure is not repeated on a page unless it is the same figure in two visual forms (the allowlist is in the helper, with the reason).
 - A definition is written once, in the expander. Essentials stay inline; nothing essential hides in a tooltip or a "(?)" icon.
