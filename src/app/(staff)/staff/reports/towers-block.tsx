@@ -19,7 +19,7 @@ export function TowersBlock({ rollup }: { rollup: TowerRollup }) {
       <h2 id="committee-towers" className="text-title font-semibold">
         {t("committee.towers.title")}
       </h2>
-      <DataTable caption={table.caption} columns={table.columns} rows={table.rows} />
+      <DataTable caption={table.caption} columns={table.columns} rows={table.rows} headerNoWrap />
       {rollup.towers.length > TOWERS_SHOWN && (
         <Link href={towersHref("owed")} className="flex min-h-14 w-full items-center justify-between gap-4 rounded-control border border-hairline px-3 text-body font-semibold">
           {t("committee.towers.all", { n: countText(rollup.towers.length) })}

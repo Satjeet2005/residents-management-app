@@ -14,7 +14,7 @@ const hide = (phone: boolean): string | false => !phone && "hidden md:table-cell
  * A real table at every width, never stacked blocks: the row header, then the figures right-aligned in tabular figures. Columns that do not fit a phone are hidden
  * below 768px (`phone: false`); at most four columns stay (the row header and three figures). Header cells are 14px.
  */
-export function DataTable({ caption, columns, rows, captionVisible = false }: { caption: string; columns: readonly DataColumn[]; rows: readonly DataRow[]; captionVisible?: boolean }) {
+export function DataTable({ caption, columns, rows, captionVisible = false, headerNoWrap = false }: { caption: string; columns: readonly DataColumn[]; rows: readonly DataRow[]; captionVisible?: boolean; /** Row headers stay on one line (a short name such as "Tower 25"), so a narrow phone gives the width to the figures. */ headerNoWrap?: boolean }) {
   return (
     <div className="min-w-0">
       <table className="tnum w-full text-left text-body">
@@ -31,7 +31,7 @@ export function DataTable({ caption, columns, rows, captionVisible = false }: { 
         <tbody>
           {rows.map((row) => (
             <tr key={row.key} className={cx("border-b border-hairline", row.total === true && "border-t-2 border-ink font-semibold")}>
-              <th scope="row" className={cx("py-2 pr-3 text-body", row.total === true ? "font-semibold" : "font-normal")}>
+              <th scope="row" className={cx("py-2 pr-3 text-body", row.total === true ? "font-semibold" : "font-normal", headerNoWrap && "whitespace-nowrap")}>
                 {row.header}
               </th>
               {row.cells.map((cell, index) => (

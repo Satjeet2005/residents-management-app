@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Support } from "@/components/committee/support";
 
 /** A value never wraps: the spaces between a number and its unit are non-breaking ("1 h 34 min" stays on one line). */
-const keepTogether = (value: ReactNode): ReactNode => (typeof value === "string" ? value.replace(/ /g, " ") : value);
+const keepTogether = (value: ReactNode): ReactNode => (typeof value === "string" ? value.replace(/ /g, "\u00A0") : value);
 
 /**
  * One figure of a section: the label on the left (a number-bearing sub-line under it only when it carries a count, and a goal line when the metric has one), the

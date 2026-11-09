@@ -34,7 +34,7 @@ export function TowersView({ page, sort }: { page: TowersPage; sort: "owed" | "t
           { href: towersHref("tower"), label: t("committee.towers.sort.tower"), current: sort === "tower" },
         ]}
       />
-      <DataTable caption={table.caption} columns={table.columns} rows={table.rows} />
+      <DataTable caption={table.caption} columns={table.columns} rows={table.rows} headerNoWrap />
     </main>
   );
 }

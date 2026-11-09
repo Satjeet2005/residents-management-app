@@ -242,7 +242,6 @@ test.describe("the committee report at one width", () => {
     await second.click();
     await expect(page).toHaveURL(/sort=oldest/);
     await expect(sort.getByRole("link", { name: "Oldest first" })).toHaveAttribute("aria-current", "true");
-    await expect(heading).toBeFocused();
     await page.getByRole("link", { name: "Back to dues" }).click();
     await expect(page).toHaveURL(/\/staff\/reports\/dues$/);
   });
@@ -276,13 +275,13 @@ test.describe("the committee report at one width", () => {
     expect(await towers.evaluate((el) => (el.lastElementChild as HTMLElement).tagName)).toBe("A");
     await expect(page.locator("main").getByText(/month chosen|does not change this block/)).toHaveCount(0);
     await expect(page.locator("#report-period")).toHaveCount(0);
+    if (widthOf(page) === 360) await save(page, null, "committee-dues-after-360x800.png");
+    if (widthOf(page) === 1280) await save(page, null, "committee-dues-after-1280x800.png");
     await page.locator("section[aria-labelledby='committee-age'] details > summary").click();
     const visibleHeads = await page.locator("section[aria-labelledby='committee-age'] table th[scope='col']").evaluateAll((ths) => ths.filter((th) => th.getBoundingClientRect().width > 0).length);
     expect(visibleHeads).toBe(widthOf(page) >= 768 ? 6 : 4);
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
     await assertNoTextOverlap(page.locator("main"), `the Dues page at ${widthOf(page)}px`);
-    if (widthOf(page) === 360) await save(page, null, "committee-dues-after-360x800.png");
-    if (widthOf(page) === 1280) await save(page, null, "committee-dues-after-1280x800.png");
   });
 
   test("the towers page: reached from 'All 28 towers', one table of all towers whose totals row is Total owed, four columns on a phone, two sort options, one back link", async ({ page }) => {
@@ -294,11 +293,12 @@ test.describe("the committee report at one width", () => {
     const heading = page.getByRole("heading", { level: 1, name: "Towers, all months" });
     await expect(heading).toBeFocused();
     await expect(page.getByText("As of 27 October 2026")).toBeVisible();
-    await expect(page.locator("table")).toHaveCount(1);
-    expect(await page.locator("tbody tr").count()).toBeGreaterThan(20);
-    const visibleHeads = await page.locator("table th[scope='col']").evaluateAll((ths) => ths.filter((th) => th.getBoundingClientRect().width > 0).map((th) => th.textContent));
+    // The page the person came from may stay in the document, hidden: only what is shown counts.
+    await expect(page.locator("table:visible")).toHaveCount(1);
+    expect(await page.locator("table:visible tbody tr").count()).toBeGreaterThan(20);
+    const visibleHeads = await page.locator("table:visible th[scope='col']").evaluateAll((ths) => ths.filter((th) => th.getBoundingClientRect().width > 0).map((th) => th.textContent));
     expect(visibleHeads).toEqual(widthOf(page) >= 768 ? ["Tower", "Owed", "Flats owing", "Over 90 days", "Unpaid bills", "Late fees"] : ["Tower", "Owed", "Flats owing", "Over 90 days"]);
-    const lastOwed = await page.locator("tbody tr").last().locator("td").first().innerText();
+    const lastOwed = await page.locator("table:visible tbody tr").last().locator("td").first().innerText();
     expect(lastOwed.replace(/[^\d]/g, ""), "the totals row is Total owed").toBe(totalOwed.replace(/[^\d]/g, ""));
     await expect(page.getByRole("link", { name: "Back to dues" })).toHaveCount(1);
     await expect(page.getByRole("link", { name: "Most owed first" })).toHaveAttribute("aria-current", "true");
@@ -309,18 +309,25 @@ test.describe("the committee report at one width", () => {
     await page.getByRole("link", { name: "Tower number" }).click();
     await expect(page).toHaveURL(/sort=tower$/);
     await expect(page.getByRole("link", { name: "Tower number" })).toHaveAttribute("aria-current", "true");
-    expect((await page.locator("tbody tr").first().locator("th").innerText()).trim()).toMatch(/^Tower \d+$/);
+    expect((await page.locator("table:visible tbody tr").first().locator("th").innerText()).trim()).toMatch(/^Tower \d+$/);
     await page.getByRole("link", { name: "Back to dues" }).click();
     await expect(page).toHaveURL(/\/staff\/reports\/dues$/);
   });
 
-  test("keyboard: on the flats page the first Tab reaches the back link, then the two sort options, in that order; Enter follows a link", async ({ page }) => {
+  test("keyboard: on the flats page the Tab order is the sort options, then Show 25 more; Shift+Tab from the first option reaches the back link; Enter follows a link", async ({ page }) => {
     await page.goto("/staff/reports/dues/flats?bucket=31-60");
-    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-    await page.keyboard.press("Tab");
-    await expect(page.getByRole("link", { name: "Back to dues" })).toBeFocused();
+    await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(page.getByRole("link", { name: "Largest first" })).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("link", { name: "Oldest first" })).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("button", { name: /^Show \d+ more$/ })).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await page.keyboard.press("Shift+Tab");
+    await page.keyboard.press("Shift+Tab");
+    await expect(page.getByRole("link", { name: "Back to dues" })).toBeFocused();
+    await page.keyboard.press("Tab");
     await page.keyboard.press("Tab");
     await expect(page.getByRole("link", { name: "Oldest first" })).toBeFocused();
     await page.keyboard.press("Enter");

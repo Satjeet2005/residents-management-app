@@ -33,3 +33,26 @@ The old pages had no `<Support>`, so the script counted the words of every `<p>`
 | Bank | 0 (40) | one ledger, no supporting sentence | 7 (17) | none | none | none |
 
 Every number in AFTER is printed by the helper from `richReport()` in `tests/ui/committee-fixtures.ts`. The Dues limit is 12 words on the page (Part 5).
+
+## Screenshots
+
+Taken by `tests/e2e/screens/committee-report.spec.ts` at the 360 x 800 phone and the 1280 x 800 laptop, on the seeded database with the business date frozen at 27 October 2026. The BEFORE files are the committed screenshots of the screens before Round A (commit `52edee8`), copied under new names, so they are as old as the last time those screens were shot (R129).
+
+| Screen | Before | After |
+|---|---|---|
+| Collections (top) | `docs/screenshots/committee-collections-before-360x800.png` | `docs/screenshots/committee-collections-after-360x800.png`, `docs/screenshots/committee-collections-after-1280x800.png` |
+| Complaints (top) | `docs/screenshots/committee-complaints-before-360x800.png` | `docs/screenshots/committee-complaints-after-360x800.png`, `docs/screenshots/committee-complaints-after-1280x800.png` |
+| Bank | `docs/screenshots/committee-bank-before-360x800.png` | `docs/screenshots/committee-bank-after-360x800.png` |
+| Overview (bottom of the page) | `docs/screenshots/committee-overview-before-360x800.png` | `docs/screenshots/committee-overview-after-360x800.png` |
+| Dues (top) | `docs/screenshots/committee-dues-before-360x800.png` | `docs/screenshots/committee-dues-after-360x800.png`, `docs/screenshots/committee-dues-after-1280x800.png` |
+| Flats page | none (an inline list before) | `docs/screenshots/committee-dues-flats-after-360x800.png` |
+| Towers page | none (an inline list before) | `docs/screenshots/committee-dues-towers-after-360x800.png`, `docs/screenshots/committee-dues-towers-after-1280x800.png` |
+
+## Critique pass (docs/ui-fix-protocol.md, step 6)
+
+| Observation | Principle | Fix | Evidence |
+|---|---|---|---|
+| Before: "1 h 34 / min" wrapped to two lines and a grey line sat under almost every figure on Complaints. | A value is read as one thing; people skim. | Values are one line (non-breaking space, `nowrap`); at most one grey line per row; the rest is in the expander. | `committee-complaints-after-360x800.png`; test "every value is on one line". |
+| On the towers page "Tower 25" wrapped to "Tower / 25", spending a line on a name. | Labels may wrap, but a short name should not. | Row headers of the tower tables do not wrap (`headerNoWrap`). | `committee-dues-towers-after-360x800.png`. |
+| The age table's labels ("31 to 60 days") wrap in its first column on a phone. | Four columns is the limit; a label may wrap. | Kept: the table stays a real table with four columns. A wider first column would push a figure off the phone. | `committee-dues-after-360x800.png`. |
+| The sort control's two options are equal and the chosen one is marked by a 2px border and a tint, not by colour alone. | Never colour alone; nothing that looks like a link but is not. | Built as `SortChoice`; the other option has no underline. | tests "offers Largest first and Oldest first". |

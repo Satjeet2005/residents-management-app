@@ -157,7 +157,7 @@ describe("CB2 complaints: four blocks, two ledgers (D211)", () => {
   });
 
   it("every value is on one line: a non-breaking space between number and unit and nowrap", () => {
-    expect(out).toContain("30 min");
+    expect(out).toContain("30\u00A0min");
     for (const dd of out.match(/<dd [^>]*>/g) ?? []) expect(dd).toContain("whitespace-nowrap");
   });
 
