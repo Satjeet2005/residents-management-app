@@ -30,3 +30,13 @@ describe("D128 test environment defaults", () => {
     expect(process.env.OTP_PEPPER).toBe("a-developers-own-pepper-value-0123456789");
   });
 });
+
+describe("the setup file removes the git variables that a pre-commit hook sets", () => {
+  it("GIT_DIR and GIT_INDEX_FILE are gone after the setup file runs, so scratch repositories never touch the real one", async () => {
+    vi.stubEnv("GIT_DIR", "/nonexistent/real-repository/.git");
+    vi.stubEnv("GIT_INDEX_FILE", "/nonexistent/real-repository/.git/index");
+    vi.stubEnv("GIT_WORK_TREE", "/nonexistent/real-repository");
+    await import("./env-defaults");
+    expect(Object.keys(process.env).filter((name) => name.startsWith("GIT_"))).toEqual([]);
+  });
+});

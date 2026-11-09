@@ -127,6 +127,14 @@ Decision numbers (D4, D14 and so on) refer to `docs/decisions.md`.
 | R121 | A sort alone counts as an active choice (a chip and the number on the Filters button) but does not say "(filtered)", because it only reorders. | `activeFilters`, `narrowsRows`. | None. |
 | R122 | The empty filtered state was not reachable in the demo data (no combination of amount and reason is empty); it is covered by a render test and, when the data has such a combination, by the browser spec. | `tests/ui/reconciliation-workspace.test.ts` (WS8). | None. |
 | R123 | Phone numbers: ten digits (or 91 and ten, or 0 and a mobile number) are shown as +91 xxxxx xxxxx; anything else (112, a landline with its STD code) is shown as written. | `formatPhone`. | Check with the society's real numbers. |
+| R124 | The takeaway sentence of a block counts inside the block's 12 supporting words (the stricter reading of the brief). | `blockViolations` in `text-budget.ts`. | If the committee wants longer takeaways, the limit is one constant. |
+| R125 | The text-budget helper treats a "word" as a piece of text with at least one letter, so units such as "min" and "h" count; the page limits were measured on that rule. | `wordCount`. | None. |
+| R126 | The note "Months before billing started are not shown" left the visible page and went into the chart description, because a takeaway plus that note could exceed 12 words in a block. | `visuals.ts`. | A sighted reader sees fewer bars, not a sentence about it. |
+| R127 | "One expander per page" means one expander of DEFINITIONS (`<details data-definitions>`). The numbers behind a chart or a card are data tables in their own `<details>` and stay. | `definitionExpanders` in `text-budget.ts`. | A reader may count more than one disclosure on a page. |
+| R128 | All four section pages say "As of <date>" without "read only" (the brief named only Complaints; the pages should agree). The overview keeps "As of <date> · read only". | `committee.asOfShort`. | None. |
+| R129 | The Dues page keeps its current text in this part and is measured only; Part 5 reworks it. Its expander lists six lines from the registry. | `docs/committee-text-audit.md`. | If Part 5 is cut, its words are a known limitation. |
+| R130 | "Closed automatically" reads its days from the `auto_close_days` setting (default 7) through the report loader, which was extended by one field and one key of an existing settings query. | `parseAutoCloseDays`. | None. |
+| R131 | The BEFORE screenshots are the screenshots of the previous commit (`committee-collections-360x800.png` and its siblings, copied as `-before-` files), not newly shot from an old build. | `docs/screenshots/`. | They are as old as the last time the committee screens were shot. |
 
 
 ## Assumptions kept in other documents

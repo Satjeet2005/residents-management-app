@@ -125,6 +125,10 @@ test.describe("the committee report at one width", () => {
     await openOverview(page);
     if ([360, 1280].includes(widthOf(page))) await save(page, page.locator(CARDS), `committee-cards-after-${widthOf(page)}x800.png`);
     await save(page, null, `committee-overview-${widthOf(page)}x${widthOf(page) === 768 ? 1024 : 800}.png`);
+    if (widthOf(page) === 360) {
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      await save(page, null, "committee-overview-after-360x800.png");
+    }
   });
 
   test("choosing a month changes the overview with no Show button", async ({ page }) => {
@@ -146,6 +150,8 @@ test.describe("the committee report at one width", () => {
       }
       await checkScreen(page, watch, "committee", slug);
       if (widthOf(page) === 360) await save(page, null, `committee-${slug}-360x800.png`);
+      if (widthOf(page) === 360 && slug !== "dues") await save(page, null, `committee-${slug}-after-360x800.png`);
+      if (widthOf(page) === 1280 && (slug === "collections" || slug === "complaints")) await save(page, null, `committee-${slug}-after-1280x800.png`);
       if (widthOf(page) === 1280 && slug === "collections") await save(page, null, "committee-collections-1280x800.png");
       await page.getByRole("link", { name: "Back to the committee report" }).click();
       await expect(page.getByRole("heading", { level: 1, name: "Committee report" })).toBeVisible();
@@ -228,12 +234,53 @@ test.describe("the committee report at one width", () => {
     await expect(heading).toBeFocused();
   });
 
-  test("the strip and the Complaints page give the same count of open safety complaints that nobody has seen", async ({ page }) => {
+  test("the strip and the Complaints page give the same count of open safety complaints that nobody has seen: the all-months row shows only when it differs from the month's line", async ({ page }) => {
     await openOverview(page);
     const strip = page.getByRole("status").filter({ hasText: "not yet seen by the duty manager" });
     const k = (await strip.count()) > 0 ? Number(/(\d[\d,]*) safety complaints? (is|are)/.exec(await strip.innerText())?.[1].replace(/,/g, "")) : 0;
     await openSection(page, "complaints");
-    await expect(page.locator("main")).toContainText(`Open and not yet seen, all months: ${k}`);
+    const safety = page.locator("section[aria-labelledby='committee-safety']");
+    const valueOf = async (label: string) => {
+      const row = safety.locator("dt").filter({ hasText: new RegExp(`^\\+?(plus )?${label}$`) });
+      return (await row.count()) === 0 ? null : Number((await row.locator("xpath=following-sibling::dd").innerText()).replace(/,/g, ""));
+    };
+    const month = await valueOf("Open, not yet seen");
+    const all = await valueOf("Open, not yet seen, all months");
+    expect(all === null ? month ?? 0 : all, "the page and the strip say the same number").toBe(k);
+    if (all !== null) expect(all).not.toBe(month ?? 0);
+  });
+
+  test("no value wraps: every figure value of every committee page is on one line (at 360px too)", async ({ page }) => {
+    for (const slug of SLUGS) {
+      await openSection(page, slug);
+      const wrapped = await page.evaluate(() =>
+        [...document.querySelectorAll("main dd")]
+          .filter((dd) => {
+            const range = document.createRange();
+            range.selectNodeContents(dd);
+            return new Set([...range.getClientRects()].map((r) => Math.round(r.top / 4))).size > 1;
+          })
+          .map((dd) => (dd.textContent ?? "").slice(0, 30)),
+      );
+      expect(wrapped, `${slug}: values that wrap`).toEqual([]);
+    }
+  });
+
+  test("each page has one expander of definitions, closed, that opens in place with its summary at least 48px, and no About block", async ({ page }) => {
+    for (const slug of SLUGS) {
+      await openSection(page, slug);
+      const expander = page.locator("details[data-definitions]");
+      await expect(expander).toHaveCount(1);
+      const summary = expander.locator("summary");
+      expect((await summary.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(48);
+      await expect(summary).toHaveText("What do these mean?");
+      await summary.click();
+      await expect(expander.locator("li").first()).toBeVisible();
+      await assertNoTextOverlap(expander, `${slug}: the open expander at ${widthOf(page)}px`);
+    }
+    await openOverview(page);
+    await expect(page.locator("details[data-definitions]")).toHaveCount(1);
+    await expect(page.getByText(/About these numbers|What these words mean/)).toHaveCount(0);
   });
 
   test("at 150 percent zoom on a phone (a 240 px wide screen) no page overflows sideways, with every table open", async ({ page }) => {

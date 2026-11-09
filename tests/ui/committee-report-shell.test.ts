@@ -12,6 +12,8 @@ import { AGE_BUCKETS } from "@/domain/reports/age";
 import type { MoneyLine } from "@/domain/reports/money-line";
 import type { MonthlyPoint } from "@/domain/reports/series";
 import { dateWords, periodLabel } from "@/lib/reports/period";
+import { definitionLinesFor } from "@/lib/reports/figures";
+import { BLOCK_SUPPORT_WORDS, TAKEAWAY_WORDS, sentencesOf, supportWords, wordCount } from "@/lib/reports/text-budget";
 import { emptyReport } from "./committee-fixtures";
 import type { CommitteeReport } from "@/server/reports/report-data";
 
@@ -88,30 +90,29 @@ describe("CR2 the Billed and collected ledger", () => {
     expect(out.indexOf("h-[7px]")).toBeLessThan(out.indexOf("Billed</dt>"));
   });
 
-  it("has ONE bar, then the share collected in words, then exactly two facts", () => {
+  it("has ONE bar, then the share collected in words, then exactly two facts (each a supporting line)", () => {
     expect(count(out, /role="img"/g)).toBe(1);
     expect(out).not.toContain('data-part="tick"');
     expect(text).toContain("82% collected");
     expect(text).toContain("Late fees received: ₹3,800 (real money).");
     expect(text).toContain("1,915 of 2,399 flats have paid in full");
-    expect(count(out.slice(out.indexOf("</dl>")), /<li>/g)).toBe(2 + 3);
+    expect(count(out.slice(out.indexOf("</dl>")), /<li [^>]*data-support/g)).toBe(2);
   });
 
   it("has no grey definition under a figure, no equation in words, no principal, and the other two late-fee figures are not here", () => {
     expect(text).not.toMatch(/Bill amount without late fee|equals Collected plus|principal|Late fees charged but unpaid|building up/i);
   });
 
-  it("keeps the definitions behind one expander with exactly three lines", () => {
-    const details = /<details>[\s\S]*?<\/details>/.exec(out)?.[0] ?? "";
-    expect(words(details)).toContain("What do these mean?");
-    expect(count(details, /<li>/g)).toBe(3);
-    expect(words(details)).toContain("Billed: the maintenance bills raised for the month.");
+  it("has no expander of its own: its three definitions live in the page's one expander (D207)", () => {
+    expect(out).not.toContain("<details");
+    expect(words(out)).not.toContain("What do these mean?");
+    const lines = definitionLinesFor("collections", report({ quality: null })).map((l) => l.text);
+    expect(lines).toContain("Billed: the maintenance bills raised for the month.");
+    expect(lines).toContain("Still unpaid: the part of those bills not yet paid.");
   });
 
-  it("its static explanatory text, outside the expander, the headings and the row labels, is at most 30 words (the text budget)", () => {
-    const bare = out.replace(/<details>[\s\S]*?<\/details>/g, "").replace(/<h2[\s\S]*?<\/h2>/g, "").replace(/<dt[\s\S]*?<\/dt>/g, "").replace(/<svg[\s\S]*?<\/svg>/g, "");
-    const explanatory = words(bare).split(" ").filter((w) => w !== "" && !/[0-9₹%]/.test(w));
-    expect(explanatory.length).toBeLessThanOrEqual(30);
+  it("its supporting words, by the counting rule of the text budget, are at most 12", () => {
+    expect(supportWords(out)).toBeLessThanOrEqual(BLOCK_SUPPORT_WORDS);
   });
 
   it("shows a fee as paise when it has any, and whole rupees otherwise", () => {
@@ -129,20 +130,32 @@ describe("CR2b the Dues page's late-fee figures and the monthly block", () => {
     expect(html(h(LateFeeFigures, { money: null }))).toBe("");
   });
 
-  it("the monthly collection is bars below 768px and columns from 768px, one set of numbers, never both at once, with one takeaway of at most 20 words", () => {
+  it("the monthly collection is bars below 768px and columns from 768px, one set of numbers, never both at once, with one takeaway of at most 12 words", () => {
     const series = emptyReport().series.monthly;
     const out = html(h(MonthlyBlock, { series }));
-    expect(out).toMatch(/<div class="md:hidden"><figure[\s\S]*?monthly-bars-title/);
-    expect(out).toMatch(/<div class="hidden md:block"><figure[\s\S]*?monthly-columns-title/);
+    expect(out).toMatch(/<div data-figure="within20" class="md:hidden"><figure[\s\S]*?monthly-bars-title/);
+    expect(out).toMatch(/<div data-figure-form="within20" class="hidden md:block"><figure[\s\S]*?monthly-columns-title/);
     expect(words(out)).toContain("Collected within 20 days, by month");
   });
 
-  it("the takeaway names the month at day 20 and the one before, and says 'so far' for a young month", () => {
-    const point = (period: string, byDay20Percent: number, inProgress: boolean): MonthlyPoint => ({ period, hasBills: true, billedPaise: 100n, collectedPaise: 80n, outstandingPaise: 20n, collectedPercent: 80, byDay20Percent, byDay20Paise: 80n, inProgress });
-    expect(monthlyTakeaway([point("2026-09-01", 93, false), point("2026-10-01", 83, false)])).toBe("October is 83% at day 20; September was 93%.");
-    expect(monthlyTakeaway([point("2026-09-01", 93, false), point("2026-10-01", 79, true)])).toBe("October is 79% so far; September was 93%.");
+  const point = (period: string, byDay20Percent: number, inProgress: boolean): MonthlyPoint => ({ period, hasBills: true, billedPaise: 100n, collectedPaise: 80n, outstandingPaise: 20n, collectedPercent: 80, byDay20Percent, byDay20Paise: 80n, inProgress });
+
+  it("the takeaway says 'Steady' when the months are within 5 points of each other, otherwise names the month against the one before, 'so far' for a young month (D210)", () => {
+    expect(monthlyTakeaway([point("2026-08-01", 90, false), point("2026-09-01", 93, false), point("2026-10-01", 91, false)])).toBe("Steady: 90 to 93% in every month.");
+    expect(monthlyTakeaway([point("2026-09-01", 93, false), point("2026-10-01", 83, false)])).toBe("October is 10 points lower than September (83% vs 93%).");
+    expect(monthlyTakeaway([point("2026-09-01", 79, false), point("2026-10-01", 93, true)])).toBe("October is 14 points higher than September so far (93% vs 79%).");
+    expect(monthlyTakeaway([point("2026-08-01", 60, false), point("2026-09-01", 93, false), point("2026-10-01", 93, false)])).toBe("October is the same as September (93% vs 93%).");
+    expect(monthlyTakeaway([point("2026-09-01", 93, false), point("2026-10-01", 92, true)])).toBe("Steady so far: 92 to 93% in every month.");
     expect(monthlyTakeaway([point("2026-10-01", 79, false)])).toBeNull();
-    expect((monthlyTakeaway([point("2026-09-01", 93, false), point("2026-10-01", 83, false)]) ?? "").split(" ").length).toBeLessThanOrEqual(20);
+  });
+
+  it("every takeaway is one sentence of at most 12 words, and the block says its heading only once", () => {
+    const cases = [[point("2026-09-01", 93, false), point("2026-10-01", 83, false)], [point("2026-09-01", 79, false), point("2026-10-01", 93, true)]];
+    for (const series of cases) {
+      const sentence = monthlyTakeaway(series) ?? "";
+      expect(sentencesOf(sentence)).toHaveLength(1);
+      expect(wordCount(sentence)).toBeLessThanOrEqual(TAKEAWAY_WORDS);
+    }
   });
 });
 

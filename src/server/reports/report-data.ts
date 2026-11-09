@@ -18,7 +18,7 @@ import type { Db } from "@/server/auth/db";
 import type { SessionUser } from "@/server/auth/session-service";
 import type { SlaMinutes } from "@/domain/complaints/lifecycle";
 import { countUnacknowledgedSafety } from "@/server/complaints/board-views";
-import { parseSlaMinutes } from "@/server/complaints/context";
+import { parseAutoCloseDays, parseSlaMinutes } from "@/server/complaints/context";
 import { requirePermission } from "@/server/statements/ui-data";
 import { type AgeingPage, ageingPageOf } from "./ageing-page";
 import { loadComplaintsBetween } from "./complaints";
@@ -59,6 +59,8 @@ export type CommitteeReport = {
   safetyUnacknowledged: number;
   /** The promised first-reply minutes by urgency (the `sla_minutes` setting), for the line under "Replies within our promised time". */
   slaMinutes: SlaMinutes;
+  /** The days after which a complaint the resident did not answer is closed automatically (the `auto_close_days` setting), for the definition of "Closed automatically". */
+  autoCloseDays: number;
   /** Does the viewer hold complaints:manage (the alert links to the safety view only for them)? */
   canManageComplaints: boolean;
 };
@@ -88,7 +90,7 @@ export async function loadCommitteeReport(input: { db: Db; user: Viewer; request
   const [window, reconciliation, settings, safetyUnacknowledged] = await Promise.all([
     loadComplaintsBetween(input.db, from, until),
     loadReconciliationLine(input.db, asOf),
-    input.db.societySetting.findMany({ where: { key: { in: ["committee_goals", "sla_minutes"] } }, select: { key: true, value: true } }),
+    input.db.societySetting.findMany({ where: { key: { in: ["committee_goals", "sla_minutes", "auto_close_days"] } }, select: { key: true, value: true } }),
     countUnacknowledgedSafety(input.db),
   ]);
   const inMonth = (start: CalendarDate) => window.filter((c) => c.createdAt >= dayStartInstant(start) && c.createdAt < dayStartInstant(monthStart(addDays(start, 31))));
@@ -139,6 +141,7 @@ export async function loadCommitteeReport(input: { db: Db; user: Viewer; request
     },
     safetyUnacknowledged,
     slaMinutes: parseSlaMinutes(settingOf("sla_minutes")),
+    autoCloseDays: parseAutoCloseDays(settingOf("auto_close_days")),
     canManageComplaints: input.user.permissions.includes("complaints:manage"),
   };
 }

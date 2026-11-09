@@ -477,6 +477,17 @@ describe("RP2 the goals", () => {
     console.log(`RP2 goals ${october.goals.rows.map((r) => `${r.key} target=${r.targetPercent} actual=${r.actualPercent} ${r.status}`).join("; ")}`);
   });
 
+  it("D211 the days of 'Closed automatically' come from the auto_close_days setting, never from the text", async () => {
+    const days = async () => (await loadCommitteeReport({ db: fx.app, user: meera, requestedPeriod: OCTOBER, now: DEMO_NOW })).autoCloseDays;
+    const [row] = await fx.owner.$queryRaw<{ value: unknown }[]>`SELECT value FROM society_settings WHERE key = 'auto_close_days'`;
+    expect(await days()).toBe(typeof row?.value === "number" ? row.value : 7);
+    await fx.owner.$executeRaw`DELETE FROM society_settings WHERE key = 'auto_close_days'`;
+    await fx.owner.$executeRaw`INSERT INTO society_settings (key, value) VALUES ('auto_close_days', '12'::jsonb)`;
+    expect(await days()).toBe(12);
+    await fx.owner.$executeRaw`DELETE FROM society_settings WHERE key = 'auto_close_days'`;
+    if (typeof row?.value === "number") await fx.owner.$executeRaw`INSERT INTO society_settings (key, value) VALUES ('auto_close_days', ${JSON.stringify(row.value)}::jsonb)`;
+  }, 60_000);
+
   it("with no committee_goals row the page still opens, on the built-in defaults, and says so", async () => {
     await fx.owner.$executeRaw`DELETE FROM society_settings WHERE key = 'committee_goals'`;
     const without = await loadCommitteeReport({ db: fx.app, user: meera, requestedPeriod: OCTOBER, now: DEMO_NOW });
@@ -581,7 +592,7 @@ describe("RP6 access: who may read the report, and what the page never shows", (
 
   it("the committee user sees the whole page, from the real data, with every block", async () => {
     const out = pagesOf({ ...october, drilldown: firstPage }).join("\n");
-    for (const part of ["Committee report", "As of 27 October 2026 · read only", "Money collected for October", "Billed and collected", "What is owed", "How fast bills are paid", "Complaints", "Bank statement matching", "About these numbers"]) expect(out).toContain(part);
+    for (const part of ["Committee report", "As of 27 October 2026 · read only", "Money collected for October", "Billed and collected", "What is owed", "How fast bills are paid", "Complaints", "Bank statement matching", "What do these mean?"]) expect(out).toContain(part);
     expect(words(out)).toMatch(/\d+ flats owe ₹[\d.]+ (lakh|crore) \(31 to 60 days\)/);
     expect(out).not.toMatch(/<h2[^>]*>Goals<\/h2>/);
     expect(out).toContain("₹1,80,52,190");

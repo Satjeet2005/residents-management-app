@@ -1,26 +1,24 @@
-import { cx } from "@/components/ui/cx";
+import { Support } from "@/components/committee/support";
 import { GoalBar } from "@/components/charts/goal-bar";
 import { ArrowDownIcon, ArrowUpIcon } from "@/components/icons";
 import { t } from "@/lib/messages";
 import { monthName } from "@/lib/format-date";
-import { dateWords } from "@/lib/reports/period";
 import { type GoalMark, type PreviousLine, type TrendPoint, goalBarLabel } from "@/lib/reports/cards";
 import { collectedBarLabel } from "@/lib/reports/visuals";
 import type { CommitteeReport } from "@/server/reports/report-data";
-import { GoalTag } from "./goal-mark";
+import { GoalTag, TickGlyph } from "./goal-mark";
 
 /**
- * `phonePeriod`: the period line is shown on a phone only when the title does not already say it (the title of three cards names the month); it is always in the HTML.
- * `note` sits beside the large value on one baseline (the goal words of a goal card), so the goal does not need a line of its own.
+ * One card is one block: its title row (with Met or Not met where a goal exists), the large value, ONE visual and at most three small lines. `figure` is the
+ * registry id of the figure it shows, so the page's expander defines it. `note` sits beside the large value on one baseline (the goal words of a goal card).
  */
-function Card({ label, period, phonePeriod, tag, value, note, children }: { label: string; period: string; phonePeriod: boolean; tag?: React.ReactNode; value: string; note?: React.ReactNode; children: React.ReactNode }) {
+function Card({ label, figure, tag, value, note, children }: { label: string; figure: string; tag?: React.ReactNode; value: string; note?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <li className="flex min-w-0 flex-col gap-1 rounded-control border border-hairline p-3 md:p-4">
+    <li data-block="" data-figure={figure} className="flex min-w-0 flex-col gap-1 rounded-control border border-hairline p-3 md:p-4">
       <div className="flex items-start justify-between gap-2">
         <h2 className="text-body font-semibold">{label}</h2>
         {tag}
       </div>
-      <p className={cx("text-caption text-ink-2", !phonePeriod && "hidden md:block")}>{period}</p>
       <div className="flex flex-wrap items-baseline gap-x-3">
         <p className="tnum text-hero font-semibold">{value}</p>
         {note}
@@ -30,12 +28,9 @@ function Card({ label, period, phonePeriod, tag, value, note, children }: { labe
   );
 }
 
-/** The small tick drawn in the goal bar, repeated before the goal words so that the line works as the key of the bar. */
-const TickGlyph = () => <span aria-hidden="true" className="mr-2 inline-block h-4 w-0.5 bg-ink align-middle" />;
-
-/** "<tick> Goal 90% · 20 points short": the one place the goal is written on a card. */
+/** "<tick> Goal 90% · 20 points short": the one place the goal is written on a card. It is a goal line, so the text budget leaves it out. */
 const GoalLine = ({ mark }: { mark: GoalMark }) => (
-  <p className="tnum text-caption text-ink-2">
+  <p data-goal="" className="tnum text-caption text-ink-2">
     <TickGlyph />
     {mark.text}
   </p>
@@ -49,14 +44,14 @@ const GoalLine = ({ mark }: { mark: GoalMark }) => (
 function History({ previous, trend }: { previous: PreviousLine | null; trend: readonly TrendPoint[] }) {
   const known = trend.filter((p): p is { label: string; value: number } => p.value !== null);
   const compare = previous === null ? null : (
-    <span className="tnum flex min-w-0 flex-wrap items-center gap-x-1 text-caption text-ink-2">
+    <Support as="span" small className="tnum flex min-w-0 flex-wrap items-center gap-x-1">
       <span>{t("committee.card.prevJoin", { previous: previous.text })}</span>
       <span className="inline-flex items-center gap-1">
         {previous.direction === "up" && <ArrowUpIcon size={16} />}
         {previous.direction === "down" && <ArrowDownIcon size={16} />}
         {previous.change}
       </span>
-    </span>
+    </Support>
   );
   if (known.length === 0) return <div className="flex min-h-12 items-center">{compare}</div>;
   return (
@@ -99,48 +94,27 @@ function History({ previous, trend }: { previous: PreviousLine | null; trend: re
 export function HeadlineCards({ report }: { report: CommitteeReport }) {
   const { cards, money } = report;
   const month = monthName(report.period);
-  const [onTimeGoal, replyGoal, reopenGoal] = report.goals.rows;
   return (
     <section aria-label={t("committee.cards.label")}>
       <ul className="grid list-none gap-3 p-0 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
-        <Card label={t("committee.card.collected", { month })} period={t("committee.card.period.bills", { month })} phonePeriod={false} value={cards.collected.value}>
+        <Card label={t("committee.card.collected", { month })} figure="cardCollected" value={cards.collected.value}>
           <GoalBar value={cards.collected.percent} label={collectedBarLabel(cards.collected, money)} />
-          <p className="tnum text-caption text-ink-2">{cards.collected.comparison}</p>
-          {cards.collected.sameAge !== null && <p className="tnum text-caption text-ink-2">{cards.collected.sameAge}</p>}
+          <Support small className="tnum">{cards.collected.comparison}</Support>
+          {cards.collected.sameAge !== null && <Support small className="tnum">{cards.collected.sameAge}</Support>}
         </Card>
-        <Card label={t("committee.card.owed")} period={t("committee.card.period.owed", { date: dateWords(report.asOf) })} phonePeriod value={cards.owed.value}>
-          <p className="tnum text-caption text-ink-2">{t("committee.card.owedLine", { flats: cards.owed.comparison, over90: cards.owed.detail })}</p>
-          <p className="tnum text-caption text-ink-2">{cards.owed.split}</p>
+        <Card label={t("committee.card.owed")} figure="cardOwed" value={cards.owed.value}>
+          <Support small className="tnum">{t("committee.card.owedLine", { flats: cards.owed.comparison, over90: cards.owed.detail })}</Support>
+          <Support small className="tnum">{cards.owed.split}</Support>
         </Card>
-        <Card
-          label={t("committee.card.onTime", { month })}
-          period={t("committee.card.period.bills", { month })}
-          phonePeriod={false}
-          tag={<GoalTag status={cards.onTime.goal.status} />}
-          value={cards.onTime.value}
-          note={<GoalLine mark={cards.onTime.goal} />}
-        >
+        <Card label={t("committee.card.onTime", { month })} figure="cardOnTime" tag={<GoalTag status={cards.onTime.goal.status} />} value={cards.onTime.value} note={<GoalLine mark={cards.onTime.goal} />}>
           <GoalBar value={cards.onTime.percent} goal={cards.onTime.goal.targetPercent} direction="higher" label={goalBarLabel(cards.onTime.percent, cards.onTime.goal)} />
           <History previous={cards.onTime.previous} trend={cards.onTime.trend} />
         </Card>
-        <Card
-          label={t("committee.card.sla", { month })}
-          period={t("committee.card.period.complaints", { month })}
-          phonePeriod={false}
-          tag={<GoalTag status={cards.sla.goal.status} />}
-          value={cards.sla.value}
-          note={<GoalLine mark={cards.sla.goal} />}
-        >
+        <Card label={t("committee.card.sla", { month })} figure="cardReplied" tag={<GoalTag status={cards.sla.goal.status} />} value={cards.sla.value} note={<GoalLine mark={cards.sla.goal} />}>
           <GoalBar value={cards.sla.percent} goal={cards.sla.goal.targetPercent} direction="higher" label={goalBarLabel(cards.sla.percent, cards.sla.goal)} />
           <History previous={cards.sla.previous} trend={cards.sla.trend} />
         </Card>
       </ul>
-      <p className="pt-3">
-        <a href="#about" className="inline-flex min-h-12 items-center text-body font-semibold text-accent underline underline-offset-4">
-          {t("committee.words.pointer")}
-        </a>
-      </p>
-      {report.goals.source === "DEFAULT" && <p className="text-body text-ink-2">{t("committee.goals.default", { a: onTimeGoal.targetPercent, b: replyGoal.targetPercent, c: reopenGoal.targetPercent })}</p>}
     </section>
   );
 }

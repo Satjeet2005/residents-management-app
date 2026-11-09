@@ -31,7 +31,7 @@ export function TowersBlock({ rollup }: { rollup: TowerRollup }) {
   const top = rollup.towers.slice(0, TOWERS_SHOWN);
   const rest = rollup.towers.slice(TOWERS_SHOWN);
   return (
-    <section aria-labelledby="committee-towers" className="flex flex-col gap-2">
+    <section data-figure="towers" aria-labelledby="committee-towers" className="flex flex-col gap-2">
       <h3 id="committee-towers" className="text-title font-semibold">
         {t("committee.towers.title")}
       </h3>

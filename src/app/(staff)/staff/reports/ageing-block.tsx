@@ -22,7 +22,7 @@ export function AgeingBlock({ ageing, money, period, selected }: { ageing: Agein
   return (
     <>
       <p className="text-body text-ink-2">{t("committee.ageing.scope")}</p>
-      <div className="flex flex-col gap-1">
+      <div data-figure="owedTotal" className="flex flex-col gap-1">
         <div className="flex items-baseline justify-between gap-4">
           <span className="text-body font-semibold">{t("committee.ageing.total")}</span>
           <Money amount={ageing.total.amountDuePaise} size="large" />
@@ -39,7 +39,7 @@ export function AgeingBlock({ ageing, money, period, selected }: { ageing: Agein
         <p className="text-body">{t("committee.ageing.empty")}</p>
       ) : (
         <>
-          <ul className="flex list-none flex-col p-0">
+          <ul data-figure="ageGroups" className="flex list-none flex-col p-0">
             {listedBuckets(ageing).map((b) => {
               const width = barWidthPercent(b.amountDuePaise, ageing);
               const share = shareOfTotal(b.amountDuePaise, ageing);

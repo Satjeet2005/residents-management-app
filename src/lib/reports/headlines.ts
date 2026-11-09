@@ -12,7 +12,7 @@ export type SectionHeadlines = { money: string; owed: string; quality: string; c
 
 /**
  * The one sentence under each section's title on a phone, worked out from the section's own numbers, and always NEW information that the cards above do not say
- * (D179): "Billed ₹1.81 crore · 472 flats still to pay", "₹7.5 lakh is over 90 days", "Typical 3 days to pay · 88% of paid bills on time", "1,603 raised, 85%
+ * (D179): "Billed ₹1.81 crore · 472 flats still to pay", "₹7.5 lakh is over 90 days", "Half of paid bills are paid within 3 days · 88% of paid bills were on time", "1,603 raised, 85%
  * answered in time", "44 bank entries need a person". Money is in the short form; a share with nothing to measure says "No data" and a section with nothing to
  * count says so in words.
  */

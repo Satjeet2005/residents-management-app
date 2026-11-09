@@ -109,7 +109,11 @@ describe.each(DATES)("V3 the committee report as of %s", (asOf) => {
     // The line "all months" is in the Complaints section page; the strip is on the overview and on every section page.
     const flat = (markup: string): string => markup.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
     const section = flat(renderToStaticMarkup(h(SectionPage, { slug: "complaints", report })));
-    expect(section).toContain(`Open and not yet seen, all months: ${sql.n}`);
+    // D211: the all-months row shows ONLY when it differs from this month's "Open, not yet seen" line; when equal, that line carries the same number.
+    if (sql.n === report.complaints.safety.openNotSeen) {
+      expect(section).not.toContain("all months");
+      if (sql.n > 0) expect(section).toContain(`Open, not yet seen ${sql.n}`);
+    } else expect(section).toContain(`Open, not yet seen, all months ${sql.n}`);
     const text = `${flat(renderToStaticMarkup(h(ReportView, { report })))} ${section}`;
     if (sql.n > 0) expect(text).toContain(sql.n === 1 ? "1 safety complaint is open and not yet seen by the duty manager." : `${sql.n} safety complaints are open and not yet seen by the duty manager.`);
     else expect(text).not.toContain("is open and not yet seen by the duty manager");

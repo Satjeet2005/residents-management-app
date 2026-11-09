@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { Definitions } from "@/components/committee/definitions";
 import { ArrowLeftIcon } from "@/components/icons";
 import { cx } from "@/components/ui/cx";
 import { t } from "@/lib/messages";
+import { definitionLinesFor } from "@/lib/reports/figures";
 import { dateWords, periodLabel } from "@/lib/reports/period";
 import { SECTIONS, type SectionSlug, overviewHref, sectionHref } from "@/lib/reports/sections";
 import type { CommitteeReport } from "@/server/reports/report-data";
@@ -70,7 +72,7 @@ function Content({ slug, report }: { slug: SectionSlug; report: CommitteeReport 
       <>
         {report.money === null ? <EmptyMonth /> : <MoneyBlock money={report.money} />}
         {report.quality !== null && (
-          <section aria-labelledby="committee-fast" className="flex flex-col gap-4">
+          <section data-block="" aria-labelledby="committee-fast" className="flex flex-col gap-4">
             <h2 id="committee-fast" className="text-title font-semibold">
               {t("committee.section.quality")}
             </h2>
@@ -115,15 +117,11 @@ export function SectionPage({ slug, report }: { slug: SectionSlug; report: Commi
         <div className="flex min-w-0 flex-1 flex-col gap-6">
           <header className="flex flex-col gap-2">
             <ArrivalHeading>{titleOf(slug, report)}</ArrivalHeading>
-            <p className="text-body text-ink-2">{t("committee.asOf", { date: dateWords(report.asOf) })}</p>
+            <p className="text-body text-ink-2">{t("committee.asOfShort", { date: dateWords(report.asOf) })}</p>
             {monthly && <PeriodForm period={report.period} periods={report.periods} base={`/staff/reports/${slug}`} />}
           </header>
           <Content slug={slug} report={report} />
-          <p>
-            <Link href={`${overviewHref(report.period)}#about`} className="inline-flex min-h-12 items-center text-body font-semibold text-accent underline underline-offset-4">
-              {t("committee.words.pointer")}
-            </Link>
-          </p>
+          <Definitions lines={definitionLinesFor(slug, report)} />
         </div>
       </div>
     </main>

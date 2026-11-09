@@ -1,11 +1,14 @@
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { AboutBlock } from "@/app/(staff)/staff/reports/about-block";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import { ComplaintsBlock } from "@/app/(staff)/staff/reports/complaints-block";
 import { QualityBlock } from "@/app/(staff)/staff/reports/quality-block";
+import { ReportView } from "@/app/(staff)/staff/reports/report-view";
 import { ReconciliationBlock } from "@/app/(staff)/staff/reports/reconciliation-block";
 import { SectionPage } from "@/app/(staff)/staff/reports/section-page";
+import { en } from "@/lib/messages/en";
 import { SECTIONS } from "@/lib/reports/sections";
 import { type ReportComplaint, complaintMetrics } from "@/domain/reports/complaints";
 import { defaultGoals, evaluateGoals } from "@/domain/reports/goals";
@@ -27,22 +30,29 @@ const NO_ZERO = /(^|[^0-9])0%/;
 const qp = { period: "2026-10-01" };
 const metGoal = { ...goal, status: "MET" as const };
 
-describe("CB1 collection quality: three rows, three plain numbers, no 'paid late'", () => {
+describe("CB1 collection quality: exactly three rows, no secondary figure, no 'paid late' (D209)", () => {
   const quality: CollectionQuality = { bills: 2399, due: 2399, dueOnTime: 1687, paidOnTime: 1687, paid: 1915, paidLate: 228, medianDaysToPay: 3 };
   const curve = paymentCurve({ bills: [{ amountPaise: 1_000_000n, payments: [{ date: "2026-10-03", amountPaise: 700_000n }] }], issueDate: "2026-10-01", dueDate: "2026-10-10", asOf: "2026-10-27" });
   const out = html(h(QualityBlock, { ...qp, quality, curve, goal }));
   const text = words(out);
 
-  it("shows the headline on-time rate with its goal, the secondary rate and the median days, each with what it counts", () => {
-    expect(text).toContain("Paid by the due date 1,687 of 2,399 bills due so far were paid on or before their due date Goal 90%");
+  it("shows the bills paid by the due date with its count and its goal, half of paid bills within so many days, and the money collected by the due date", () => {
+    expect(text).toContain("Bills paid by the due date 1,687 of 2,399 bills Goal 90%");
     expect(text).toContain("70%");
-    expect(text).toContain("Of bills that were paid, paid on time 1,687 of 1,915 paid bills were paid on or before their due date. This ignores the 484 unpaid bills. 88%");
-    expect(text).toContain("Typical days to pay (the middle value) Counted from the day the bill was issued, over 1,915 paid bills 3 days");
+    expect(text).toContain("Half of paid bills are paid within 3 days");
+    expect(text).toContain("Money collected by the due date 70%");
   });
 
-  it("has exactly three rows and no 'Paid late' row", () => {
-    expect(count(out, /<dd class="tnum text-right/g)).toBe(3);
-    expect(text).not.toContain("Paid late");
+  it("has exactly three rows, no 'Paid late' row, no definition under a figure and no 'middle value'", () => {
+    expect(count(out, /<dd class="tnum shrink-0/g)).toBe(3);
+    expect(text).not.toMatch(/Paid late|middle value|Typical/);
+    expect(text).not.toContain("paid on or before their due date");
+  });
+
+  it("the secondary figure 'of bills that were paid' and the paragraph of three plain numbers are not on the page (the first lives in the expander, D209)", () => {
+    expect(text).not.toContain("Of bills that were paid");
+    expect(text).not.toContain("Share of October's money collected");
+    expect(text).not.toContain("88%");
   });
 
   it("says Met or Not met with the goal, in words and an icon", () => {
@@ -52,31 +62,32 @@ describe("CB1 collection quality: three rows, three plain numbers, no 'paid late
     expect(notMet).toContain("<svg");
   });
 
-  it("gives the three plain numbers, and the curve only from 768px", () => {
-    expect(text).toContain("Share of October's money collected: by the due date 70%, by day 20 70%, today 70% (by rupees, so it differs slightly from the bills figure).");
-    expect(out).toContain('<div class="hidden md:block"><figure');
+  it("the curve is drawn from 768px only, as another form of the money-by-the-due-date figure", () => {
+    expect(out).toContain('<div data-figure-form="moneyByDue" class="hidden md:block"><figure');
     expect(out).toContain('aria-labelledby="curve-title curve-desc"');
   });
 
-  it("before day 20 the second number is left out", () => {
-    const early = paymentCurve({ bills: [{ amountPaise: 1_000_000n, payments: [] }], issueDate: "2026-10-01", dueDate: "2026-10-10", asOf: "2026-10-12" });
-    expect(words(html(h(QualityBlock, { ...qp, quality, curve: early, goal })))).toContain("Share of October's money collected: by the due date 0%, today 0% (by rupees, so it differs slightly from the bills figure).");
+  it("before the due date the third row says 'not yet due'", () => {
+    const early = paymentCurve({ bills: [{ amountPaise: 1_000_000n, payments: [] }], issueDate: "2026-10-01", dueDate: "2026-10-10", asOf: "2026-10-05" });
+    expect(words(html(h(QualityBlock, { ...qp, quality, curve: early, goal })))).toContain("Money collected by the due date not yet due");
   });
 
   it("says 'No data' in words, never 0%, when there is nothing to measure", () => {
     const none = words(html(h(QualityBlock, { ...qp, quality: { bills: 0, due: 0, dueOnTime: 0, paidOnTime: 0, paid: 0, paidLate: 0, medianDaysToPay: null }, curve: null, goal: { ...goal, status: "NO_DATA" } })));
-    expect(none).toContain("Paid by the due date Goal 90% No data");
-    expect(none).toContain("Of bills that were paid, paid on time No data");
-    expect(none).toContain("Typical days to pay (the middle value) No data");
+    expect(none).toContain("Bills paid by the due date Goal 90% No data");
+    expect(none).toContain("Half of paid bills are paid within No data");
+    expect(none).toContain("Money collected by the due date No data");
     expect(none).not.toMatch(NO_ZERO);
   });
 
   it("one day is '1 day'", () => {
-    expect(words(html(h(QualityBlock, { ...qp, quality: { ...quality, medianDaysToPay: 1 }, curve: null, goal })))).toContain("over 1,915 paid bills 1 day");
+    expect(words(html(h(QualityBlock, { ...qp, quality: { ...quality, medianDaysToPay: 1 }, curve: null, goal })))).toContain("within 1 day");
   });
 });
 
-describe("CB2 complaints: six lines and one safety line", () => {
+const ledgerNumbers = (markup: string): number[] => [...markup.matchAll(/<dd class="tnum shrink-0[^>]*>([\d,]+)<\/dd>/g)].map((m) => Number(m[1].replace(/,/g, "")));
+
+describe("CB2 complaints: four blocks, two ledgers (D211)", () => {
   const c = (over: Partial<ReportComplaint> = {}): ReportComplaint => ({ createdAt: T0, safetyFlag: false, status: "ASSIGNED", closeKind: null, responseDueAt: T0 + 1440 * minute, firstResponseAt: null, reopenCount: 0, resolvedAt: null, acknowledgedAt: null, closedAt: null, ...over });
   const rows = [
     c({ firstResponseAt: T0 + 30 * minute, resolvedAt: T0 + 120 * minute, status: "CLOSED", closeKind: "CONFIRMED" }),
@@ -91,61 +102,91 @@ describe("CB2 complaints: six lines and one safety line", () => {
   const out = html(h(ComplaintsBlock, props));
   const text = words(out);
 
-  it("states the promise, then seven lines: raised, typical first reply, replied in time with the goal, time to resolved, reopened with its goal, closed by whom, open now", () => {
-    expect(text).toContain("Replies within our promised time Promise: Critical 15 min, High 2 h, Normal 24 h, Low 72 h");
-    expect(count(out, /<dd class="tnum text-right/g)).toBe(7);
-    expect(text).toContain("Raised 5");
-    expect(text).toContain("Typical first reply The middle value, over 4 complaints that were replied to 30 min");
-    expect(text).toContain("Replied in time 3 of 5 complaints whose reply was due Goal 90% 60%");
-    expect(text).toContain("Typical time until marked resolved (the middle value) From raising to the first time it was marked resolved, over 2 complaints 2 h");
-    expect(text).toContain("Reopened after being marked resolved 1 of 2 complaints that were marked resolved Limit 8% · 42 points over Not met");
-    expect(text).toContain("1 by the resident, 1 automatically after no reply, 0 by the duty manager");
-    expect(text).toContain("Raised 5 = closed 2 + still open 3");
-    expect(text).toContain("Open now 3");
+  it("has four blocks with these h2s, and the promise line once", () => {
+    expect([...out.matchAll(/<h2[^>]*>([^<]*)<\/h2>/g)].map((m) => m[1].replace("&#x27;", "'"))).toEqual(["Replies", "Resolution", "Where October's complaints stand", "Safety complaints, October"]);
+    expect(text).toContain("Promise: Critical 15 min · High 2 h · Normal 24 h · Low 72 h");
+    expect(count(text, /Promise:/g)).toBe(1);
   });
 
-  it("the safety lines: the month's groups, the all-months count of open ones not yet seen in alert styling, and the median only when there is one (D171)", () => {
-    expect(text).toContain("Safety complaints raised in October: 2. Closed by the duty manager: 0. Open and seen: 1. Open and not yet seen: 1.");
-    expect(text).toContain("Open and not yet seen, all months: 1");
-    expect(text).toContain("Typical time until the duty manager saw it: 5 min (the middle value).");
-    expect(out).toContain("border-caution");
+  it("Replies and Resolution carry their rows: replied in time with its count and goal, half of first replies, half marked resolved, reopened with its limit", () => {
+    expect(text).toContain("Replied in time 3 of 5 replies due Goal 90% 60%");
+    expect(text).toContain("Half of first replies come within 30 min");
+    expect(text).toContain("Half are marked resolved within 2 h");
+    expect(text).toContain("Reopened after being marked resolved 1 of 2 resolved Limit 8% · 42 points over Not met");
   });
 
-  it("a complaint closed by the duty manager is seen; nothing unseen has no alert styling; a month without safety complaints says so", () => {
+  it("the ledger of where the complaints stand lists the parts and adds up to Raised, and the old rows and sentences are gone", () => {
+    expect(text).toContain("Closed by the resident 1 + plus Closed automatically 1 + plus Closed by the duty manager 0 + plus Still open 3 = equals Raised 5");
+    const stand = out.slice(out.indexOf('aria-labelledby="committee-stand"'), out.indexOf('aria-labelledby="committee-safety"'));
+    const [resident, automatic, duty, open, raised] = ledgerNumbers(stand);
+    expect(resident + automatic + duty + open).toBe(raised);
+    expect(text).not.toMatch(/Open now|Raised = closed|by the resident, \d|automatically after no reply|\(the middle value\)|Typical/);
+  });
+
+  it("a remainder is shown as an 'Other' line, never hidden", () => {
+    const odd = { ...metrics, openNow: 1 };
+    const stand = words(html(h(ComplaintsBlock, { ...props, complaints: odd })));
+    expect(stand).toContain("+ plus Other 2 = equals Raised 5");
+    expect(words(html(h(ComplaintsBlock, props)))).not.toContain("Other");
+  });
+
+  it("the safety ledger adds up to Raised, the time to the first sight shows only when there is one", () => {
+    const safety = out.slice(out.indexOf('aria-labelledby="committee-safety"'));
+    expect(words(safety)).toContain("Closed by the duty manager 0 + plus Open, seen by the duty manager 1 + plus Open, not yet seen 1 = equals Raised 2");
+    const [duty, seen, notSeen, raised] = ledgerNumbers(safety);
+    expect(duty + seen + notSeen).toBe(raised);
+    expect(words(safety)).toContain("Half are seen within 5 min");
+    expect(words(html(h(ComplaintsBlock, { ...props, complaints: complaintMetrics([c({ safetyFlag: true })], NOW) })))).not.toContain("Half are seen within");
+  });
+
+  it("the all-months row shows only when it differs from this month's 'Open, not yet seen' line, and then in alert styling (D171)", () => {
+    expect(text).not.toContain("all months");
+    expect(out).not.toContain("border-caution");
+    const differs = html(h(ComplaintsBlock, { ...props, unseenAllMonths: 4 }));
+    expect(words(differs)).toContain("Open, not yet seen, all months 4");
+    expect(differs).toContain("border-caution");
+    expect(words(html(h(ComplaintsBlock, { ...props, unseenAllMonths: 0 })))).toContain("Open, not yet seen, all months 0");
+  });
+
+  it("a complaint closed by the duty manager is seen; a month without safety complaints says so", () => {
     const closed = c({ safetyFlag: true, status: "CLOSED", closeKind: "DUTY_MANAGER", closedAt: T0 + 20 * minute });
-    const all = html(h(ComplaintsBlock, { ...props, unseenAllMonths: 0, complaints: complaintMetrics([closed], NOW) }));
-    expect(words(all)).toContain("Closed by the duty manager: 1. Open and seen: 0. Open and not yet seen: 0.");
-    expect(words(all)).toContain("Typical time until the duty manager saw it: 20 min");
-    expect(all).not.toContain("border-caution");
+    const all = words(html(h(ComplaintsBlock, { ...props, unseenAllMonths: 0, complaints: complaintMetrics([closed], NOW) })));
+    expect(all).toContain("Closed by the duty manager 1 + plus Open, seen by the duty manager 0 + plus Open, not yet seen 0 = equals Raised 1");
+    expect(all).toContain("Half are seen within 20 min");
     expect(words(html(h(ComplaintsBlock, { ...props, complaints: complaintMetrics([c()], NOW) })))).toContain("No safety complaints were raised.");
+  });
+
+  it("every value is on one line: a non-breaking space between number and unit and nowrap", () => {
+    expect(out).toContain("30 min");
+    for (const dd of out.match(/<dd [^>]*>/g) ?? []) expect(dd).toContain("whitespace-nowrap");
   });
 
   it("the weekly chart is drawn from 768px only, with its own table, and only when some week has a share to draw", () => {
     const week = (weekStart: string, share: number | null) => ({ weekStart, raised: 3, decided: share === null ? 0 : 3, met: share === null ? 0 : 2, sharePercent: share, partial: false });
     const drawn = html(h(ComplaintsBlock, { ...props, weeks: [week("2026-10-12", 67), week("2026-10-19", null)] }));
-    expect(drawn).toContain('<div class="hidden md:block"><figure');
+    expect(drawn).toContain('<div data-figure-form="weekly" class="hidden md:block"><figure');
     expect(drawn).toContain('aria-labelledby="weekly-title weekly-desc"');
     expect(out).not.toContain("weekly-title");
   });
 
-  it("a month with no complaints says so once, shows no zero percent and no safety line", () => {
+  it("a month with no complaints says so once, shows no zero percent and no safety block", () => {
     const none = words(html(h(ComplaintsBlock, { ...props, complaints: complaintMetrics([], NOW) })));
     expect(none).toContain("No complaints were raised in this month.");
     expect(none).not.toMatch(NO_ZERO);
-    expect(none).not.toContain("safety");
+    expect(none).not.toContain("afety");
   });
 
   it("zero denominators say 'No data': nothing replied, nothing resolved", () => {
     const noGoals = evaluateGoals(defaultGoals, { onTime: { n: 0, d: 0 }, firstReply: { n: 0, d: 0 }, reopened: { n: 0, d: 0 } });
     const text2 = words(html(h(ComplaintsBlock, { ...props, goals: noGoals, complaints: complaintMetrics([c({ responseDueAt: NOW + 60 * minute })], NOW) })));
-    expect(text2).toContain("Typical first reply No data");
+    expect(text2).toContain("Half of first replies come within No data");
     expect(text2).toContain("Replied in time Goal 90% No data");
-    expect(text2).toContain("Typical time until marked resolved (the middle value) No data");
+    expect(text2).toContain("Half are marked resolved within No data");
     expect(text2).toContain("Reopened after being marked resolved Limit 8% No data");
   });
 });
 
-describe("CB3 the bank reconciliation: three lines, then the check, then the table only when needed", () => {
+describe("CB3 the bank reconciliation: one ledger that adds up, then the check, then the table only when needed (D212)", () => {
   const states = { QUEUED: 42, AUTO_MATCHED: 25, AWAITING_APPROVAL: 1, MANUALLY_MATCHED: 3, IGNORED: 35 };
   const imports = [{ rowsRead: 106, stored: 106, invalidRows: 0, alreadyImported: 0 }];
   const withDecisions = reconciliationLine({
@@ -161,14 +202,12 @@ describe("CB3 the bank reconciliation: three lines, then the check, then the tab
   const out = html(h(ReconciliationBlock, { line: withDecisions }));
   const text = words(out);
 
-  it("has ONE summary sentence that accounts for every bank entry, then the by-hand line", () => {
-    expect(text).toContain("106 bank entries: 25 matched automatically, 3 matched by hand, 42 waiting for a person, 1 waiting for approval, 35 not maintenance payments.");
-    expect(text).toContain("Matched by hand (last 30 days): 3");
+  it("is ONE ledger that accounts for every bank entry and adds up to the entries", () => {
+    expect(text).toContain("Matched automatically 25 + plus Matched by hand 3 + plus Waiting for a person 42 + plus Waiting for approval 1 + plus Not maintenance payments 35 = equals Bank entries 106");
+    const [auto, hand, person, approval, other, total] = ledgerNumbers(out);
+    expect(auto + hand + person + approval + other).toBe(total);
     expect(count(out, /<li>/g)).toBe(0);
-  });
-
-  it("the parts of the summary add up to the entries (25 + 3 + 42 + 1 + 35 = 106)", () => {
-    expect(25 + 3 + 42 + 1 + 35).toBe(106);
+    expect(text).not.toContain("Matched by hand (last 30 days)");
   });
 
   it("says in words, with a check, that every entry is accounted for, and only when the imports add up", () => {
@@ -190,20 +229,20 @@ describe("CB3 the bank reconciliation: three lines, then the check, then the tab
     expect(out).toContain('<th scope="col"');
   });
 
-  it("with every count at zero there is no table, the by-hand line says 0, and the parts for hand and approval are left out", () => {
+  it("with every count at zero there is no table, the by-hand line says 0, and the line for approval is left out", () => {
     expect(html(h(ReconciliationBlock, { line: none }))).not.toContain("<table");
     const plain = reconciliationLine({ states: { QUEUED: 44, AUTO_MATCHED: 24, AWAITING_APPROVAL: 0, MANUALLY_MATCHED: 0, IGNORED: 38 }, imports: [{ rowsRead: 106, stored: 106, invalidRows: 0, alreadyImported: 0 }], decisions: [] });
     const quiet = words(html(h(ReconciliationBlock, { line: plain })));
-    expect(quiet).toContain("Matched by hand (last 30 days): 0");
-    expect(quiet).toContain("106 bank entries: 24 matched automatically, 44 waiting for a person, 38 not maintenance payments.");
+    expect(quiet).toContain("Matched by hand 0");
+    expect(quiet).toContain("Matched automatically 24 + plus Matched by hand 0 + plus Waiting for a person 44 + plus Not maintenance payments 38 = equals Bank entries 106");
     expect(quiet).toContain("All 106 accounted for");
-    expect(quiet).not.toContain("waiting for approval");
+    expect(quiet).not.toContain("Waiting for approval");
   });
 
   it("the tick is not shown when an import does not add up, and 1,000 entries are grouped", () => {
     const bad = words(html(h(ReconciliationBlock, { line: reconciliationLine({ states: { ...states, QUEUED: 1000 }, imports: [{ rowsRead: 5, stored: 4, invalidRows: 0, alreadyImported: 0 }], decisions: [] }) })));
     expect(bad).not.toContain("accounted for");
-    expect(bad).toContain("1,000 waiting for a person");
+    expect(bad).toContain("Waiting for a person 1,000");
   });
 
   it("no import in the window says so in words, and an import without rows does not divide by zero", () => {
@@ -219,17 +258,16 @@ describe("CB3 the bank reconciliation: three lines, then the check, then the tab
   });
 });
 
-describe("CB4 about these numbers", () => {
-  it("gives the as-of date and a sentence for every metric, in the new words, with no developer wording", () => {
-    const set = words(html(h(AboutBlock, { asOf: "2026-10-27" })));
-    expect(set).toContain("About these numbers");
-    expect(set).toContain("All figures are as of 27 October 2026.");
-    expect(set).toContain("out of ALL the month's bills that are due so far");
-    expect(set).toContain("A late first reply counts as missed");
-    expect(set).not.toContain("committee_goals");
-    expect(set).toContain("Waiting for approval means a person matched it and a second person must approve it.");
-    expect(set).toContain("Every month is measured at the same age");
-    expect(set).not.toMatch(/Outstanding|Total due|principal/i);
+describe("CB4 the About block is retired (D207)", () => {
+  it("no page carries an About block, a link to one, or the words that pointed to it", () => {
+    const pages = [html(h(ReportView, { report: emptyReport() })), ...SECTIONS.map((section) => html(h(SectionPage, { slug: section.slug, report: emptyReport() })))].join("\n");
+    expect(words(pages)).not.toMatch(/About these numbers|What these words mean|What each figure means/);
+    expect(pages).not.toMatch(/id="about"|href="[^"]*#about"|committee-about/);
+  });
+
+  it("the component, its catalog keys and its pointer are gone", () => {
+    expect(existsSync(path.resolve(process.cwd(), "src/app/(staff)/staff/reports/about-block.tsx"))).toBe(false);
+    expect(Object.keys(en).filter((key) => /^committee\.(about\.|words\.)/.test(key))).toEqual([]);
   });
 });
 

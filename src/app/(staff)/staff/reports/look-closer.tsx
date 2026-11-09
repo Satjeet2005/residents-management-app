@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Support } from "@/components/committee/support";
 import { ChevronIcon } from "@/components/icons";
 import type { CalendarDate } from "@/domain/time/calendar";
 import { t } from "@/lib/messages";
@@ -22,7 +23,9 @@ export function LookCloser({ report, period }: { report: CommitteeReport; period
             <Link href={sectionHref(section.slug, period)} className="flex min-h-14 items-center justify-between gap-4 px-2">
               <span className="flex min-w-0 flex-col">
                 <span className="text-body font-semibold">{titles[section.slug]}</span>
-                <span className="text-caption text-ink-2">{report.headlines[section.headline]}</span>
+                <Support as="span" small>
+                  {report.headlines[section.headline]}
+                </Support>
               </span>
               <span aria-hidden="true" className="shrink-0">
                 <ChevronIcon size={24} />
