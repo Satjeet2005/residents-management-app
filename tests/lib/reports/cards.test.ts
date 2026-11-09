@@ -93,7 +93,7 @@ describe("CD2 the section headlines", () => {
   it("says each one in a sentence from the data", () => {
     expect(headlines.money).toBe("Billed ₹1.81 crore · 484 flats still to pay");
     expect(headlines.owed).toBe("₹12.1 lakh is over 90 days");
-    expect(headlines.quality).toBe("Typical 6 days to pay · 88% of paid bills were on time");
+    expect(headlines.quality).toBe("Half of paid bills are paid within 6 days · 88% of paid bills were on time");
     expect(headlines.complaints).toBe("1,603 raised, 85% answered in time");
     expect(headlines.bank).toBe("70 bank entries need a person");
   });

@@ -146,7 +146,7 @@ The code is 6 digits made without bias, valid for 300 seconds, and stored only a
 
 ## Additions, 2026-11-09 (final state)
 
-Facts here come from `src/lib/messages/en.ts` (`committee.about.*`), `docs/decisions.md`, `docs/classifier-benchmark.md`, `docs/jev-integration.md` and `docs/observability.md`. Each answer ends with a "Do not claim" line.
+Facts here come from `src/lib/messages/en.ts` (`committee.def.*`), `docs/decisions.md`, `docs/classifier-benchmark.md`, `docs/jev-integration.md` and `docs/observability.md`. Each answer ends with a "Do not claim" line.
 
 ### A1. Why is the on-time rate measured against all bills that are due?
 

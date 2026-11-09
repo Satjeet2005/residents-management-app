@@ -17,7 +17,7 @@ const CARDS = "section[aria-label='Headline figures']";
 const SLUGS = ["collections", "dues", "complaints", "bank"] as const;
 const TITLES: Record<(typeof SLUGS)[number], RegExp> = {
   collections: /^Collections, October 2026$/,
-  dues: /^Dues, all months, as of 27 October 2026$/,
+  dues: /^Dues, all months$/,
   complaints: /^Complaints, October 2026$/,
   bank: /^Bank statement matching, last 30 days$/,
 };
@@ -125,6 +125,10 @@ test.describe("the committee report at one width", () => {
     await openOverview(page);
     if ([360, 1280].includes(widthOf(page))) await save(page, page.locator(CARDS), `committee-cards-after-${widthOf(page)}x800.png`);
     await save(page, null, `committee-overview-${widthOf(page)}x${widthOf(page) === 768 ? 1024 : 800}.png`);
+    if (widthOf(page) === 360) {
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      await save(page, null, "committee-overview-after-360x800.png");
+    }
   });
 
   test("choosing a month changes the overview with no Show button", async ({ page }) => {
@@ -146,6 +150,8 @@ test.describe("the committee report at one width", () => {
       }
       await checkScreen(page, watch, "committee", slug);
       if (widthOf(page) === 360) await save(page, null, `committee-${slug}-360x800.png`);
+      if (widthOf(page) === 360 && slug !== "dues") await save(page, null, `committee-${slug}-after-360x800.png`);
+      if (widthOf(page) === 1280 && (slug === "collections" || slug === "complaints")) await save(page, null, `committee-${slug}-after-1280x800.png`);
       if (widthOf(page) === 1280 && slug === "collections") await save(page, null, "committee-collections-1280x800.png");
       await page.getByRole("link", { name: "Back to the committee report" }).click();
       await expect(page.getByRole("heading", { level: 1, name: "Committee report" })).toBeVisible();
@@ -197,43 +203,184 @@ test.describe("the committee report at one width", () => {
     }
   });
 
-  test("the drill-down opens largest first, can be turned to oldest first, and has a way back to the age groups at the top and the bottom; an old address with ?bucket= lands here", async ({ page }) => {
+  test("an old inline address goes to the flats page; the flats page opens largest first, turns to oldest first, has ONE back link at the top, and its rows are one line of at most 56px", async ({ page }) => {
     const watch = watchPage(page);
+    await page.goto("/staff/reports/dues?period=2026-10&bucket=over-90&sort=oldest");
+    await expect(page).toHaveURL(/\/staff\/reports\/dues\/flats\?bucket=over-90&sort=oldest$/);
     await page.goto("/staff/reports?period=2026-10&bucket=over-90");
-    await expect(page).toHaveURL(/\/staff\/reports\/dues\?.*bucket=over-90/);
-    const detail = page.locator("#ageing-detail");
-    await expect(detail.getByRole("heading", { level: 2 })).toBeFocused();
-    await expect(detail.getByRole("link", { name: "Largest first" })).toHaveAttribute("aria-current", "true");
-    const rows = detail.locator("tbody tr:visible, ul li:visible");
+    await expect(page).toHaveURL(/\/staff\/reports\/dues\/flats\?bucket=over-90$/);
+    const heading = page.getByRole("heading", { level: 1, name: /^\d+ flats owe ₹[\d.]+ (lakh|crore)$/ });
+    await expect(heading).toBeVisible();
+    await expect(heading).toBeFocused();
+    await expect(page.getByText(/^Over 90 days · as of 27 October 2026$/)).toBeVisible();
+    await expect(page.getByText("Flat codes only.")).toBeVisible();
+    const sort = page.getByRole("navigation", { name: "Order of the flats" });
+    await expect(sort.getByRole("link", { name: "Largest first" })).toHaveAttribute("aria-current", "true");
+    const rows = page.locator("main ul > li");
     await expect(rows.first()).toBeVisible();
     const amounts = await rows.evaluateAll((els) => els.map((el) => Number(/₹([\d,]+)/.exec((el as HTMLElement).innerText)?.[1].replace(/,/g, ""))));
     expect(amounts.length).toBeGreaterThan(5);
     expect(amounts).toEqual([...amounts].sort((a, b) => b - a));
-    await expect(detail.getByText(/^Showing \d+ of \d+$/)).toBeVisible();
-    await checkScreen(page, watch, "committee", "drilldown");
-    await detail.getByRole("link", { name: "Oldest first" }).click();
+    for (const row of await rows.all()) {
+      const box = await row.boundingBox();
+      expect(box?.height ?? 0).toBeLessThanOrEqual(56);
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(48);
+    }
+    await expect(page.getByText(/^Showing \d+ of \d+$/)).toBeVisible();
+    await expect(page.getByRole("link", { name: "Back to dues" })).toHaveCount(1);
+    await expect(page.getByText(/Close this list|Back to age groups/)).toHaveCount(0);
+    await checkScreen(page, watch, "committee", "flats");
+    await assertNoTextOverlap(page.locator("main"), `the flats page at ${widthOf(page)}px`);
+    if (widthOf(page) === 360) await save(page, null, "committee-dues-flats-after-360x800.png");
+    const [first, second] = await sort.getByRole("link").all();
+    for (const link of [first, second]) {
+      const box = await link.boundingBox();
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(48);
+      expect(await link.evaluate((el) => getComputedStyle(el).textDecorationLine)).toBe("none");
+    }
+    expect(await first.evaluate((el) => getComputedStyle(el).fontWeight)).toBe(await second.evaluate((el) => getComputedStyle(el).fontWeight));
+    await second.click();
     await expect(page).toHaveURL(/sort=oldest/);
-    await expect(detail.getByRole("link", { name: "Oldest first" })).toHaveAttribute("aria-current", "true");
-    await expect(detail.getByRole("link", { name: "← Back to age groups" })).toHaveCount(2);
-    await detail.getByRole("link", { name: "← Back to age groups" }).first().click();
-    await expect(page).toHaveURL(/#owed$/);
-    await expect(page.locator("#ageing-detail")).toHaveCount(0);
+    await expect(sort.getByRole("link", { name: "Oldest first" })).toHaveAttribute("aria-current", "true");
+    await page.getByRole("link", { name: "Back to dues" }).click();
+    await expect(page).toHaveURL(/\/staff\/reports\/dues$/);
   });
 
-  test("tapping an age group's link opens its drill-down of flats", async ({ page }) => {
+  test("tapping an age group's link opens the flats page of that group", async ({ page }) => {
     await openSection(page, "dues");
     await page.getByRole("link", { name: /^See the flats: 31 to 60 days/ }).click();
-    const heading = page.getByRole("heading", { name: /\d+ flats owe .* \(31 to 60 days\)/ });
+    await expect(page).toHaveURL(/\/staff\/reports\/dues\/flats\?bucket=31-60$/);
+    const heading = page.getByRole("heading", { level: 1, name: /^\d+ flats owe / });
     await expect(heading).toBeVisible();
     await expect(heading).toBeFocused();
   });
 
-  test("the strip and the Complaints page give the same count of open safety complaints that nobody has seen", async ({ page }) => {
+  test("hostile values fall back: an unknown group goes back to Dues, an unknown order is largest first, an unknown tower order is the most owed first", async ({ page }) => {
+    await page.goto("/staff/reports/dues/flats?bucket=%3Cscript%3E");
+    await expect(page).toHaveURL(/\/staff\/reports\/dues$/);
+    await page.goto("/staff/reports/dues/flats?bucket=31-60&sort=%3Cscript%3E");
+    await expect(page.getByRole("link", { name: "Largest first" })).toHaveAttribute("aria-current", "true");
+    await page.goto("/staff/reports/dues/towers?sort=%3Cscript%3E");
+    await expect(page.getByRole("link", { name: "Most owed first" })).toHaveAttribute("aria-current", "true");
+  });
+
+  test("the Dues page: no inline list of flats, at most five tower rows with 'All 28 towers' as its last element, an age table of at most four columns on a phone, and no overflow", async ({ page }) => {
+    await openSection(page, "dues");
+    await expect(page.locator("main").getByText(/T\d\d-\d{4}/)).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Show \d+ more/ })).toHaveCount(0);
+    const towers = page.locator("section[aria-labelledby='committee-towers']");
+    expect(await towers.locator("tbody tr").count()).toBeLessThanOrEqual(5);
+    const link = towers.getByRole("link", { name: /^All \d+ towers$/ });
+    expect((await link.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(56);
+    expect(await towers.evaluate((el) => (el.lastElementChild as HTMLElement).tagName)).toBe("A");
+    await expect(page.locator("main").getByText(/month chosen|does not change this block/)).toHaveCount(0);
+    await expect(page.locator("#report-period")).toHaveCount(0);
+    if (widthOf(page) === 360) await save(page, null, "committee-dues-after-360x800.png");
+    if (widthOf(page) === 1280) await save(page, null, "committee-dues-after-1280x800.png");
+    await page.locator("section[aria-labelledby='committee-age'] details > summary").click();
+    const visibleHeads = await page.locator("section[aria-labelledby='committee-age'] table th[scope='col']").evaluateAll((ths) => ths.filter((th) => th.getBoundingClientRect().width > 0).length);
+    expect(visibleHeads).toBe(widthOf(page) >= 768 ? 6 : 4);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+    await assertNoTextOverlap(page.locator("main"), `the Dues page at ${widthOf(page)}px`);
+  });
+
+  test("the towers page: reached from 'All 28 towers', one table of all towers whose totals row is Total owed, four columns on a phone, two sort options, one back link", async ({ page }) => {
+    const watch = watchPage(page);
+    await openSection(page, "dues");
+    const totalOwed = (await page.locator("section[aria-labelledby='committee-total'] .tnum").first().innerText()).trim();
+    await page.getByRole("link", { name: /^All \d+ towers$/ }).click();
+    await expect(page).toHaveURL(/\/staff\/reports\/dues\/towers$/);
+    const heading = page.getByRole("heading", { level: 1, name: "Towers, all months" });
+    await expect(heading).toBeFocused();
+    await expect(page.getByText("As of 27 October 2026")).toBeVisible();
+    // The page the person came from may stay in the document, hidden: only what is shown counts.
+    await expect(page.locator("table:visible")).toHaveCount(1);
+    expect(await page.locator("table:visible tbody tr").count()).toBeGreaterThan(20);
+    const visibleHeads = await page.locator("table:visible th[scope='col']").evaluateAll((ths) => ths.filter((th) => th.getBoundingClientRect().width > 0).map((th) => th.textContent));
+    expect(visibleHeads).toEqual(widthOf(page) >= 768 ? ["Tower", "Owed", "Flats owing", "Over 90 days", "Unpaid bills", "Late fees"] : ["Tower", "Owed", "Flats owing", "Over 90 days"]);
+    const lastOwed = await page.locator("table:visible tbody tr").last().locator("td").first().innerText();
+    expect(lastOwed.replace(/[^\d]/g, ""), "the totals row is Total owed").toBe(totalOwed.replace(/[^\d]/g, ""));
+    await expect(page.getByRole("link", { name: "Back to dues" })).toHaveCount(1);
+    await expect(page.getByRole("link", { name: "Most owed first" })).toHaveAttribute("aria-current", "true");
+    await checkScreen(page, watch, "committee", "towers");
+    await assertNoTextOverlap(page.locator("main"), `the towers page at ${widthOf(page)}px`);
+    if (widthOf(page) === 360) await save(page, null, "committee-dues-towers-after-360x800.png");
+    if (widthOf(page) === 1280) await save(page, null, "committee-dues-towers-after-1280x800.png");
+    await page.getByRole("link", { name: "Tower number" }).click();
+    await expect(page).toHaveURL(/sort=tower$/);
+    await expect(page.getByRole("link", { name: "Tower number" })).toHaveAttribute("aria-current", "true");
+    expect((await page.locator("table:visible tbody tr").first().locator("th").innerText()).trim()).toMatch(/^Tower \d+$/);
+    await page.getByRole("link", { name: "Back to dues" }).click();
+    await expect(page).toHaveURL(/\/staff\/reports\/dues$/);
+  });
+
+  test("keyboard: on the flats page the Tab order is the sort options, then Show 25 more; Shift+Tab from the first option reaches the back link; Enter follows a link", async ({ page }) => {
+    await page.goto("/staff/reports/dues/flats?bucket=31-60");
+    await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("link", { name: "Largest first" })).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("link", { name: "Oldest first" })).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("button", { name: /^Show \d+ more$/ })).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await page.keyboard.press("Shift+Tab");
+    await page.keyboard.press("Shift+Tab");
+    await expect(page.getByRole("link", { name: "Back to dues" })).toBeFocused();
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("link", { name: "Oldest first" })).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/sort=oldest/);
+  });
+
+  test("the strip and the Complaints page give the same count of open safety complaints that nobody has seen: the all-months row shows only when it differs from the month's line", async ({ page }) => {
     await openOverview(page);
     const strip = page.getByRole("status").filter({ hasText: "not yet seen by the duty manager" });
     const k = (await strip.count()) > 0 ? Number(/(\d[\d,]*) safety complaints? (is|are)/.exec(await strip.innerText())?.[1].replace(/,/g, "")) : 0;
     await openSection(page, "complaints");
-    await expect(page.locator("main")).toContainText(`Open and not yet seen, all months: ${k}`);
+    const safety = page.locator("section[aria-labelledby='committee-safety']");
+    const valueOf = async (label: string) => {
+      const row = safety.locator("dt").filter({ hasText: new RegExp(`^\\+?(plus )?${label}$`) });
+      return (await row.count()) === 0 ? null : Number((await row.locator("xpath=following-sibling::dd").innerText()).replace(/,/g, ""));
+    };
+    const month = await valueOf("Open, not yet seen");
+    const all = await valueOf("Open, not yet seen, all months");
+    expect(all === null ? month ?? 0 : all, "the page and the strip say the same number").toBe(k);
+    if (all !== null) expect(all).not.toBe(month ?? 0);
+  });
+
+  test("no value wraps: every figure value of every committee page is on one line (at 360px too)", async ({ page }) => {
+    for (const slug of SLUGS) {
+      await openSection(page, slug);
+      const wrapped = await page.evaluate(() =>
+        [...document.querySelectorAll("main dd")]
+          .filter((dd) => {
+            const range = document.createRange();
+            range.selectNodeContents(dd);
+            return new Set([...range.getClientRects()].map((r) => Math.round(r.top / 4))).size > 1;
+          })
+          .map((dd) => (dd.textContent ?? "").slice(0, 30)),
+      );
+      expect(wrapped, `${slug}: values that wrap`).toEqual([]);
+    }
+  });
+
+  test("each page has one expander of definitions, closed, that opens in place with its summary at least 48px, and no About block", async ({ page }) => {
+    for (const slug of SLUGS) {
+      await openSection(page, slug);
+      const expander = page.locator("details[data-definitions]");
+      await expect(expander).toHaveCount(1);
+      const summary = expander.locator("summary");
+      expect((await summary.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(48);
+      await expect(summary).toHaveText("What do these mean?");
+      await summary.click();
+      await expect(expander.locator("li").first()).toBeVisible();
+      await assertNoTextOverlap(expander, `${slug}: the open expander at ${widthOf(page)}px`);
+    }
+    await openOverview(page);
+    await expect(page.locator("details[data-definitions]")).toHaveCount(1);
+    await expect(page.getByText(/About these numbers|What these words mean/)).toHaveCount(0);
   });
 
   test("at 150 percent zoom on a phone (a 240 px wide screen) no page overflows sideways, with every table open", async ({ page }) => {

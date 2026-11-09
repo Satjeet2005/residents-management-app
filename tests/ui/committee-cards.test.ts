@@ -5,6 +5,7 @@ import { AlertStrip } from "@/app/(staff)/staff/reports/alert-strip";
 import { HeadlineCards } from "@/app/(staff)/staff/reports/headline-cards";
 import { AGE_BUCKETS } from "@/domain/reports/age";
 import type { MoneyLine } from "@/domain/reports/money-line";
+import { definitionLinesFor } from "@/lib/reports/figures";
 import { trendDescription } from "@/lib/reports/visuals";
 import { emptyReport } from "./committee-fixtures";
 
@@ -47,34 +48,34 @@ const ageing = { buckets: AGE_BUCKETS.map((bucket) => ({ bucket, flats: 1, bills
 describe("HC1 the four headline cards", () => {
   const out = html(h(HeadlineCards, { report: emptyReport({ money, ageing }) }));
 
-  it("has four cards in the order Money collected, Total still owed, Paid on time, Replied in time, each with an h2 label that names its period", () => {
+  it("has four cards in the order Money collected, Total still owed, Paid on time, Replied in time, each with an h2 label that names its period, and carries no period line of its own (D213: the title says it)", () => {
     const labels = [...out.matchAll(/<h2[^>]*>([^<]*)<\/h2>/g)].map((m) => m[1]);
     expect(labels).toEqual(["Money collected for October", "Total still owed, all months", "Paid on time, October", "Replied in time, October"]);
-    expect(words(out)).toContain("October bills");
-    expect(words(out)).toContain("All months, as of 27 October 2026");
-    expect(words(out)).toContain("Complaints raised in October");
+    expect(words(out)).not.toContain("October bills");
+    expect(words(out)).not.toContain("All months, as of");
+    expect(words(out)).not.toContain("Complaints raised in");
   });
 
   it("the collected card shows the percent, both amounts in short form, a bar with no goal tick and its sentence", () => {
     const text = words(out);
     expect(text).toContain("₹1.48 crore of ₹1.81 crore");
-    const card = out.split("<li class=")[1];
+    const card = out.split("<li data-block=")[1];
     expect(card).toContain('role="img" aria-label="₹1.48 crore of ₹1.81 crore billed has been collected');
     expect(card).not.toContain('data-part="tick"');
     expect(card).not.toContain("Goal");
   });
 
   it("the owed card shows the total, its flats with the amount over 90 days, the split into unpaid bills and late fees, and no chart", () => {
-    const card = words(out.split("<li class=")[2]);
+    const card = words(out.split("<li data-block=")[2]);
     expect(card).toContain("₹60.6 lakh");
     expect(card).toContain("817 flats · ₹0.01 is over 90 days");
     expect(card).toContain("Unpaid ₹60.6 lakh + late fees ₹0");
-    expect(out.split("<li class=")[2]).not.toContain("<svg");
+    expect(out.split("<li data-block=")[2]).not.toContain("<svg");
   });
 
   it("the two goal cards say 'No data' and show no verdict when there is nothing to measure, and carry a bar with no goal sentence", () => {
     for (const index of [3, 4]) {
-      const card = out.split("<li class=")[index];
+      const card = out.split("<li data-block=")[index];
       expect(words(card)).toContain("No data");
       expect(card).not.toContain("Not met");
       expect(card).not.toMatch(/>Met</);
@@ -105,8 +106,8 @@ describe("HC2 goals in words with an icon", () => {
 
   it("Met has a check icon and the word, Not met a warning icon and the words", () => {
     const met = withGoals(1, 0);
-    const onTimeCard = met.split("<li class=")[3];
-    const slaCard = met.split("<li class=")[4];
+    const onTimeCard = met.split("<li data-block=")[3];
+    const slaCard = met.split("<li data-block=")[4];
     expect(words(onTimeCard)).toContain("Met");
     expect(onTimeCard).toContain("<svg");
     expect(words(slaCard)).toContain("Not met");
@@ -128,18 +129,20 @@ describe("HC3 the computed takeaway of a trend", () => {
   });
 });
 
-describe("HC4 the pointer to the definitions and the targets note", () => {
+describe("HC4 the cards point to no definitions block and keep the targets note out of the page body", () => {
   const out = html(h(HeadlineCards, { report: emptyReport() }));
 
-  it("links 'What these words mean' to About these numbers, a 48px target", () => {
-    expect(out).toContain('href="#about"');
-    expect(words(out)).toContain("What these words mean");
-    expect(out).toMatch(/<a href="#about" class="[^"]*min-h-12/);
+  it("has no link to an About block and no 'What these words mean' pointer (D207)", () => {
+    expect(out).not.toContain('href="#about"');
+    expect(words(out)).not.toMatch(/What these words mean|About these numbers/);
   });
 
-  it("says the targets are standard starting targets only when the committee has not set its own, with no developer wording", () => {
-    expect(words(html(h(HeadlineCards, { report: emptyReport({ goals: { ...emptyReport().goals, source: "DEFAULT" } }) })))).toContain("Targets shown are standard starting targets (90%, 90%, 8%). The committee has not set its own.");
-    expect(words(out)).not.toContain("standard starting targets");
-    expect(words(out)).not.toContain("committee_goals");
+  it("the standard-targets note is a line of the page's one expander, only when the committee has not set its own, with no developer wording", () => {
+    const standard = emptyReport({ goals: { ...emptyReport().goals, source: "DEFAULT" } });
+    const own = emptyReport({ goals: { ...emptyReport().goals, source: "SETTING" } });
+    expect(words(html(h(HeadlineCards, { report: standard })))).not.toContain("standard starting targets");
+    expect(definitionLinesFor("overview", standard).map((l) => l.text)).toContain("Targets shown are standard starting targets (90%, 90%, 8%). The committee has not set its own.");
+    expect(definitionLinesFor("overview", own).map((l) => l.id)).not.toContain("goalsDefault");
+    expect(definitionLinesFor("overview", standard).map((l) => l.text).join(" ")).not.toContain("committee_goals");
   });
 });

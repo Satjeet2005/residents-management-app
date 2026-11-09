@@ -8,6 +8,11 @@ import { computeDues } from "@/domain/billing/dues";
 import { decideAccess } from "@/server/auth/access";
 import { type SessionUser } from "@/server/auth/session-service";
 import { StaffAccessError } from "@/server/statements/ui-data";
+import { FlatsView } from "@/app/(staff)/staff/reports/flats-view";
+import { TowersView } from "@/app/(staff)/staff/reports/towers-view";
+import { decodeCursor, pageAfter } from "@/lib/reports/cursor";
+import { sortTowers } from "@/lib/reports/towers";
+import { loadTowersPage } from "@/server/reports/towers-page";
 import { ageingPageOf } from "@/server/reports/ageing-page";
 import { AGE_BUCKETS, ageingFlats } from "@/domain/reports/age";
 import { importStatement } from "@/server/statements/import";
@@ -262,6 +267,79 @@ describe("RP2 the ageing, checked against raw SQL and against the Home's own sum
   });
 });
 
+describe("RP6b the flats page: every group and both orders, paged by THREE, against independent SQL (D217)", () => {
+  it("the pages of three (keyset, with ties) stitch to the full list, each flat once, and the flats and their bills and oldest age are the flats of an independent SQL", async () => {
+    const perFlat = await fx.owner.$queryRawUnsafe<{ bucket: string; code: string; bills: string; oldest: number }[]>(
+      `${OPEN_DUES_SQL} SELECT a.bucket, f.code, count(*)::text AS bills, max(a.days)::int AS oldest FROM aged a JOIN flats f ON f.id = a.flat_id GROUP BY a.bucket, f.code`,
+      AS_OF,
+    );
+    let ties = 0;
+    for (const bucket of AGE_BUCKETS) {
+      const mine = new Map(perFlat.filter((r) => r.bucket === bucket).map((r) => [r.code, r]));
+      for (const sort of ["LARGEST", "OLDEST"] as const) {
+        const all = ageingFlats(seeded, AS_OF, bucket, sort);
+        const stitched: typeof all = [];
+        let place = null as ReturnType<typeof decodeCursor>;
+        for (let guard = 0; guard < 2000; guard++) {
+          const page = pageAfter(all, sort, place, 3);
+          expect(page.rows.length, `${bucket} ${sort}`).toBeLessThanOrEqual(3);
+          stitched.push(...page.rows);
+          if (page.nextCursor === null) break;
+          place = decodeCursor(page.nextCursor);
+          expect(place, `${bucket} ${sort}: a cursor of ours is one`).not.toBeNull();
+        }
+        expect(stitched.map((r) => r.flatCode), `${bucket} ${sort}`).toEqual(all.map((r) => r.flatCode));
+        expect(new Set(stitched.map((r) => r.flatCode)).size, `${bucket} ${sort}: each flat once`).toBe(all.length);
+        expect(new Set(all.map((r) => r.flatCode)), `${bucket} ${sort}: the SQL flats`).toEqual(new Set(mine.keys()));
+        for (const flat of all) expect([flat.bills, flat.oldestDaysPastDue], `${bucket} ${flat.flatCode}`).toEqual([Number(mine.get(flat.flatCode)?.bills), mine.get(flat.flatCode)?.oldest]);
+        const key = (r: (typeof all)[number]) => (sort === "LARGEST" ? r.amountDuePaise : BigInt(r.oldestDaysPastDue));
+        ties += all.filter((r, i) => i > 0 && key(r) === key(all[i - 1])).length;
+      }
+    }
+    expect(ties, "the seeded groups have equal amounts or ages, so the paging is tested across ties").toBeGreaterThan(0);
+  });
+
+  it("the page the loader gives is the first 25 of the same list, and the FlatsView of it names no resident", async () => {
+    const first = await loadAgeingPage({ db: fx.app, user: meera, bucket: "OVER_90", sort: "OLDEST", now: DEMO_NOW });
+    expect(first?.rows.map((r) => r.flatCode)).toEqual(ageingFlats(seeded, AS_OF, "OVER_90", "OLDEST").slice(0, 25).map((r) => r.flatCode));
+    const out = renderToStaticMarkup(h(FlatsView, { page: first as NonNullable<typeof first>, bucket: "OVER_90", sort: "OLDEST", asOf: AS_OF }));
+    expect(words(out)).toMatch(/\d+ flats owe ₹[\d.]+ (lakh|crore)/);
+    expect(words(out)).toContain("Over 90 days · as of 27 October 2026");
+  });
+});
+
+describe("RP7b the towers page against independent SQL (D217)", () => {
+  it("every tower of the page, in both orders, equals SQL, and the totals row is Total owed", async () => {
+    const page = await loadTowersPage({ db: fx.app, user: meera, now: DEMO_NOW });
+    expect(page.asOf).toBe(AS_OF);
+    expect(page.rollup).toEqual(october.towers);
+    const sql = await fx.owner.$queryRawUnsafe<{ tower: string; flats: string; principal: string | null; fee_only: string | null; over90: string }[]>(
+      `${OPEN_DUES_SQL} SELECT f.tower, count(DISTINCT a.flat_id)::text AS flats, sum(a.principal)::text AS principal, sum(a.fee_only)::text AS fee_only,
+              count(DISTINCT a.flat_id) FILTER (WHERE a.days >= 91)::text AS over90 FROM aged a JOIN flats f ON f.id = a.flat_id GROUP BY f.tower`,
+      AS_OF,
+    );
+    for (const sort of ["owed", "tower"] as const) {
+      const listed = sortTowers(page.rollup.towers, sort);
+      expect(listed.length).toBe(sql.length);
+      const names = listed.map((t) => t.tower);
+      expect(names, sort).toEqual(sort === "tower" ? [...sql.map((r) => r.tower)].sort() : listed.map((t) => t.tower));
+      if (sort === "owed") expect(listed.map((t) => t.amountDuePaise)).toEqual([...listed.map((t) => t.amountDuePaise)].sort((a, b) => (a < b ? 1 : a > b ? -1 : 0)));
+      for (const t of listed) {
+        const row = sql.find((r) => r.tower === t.tower);
+        expect([t.flats, t.unpaidBillsPaise, t.flatsOver90], `${sort} ${t.tower}`).toEqual([Number(row?.flats), BigInt(row?.principal ?? 0), Number(row?.over90)]);
+        expect(t.lateFeesPaise >= BigInt(row?.fee_only ?? 0), `${sort} ${t.tower}`).toBe(true);
+      }
+    }
+    expect(page.rollup.total.amountDuePaise).toBe(october.ageing.total.amountDuePaise);
+    expect(page.rollup.towers.reduce((sum, t) => sum + t.amountDuePaise, 0n)).toBe(october.ageing.total.amountDuePaise);
+    const sqlPrincipal = sql.reduce((sum, r) => sum + BigInt(r.principal ?? 0), 0n);
+    expect(page.rollup.total.unpaidBillsPaise).toBe(sqlPrincipal);
+    const out = renderToStaticMarkup(h(TowersView, { page, sort: "owed" }));
+    expect(words(out)).toContain("Towers, all months");
+    expect(out).not.toMatch(/T\d\d-\d{4}/);
+  });
+});
+
 describe("RP7 what is owed by tower, against independent SQL (D182)", () => {
   it("every tower: flats owing, bills, unpaid bills, and flats over 90 days equal SQL; the towers add up to Total owed; no name or flat code in the block", async () => {
     const rows = await fx.owner.$queryRawUnsafe<{ tower: string; flats: string; bills: string; principal: string | null; fee_only: string | null; over90: string }[]>(
@@ -477,6 +555,17 @@ describe("RP2 the goals", () => {
     console.log(`RP2 goals ${october.goals.rows.map((r) => `${r.key} target=${r.targetPercent} actual=${r.actualPercent} ${r.status}`).join("; ")}`);
   });
 
+  it("D211 the days of 'Closed automatically' come from the auto_close_days setting, never from the text", async () => {
+    const days = async () => (await loadCommitteeReport({ db: fx.app, user: meera, requestedPeriod: OCTOBER, now: DEMO_NOW })).autoCloseDays;
+    const [row] = await fx.owner.$queryRaw<{ value: unknown }[]>`SELECT value FROM society_settings WHERE key = 'auto_close_days'`;
+    expect(await days()).toBe(typeof row?.value === "number" ? row.value : 7);
+    await fx.owner.$executeRaw`DELETE FROM society_settings WHERE key = 'auto_close_days'`;
+    await fx.owner.$executeRaw`INSERT INTO society_settings (key, value) VALUES ('auto_close_days', '12'::jsonb)`;
+    expect(await days()).toBe(12);
+    await fx.owner.$executeRaw`DELETE FROM society_settings WHERE key = 'auto_close_days'`;
+    if (typeof row?.value === "number") await fx.owner.$executeRaw`INSERT INTO society_settings (key, value) VALUES ('auto_close_days', ${JSON.stringify(row.value)}::jsonb)`;
+  }, 60_000);
+
   it("with no committee_goals row the page still opens, on the built-in defaults, and says so", async () => {
     await fx.owner.$executeRaw`DELETE FROM society_settings WHERE key = 'committee_goals'`;
     const without = await loadCommitteeReport({ db: fx.app, user: meera, requestedPeriod: OCTOBER, now: DEMO_NOW });
@@ -580,9 +669,10 @@ describe("RP6 access: who may read the report, and what the page never shows", (
   });
 
   it("the committee user sees the whole page, from the real data, with every block", async () => {
-    const out = pagesOf({ ...october, drilldown: firstPage }).join("\n");
-    for (const part of ["Committee report", "As of 27 October 2026 · read only", "Money collected for October", "Billed and collected", "What is owed", "How fast bills are paid", "Complaints", "Bank statement matching", "About these numbers"]) expect(out).toContain(part);
-    expect(words(out)).toMatch(/\d+ flats owe ₹[\d.]+ (lakh|crore) \(31 to 60 days\)/);
+    const out = [...pagesOf(october), renderToStaticMarkup(h(FlatsView, { page: firstPage as NonNullable<typeof firstPage>, bucket: "DAYS_31_60", sort: "LARGEST", asOf: AS_OF }))].join("\n");
+    for (const part of ["Committee report", "As of 27 October 2026 · read only", "Money collected for October", "Billed and collected", "Total owed", "How old are the dues?", "How fast bills are paid", "Complaints", "Bank statement matching", "What do these mean?"]) expect(out).toContain(part);
+    expect(words(out)).toMatch(/\d+ flats owe ₹[\d.]+ (lakh|crore)/);
+    expect(words(out)).toContain("31 to 60 days · as of 27 October 2026");
     expect(out).not.toMatch(/<h2[^>]*>Goals<\/h2>/);
     expect(out).toContain("₹1,80,52,190");
     expect(out).not.toMatch(/NaN|undefined/);
@@ -592,14 +682,14 @@ describe("RP6 access: who may read the report, and what the page never shows", (
     const people = await fx.owner.user.findMany({ select: { name: true, phone: true } });
     expect(people.length).toBeGreaterThan(2400);
     const pages = AGE_BUCKETS.flatMap((bucket) => (["LARGEST", "OLDEST"] as const).map((sort) => ageingPageOf(seeded, AS_OF, bucket, sort, null)));
-    // Every page of the report (the overview and the four section pages), with every drill-down, is searched; the chart and table counts are of the pages together.
-    const outputs = pages.flatMap((drilldown) => pagesOf({ ...october, drilldown }));
+    // Every page of the report (the overview and the four section pages), every flats page (every group in both orders) and the towers page in both orders is searched.
+    const outputs = pages.map((page) => renderToStaticMarkup(h(FlatsView, { page, bucket: page.bucket, sort: page.sort, asOf: AS_OF })));
     outputs.push(...pagesOf(october));
-    const together = (drilldown: (typeof pages)[number]): string => pagesOf({ ...october, drilldown }).join("\n");
-    expect(pages.every((drilldown) => {
-      const all = together(drilldown);
-      return all.includes("See the numbers behind this chart") && (all.match(/<table/g) ?? []).length >= 8;
-    })).toBe(true);
+    const towersPage = await loadTowersPage({ db: fx.app, user: meera, now: DEMO_NOW });
+    outputs.push(...(["owed", "tower"] as const).map((sort) => renderToStaticMarkup(h(TowersView, { page: towersPage, sort }))));
+    const together = pagesOf(october).join("\n");
+    expect(together.includes("See the numbers behind this chart") && (together.match(/<table/g) ?? []).length >= 4).toBe(true);
+    expect(outputs.filter((out) => /T\d\d-\d{4}/.test(out)).length, "the flats pages do carry flat codes: the scan is on names and phones").toBeGreaterThan(0);
     const hits = new Set<string>();
     for (const out of outputs) {
       const text = out.replace(/<[^>]*>/g, " ");

@@ -1,11 +1,11 @@
-import type { ChartTable } from "@/components/charts/chart-parts";
+import type { DataColumn, DataRow } from "@/components/committee/data-table";
 import { formatRupees } from "@/domain/money/money";
 import { AGE_BUCKETS, type AgeBucket, type Ageing, type AgeingSort } from "@/domain/reports/age";
 import type { MoneyLine } from "@/domain/reports/money-line";
-import { percentOfPaise } from "@/domain/reports/stats";
 import { monthName } from "@/lib/format-date";
 import { t } from "@/lib/messages";
-import { countText } from "./cards";
+import { countText, flatsText } from "./cards";
+import { sharesOf } from "./shares";
 
 const QUERY_OF: Record<AgeBucket, string> = { NOT_YET_DUE: "not-yet-due", DAYS_1_30: "1-30", DAYS_31_60: "31-60", DAYS_61_90: "61-90", OVER_90: "over-90" };
 
@@ -21,6 +21,15 @@ export const sortFromQuery = (value: string | string[] | undefined): AgeingSort 
 export const sortQuery = (sort: AgeingSort): string => (sort === "OLDEST" ? "oldest" : "largest");
 
 export const bucketQuery = (bucket: AgeBucket): string => QUERY_OF[bucket];
+
+/** The address of the flats page of an age group, in the order asked for (the default, largest first, is left out). */
+export const flatsHref = (bucket: AgeBucket, sort: AgeingSort = "LARGEST"): string => `/staff/reports/dues/flats?bucket=${QUERY_OF[bucket]}${sort === "OLDEST" ? "&sort=oldest" : ""}`;
+
+/** Where an old inline address (`/staff/reports/dues?bucket=...`, or the overview's) now goes: the flats page of the same group and order; null when it names no group. */
+export function legacyFlatsTarget(query: Record<string, string | string[] | undefined>): string | null {
+  const bucket = bucketFromQuery(query.bucket);
+  return bucket === null ? null : flatsHref(bucket, sortFromQuery(query.sort));
+}
 
 export function bucketLabel(bucket: AgeBucket): string {
   switch (bucket) {
@@ -40,8 +49,14 @@ export function bucketLabel(bucket: AgeBucket): string {
 /** The age groups to list: all of them, but "Not yet due" only when something is in it ("Nothing is waiting to fall due" is not a line anyone needs). */
 export const listedBuckets = (ageing: Ageing) => ageing.buckets.filter((b) => b.bucket !== "NOT_YET_DUE" || b.bills > 0);
 
-/** A group's share of the total owed, whole percent, or null when nothing is owed. The bar of the group is scaled to the TOTAL, so the bars compare with each other. */
-export const shareOfTotal = (amountPaise: bigint, ageing: Ageing): number | null => percentOfPaise(amountPaise, ageing.total.amountDuePaise);
+/** The shares of the age groups in whole percent, by group, adding to exactly 100 (largest remainder, D214); every group is 0 when nothing is owed. */
+export function groupShares(ageing: Ageing): Record<AgeBucket, number> {
+  const shares = sharesOf(ageing.buckets.map((b) => b.amountDuePaise));
+  return Object.fromEntries(ageing.buckets.map((b, i) => [b.bucket, shares[i]])) as Record<AgeBucket, number>;
+}
+
+/** The count a row of the age list states: its bills, except "Over 90 days", which states the flats (the number to chase). */
+export const rowCountText = (bucket: AgeBucket, row: { bills: number; flats: number }): string => (bucket === "OVER_90" ? flatsText(row.flats) : billsText(row.bills));
 
 /** The width of a group's bar in percent of the TOTAL owed (one decimal), at least 1 when the group owes anything, so a small group is still seen. */
 export function barWidthPercent(amountPaise: bigint, ageing: Ageing): number {
@@ -52,27 +67,34 @@ export function barWidthPercent(amountPaise: bigint, ageing: Ageing): number {
 const billsText = (n: number): string => (n === 1 ? t("committee.ageing.billsOne") : t("committee.ageing.billsMany", { n: countText(n) }));
 export { billsText };
 
-/** The numbers behind the list: Age, Bills, Flats, Unpaid bills, Late fees, Total, with a total row; exact rupees in full Indian grouping. */
-export function ageingTableOf(ageing: Ageing): ChartTable {
+/**
+ * The numbers behind the list as a real table: Age, Bills, Flats, Unpaid bills, Late fees, Total, and a total row whose Total is Total owed (the one place that figure
+ * is repeated, D214). A phone shows four columns (Age, Bills, Unpaid bills, Late fees); Flats and Total come from 768px.
+ */
+export function ageingTableOf(ageing: Ageing): { caption: string; columns: DataColumn[]; rows: DataRow[] } {
   const cells = (row: Ageing["total"]) => [countText(row.bills), countText(row.flats), formatRupees(row.unpaidBillsPaise), formatRupees(row.lateFeesPaise), formatRupees(row.amountDuePaise)];
   return {
     caption: t("committee.ageing.table.caption"),
-    columns: [t("committee.ageing.col.age"), t("committee.ageing.col.bills"), t("committee.ageing.col.flats"), t("committee.ageing.col.unpaid"), t("committee.ageing.col.fees"), t("committee.ageing.col.total")],
-    rows: [...listedBuckets(ageing).map((b) => ({ header: bucketLabel(b.bucket), cells: cells(b) })), { header: t("committee.ageing.total"), cells: cells(ageing.total) }],
+    columns: [
+      { label: t("committee.ageing.col.age"), phone: true },
+      { label: t("committee.ageing.col.bills"), phone: true },
+      { label: t("committee.ageing.col.flats"), phone: false },
+      { label: t("committee.ageing.col.unpaid"), phone: true },
+      { label: t("committee.ageing.col.fees"), phone: true },
+      { label: t("committee.ageing.col.total"), phone: false },
+    ],
+    rows: [...listedBuckets(ageing).map((b) => ({ key: b.bucket, header: bucketLabel(b.bucket), cells: cells(b) })), { key: "total", header: t("committee.ageing.total"), cells: cells(ageing.total), total: true }],
   };
 }
 
-/**
- * The one sentence that ties the month's "Still unpaid" of Billed and collected to the age groups (D175): when the age group that holds the month's unpaid bills
- * holds exactly that amount, it names the group and the late fees on top ("October's unpaid bills are ₹31,39,129 (Billed and collected). The 1 to 30 days group
- * also holds late fees of ₹30,751."); otherwise it gives the totals of every month. Null with no money line or nothing owed. Exact rupees: it is a reconciliation.
- */
-export function reconcileNote(input: { ageing: Ageing; money: MoneyLine | null; period: string }): string | null {
-  const { ageing, money, period } = input;
+/** The age group that holds exactly the month's "Still unpaid" of Billed and collected (the same bills), or null: it ties the Dues page to the Collections page (D175). */
+export function reconcilingGroup(ageing: Ageing, money: MoneyLine | null): AgeBucket | null {
   if (money === null || ageing.total.bills === 0) return null;
-  const month = monthName(period);
-  const group = ageing.buckets.find((b) => b.unpaidBillsPaise === money.outstandingPaise && b.bills === money.flatsOutstanding && b.bills > 0);
-  return group === undefined
-    ? t("committee.ageing.reconcileOther", { month, bills: formatRupees(money.outstandingPaise), all: formatRupees(ageing.total.unpaidBillsPaise), fees: formatRupees(ageing.total.lateFeesPaise) })
-    : t("committee.ageing.reconcile", { month, bills: formatRupees(money.outstandingPaise), group: bucketLabel(group.bucket), fees: formatRupees(group.lateFeesPaise) });
+  return ageing.buckets.find((b) => b.unpaidBillsPaise === money.outstandingPaise && b.bills === money.flatsOutstanding && b.bills > 0)?.bucket ?? null;
+}
+
+/** "The 1 to 30 days row holds October's unpaid bills (...) plus their late fees." for the expander, or null when no group holds exactly the month's unpaid bills. */
+export function reconcileLine(ageing: Ageing, money: MoneyLine | null, period: string): string | null {
+  const group = reconcilingGroup(ageing, money);
+  return group === null ? null : t("committee.def.ageReconcile", { group: bucketLabel(group), month: monthName(period) });
 }

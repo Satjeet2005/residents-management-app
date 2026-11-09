@@ -57,8 +57,6 @@ export type MonthlyVisual = {
   rows: BarRow[];
   columns: StackColumn[];
   labels: { collected: string; outstanding: string };
-  /** The sentences under the chart: why the months can be compared, and (only when a month was left out) that months before billing started are not shown. */
-  notes: string[];
 };
 
 /**
@@ -73,6 +71,8 @@ export function monthlyVisual(series: readonly MonthlyPoint[]): MonthlyVisual {
   const points = billed.map((p) => ({ label: monthLabel(p.period), value: p.byDay20Percent }));
   const description = t("committee.monthly.desc", { movement: trendDescription(points, null) });
   const young = billed.find((p) => p.inProgress);
+  // Months before billing started are left out; that is said in the description of the chart (for a screen reader), not as a line of text on the page (text budget).
+  const hidden = billed.length < series.length ? ` ${t("committee.monthly.hidden")}` : "";
   const named = (p: MonthlyPoint): string => `${monthName(p.period)} ${p.period.slice(0, 4)}`;
   const table = (columns: string[], cells: (p: MonthlyPoint) => string[]): ChartText["table"] => ({
     caption: t("committee.monthly.caption"),
@@ -84,7 +84,7 @@ export function monthlyVisual(series: readonly MonthlyPoint[]): MonthlyVisual {
       id: "monthly",
       caption: t("committee.monthly.caption"),
       title: t("committee.monthly.title"),
-      description: young === undefined ? description : `${description} ${t("committee.monthly.descYoung", { month: monthName(young.period) })}`,
+      description: `${young === undefined ? description : `${description} ${t("committee.monthly.descYoung", { month: monthName(young.period) })}`}${hidden}`,
       table: table([t("committee.monthly.col.month"), t("committee.monthly.col.billed"), t("committee.monthly.col.within20"), t("committee.monthly.col.today"), t("committee.monthly.col.unpaid")], (p) => [
         formatRupees(p.billedPaise),
         valueText(p),
@@ -96,7 +96,7 @@ export function monthlyVisual(series: readonly MonthlyPoint[]): MonthlyVisual {
       id: "monthly",
       caption: t("committee.monthly.caption"),
       title: t("committee.monthly.title"),
-      description: young === undefined ? description : `${description} ${t("committee.monthly.descYoung", { month: monthName(young.period) })}`,
+      description: `${young === undefined ? description : `${description} ${t("committee.monthly.descYoung", { month: monthName(young.period) })}`}${hidden}`,
       table: table([t("committee.monthly.col.month"), t("committee.monthly.col.within20"), t("committee.monthly.col.unpaidLakh")], (p) => [valueText(p), formatRupeesShort(p.outstandingPaise)]),
     },
     rows: billed.map((p) => ({ label: label(p), valueText: valueText(p), value: p.byDay20Percent ?? 0, emphasis: p.inProgress ? ("partial" as const) : undefined })),
@@ -109,7 +109,6 @@ export function monthlyVisual(series: readonly MonthlyPoint[]): MonthlyVisual {
       percentText: valueText(p),
       partial: p.inProgress,
     })),
-    notes: [t("committee.monthly.fair"), ...(billed.length < series.length ? [t("committee.monthly.hidden")] : [])],
   };
 }
 

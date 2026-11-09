@@ -39,13 +39,18 @@ export function parseSlaMinutes(value: unknown): SlaMinutes {
   return sla.success ? sla.data : defaultSlaMinutes;
 }
 
+/** The `auto_close_days` setting: whole days; a missing or invalid value gives the documented default (7). */
+export function parseAutoCloseDays(value: unknown): number {
+  const days = daysSchema.safeParse(value);
+  return days.success ? days.data : defaultLifecycleSettings.autoCloseDays;
+}
+
 /** The `sla_minutes` and `auto_close_days` settings. A missing or invalid value falls back to the documented default (15 / 120 / 1,440 / 4,320 minutes, 7 days). */
 export async function loadComplaintSettings(db: DbOrTx): Promise<ComplaintSettings> {
   const rows = await db.societySetting.findMany({ where: { key: { in: ["sla_minutes", "auto_close_days"] } }, select: { key: true, value: true } });
   const value = (key: string): unknown => rows.find((r) => r.key === key)?.value;
-  const days = daysSchema.safeParse(value("auto_close_days"));
   return {
     slaMinutes: parseSlaMinutes(value("sla_minutes")),
-    lifecycle: { ...defaultLifecycleSettings, autoCloseDays: days.success ? days.data : defaultLifecycleSettings.autoCloseDays },
+    lifecycle: { ...defaultLifecycleSettings, autoCloseDays: parseAutoCloseDays(value("auto_close_days")) },
   };
 }

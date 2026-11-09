@@ -22,14 +22,15 @@ describe("VZ1 the monthly visual: every month at the same age, one text and one 
   const visual = monthlyVisual([point("2026-08-01", 0n, 0n), sep, young]);
 
   it("the takeaway is about the share within 20 days, computed from the series, with the young month said to be so far", () => {
-    expect(visual.text.description).toBe("Share of each month's bills paid within 20 days of the bill. Oct was 70%, down from Sep (79%). October is still younger than 20 days, so its figure is so far.");
+    expect(visual.text.description).toBe("Share of each month's bills paid within 20 days of the bill. Oct was 70%, down from Sep (79%). October is still younger than 20 days, so its figure is so far. Months before billing started are not shown.");
     expect(visual.text.title).toBe("Collected within 20 days of the bill, month by month");
   });
 
-  it("a month without bills is not drawn and not listed, and the notes say why months can be compared and that earlier months are not shown", () => {
+  it("a month without bills is not drawn and not listed, and the chart description (not a line of the page) says that months before billing started are not shown; the same-age line moved into the page's expander", () => {
     expect(visual.rows.map((r) => r.label)).toEqual(["Sep", "Oct so far"]);
-    expect(visual.notes).toEqual(["Every month is measured at the same age, so older months are not favoured.", "Months before billing started are not shown"]);
-    expect(monthlyVisual([sep, point("2026-10-01", 1n, 1n)]).notes).toEqual(["Every month is measured at the same age, so older months are not favoured."]);
+    expect(visual.text.description).toContain("Months before billing started are not shown.");
+    expect(visual.phoneText.description).toContain("Months before billing started are not shown.");
+    expect(monthlyVisual([sep, point("2026-10-01", 1n, 1n)]).text.description).not.toContain("Months before billing");
   });
 
   it("the table of the columns holds both measures: within 20 days and still unpaid today, in full Indian grouping", () => {

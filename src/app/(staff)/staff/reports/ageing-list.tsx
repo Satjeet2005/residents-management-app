@@ -5,7 +5,6 @@ import { BlockError } from "@/components/ui/block-error";
 import { Button } from "@/components/ui/button";
 import type { AgeBucket, AgeingSort } from "@/domain/reports/age";
 import { t } from "@/lib/messages";
-import { bucketLabel } from "@/lib/reports/ageing";
 import { countText } from "@/lib/reports/cards";
 import { AGEING_PAGE_SIZE } from "@/lib/reports/cursor";
 import type { AgeingRowView } from "@/server/reports/ageing-page";
@@ -42,7 +41,7 @@ export function AgeingList({ bucket, sort, total, initialRows, initialCursor }: 
       {rows.length === 0 ? (
         <p className="text-body text-ink-2">{t("committee.drill.empty")}</p>
       ) : (
-        <AgeingRows rows={rows} caption={t("committee.drill.caption", { bucket: bucketLabel(bucket), order: (sort === "OLDEST" ? t("committee.drill.sort.oldest") : t("committee.drill.sort.largest")).toLowerCase() })} />
+        <AgeingRows rows={rows} />
       )}
       {rows.length > 0 && <p className="tnum text-body text-ink-2">{t("committee.drill.showing", { shown: countText(rows.length), total: countText(total) })}</p>}
       {phase === "FAILED" && <BlockError message={t("committee.drill.loadError")} onRetry={loadMore} />}

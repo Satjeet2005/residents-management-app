@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { choosePeriod, monthStart, periodFromQuery, periodOptions, periodQuery, reportHref } from "@/lib/reports/period";
+import { choosePeriod, monthStart, periodFromQuery, periodOptions, periodQuery } from "@/lib/reports/period";
 
 describe("RC1 the period", () => {
   it("reads ?period=YYYY-MM as the first day of a real month, and nothing else", () => {
@@ -10,8 +10,6 @@ describe("RC1 the period", () => {
 
   it("round-trips through the address", () => {
     expect(periodQuery("2026-10-01")).toBe("2026-10");
-    expect(reportHref({ period: "2026-10-01" })).toBe("/staff/reports/dues?period=2026-10");
-    expect(reportHref({ period: "2026-09-01", bucket: "31-60" })).toBe("/staff/reports/dues?period=2026-09&bucket=31-60#ageing-detail");
     expect(monthStart("2026-10-27")).toBe("2026-10-01");
   });
 

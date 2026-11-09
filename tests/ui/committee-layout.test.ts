@@ -14,7 +14,7 @@ const out = html(h(ReportView, { report: emptyReport() }));
 
 describe("LY1 the layout at phone, tablet and laptop widths", () => {
   it("cards: one column below 768px, two by two from 768px, four in a row from 1280px", () => {
-    const cards = /<ul class="([^"]*)"><li class="[^"]*"><div class="[^"]*"><h2[^>]*>Money collected for October/.exec(out)?.[1] ?? "";
+    const cards = /<ul class="([^"]*)"><li data-block="" data-figure="cardCollected" class="[^"]*"><div class="[^"]*"><h2[^>]*>Money collected for October/.exec(out)?.[1] ?? "";
     expect(cards).toContain("grid");
     expect(cards).not.toMatch(/(^| )grid-cols-/);
     expect(cards).toContain("md:grid-cols-2");
@@ -37,8 +37,8 @@ describe("LY1 the layout at phone, tablet and laptop widths", () => {
   it("charts: the phone bars show below 768px and the laptop columns from 768px, each full width, never side by side", () => {
     const money = { billedPaise: 1_000_000n, collectedPaise: 800_000n, outstandingPaise: 200_000n, flatsBilled: 1, flatsPaidInFull: 0, flatsOutstanding: 1, fees: { postedPaidPaise: 0n, postedOwingPaise: 0n, accruingPaise: 0n } };
     const withMoney = html(h(SectionPage, { slug: "collections", report: emptyReport({ money }) }));
-    expect(withMoney).toContain('<div class="md:hidden"><figure');
-    expect(withMoney).toContain('<div class="hidden md:block"><figure');
+    expect(withMoney).toContain('<div data-figure="within20" class="md:hidden"><figure');
+    expect(withMoney).toContain('<div data-figure-form="within20" class="hidden md:block"><figure');
     expect(withMoney).not.toMatch(/(md|lg|xl):(flex|grid-cols)[^"]*"><figure/);
   });
 

@@ -21,11 +21,17 @@ export function GoalTag({ status }: { status: GoalMark["status"] }) {
   return null;
 }
 
-/** The goal next to its metric: the target in words, and Met or Not met in words with an icon (never colour alone). With no data there is a target and no verdict. */
+/** The small tick drawn in the goal bar, repeated before the goal words so that the line works as the key of the bar. */
+export const TickGlyph = () => <span aria-hidden="true" className="mr-2 inline-block h-4 w-0.5 bg-ink align-middle" />;
+
+/** The goal next to its metric: the tick, the target in words, and Met or Not met in words with an icon (never colour alone). With no data there is a target and no verdict. It is a goal line, so the text budget leaves it out (`data-goal`). */
 export function GoalLine({ mark }: { mark: GoalMark }) {
   return (
-    <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body text-ink-2">
-      <span>{mark.text}</span>
+    <span data-goal="" className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body text-ink-2">
+      <span>
+        <TickGlyph />
+        {mark.text}
+      </span>
       <GoalTag status={mark.status} />
     </span>
   );

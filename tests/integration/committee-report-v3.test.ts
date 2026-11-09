@@ -109,7 +109,11 @@ describe.each(DATES)("V3 the committee report as of %s", (asOf) => {
     // The line "all months" is in the Complaints section page; the strip is on the overview and on every section page.
     const flat = (markup: string): string => markup.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
     const section = flat(renderToStaticMarkup(h(SectionPage, { slug: "complaints", report })));
-    expect(section).toContain(`Open and not yet seen, all months: ${sql.n}`);
+    // D211: the all-months row shows ONLY when it differs from this month's "Open, not yet seen" line; when equal, that line carries the same number.
+    if (sql.n === report.complaints.safety.openNotSeen) {
+      expect(section).not.toContain("all months");
+      if (sql.n > 0) expect(section).toContain(`Open, not yet seen ${sql.n}`);
+    } else expect(section).toContain(`Open, not yet seen, all months ${sql.n}`);
     const text = `${flat(renderToStaticMarkup(h(ReportView, { report })))} ${section}`;
     if (sql.n > 0) expect(text).toContain(sql.n === 1 ? "1 safety complaint is open and not yet seen by the duty manager." : `${sql.n} safety complaints are open and not yet seen by the duty manager.`);
     else expect(text).not.toContain("is open and not yet seen by the duty manager");
@@ -165,6 +169,20 @@ describe.each(DATES)("V3 the committee report as of %s", (asOf) => {
       expect([tower.flats, tower.unpaidBillsPaise], tower.tower).toEqual([Number(sql?.flats), BigInt(sql?.principal ?? 0)]);
     }
     console.log(`V3 ${asOf} owed: total ${total.amountDuePaise} = unpaid ${total.unpaidBillsPaise} + fees ${total.lateFeesPaise}; ${total.flats} different flats; ${towers.length} towers (SQL)`);
+  });
+
+  it("D215 the late fees of the Dues page, over ALL months: received and charged-not-yet-paid equal SQL, and with building up they add up to the late fees of the age groups", async () => {
+    const [sql] = await fx.owner.$queryRawUnsafe<{ received: string; owing: string }[]>(
+      `WITH paid AS (SELECT bill_id, sum(amount_paise) AS p FROM (${livePayments}) l GROUP BY bill_id),
+            fees AS (SELECT bill_id, sum(amount_paise) AS f FROM ledger_entries WHERE entry_type = 'LATE_FEE' AND direction = 'CHARGE' AND effective_date <= DATE '${asOf}' GROUP BY bill_id)
+       SELECT COALESCE(sum(CASE WHEN p.p >= b.amount_paise THEN p.p - b.amount_paise ELSE 0 END), 0)::text AS received,
+              COALESCE(sum(CASE WHEN p.p >= b.amount_paise AND f.f - (p.p - b.amount_paise) > 0 THEN f.f - (p.p - b.amount_paise) ELSE 0 END), 0)::text AS owing
+       FROM bills b JOIN paid p ON p.bill_id = b.id LEFT JOIN fees f ON f.bill_id = b.id WHERE b.issued_on <= DATE '${asOf}'`,
+    );
+    expect(report.lateFees.postedPaidPaise).toBe(BigInt(sql.received));
+    expect(report.lateFees.postedOwingPaise).toBe(BigInt(sql.owing));
+    expect(report.lateFees.postedOwingPaise + report.lateFees.accruingPaise).toBe(report.ageing.total.lateFeesPaise);
+    console.log(`V3 ${asOf} late fees (all months): received ${report.lateFees.postedPaidPaise} (SQL ${sql.received}), charged not paid ${report.lateFees.postedOwingPaise} (SQL ${sql.owing}), building up ${report.lateFees.accruingPaise}; groups hold ${report.ageing.total.lateFeesPaise}`);
   });
 
   it("the page reads the database a fixed number of times whatever the date, and its data is ready in under 3 seconds", () => {

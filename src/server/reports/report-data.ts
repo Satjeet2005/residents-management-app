@@ -18,7 +18,7 @@ import type { Db } from "@/server/auth/db";
 import type { SessionUser } from "@/server/auth/session-service";
 import type { SlaMinutes } from "@/domain/complaints/lifecycle";
 import { countUnacknowledgedSafety } from "@/server/complaints/board-views";
-import { parseSlaMinutes } from "@/server/complaints/context";
+import { parseAutoCloseDays, parseSlaMinutes } from "@/server/complaints/context";
 import { requirePermission } from "@/server/statements/ui-data";
 import { type AgeingPage, ageingPageOf } from "./ageing-page";
 import { loadComplaintsBetween } from "./complaints";
@@ -36,6 +36,8 @@ export type CommitteeReport = {
   periods: CalendarDate[];
   /** The bills of the month and the money line over them; null when the month has no bills. */
   money: MoneyLine | null;
+  /** The three late-fee figures over the bills of ALL months (the Dues page: a month chosen elsewhere does not change it). Their last two add up to `ageing.total.lateFeesPaise`. */
+  lateFees: MoneyLine["fees"];
   /** What is owed, all open dues of all months, as of the business date. */
   ageing: Ageing;
   /** What is owed by tower: the same open dues as the age groups, so the towers add up to the same total. */
@@ -59,6 +61,8 @@ export type CommitteeReport = {
   safetyUnacknowledged: number;
   /** The promised first-reply minutes by urgency (the `sla_minutes` setting), for the line under "Replies within our promised time". */
   slaMinutes: SlaMinutes;
+  /** The days after which a complaint the resident did not answer is closed automatically (the `auto_close_days` setting), for the definition of "Closed automatically". */
+  autoCloseDays: number;
   /** Does the viewer hold complaints:manage (the alert links to the safety view only for them)? */
   canManageComplaints: boolean;
 };
@@ -88,7 +92,7 @@ export async function loadCommitteeReport(input: { db: Db; user: Viewer; request
   const [window, reconciliation, settings, safetyUnacknowledged] = await Promise.all([
     loadComplaintsBetween(input.db, from, until),
     loadReconciliationLine(input.db, asOf),
-    input.db.societySetting.findMany({ where: { key: { in: ["committee_goals", "sla_minutes"] } }, select: { key: true, value: true } }),
+    input.db.societySetting.findMany({ where: { key: { in: ["committee_goals", "sla_minutes", "auto_close_days"] } }, select: { key: true, value: true } }),
     countUnacknowledgedSafety(input.db),
   ]);
   const inMonth = (start: CalendarDate) => window.filter((c) => c.createdAt >= dayStartInstant(start) && c.createdAt < dayStartInstant(monthStart(addDays(start, 31))));
@@ -113,6 +117,7 @@ export async function loadCommitteeReport(input: { db: Db; user: Viewer; request
     period,
     periods,
     money,
+    lateFees: moneyLine(positions).fees,
     ageing,
     towers: towerRollup(positions, asOf),
     drilldown: input.bucket === undefined || input.bucket === null ? null : ageingPageOf(positions, asOf, input.bucket, input.sort ?? "LARGEST", null),
@@ -139,6 +144,7 @@ export async function loadCommitteeReport(input: { db: Db; user: Viewer; request
     },
     safetyUnacknowledged,
     slaMinutes: parseSlaMinutes(settingOf("sla_minutes")),
+    autoCloseDays: parseAutoCloseDays(settingOf("auto_close_days")),
     canManageComplaints: input.user.permissions.includes("complaints:manage"),
   };
 }

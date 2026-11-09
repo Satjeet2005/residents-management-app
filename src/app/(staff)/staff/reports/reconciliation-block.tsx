@@ -1,3 +1,4 @@
+import { Ledger, type LedgerRow } from "@/components/committee/ledger";
 import { CheckIcon, WarningIcon } from "@/components/icons";
 import type { InterventionType, ReconciliationLine } from "@/domain/reports/reconciliation";
 import { t } from "@/lib/messages";
@@ -18,29 +19,32 @@ const typeLabel = (type: InterventionType): string => {
 };
 
 /**
- * The bank statement matching of the last 30 days: ONE summary sentence that accounts for every bank entry (matched automatically, matched by hand and waiting for
- * approval only when there are some, waiting for a person, not maintenance payments), the tick "All n accounted for" ONLY when every import's rows add up (read
- * back from the database for each one, never assumed), and always "Matched by hand (last 30 days): n". The table of manual decisions appears ONLY when at
- * least one count is above zero. Counts only: no flat and no name.
+ * The bank statement matching of the last 30 days (D212): ONE ledger that accounts for every bank entry (matched automatically, matched by hand, waiting for a
+ * person, waiting for approval only when there are some, not maintenance payments, which add up to the entries), the tick "All n accounted for" ONLY when every
+ * import's rows add up (read back from the database for each one, never assumed), and the table of manual decisions ONLY when at least one count is above zero.
+ * Counts only: no flat and no name. The definitions are in the page's one expander.
  */
 export function ReconciliationBlock({ line }: { line: ReconciliationLine }) {
   if (line.imports === 0) return <p className="text-body">{t("committee.recon.none")}</p>;
   const anyManual = line.interventions.some((i) => i.count > 0);
-  const parts = [
-    t("committee.recon.part.auto", { n: countText(line.postedAutomatically) }),
-    ...(line.postedByHand > 0 ? [t("committee.recon.part.hand", { n: countText(line.postedByHand) })] : []),
-    t("committee.recon.part.person", { n: countText(line.waitingForPerson) }),
-    ...(line.waitingForApproval > 0 ? [t("committee.recon.part.approval", { n: countText(line.waitingForApproval) })] : []),
-    t("committee.recon.part.other", { n: countText(line.notMaintenance) }),
-  ].join(", ");
+  const parts: LedgerRow[] = [
+    { label: t("committee.recon.part.auto"), value: countText(line.postedAutomatically) },
+    { label: t("committee.recon.part.hand"), value: countText(line.postedByHand) },
+    { label: t("committee.recon.part.person"), value: countText(line.waitingForPerson) },
+    ...(line.waitingForApproval > 0 ? [{ label: t("committee.recon.part.approval"), value: countText(line.waitingForApproval) }] : []),
+    { label: t("committee.recon.part.other"), value: countText(line.notMaintenance) },
+  ];
+  const ledgerFigure = ["bankWindow", "bankAuto", "bankHand", "bankPerson", ...(line.waitingForApproval > 0 ? ["bankApproval"] : []), "bankOther"].join(" ");
   return (
-    <>
-      <p className="tnum text-body">
-        {line.rowsImported === 0 ? t("committee.recon.noEntries") : line.rowsImported === 1 ? t("committee.recon.summaryOne", { parts }) : t("committee.recon.summary", { n: countText(line.rowsImported), parts })}
-      </p>
+    <section data-block="" aria-label={t("committee.recon.ledger")} className="flex flex-col gap-3">
+      {line.rowsImported === 0 ? (
+        <p className="text-body">{t("committee.recon.noEntries")}</p>
+      ) : (
+        <Ledger figure={ledgerFigure} parts={parts} total={{ label: t("committee.recon.total"), value: countText(line.rowsImported) }} />
+      )}
       {line.allAccounted === true ? (
         line.rowsImported > 0 && (
-          <p className="flex items-center gap-2 text-body font-semibold">
+          <p data-figure="bankAccounted" className="flex items-center gap-2 text-body font-semibold">
             <CheckIcon size={20} />
             {t("committee.recon.accounted", { n: countText(line.rowsImported) })}
           </p>
@@ -51,7 +55,6 @@ export function ReconciliationBlock({ line }: { line: ReconciliationLine }) {
           {t("committee.recon.notAccounted", { n: line.notAccounted, d: line.imports })}
         </p>
       )}
-      <p className="tnum text-body">{t("committee.recon.byHand", { n: countText(line.postedByHand) })}</p>
       {anyManual && (
         <table className="w-full text-left text-body">
           <caption className="pb-2 text-left font-semibold">{t("committee.recon.interventions.caption")}</caption>
@@ -73,6 +76,6 @@ export function ReconciliationBlock({ line }: { line: ReconciliationLine }) {
           </tbody>
         </table>
       )}
-    </>
+    </section>
   );
 }
