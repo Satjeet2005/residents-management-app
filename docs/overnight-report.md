@@ -1001,3 +1001,61 @@ Each moved because a deliberate design change in this round moved what it assert
 ### Documents created
 
 `docs/demo-clock.md`, `docs/committee-text-audit.md`, `docs/committee-definitions-transfer.md` (all in `docs/README.md`).
+
+
+## EXTRAS
+
+Run on 2026-11-09, 20:00 to 21:07 local time (FREEZE_AT 21:20). Parts 1 and 2 ran; parts 3, 4 and 5 were SKIPPED (time).
+
+| Part | Result | Minutes |
+|---|---|---|
+| 1 documents fix | DONE (3 commits) | 5 |
+| 2 deflake | DONE, with one residual (below) (3 commits) | 50 |
+| 3 staff find | SKIPPED (time): 45 minutes left at the start would not cover 40 plus the 25 tail | 0 |
+| 4 case guide | SKIPPED (time, lower cut number than part 3) | 0 |
+| 5 install button | SKIPPED (time, lower cut number than part 3) | 0 |
+| 9 final step | DONE: one `test:ci-parity`, one `npm run e2e` | 10 |
+
+### Part 1
+- Addresses (A-008): both values were in `.extras/urls.txt`. Every placeholder is filled in `README.md`, `deployment.md`, `docs/submission-checklist.md`, `docs/hosted-reset-procedure.md`, `docs/live-refresh-runbook.md` and R87. `grep -c "LIVE_URL\|REPO_URL" deployment.md` prints 0. Placeholders remain, on purpose, in `scripts/build-submission-zip.sh`, its test and the history files.
+- Demo date: nine statements in `README.md`, `docs/deployment-plan.md`, `docs/deploy-checklist.md`, `docs/ui-architecture.md`, `docs/walkthrough.md`, `docs/demo-script.md`, R35 and D97 now agree with `docs/demo-clock.md` (D226). The three brief flats at 27 October are checked by `tests/integration/demo-date-sample-flats.test.ts` (T12-0408 47 days, Rs 6,468; T21-1601 18 days, Rs 5,698). D97 and R35 carry "Updated 2026-11-09".
+- Spare logins: independent SQL on a seeded `township_seed_scratch` (dropped afterwards). All eight phones exist with the flats in `deployment.md`; each flat has exactly one open October bill and no open complaint; the October bills are Rs 8,580, 5,525, 7,475, 7,475, 6,370, 7,475, 6,370, 8,580, which with 17 days of 12% interest give the Rs 8,628, 5,556, 7,517, 7,517, 6,406, 7,517, 6,406, 8,628 in the document. No change was needed. Mapped: the document says "Spare logins for paying a bill" (plural); kept.
+- Soft 404: one row added to `docs/known-limitations.md`. `npm run docs:verify` is clean.
+
+### Part 2 (wall-clock tests)
+Measured with each file run 20 times pinned to 2 CPUs (`taskset -c 0,1`) while the whole unit suite ran on the same 2 CPUs.
+
+| Test | Limit | Before (median / worst / failures) | After |
+|---|---|---|---|
+| SB3 detections, 1,000 | 1 s | 203 ms / 273 ms / 0 of 20 | best of 5; 20 of 20 pass |
+| SB3 evaluator, 1,000 items | 0.5 s | 219 ms / 297 ms / 0 of 20 | best of 5; 20 of 20 pass |
+| P1 CSV 10,000 rows | 1.5 s | 214 ms / 284 ms / 0 of 20 | best of 5; 20 of 20 pass |
+| SE4 2,000 random inputs | none (test timeout 30 s) | 8.3 s / 10.1 s / 0 of 20 | unchanged; no wall-clock assertion |
+| V2-1 SQL "collected within 20 days" | test timeout 15 s | 11.4 s / 14.8 s of 15 s; one failure seen | 20 ms / 39 ms; 20 of 20 pass |
+| V2-6 report builds in under 3 s | 3 s | failed once (4.8 s) in one run | best of 5; see residual |
+| V3 two dates, D151 board views | 3 s, 1.5 s | not measured before | V3 3 runs, 2 of 3 failed under load; D151 3 of 3 pass |
+
+Root cause of the V2-1 flake: its independent SQL used a correlated subquery over about 14,400 bills; it is now one set-based query with the same result (assertions unchanged). X11, Y9 and the sample-statement test have margins above 3 times and were left alone. No limit, timeout or tolerance was raised; nothing was skipped.
+
+Residual (UNVERIFIED as fixable): V2-6 and V3 still fail under saturating load (V2-6 8 of 20 runs, best run 3.0 to 3.3 s; V3 2 of 3). Pinned to 2 CPUs with nothing else running, the report loads in 1.5 to 1.7 s, about half the limit. The slowdown lasts the whole window, so a best of five cannot remove it. A CPU-time clock would hide it by loosening the test, so it was not used. The "unidentified first-run unit failure" could not be identified: the background load runs were not recorded; the hook's four unit runs and the parity run all passed.
+
+Mutations (busy wait added in a copy; each file restored from a copy; `git diff -- src` was empty afterwards):
+
+| Mutation | Failing tests |
+|---|---|
+| `detectSafetyWords` 1.5 ms slower per call | SB3 "1,000 detections take under 1 second", SB3 "the evaluator takes under 0.5 seconds per 1,000 items" |
+| `parseStatementCsv` 1.7 s slower | P1 "parses a 10,000-row file in under 1.5 seconds" |
+| `loadCommitteeReport` 3.3 s slower | V2-6 "builds the whole page in a constant number of reads, in under 3 seconds" |
+
+Existing tests edited: `tests/domain/complaints/safety-benchmark/evaluate.test.ts`, `tests/domain/matching/properties.test.ts`, `tests/integration/committee-report-v2.test.ts`, `committee-report-v3.test.ts`, `complaints-board-views.test.ts`. Reason: the timing method changed (best of five) and one SQL text was restructured; every assertion and limit is unchanged. New: `tests/helpers/best-of.ts` and its test BO1 (6 tests). Policy: D242 and `tests/README.md`.
+
+### Final step
+- `npm run test:ci-parity`: unit 246 files passed, 1 skipped; 5,509 tests passed, 1 skipped; integration 82 files, 1,199 passed.
+- `npm run e2e` (one full run): 185 passed, 22 skipped (width-specific), 0 failed, 8.0 minutes.
+- Screenshots: the e2e run regenerated the files under `docs/screenshots`; none was staged. No document cites a new screenshot.
+
+### Commits
+10077bb docs: fill the repository and live addresses (A-008); 324ba69 docs: the demo date is fixed at 27 October everywhere; 969f64c docs: spare logins and the soft 404 noted; 6d4e87c test: best-of helper for time-bounded tests; 577f8bf test: time-bounded tests use the best of five runs; 2beffa4 docs: policy for time-bounded tests. The hook passed on each (lint 0 errors, scan:secrets clean; unit tests 5,503 on the first three and 5,509 on the last three).
+
+### Leftovers
+Two `township_test_*` databases and one `app_t_*` role left by my interrupted runs were dropped after printing `current_database()`. No process of mine is running.
