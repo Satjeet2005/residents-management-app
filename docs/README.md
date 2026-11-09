@@ -33,6 +33,8 @@ An index of every document in this folder, grouped by purpose, with a status. St
 | [`staff-complaints-ui.md`](staff-complaints-ui.md) | The staff board and complaint page | current |
 | [`staff-ui.md`](staff-ui.md) | The staff reconciliation screens | current |
 | [`committee-report.md`](committee-report.md) | The committee report: figures, definitions and (top note) the current page structure | current, layout superseded by D194 |
+| [`committee-text-audit.md`](committee-text-audit.md) | The committee text-budget audit: before and after screenshots and the critique | current |
+| [`committee-definitions-transfer.md`](committee-definitions-transfer.md) | Where each committee definition moved when the About block was retired | current |
 | [`installable-app.md`](installable-app.md) | The installable web app and the offline page | current |
 | [`seed-data.md`](seed-data.md) | The demo dataset | current |
 
@@ -43,6 +45,7 @@ An index of every document in this folder, grouped by purpose, with a status. St
 | [`browser-verification.md`](browser-verification.md) | How the browser checks work and what they measure | current |
 | [`deploy-checklist.md`](deploy-checklist.md) | Steps for the human to deploy | current |
 | [`deployment-plan.md`](deployment-plan.md) | Vercel and Neon facts and choices | current |
+| [`demo-clock.md`](demo-clock.md) | The demo business date: every use of time classified as business date or real time | current |
 | [`live-refresh-runbook.md`](live-refresh-runbook.md) | Bringing the hosted deployment up to date | current |
 | [`hosted-reset-procedure.md`](hosted-reset-procedure.md) | Resetting the hosted database (owner only) | current |
 | [`submission-checklist.md`](submission-checklist.md) | What to check before submitting, and the placeholders to fill | current |

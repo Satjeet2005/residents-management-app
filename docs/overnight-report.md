@@ -948,3 +948,56 @@ GitHub's CI failed in `test:unit` on one test, the documentation checker (DV1): 
 - `verify-clean-clone.sh --tracked-only` imitates CI. Its first full run failed one test (`build-submission-zip`, which assumed a `.git` directory); the test now builds its own git repository, and the second run passed 12 of 12 steps.
 - The gitleaks step of the workflow downloads from GitHub and was not run here.
 
+
+
+## ROUND A (parallel)
+
+Started 16:57, FREEZE_AT 21:00, lanes stopped by 18:25 (LANE_FREEZE_AT was 20:15). Orchestrator run: prelude in the main folder, three worktree lanes (clock, home, committee) as parallel subagents, merges in the order clock, home, committee, then the final verification. START_COMMIT `ce66763`, MERGE_BASE `52edee8`. Nothing was pushed. Backup branches: `backup/before-lanes`, `backup/before-merge-clock`, `backup/before-merge-home`, `backup/before-merge-committee`.
+
+### Part table
+
+| Part | Result |
+|---|---|
+| 0 hygiene (V6 flake, fake credential, two scanners) | DONE, 3 commits |
+| 1 audit fixes: A-008 (URLs NOT SUPPLIED, `.round-a/urls.txt` missing, placeholders left), A-011, A-002, A-010 | DONE, 3 commits |
+| 2 demo clock, 2b E1 (A-001), E2 (A-006), 7 spares | DONE (clock lane, 9 commits; Part 7 uses 8 existing logins, no seed change) |
+| 3, 5, 6 committee text core, Dues, flats and towers pages | DONE (committee lane, 4 commits) |
+| 4, 4b, 2b E4 (A-004), E3 (A-003) staff home v2, one-tap category, PAN and vehicle numbers, headers | DONE (home lane, 6 commits) |
+
+### Merge log and conflicts
+
+- `ef75754` merge clock lane: clean.
+- `86163f8` merge home lane: conflicts in `docs/decisions.md` and `docs/assumptions.md`; kept both sides.
+- `1b60878` merge committee lane: conflicts in `docs/decisions.md` and `docs/assumptions.md` (both sides kept, in number order); `reports/page.tsx` and `report-view.tsx` combined: the committee lane's redirect, loader call and one expander plus the home lane's committee-only landing and account footer. The three copies of the same git-variable fix (`f76173f`, `453605e`, `d06ba3a`) merged without a conflict; `tests/setup/env-defaults.ts` holds one copy.
+- After every merge commit `core.bare` printed `false` and `user.name` printed nothing.
+- Test-loss check: no test file deleted since MERGE_BASE; every test file added by each lane exists in HEAD.
+- Decision numbers: D206-D217 (committee), D226-D233 (clock), D236-D241 (home); R124-R132, R134-R138, R139-R143. No duplicates.
+
+### Incident: shared git config
+
+The pre-commit hook in a linked worktree set `GIT_DIR` and `GIT_INDEX_FILE`; the scratch-repository tests then wrote into the real repository: `core.bare=true` and a test `user.name` and `user.email` in the shared `.git/config`, and junk in a lane index. The human repaired the config. Root fix: the vitest setup file strips every `GIT_*` variable, with a test (`f76173f`). One lane ran `git rm --cached` once on a file it was retiring and undid it at once (a hard-limit slip; the deletion is the intended one).
+
+### Evidence
+
+- A-002: the six audited phrases now escalate; `npm run safety:benchmark` prints "every committed number matches a fresh computation" before and after; the headline numbers are identical (dev 47.00% single, 20.80% double, 3.23% false alarms; holdout 45.84%, 20.12%, 3.01%; holdout2 46.14%, 20.80%, 3.39%). Mutation (stem changed): 7 tests of `tests/domain/complaints/safety-audit-a002.test.ts` fail; restored, clean diff.
+- Per-lane measurements, mutation tables and independent-SQL comparisons are in the lane reports (`.round-a/reports/*.md` of each worktree, untracked) and in `docs/committee-text-audit.md`, `docs/demo-clock.md`.
+- Brief flats at 27 October (clock lane): T07-1203 nothing due; T12-0408 47 days and Rs 6,468; T21-1601 18 days and Rs 5,698.
+- Committee word budget (committee lane): Overview 30 of 40, Collections 24 of 40, Dues 10 of 12, Complaints 14 of 15, Bank 0 of 40.
+- Final verification on the merged tree: `npm run docs:verify` clean; both offline benchmarks match; `npm run test:ci-parity` unit 5,503 passed 1 skipped, integration 82 files 1,199 passed; full `npm run e2e` (last full run) 184 passed, 22 skipped (width-specific skips), 1 failed; the tracked-files-only clean copy: OVERALL PASS (the parity step skipped by `--quick`).
+
+### Existing tests edited, and why
+
+Each moved because a deliberate design change in this round moved what it asserts; assertion strength was kept. Lane lists are in the lane reports. At integration: `tests/e2e/screens/staff.spec.ts`, `tests/e2e/flows/staff-flows.spec.ts` (the age-group drill-down is now the flats page: URL, heading, first row), `tests/e2e/screens/committee-report.spec.ts` (an unknown report address now shows the branded "This page does not exist." heading). In `staff.spec.ts` the Tab starting point is reset after "Show 25 more" so the first-Tab check starts at the top. Part 1: `tests/domain/complaints/safety.test.ts` (CP2) and `safety-benchmark/base.test.ts` (SB1) skip rules marked `since` (covered by the A-002 test file).
+
+### BLOCKED, UNVERIFIED and flakes
+
+- A-008 not done: no `.round-a/urls.txt`. `<LIVE_URL>` and `<REPO_URL>` placeholders remain; `scripts/build-submission-zip.sh` refuses to build until they are filled.
+- Timing tests flake under load and passed on retry without any limit change: `safety-benchmark/evaluate.test.ts` SB3 (500 ms), `committee-report-v2.test.ts` V2-1 (15 s; it also fails about half the time in the clock worktree, which has no committee changes, so it predates this round), `series.test.ts` SE4, and the first hook run of the A-002 commit had one unidentified failing unit test that passed on both reruns.
+- E2E failures seen in earlier runs and what each was: `reconciliation-filters-768` (a chip click that did not register, passed in the next run; no lane touched that code), then the three stale specs above. The final single failure (`staff-flows` "ageing block opens the flats behind a bucket") failed alone twice, was a stale assertion, and passes alone twice after the update; no further full run was made (cap set by the human), so a full green e2e is UNVERIFIED.
+- `/staff/reports/money` answers HTTP 200 with the not-found screen (the page streams); a status assertion was tried and removed. The branded 404 for `/nope` is a real 404.
+- Stale advice to leave `DEMO_AS_OF` unset remains in `README.md`, `docs/deployment-plan.md`, `docs/deploy-checklist.md`, `docs/ui-architecture.md`, `docs/walkthrough.md`, `docs/demo-script.md` (clock lane note); R136 supersedes R35.
+- Screenshots: those cited by documents are committed; the other regenerated screenshots are uncommitted e2e output.
+
+### Documents created
+
+`docs/demo-clock.md`, `docs/committee-text-audit.md`, `docs/committee-definitions-transfer.md` (all in `docs/README.md`).
