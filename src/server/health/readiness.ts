@@ -29,13 +29,15 @@ export type AppRoleCheck = {
 };
 
 export type ReadinessChecks = {
-  config: { otpPepper: boolean; webhookSecret: boolean; demoMode: boolean; opsTestEnabled: boolean; vercelSystemVars: boolean; nodeMajor: number };
+  config: { otpPepper: boolean; webhookSecret: boolean; demoMode: boolean; demoAsOf: boolean; opsTestEnabled: boolean; vercelSystemVars: boolean; nodeMajor: number };
   database: "ok" | "unreachable" | "timeout";
   schema: { missingTables: string[] } | "skipped";
   appRole: AppRoleCheck | "skipped";
   data: { seeded: boolean } | "skipped";
 };
-export type Readiness = { status: "ok" | "degraded"; checks: ReadinessChecks };
+/** A warning never decides the status. It is a fixed word, never a value. */
+export type ReadinessWarning = "demoAsOfIgnored";
+export type Readiness = { status: "ok" | "degraded"; checks: ReadinessChecks; warnings: ReadinessWarning[] };
 
 type DatabaseFacts = { missingTables: string[]; appRole: AppRoleCheck; seeded: boolean };
 
@@ -110,15 +112,18 @@ export async function checkReadiness({ getDb, env = process.env, nodeVersion = p
     otpPepper: isProductionGradeSecret(env.OTP_PEPPER),
     webhookSecret: isProductionGradeSecret(env.PAYMENT_WEBHOOK_SECRET),
     demoMode: isDemoMode(env),
+    demoAsOf: isDemoMode(env) && (env.DEMO_AS_OF?.trim() ?? "") !== "",
     opsTestEnabled: (env.OPS_TEST_TOKEN?.length ?? 0) >= MIN_TOKEN_CHARS,
     vercelSystemVars: env.VERCEL === "1",
     nodeMajor: Number.parseInt(nodeVersion, 10) || 0,
   };
+  // DEMO_AS_OF without demo mode is ignored by the business clock (it only works in demo mode): say so, as a warning and not a failure.
+  const warnings: ReadinessWarning[] = !config.demoMode && (env.DEMO_AS_OF?.trim() ?? "") !== "" ? ["demoAsOfIgnored"] : [];
   const outcome = await probeWithin(getDb, timeoutMs);
   if (outcome.state !== "ok") {
-    return { status: "degraded", checks: { config, database: outcome.state, schema: "skipped", appRole: "skipped", data: "skipped" } };
+    return { status: "degraded", checks: { config, database: outcome.state, schema: "skipped", appRole: "skipped", data: "skipped" }, warnings };
   }
   const { missingTables, appRole, seeded } = outcome.facts;
   const ok = config.otpPepper && config.webhookSecret && missingTables.length === 0 && roleIsRight(appRole) && seeded;
-  return { status: ok ? "ok" : "degraded", checks: { config, database: "ok", schema: { missingTables }, appRole, data: { seeded } } };
+  return { status: ok ? "ok" : "degraded", checks: { config, database: "ok", schema: { missingTables }, appRole, data: { seeded } }, warnings };
 }

@@ -11,6 +11,7 @@ export function readinessRows(report) {
     ["config.otpPepper", word(config.otpPepper === true), "OTP_PEPPER is set, 32 or more characters, not the placeholder"],
     ["config.webhookSecret", word(config.webhookSecret === true), "PAYMENT_WEBHOOK_SECRET is set, 32 or more characters, not the placeholder"],
     ["config.demoMode", "INFO", String(config.demoMode)],
+    ["config.demoAsOf", "INFO", `${config.demoAsOf} (true when the demo's business date is frozen with DEMO_AS_OF)`],
     ["config.opsTestEnabled", "INFO", `${config.opsTestEnabled} (true when OPS_TEST_TOKEN is set; the error-test route exists)`],
     ["config.vercelSystemVars", "INFO", `${config.vercelSystemVars} (true on Vercel with system variables exposed)`],
     ["config.nodeMajor", "INFO", String(config.nodeMajor)],
@@ -27,6 +28,7 @@ export function readinessRows(report) {
     rows.push(["appRole.canInsertErrorEvents", word(appRole.canInsertErrorEvents === true), `${appRole.canInsertErrorEvents} (must be true)`]);
     rows.push(["appRole.canReadErrorEvents", word(appRole.canReadErrorEvents === false), `${appRole.canReadErrorEvents} (must be false)`]);
   }
+  if (Array.isArray(report.warnings) && report.warnings.includes("demoAsOfIgnored")) rows.push(["warning", "WARN", "DEMO_AS_OF is set but demo mode is off, so it is ignored (not a failure)"]);
   rows.push(["data.seeded", skipped(data) ? "FAIL" : word(data.seeded === true), skipped(data) ? "skipped" : String(data.seeded)]);
   return rows;
 }

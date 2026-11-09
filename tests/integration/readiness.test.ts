@@ -61,7 +61,7 @@ async function seed(): Promise<void> {
 const ready = (prisma: PrismaClient, env: Record<string, string | undefined> = GOOD_ENV) => checkReadiness({ getDb: () => prisma, env, nodeVersion: "24.1.0" });
 
 /** Every leaf of the report is a boolean, the Node major number, or a string from this fixed list. No value can be in it. */
-const ALLOWED_WORDS = new Set<string>(["ok", "unreachable", "timeout", "skipped", ...REQUIRED_TABLES, REQUIRED_COLUMN]);
+const ALLOWED_WORDS = new Set<string>(["ok", "unreachable", "timeout", "skipped", "demoAsOfIgnored", ...REQUIRED_TABLES, REQUIRED_COLUMN]);
 function leavesOf(value: unknown, path = ""): string[] {
   if (typeof value === "boolean") return [];
   if (typeof value === "number") return path === "checks.config.nodeMajor" ? [] : [`${path}: a number`];
@@ -85,7 +85,7 @@ describe("D112 readiness on a correctly migrated database", () => {
     const report = await ready(prismaFor(role.url));
     expect(report.status).toBe("degraded");
     expect(report.checks).toEqual({
-      config: { otpPepper: true, webhookSecret: true, demoMode: true, opsTestEnabled: false, vercelSystemVars: true, nodeMajor: 24 },
+      config: { otpPepper: true, webhookSecret: true, demoMode: true, demoAsOf: false, opsTestEnabled: false, vercelSystemVars: true, nodeMajor: 24 },
       database: "ok",
       schema: { missingTables: [] },
       appRole: { isSuperuser: false, canInsertOtp: true, canUpdateLedger: false, canDeleteAuditLog: false, canInsertErrorEvents: true, canReadErrorEvents: false },
@@ -108,6 +108,39 @@ describe("D112 readiness on a correctly migrated database", () => {
     const { rows } = await owner.query<{ tablename: string }>("SELECT tablename FROM pg_tables WHERE schemaname = 'public'");
     const existing = new Set(rows.map((row) => row.tablename));
     expect(REQUIRED_TABLES.filter((table) => !existing.has(table))).toEqual([]);
+  });
+});
+
+describe("D229 DEMO_AS_OF in the readiness report", () => {
+  it("config.demoAsOf is a boolean, true only in demo mode with DEMO_AS_OF set, and it is no problem (the status stays ok)", async () => {
+    await seed();
+    const role = await newRole();
+    const frozen = await ready(prismaFor(role.url), { ...GOOD_ENV, DEMO_AS_OF: "2026-10-27" });
+    expect(frozen.checks.config.demoAsOf).toBe(true);
+    expect(frozen.warnings).toEqual([]);
+    expect(frozen.status).toBe("ok");
+    const unset = await ready(prismaFor(role.url));
+    expect(unset.checks.config.demoAsOf).toBe(false);
+    expect(unset.warnings).toEqual([]);
+    expect(unset.status).toBe("ok");
+    expectValueFree(JSON.stringify(frozen), [...secretsOf(role.url), "2026-10-27"]);
+  });
+
+  it("DEMO_AS_OF set while demo mode is off is a warning, not a failure, and no value is printed", async () => {
+    await seed();
+    const role = await newRole();
+    const report = await ready(prismaFor(role.url), { ...GOOD_ENV, DEMO_MODE: "false", DEMO_AS_OF: "2026-10-27" });
+    expect(report.checks.config.demoMode).toBe(false);
+    expect(report.checks.config.demoAsOf).toBe(false);
+    expect(report.warnings).toEqual(["demoAsOfIgnored"]);
+    expect(report.status).toBe("ok");
+    expectValueFree(JSON.stringify(report), [...secretsOf(role.url), "2026-10-27"]);
+  });
+
+  it("an unreachable database still carries the warning", async () => {
+    const report = await checkReadiness({ getDb: () => { throw new Error("down"); }, env: { ...GOOD_ENV, DEMO_MODE: "false", DEMO_AS_OF: "2026-10-27" }, nodeVersion: "24.1.0" });
+    expect(report.status).toBe("degraded");
+    expect(report.warnings).toEqual(["demoAsOfIgnored"]);
   });
 });
 
