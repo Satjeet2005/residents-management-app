@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { COMMENT_MAX, NOTE_MAX, type PanelAction, type PanelState, categoryUnchanged, classifyPanelResponse, initialPanelState, isComplete, panelReducer, requestOf } from "@/lib/staff-complaints/panel";
+import { COMMENT_MAX, NOTE_MAX, type PanelAction, type PanelState, classifyPanelResponse, initialPanelState, isComplete, panelReducer, requestOf } from "@/lib/staff-complaints/panel";
 
 const run = (events: Parameters<typeof panelReducer>[1][], from: PanelState = initialPanelState): PanelState => events.reduce(panelReducer, from);
-const fill = (field: "assigneeId" | "commentText" | "category" | "resolveNote" | "closeNote", value: string) => ({ type: "FIELD", field, value }) as const;
+const fill = (field: "assigneeId" | "commentText" | "resolveNote" | "closeNote", value: string) => ({ type: "FIELD", field, value }) as const;
 
 describe("SC12 the action panel reducer", () => {
   it("starts empty, with the resident-visibility box OFF", () => {
@@ -12,7 +12,7 @@ describe("SC12 the action panel reducer", () => {
   });
 
   it("an action with an empty form is refused before anything is sent, and says which form", () => {
-    for (const action of ["ASSIGN", "COMMENT", "CATEGORY", "RESOLVE", "CLOSE"] as PanelAction[]) {
+    for (const action of ["ASSIGN", "COMMENT", "RESOLVE", "CLOSE"] as PanelAction[]) {
       const state = run([{ type: "SUBMIT", action }]);
       expect(state.invalid, action).toBe(action);
       expect(state.pending, action).toBeNull();
@@ -84,16 +84,8 @@ describe("SC12 the action panel reducer", () => {
     expect(isComplete({ ...initialPanelState, commentText: " a " }, "COMMENT")).toBe(true);
   });
 
-  it("only one of the five categories is a category", () => {
-    expect(isComplete({ ...initialPanelState, category: "WEATHER" }, "CATEGORY")).toBe(false);
-    expect(isComplete({ ...initialPanelState, category: "LIFT" }, "CATEGORY")).toBe(true);
-  });
-
-  it("the same category again is unchanged, unless the complaint waits for review", () => {
-    expect(categoryUnchanged("LIFT", "LIFT", false)).toBe(true);
-    expect(categoryUnchanged("LIFT", "LIFT", true)).toBe(false);
-    expect(categoryUnchanged("OTHER", "LIFT", false)).toBe(false);
-    expect(categoryUnchanged("OTHER", null, false)).toBe(false);
+  it("the panel has no category action any more: the chips of the Details tab change the category (D239)", () => {
+    expect(Object.keys(initialPanelState)).not.toContain("category");
   });
 });
 
@@ -104,7 +96,6 @@ describe("SC13 what each action sends", () => {
     ["ASSIGN", state({ assigneeId: "u1" }), { path: "assign", body: { assigneeUserId: "u1", expectedVersion: 4 } }],
     ["START", state({}), { path: "status", body: { status: "IN_PROGRESS", expectedVersion: 4 } }],
     ["RESOLVE", state({ resolveNote: "  Pipe replaced " }), { path: "status", body: { status: "PENDING_CONFIRMATION", note: "Pipe replaced", expectedVersion: 4 } }],
-    ["CATEGORY", state({ category: "LIFT" }), { path: "category", body: { category: "LIFT", expectedVersion: 4 } }],
     ["ACKNOWLEDGE", state({}), { path: "acknowledge", body: {} }],
     ["CLOSE", state({ closeNote: " Gas isolated " }), { path: "close", body: { note: "Gas isolated" } }],
   ] as [PanelAction, PanelState, ReturnType<typeof requestOf>][])("%s", (action, from, expected) => {
@@ -119,7 +110,7 @@ describe("SC13 what each action sends", () => {
   });
 
   it("the actions that change the complaint carry the version they were shown with; a comment and an acknowledgement do not", () => {
-    for (const action of ["ASSIGN", "START", "RESOLVE", "CATEGORY"] as PanelAction[]) expect(requestOf(action, state({}), 9).body.expectedVersion, action).toBe(9);
+    for (const action of ["ASSIGN", "START", "RESOLVE"] as PanelAction[]) expect(requestOf(action, state({}), 9).body.expectedVersion, action).toBe(9);
     for (const action of ["COMMENT", "ACKNOWLEDGE", "CLOSE"] as PanelAction[]) expect(requestOf(action, state({}), 9).body, action).not.toHaveProperty("expectedVersion");
   });
 });

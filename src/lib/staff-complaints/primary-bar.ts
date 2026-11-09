@@ -37,7 +37,6 @@ export function sheetRows(controls: Controls): Exclude<PanelAction, "ACKNOWLEDGE
   if (controls.start) rows.push("START");
   if (controls.resolve) rows.push("RESOLVE");
   if (controls.comment) rows.push("COMMENT");
-  if (controls.category) rows.push("CATEGORY");
   if (controls.close) rows.push("CLOSE");
   return rows;
 }
@@ -49,7 +48,7 @@ export function onlyControls(action: Exclude<PanelAction, "ACKNOWLEDGE">): Contr
     start: action === "START",
     resolve: action === "RESOLVE",
     comment: action === "COMMENT",
-    category: action === "CATEGORY",
+    category: false,
     acknowledge: false,
     close: action === "CLOSE",
   };

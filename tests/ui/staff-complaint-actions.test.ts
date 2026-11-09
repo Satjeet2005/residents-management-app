@@ -17,16 +17,15 @@ const noop = () => {};
 const handlers: PanelHandlers = { onField: noop, onToggleVisible: noop, onOpenNote: noop, onCloseNote: noop, onSubmit: noop, onReload: noop };
 const staffUsers = [{ id: "u1", name: "Kavita Rao" }, { id: "u2", name: "Sanjay Pawar" }];
 const ordinary = controlsFor({ status: "ASSIGNED", safety: false, acknowledged: false, viewer: { canManage: true, isDutyManager: false } });
-const render = (over: { state?: Partial<PanelState>; controls?: Controls; currentCategory?: string | null; needsReview?: boolean } = {}) =>
-  html(h(PanelView, { state: { ...initialPanelState, ...over.state }, controls: over.controls ?? ordinary, staffUsers, currentCategory: over.currentCategory === undefined ? "PLUMBING" : over.currentCategory, needsReview: over.needsReview ?? false, handlers }));
+const render = (over: { state?: Partial<PanelState>; controls?: Controls } = {}) => html(h(PanelView, { state: { ...initialPanelState, ...over.state }, controls: over.controls ?? ordinary, staffUsers, handlers }));
 const run = (...events: Parameters<typeof panelReducer>[1][]) => events.reduce(panelReducer, initialPanelState);
 
 describe("SA1 the panel for an ordinary complaint", () => {
   const out = render();
   const text = words(out);
 
-  it("has the four sections, each with a heading", () => {
-    for (const title of ["Assign", "Status", "Comment", "Correct the category"]) expect(out).toMatch(new RegExp(`<h3[^>]*>${title}</h3>`));
+  it("has the three sections, each with a heading", () => {
+    for (const title of ["Assign", "Status", "Comment"]) expect(out).toMatch(new RegExp(`<h3[^>]*>${title}</h3>`));
   });
 
   it("assign: a select of the active staff, a placeholder first, and an Assign button", () => {
@@ -50,10 +49,10 @@ describe("SA1 the panel for an ordinary complaint", () => {
     expect(out).toMatch(/<button[^>]*>Post comment<\/button>/);
   });
 
-  it("category: the current category in words, a select of the five categories and Save category", () => {
-    expect(text).toContain("Now: Plumbing");
-    expect(text).toContain("Choose a category Plumbing Electrical Housekeeping Lift Other");
-    expect(out).toMatch(/<button[^>]*>Save category<\/button>/);
+  it("there is no category form in the panel: the category is the chips of the Details tab (D239)", () => {
+    expect(text).not.toContain("Correct the category");
+    expect(text).not.toContain("Save category");
+    expect(out).not.toContain("category-select");
   });
 
   it("every control is 48px tall at least, and NOT ONE is filled", () => {
@@ -64,19 +63,19 @@ describe("SA1 the panel for an ordinary complaint", () => {
   });
 
   it("every field has a label tied to it", () => {
-    for (const id of ["assign-select", "comment-text", "category-select"]) expect(out).toContain(`for="${id}"`);
+    for (const id of ["assign-select", "comment-text"]) expect(out).toContain(`for="${id}"`);
   });
 });
 
 describe("SA2 which sections appear", () => {
-  const sections = (controls: Controls) => ["Assign", "Status", "Comment", "Correct the category"].filter((title) => render({ controls }).includes(`>${title}</h3>`));
+  const sections = (controls: Controls) => ["Assign", "Status", "Comment"].filter((title) => render({ controls }).includes(`>${title}</h3>`));
 
-  it("a complaint waiting for the resident offers a comment and a category only", () => {
-    expect(sections(controlsFor({ status: "PENDING_CONFIRMATION", safety: false, acknowledged: false, viewer: { canManage: true, isDutyManager: false } }))).toEqual(["Comment", "Correct the category"]);
+  it("a complaint waiting for the resident offers a comment only", () => {
+    expect(sections(controlsFor({ status: "PENDING_CONFIRMATION", safety: false, acknowledged: false, viewer: { canManage: true, isDutyManager: false } }))).toEqual(["Comment"]);
   });
 
-  it("a closed complaint offers a comment and a category only", () => {
-    expect(sections(controlsFor({ status: "CLOSED", safety: false, acknowledged: false, viewer: { canManage: true, isDutyManager: false } }))).toEqual(["Comment", "Correct the category"]);
+  it("a closed complaint offers a comment only", () => {
+    expect(sections(controlsFor({ status: "CLOSED", safety: false, acknowledged: false, viewer: { canManage: true, isDutyManager: false } }))).toEqual(["Comment"]);
   });
 
   it("a safety complaint offers Mark in progress and never Mark resolved, even to the duty manager", () => {
@@ -137,41 +136,12 @@ describe("SA3 states of the panel", () => {
     expect(words(out)).toContain("The resident will see this comment.");
   });
 
-  it("Save category is off when the chosen category is the one it has (and on when the complaint needs review)", () => {
-    expect(render({ state: { category: "PLUMBING" } })).toMatch(/<button[^>]*disabled=""[^>]*>Save category<\/button>/);
-    expect(render({ state: { category: "LIFT" } })).not.toMatch(/<button[^>]*disabled=""[^>]*>Save category<\/button>/);
-    expect(render({ state: { category: "PLUMBING" }, needsReview: true })).not.toMatch(/<button[^>]*disabled=""[^>]*>Save category<\/button>/);
-    expect(words(render({ currentCategory: null }))).toContain("Now: No category");
-  });
-
-  it("the result region is a live region, focusable, and says what changed after a success", () => {
-    const out = render({ state: { done: { action: "ASSIGN", subject: "Kavita Rao" } } });
-    expect(out).toMatch(/<div[^>]*tabindex="-1"[^>]*role="status"/);
-    expect(words(out)).toContain("Assigned to Kavita Rao.");
-  });
-
-  it("a changed complaint (409) says so, as an alert, with a Reload button", () => {
-    const out = render({ state: { error: { action: "START", error: "STALE" } } });
-    expect(out).toMatch(/<div[^>]*role="alert"/);
-    expect(words(out)).toContain("This complaint changed. Reload to see it.");
-    expect(out).toMatch(/<button[^>]*>Reload<\/button>/);
-  });
-
-  it.each(["FORBIDDEN", "NOT_FOUND", "ASSIGNEE_INVALID", "VALIDATION", "NETWORK", "SERVER"] as PanelError[])("the error %s is a plain sentence with no Reload button", (error) => {
-    const out = render({ state: { error: { action: "COMMENT", error } } });
-    expect(words(out)).toContain(errorText(error));
-    expect(out).not.toContain(">Reload<");
-  });
-});
-
-describe("SA4 the words of the confirmations and the errors", () => {
   it.each([
     [{ action: "ASSIGN", subject: "Kavita Rao" }, "Assigned to Kavita Rao."],
     [{ action: "START", subject: null }, "Marked in progress."],
     [{ action: "RESOLVE", subject: null }, "Marked resolved. The resident is asked to confirm."],
     [{ action: "COMMENT", subject: "visible" }, "Comment posted. The resident can see it."],
     [{ action: "COMMENT", subject: "internal" }, "Comment posted. Only staff can see it."],
-    [{ action: "CATEGORY", subject: "Lift" }, "Category changed to Lift."],
     [{ action: "ACKNOWLEDGE", subject: null }, "Marked as seen."],
     [{ action: "CLOSE", subject: null }, "Safety complaint closed."],
   ] as [{ action: PanelAction; subject: string | null }, string][])("%j reads %s", (done, sentence) => {

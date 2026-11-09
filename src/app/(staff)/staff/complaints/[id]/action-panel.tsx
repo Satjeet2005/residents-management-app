@@ -9,20 +9,16 @@ type Props = {
   version: number;
   controls: Controls;
   staffUsers: readonly { id: string; name: string }[];
-  currentCategory: string | null;
-  needsReview: boolean;
 };
 
 /** The action panel of one complaint, in the right-hand column from 1024px (D130). The actions and their rules are in `useStaffActions`. */
-export function ActionPanel({ id, version, controls, staffUsers, currentCategory, needsReview }: Props) {
+export function ActionPanel({ id, version, controls, staffUsers }: Props) {
   const { state, dispatch, submit, reload } = useStaffActions({ id, version, staffUsers });
   return (
     <PanelView
       state={state}
       controls={controls}
       staffUsers={staffUsers}
-      currentCategory={currentCategory}
-      needsReview={needsReview}
       handlers={{
         onField: (field, value) => dispatch({ type: "FIELD", field, value }),
         onToggleVisible: () => dispatch({ type: "VISIBLE_TOGGLED" }),

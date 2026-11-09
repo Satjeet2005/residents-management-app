@@ -112,9 +112,20 @@ describe("SD1 the complaint page", () => {
     expect(out).not.toContain("bg-accent");
   });
 
+  it("a manager sees the category as five chips with the current one pressed, closed chips disabled; the old Correct the category form is gone (D239)", () => {
+    const open = html(h(ComplaintView, { page: page(), tab: "details" }));
+    expect(open).toContain('role="group" aria-label="Category"');
+    expect((open.match(/aria-pressed="true"/g) ?? []).length).toBe(1);
+    expect(open).not.toContain("Correct the category");
+    const closed = html(h(ComplaintView, { page: page({}, { status: "CLOSED" }), tab: "details" }));
+    expect((closed.match(/aria-disabled="true"/g) ?? []).length).toBe(5);
+  });
+
   it("a complaint that needs review says so next to the category", () => {
-    const review = words(html(h(ComplaintView, { page: page({}, { needsReview: true, category: null, assignee: null }), tab: "details" })));
-    expect(review).toContain("Category No category");
+    const reviewHtml = html(h(ComplaintView, { page: page({}, { needsReview: true, category: null, assignee: null }), tab: "details" }));
+    const review = words(reviewHtml);
+    expect(review).toContain("Category Plumbing Electrical Housekeeping Lift Other");
+    expect(reviewHtml).not.toContain('aria-pressed="true"');
     expect(review).toContain("Needs review");
     expect(words(html(h(ComplaintView, { page: page({}, { assignee: null }), tab: "details" })))).toContain("Assigned to Unassigned");
   });

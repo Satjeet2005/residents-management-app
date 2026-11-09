@@ -22,8 +22,6 @@ function rowLabel(row: Row): string {
       return t("staffComplaints.statusPanel.resolve");
     case "COMMENT":
       return t("staffComplaints.actions.comment");
-    case "CATEGORY":
-      return t("staffComplaints.actions.category");
     case "CLOSE":
       return t("staffComplaints.safetyPanel.close");
   }
@@ -35,8 +33,6 @@ type Props = {
   kind: Exclude<BarKind, "NONE">;
   controls: Controls;
   staffUsers: readonly { id: string; name: string }[];
-  currentCategory: string | null;
-  needsReview: boolean;
 };
 
 /**
@@ -44,7 +40,7 @@ type Props = {
  * input: the duty manager's "I have seen this" (the one filled control) with "More", or "Update". The sheet is a short menu of rows; a row opens its own small form,
  * one at a time. After an action works the sheet closes, the page refreshes and a live message says what changed; focus goes back to the control that opened the sheet.
  */
-export function ActionsBar({ id, version, kind, controls, staffUsers, currentCategory, needsReview }: Props) {
+export function ActionsBar({ id, version, kind, controls, staffUsers }: Props) {
   const { state, dispatch, submit, reload } = useStaffActions({ id, version, staffUsers });
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<Row | null>(null);
@@ -108,8 +104,6 @@ export function ActionsBar({ id, version, kind, controls, staffUsers, currentCat
               state={state}
               controls={onlyControls(view)}
               staffUsers={staffUsers}
-              currentCategory={currentCategory}
-              needsReview={needsReview}
               handlers={{
                 onField: (field, value) => dispatch({ type: "FIELD", field, value }),
                 onToggleVisible: () => dispatch({ type: "VISIBLE_TOGGLED" }),

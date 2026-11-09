@@ -3,11 +3,9 @@
 import { type ReactNode, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
-import { CATEGORY_CODES } from "@/domain/complaints/taxonomy";
 import { t } from "@/lib/messages";
 import type { Controls } from "@/lib/staff-complaints/controls";
-import { categoryLabel, categoryName } from "@/lib/staff-complaints/labels";
-import { COMMENT_MAX, NOTE_MAX, type NoteForm, type PanelAction, type PanelError, type PanelState, type TextField, categoryUnchanged, countChars } from "@/lib/staff-complaints/panel";
+import { COMMENT_MAX, NOTE_MAX, type NoteForm, type PanelAction, type PanelError, type PanelState, type TextField, countChars } from "@/lib/staff-complaints/panel";
 
 const FIELD = "w-full rounded-control border-2 border-control bg-paper px-4 py-3 text-body text-ink";
 const SELECT = "min-h-12 w-full rounded-control border-2 border-control bg-paper px-4 text-body text-ink";
@@ -25,8 +23,6 @@ export type PanelViewProps = {
   state: PanelState;
   controls: Controls;
   staffUsers: readonly { id: string; name: string }[];
-  currentCategory: string | null;
-  needsReview: boolean;
   handlers: PanelHandlers;
   /** A prefix for every element id, so two panels on one page (the side panel and the actions sheet) never share one. */
   idPrefix?: string;
@@ -43,8 +39,6 @@ export function doneText(done: NonNullable<PanelState["done"]>): string {
       return t("staffComplaints.done.resolve");
     case "COMMENT":
       return done.subject === "visible" ? t("staffComplaints.done.commentVisible") : t("staffComplaints.done.commentInternal");
-    case "CATEGORY":
-      return t("staffComplaints.done.category", { category: done.subject ?? "" });
     case "ACKNOWLEDGE":
       return t("staffComplaints.done.acknowledge");
     case "CLOSE":
@@ -100,17 +94,16 @@ function ActionButton({ action, state, label, onSubmit, disabled = false, varian
 }
 
 /**
- * The action panel (D130): assign, status, comment, correct the category. Pure markup over the reducer's state. Focus: the first field of the form whose submit
+ * The action panel (D130): assign, status, comment (the category is the chips of the Details tab, D239). Pure markup over the reducer's state. Focus: the first field of the form whose submit
  * was refused, the note box when it opens, and the result line after every answer. The result line is a live region. Every button is outlined except the duty
  * manager's "I have seen this", which is the one filled control of the page while a safety complaint is unacknowledged. "I have seen this" and "Close this
  * safety complaint" appear only when `controls` offers them, which is only to the duty manager on a safety complaint.
  */
-export function PanelView({ state, controls, staffUsers, currentCategory, needsReview, handlers, idPrefix = "" }: PanelViewProps) {
+export function PanelView({ state, controls, staffUsers, handlers, idPrefix = "" }: PanelViewProps) {
   const i = (name: string): string => `${idPrefix}${name}`;
   const resultRef = useRef<HTMLDivElement>(null);
   const assignRef = useRef<HTMLSelectElement>(null);
   const commentRef = useRef<HTMLTextAreaElement>(null);
-  const categoryRef = useRef<HTMLSelectElement>(null);
   const resolveNoteRef = useRef<HTMLTextAreaElement>(null);
   const closeNoteRef = useRef<HTMLTextAreaElement>(null);
 
@@ -118,7 +111,7 @@ export function PanelView({ state, controls, staffUsers, currentCategory, needsR
     if (state.done !== null || state.error !== null) resultRef.current?.focus();
   }, [state.done, state.error]);
   useEffect(() => {
-    const target = state.invalid === "ASSIGN" ? assignRef : state.invalid === "COMMENT" ? commentRef : state.invalid === "CATEGORY" ? categoryRef : state.invalid === "RESOLVE" ? resolveNoteRef : state.invalid === "CLOSE" ? closeNoteRef : null;
+    const target = state.invalid === "ASSIGN" ? assignRef : state.invalid === "COMMENT" ? commentRef : state.invalid === "RESOLVE" ? resolveNoteRef : state.invalid === "CLOSE" ? closeNoteRef : null;
     target?.current?.focus();
   }, [state.invalid]);
   useEffect(() => {
@@ -287,36 +280,6 @@ export function PanelView({ state, controls, staffUsers, currentCategory, needsR
           </p>
           <div>
             <ActionButton action="COMMENT" state={state} label={t("staffComplaints.comment.button")} onSubmit={handlers.onSubmit} />
-          </div>
-        </Section>
-      )}
-
-      {controls.category && (
-        <Section id={i("panel-category")} title={t("staffComplaints.categoryPanel.heading")}>
-          <p className="text-body">{t("staffComplaints.categoryPanel.now", { category: categoryLabel(currentCategory) })}</p>
-          <label htmlFor={i("category-select")} className="text-body">
-            {t("staffComplaints.categoryPanel.label")}
-          </label>
-          <select
-            ref={categoryRef}
-            id={i("category-select")}
-            value={state.category}
-            onChange={(event) => handlers.onField("category", event.target.value)}
-            disabled={busy}
-            aria-invalid={state.invalid === "CATEGORY" || undefined}
-            aria-describedby={state.invalid === "CATEGORY" ? i("category-error") : undefined}
-            className={SELECT}
-          >
-            <option value="">{t("staffComplaints.categoryPanel.choose")}</option>
-            {CATEGORY_CODES.map((code) => (
-              <option key={code} value={code}>
-                {categoryName(code)}
-              </option>
-            ))}
-          </select>
-          <Invalid id={i("category-error")} show={state.invalid === "CATEGORY"} text={t("staffComplaints.categoryPanel.invalid")} />
-          <div>
-            <ActionButton action="CATEGORY" state={state} label={t("staffComplaints.categoryPanel.button")} onSubmit={handlers.onSubmit} disabled={state.category !== "" && categoryUnchanged(state.category, currentCategory, needsReview)} />
           </div>
         </Section>
       )}
