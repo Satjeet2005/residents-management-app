@@ -926,3 +926,9 @@ Fewer commits, no hand-run checks, no mutations, no BEFORE screenshots beyond th
 ## JEV-PROMPT-FULL
 
 Started 2026-11-09 11:39 IST (START_COMMIT 0bee8c0). Baseline `npm run check` passed (5220 tests). `npm run llm:check` run twice: the primary answered HTTP 429 to all 3 samples both times (PRIMARY_OK false); the secondary answered 3 of 3 (status 200) the first time and timed out 3 of 3 the second time (SECONDARY_OK true at Step 0). Per the task's rule no benchmark request was sent (Steps 3 and 4 skipped; the 32-item v2 result from the earlier task stands and v1 stays the default). Step 1, 2 and 5 were already committed by the earlier task (`755550b`, `0bee8c0`); this task added a 2,000-answer property test for the urgency floor, ran the five mutations (all caught, restored, clean diff), and corrected the second-provider statements in the documents to what was measured. Requests this task: 6 to the primary (all 429) and 6 to the secondary (3 answered).
+
+## Scanner, pending commits and a confident HIGH on a refused category (2026-11-09)
+
+- The secret scanner now scans what git could commit and checks that every `.env*` file other than `.env.example` is ignored and untracked; without git it walks the directory (D201, `docs/security.md`). Nine tests, two mutations caught.
+- The pending work was committed in logical commits (property test, same-day detector, documents).
+- D203: a HIGH that the existing 0.60 urgency rule accepts survives a refused category (`URGENCY_KEPT_ON_REFUSAL`). Production recall of true HIGH on the primary fixture: 38/39 to 39/39; ordinary complaints stored HIGH 12/159 to 15/159. Thresholds unchanged (D202). Three mutations caught. No request was sent to any provider.

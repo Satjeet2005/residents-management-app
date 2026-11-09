@@ -232,3 +232,7 @@ Clause (a) failed (-22.2 points, no extra group passing), clause (b) held (56.3%
 ### The full run could not be repeated (JEV-PROMPT-FULL, 2026-11-09)
 
 A later task asked for the full v2 run on all 200 items plus the secondary on the stratified 60. Before any benchmark request, `npm run llm:check` was run twice: the primary answered 429 to all three samples both times, so the task's rule (skip every network step when the primary does not answer) applied and no benchmark request was sent. The 32-item comparison above is therefore still the only v2 evidence, the decision (v1 stays the default) is unchanged, and the full v2 run, and the secondary's v1 and v2 runs, are **not done**.
+
+## A confident HIGH survives a refused category (D202, D203)
+
+The same-day detector block of `--from-fixture` showed that production lost one true HIGH (`MR-ELECTRICAL-02`, P(HIGH) 0.83) because its category answer (0.63) was refused. Since D203 a HIGH accepted by the existing 0.60 urgency rule is kept when the category is refused. Production arm, primary results (198 answered): recall of true HIGH 38/39 to 39/39; HIGH stored 50 to 54 of which true HIGH 38 to 39; ordinary complaints stored HIGH 12/159 to 15/159 (7.5% to 9.4%). The category tables above are unchanged (category acceptance and accuracy do not depend on this rule). The threshold stays 0.60 (D202): a lower one adds over-rating and no recall. Details and limits: `classifier-urgency-errors.md`.

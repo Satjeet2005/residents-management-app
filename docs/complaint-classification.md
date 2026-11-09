@@ -45,7 +45,7 @@ overrides for safety; R5 holds throughout.
 | **R5** | Deterministic, never throws; an empty or blank text goes to triage with `EMPTY_TEXT`. A bad policy value falls back to the default. | "" gives triage. |
 
 Reason codes (for the later translation to words): SAFETY_WORD, INVALID_MODEL_OUTPUT, ARMS_DISAGREE, LOW_CONFIDENCE, URGENCY_UNCERTAIN,
-MODEL_UNAVAILABLE, FALLBACK_USED, NO_CLASSIFICATION, EMPTY_TEXT, SINGLE_ARM_NOT_ALLOWED (`REASON_CODES`).
+URGENCY_FLOORED, URGENCY_KEPT_ON_REFUSAL, MODEL_UNAVAILABLE, FALLBACK_USED, NO_CLASSIFICATION, EMPTY_TEXT, SINGLE_ARM_NOT_ALLOWED (`REASON_CODES`).
 
 ## The safety words
 
@@ -118,6 +118,35 @@ sends has reduced personal data, never none.
 ## The urgency floor and the prompt (D197 to D199)
 
 An accepted model urgency of LOW is stored as NORMAL, with the reason `URGENCY_FLOORED` (the model's answer is kept as `modelUrgency` in the `CLASSIFIED` event). It does not apply to the keyword fallback or the safety rules, and a model can never produce CRITICAL. Why: urgency fails the D87 bar in every language group, and under-rating is the dangerous error. The request text, the reviewed v2 and its pre-registered rule and result are in `jev-prompt.md`; v2 was not adopted.
+
+## How a refused category treats urgency today
+
+Before D203 a refused category threw the model's whole answer away, urgency included. `acceptArms` in `src/domain/complaints/decision.ts` returned a refusal BEFORE it looked at the urgency:
+
+```ts
+if (tops[0].category.probability < policy.minCategoryProbability) return { refusal: "LOW_CONFIDENCE" };
+```
+
+and `decideClassification` then wrote, for every refusal:
+
+```ts
+reasons.push(outcome.refusal);
+needsTriage = true;
+urgency = urgentWords ? "HIGH" : "NORMAL";
+```
+
+So with the category answer ELECTRICAL 0.63 (under 0.70) and the urgency answer HIGH 0.83 (over 0.60), the stored urgency was NORMAL (HIGH only if an urgent keyword was in the text), the category was null and `needsReview` was set (`needsReview: category === null` in `src/server/complaints/create.ts`). A confident, correct HIGH was lost. The keyword fallback is not used on a refusal: it answers only when there is no valid arm at all (R4).
+
+## A confident HIGH survives a refused category (D203)
+
+Now `acceptArms` also reports `keptHigh` on a refusal caused by the category (`LOW_CONFIDENCE`, `ARMS_DISAGREE`): true when the EXISTING urgency rule accepts the arms' urgency (all say the same label, each at 0.60 or more) and that label is HIGH. Then:
+
+```ts
+urgency = urgentWords || outcome.keptHigh ? "HIGH" : "NORMAL";
+if (outcome.keptHigh) reasons.push("URGENCY_KEPT_ON_REFUSAL");
+```
+
+The category is still null, `needsTriage` and `needsReview` are set exactly as before, and the response clock is the HIGH target, so the complaint is on the staff board's "Needs action". Nothing else changes: a refused category still discards a NORMAL or LOW model urgency; the LOW floor, both thresholds (0.70 and 0.60), the keyword fallback and the safety rules are untouched; a model can never produce CRITICAL; `SINGLE_ARM_NOT_ALLOWED` (the arm is not used at all) keeps nothing. Why: refusing the category must not discard a confident same-day signal (D203). The threshold stays 0.60 (D202). Tests: "CP11" in `tests/domain/complaints/decision.test.ts` (table, a 2,000-answer differential test against the old logic) and the integration test in `tests/integration/complaints-create.test.ts`.
 
 ## The benchmark plan (partly run: see `classifier-benchmark.md`)
 

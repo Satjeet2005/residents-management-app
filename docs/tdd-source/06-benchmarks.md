@@ -13,6 +13,7 @@ Numbers copied from fresh output of 2026-11-09 or from committed files. Limits a
 | Holdout | 5 statements of 2,000 rows, seeds 9001 to 9005, run once, frozen in `tests/fixtures/benchmark/holdout/` |
 | Dev result (`tests/fixtures/benchmark/dev/expected.json`) | 10,000 rows, 7,311 credits, 298 posted automatically, 298 true, 0 false, recall 0.1691, auto rate 0.0408 |
 | Holdout result (`tests/fixtures/benchmark/holdout/expected.json`) | 10,000 rows, 7,269 credits, 312 posted automatically, 312 true, 0 false, recall 0.1789, auto rate 0.0429 |
+| Urgency kept on a refused category (D202, D203) | production arm recall of true HIGH 38/39 to 39/39; ordinary complaints stored HIGH 12/159 to 15/159; thresholds unchanged (0.70 category, 0.60 urgency) |
 | Reproduce | `npx vitest run tests/domain/matching/benchmark` (the gate is `tests/domain/matching/benchmark/gate.test.ts`; it also runs in `npm run check`) |
 | Limits | The statements are simulated. They say nothing about a real bank file |
 

@@ -12,14 +12,15 @@ Run `npm run classifier:benchmark -- --from-fixture` for every table (overall, p
 
 | Rule | Recall of true HIGH | Precision of HIGH | True NORMAL or LOW stored HIGH | True LOW stored HIGH |
 |---|---|---|---|---|
-| production today | 97.4% (38/39) | 76.0% (38/50) | 7.5% (12/159) | 0/40 |
+| production before D203 | 97.4% (38/39) | 76.0% (38/50) | 7.5% (12/159) | 0/40 |
+| production now (D203) | 100% (39/39) | 72.2% (39/54) | 9.4% (15/159) | 0/40 |
 | t = 0.10 | 100% (39/39) | 37.9% (39/103) | 40.3% (64/159) | 0/40 |
 | t = 0.30 | 100% (39/39) | 54.9% (39/71) | 20.1% (32/159) | 0/40 |
 | t = 0.60 | 100% (39/39) | 72.2% (39/54) | 9.4% (15/159) | 0/40 |
 
 - Recall is 100% at EVERY threshold from 0.10 to 0.60 (the Wilson interval is 91.0% to 100%). The model's answers are close to 0 or 1, so moving the threshold changes how many ordinary complaints are over-rated, not how many urgent ones are caught. Lowering the threshold only costs: at 0.10 about 4 in 10 ordinary complaints would be stored HIGH.
 - The one true HIGH that production misses is `MR-ELECTRICAL-02`. Its P(HIGH) is 0.83. Production misses it because the category answer (ELECTRICAL 0.63) is under 0.70, so the whole answer is refused and the urgency is not taken from the model. A rule that reads P(HIGH) on its own catches it at every threshold up to 0.60. So the gain in this data comes from reading urgency separately from category, not from a lower threshold.
-- Over-rating at t = 0.60 (9.4%) is a little above production (7.5%), because production also drops a HIGH answer when the category is refused.
+- Over-rating at t = 0.60 (9.4%) was a little above production (7.5%), because production also dropped a HIGH answer when the category is refused. Since D203 production keeps that HIGH and its row equals the t = 0.60 row: recall 39/39, over-rating 15/159.
 - The hard items are where a detector is wrong: at t = 0.60, 11 of the 20 hard items that are not HIGH are stored HIGH (55%), against 4 of the 139 non-hard ones (2.9%). Recall is still 100% on both kinds.
 
 **Held-out numbers (leave-one-group-out).** For each language group the threshold was chosen on the other three groups: the largest t whose recall of true HIGH there is at least 0.90 (if none reaches it, the highest recall). It was then applied to the held-out group.
@@ -43,3 +44,7 @@ The chosen threshold is 0.60 in all four folds, a spread of 0.00. That is becaus
 - Urgent words and safety words still work by rule before any of this and are not tested here.
 
 **For the human to decide:** whether a yes or no detector that reads P(HIGH) separately from the category answer is worth a pre-registered live test on real complaints (the open question is whether the one catch seen here, a HIGH lost to a refused category, happens on real text).
+
+## What was done about it (D202, D203)
+
+The measurement above was acted on in one direction only. A confident HIGH (accepted by the existing 0.60 urgency rule) now survives a refused category, so `MR-ELECTRICAL-02` is stored HIGH. The urgency threshold stays 0.60 (D202): a lower threshold adds over-rating (7.5% to 40.3% at t = 0.10) and no recall. The price of D203 is measured too: three more ordinary complaints are stored HIGH (12 to 15 of 159), and HIGH precision falls from 76.0% to 72.2%. Before and after, production arm, primary results: recall of true HIGH 38/39 to 39/39 (97.4% to 100%, interval 91.0% to 100%); by group EN 10/10, HI 9/9, MR 9/10 to 10/10; hard items 19/20 to 20/20. Category numbers are unchanged. Still synthetic data and a single missed item, so this is one observation, not proof (see "What the numbers do NOT show").

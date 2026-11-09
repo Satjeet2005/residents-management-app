@@ -26,6 +26,7 @@ Pushing, pulling, rewriting history, adding a dependency, reading `.env`, touchi
 
 | Mechanism | Where |
 |---|---|
+| A differential test of a decision change: 2,000 seeded answers against the old logic, only the intended case differs | `tests/domain/complaints/decision.test.ts` ("CP11") |
 | Pre-commit hook runs `npm run check` and `npm run scan:secrets` | `.git/hooks/pre-commit` (local, not versioned) |
 | Continuous integration | `.github/workflows/ci.yml` |
 | Unit and integration split; CI-parity run with no `.env` | `npm run test:ci-parity`, `scripts/test-ci-parity.sh` |
