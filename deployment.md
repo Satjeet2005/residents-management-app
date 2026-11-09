@@ -219,4 +219,6 @@ The candid list, with why, impact, fix and effort for each, is `docs/known-limit
 
 ## Checking the documents
 
-`npm run docs:verify` checks that every file path, test citation and `npm run` name in the Markdown files of `docs/`, `README.md` and this file exists. Run it before a release; it prints one line per problem and exits 1 when there is one.
+`npm run docs:verify` checks that every file path, test citation and `npm run` name in the Markdown files of `docs/`, `README.md` and this file exists and is committed (a file that is only on your disk fails, as it would on GitHub). Run it before a release; it prints one line per problem and exits 1 when there is one.
+
+Developer note: `bash scripts/verify-clean-clone.sh --local-copy <repo> --tracked-only` (from an empty directory) copies only the files `git ls-files` lists, which is what CI has; use it before a push.

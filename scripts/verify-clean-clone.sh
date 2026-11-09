@@ -13,6 +13,7 @@
 # Options
 #   --quick          skip `npm run test:ci-parity` (the unit and integration tests; several minutes)
 #   --local-copy D   do not clone: copy directory D (without node_modules, .next, .env, .git, test-results, generated)
+#   --tracked-only   with --local-copy: copy exactly the files `git ls-files` lists in D (skipping deleted ones), no untracked files: what a clone, and so CI, has
 #   --skip-install   TEST ONLY: link node_modules from the repository this script lives in instead of running `npm ci`, to save disk and time. The `npm ci` step is then
 #                    reported SKIP and is NOT verified. Never use it for the real check.
 # Environment (optional): VCC_DB_PORT and VCC_APP_PORT choose the host ports; the script refuses with a message if one is taken. Without them it picks free ports.
@@ -29,11 +30,12 @@ LOGS="$WORK/logs"
 
 QUICK=false
 SKIP_INSTALL=false
+TRACKED_ONLY=false
 LOCAL_COPY=""
 REPO_URL=""
 
 usage() {
-  sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '2,21p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
   exit 2
 }
 
@@ -41,6 +43,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --quick) QUICK=true ;;
     --skip-install) SKIP_INSTALL=true ;;
+    --tracked-only) TRACKED_ONLY=true ;;
     --local-copy)
       shift
       [ $# -gt 0 ] || usage
@@ -58,6 +61,8 @@ done
 if [ -z "$LOCAL_COPY" ] && [ -z "$REPO_URL" ]; then usage; fi
 if [ -n "$LOCAL_COPY" ] && [ -n "$REPO_URL" ]; then echo "Give a repository URL or --local-copy, not both." >&2; exit 2; fi
 if [ -n "$LOCAL_COPY" ] && [ ! -f "$LOCAL_COPY/package.json" ]; then echo "--local-copy: $LOCAL_COPY has no package.json." >&2; exit 2; fi
+if [ "$TRACKED_ONLY" = true ] && [ -z "$LOCAL_COPY" ]; then echo "--tracked-only needs --local-copy." >&2; exit 2; fi
+if [ "$TRACKED_ONLY" = true ] && ! git -C "$LOCAL_COPY" rev-parse --is-inside-work-tree >/dev/null 2>&1; then echo "--tracked-only: $LOCAL_COPY is not a git work tree." >&2; exit 2; fi
 if [ -n "$(ls -A "$WORK")" ]; then
   echo "Refusing to run: $WORK is not empty. Run this in a new, empty directory (mkdir /tmp/township-verify && cd /tmp/township-verify)." >&2
   exit 2
@@ -142,8 +147,14 @@ skip() { # skip <name> <why>
 s_get_code() {
   if [ -n "$LOCAL_COPY" ]; then
     mkdir -p "$REPO"
-    tar -C "$LOCAL_COPY" --exclude=./node_modules --exclude=./.next --exclude=./.env --exclude=./.git --exclude=./test-results --exclude=./generated -cf - . | tar -C "$REPO" -xf -
-    echo "copied $LOCAL_COPY"
+    if [ "$TRACKED_ONLY" = true ]; then
+      git -C "$LOCAL_COPY" ls-files -z | while IFS= read -r -d '' file; do [ -e "$LOCAL_COPY/$file" ] && printf '%s\0' "$file"; done > "$LOGS/tracked-files.list"
+      tar -C "$LOCAL_COPY" --null -T "$LOGS/tracked-files.list" -cf - | tar -C "$REPO" -xf -
+      echo "copied the tracked files of $LOCAL_COPY"
+    else
+      tar -C "$LOCAL_COPY" --exclude=./node_modules --exclude=./.next --exclude=./.env --exclude=./.git --exclude=./test-results --exclude=./generated -cf - . | tar -C "$REPO" -xf -
+      echo "copied $LOCAL_COPY"
+    fi
   else
     git clone --quiet "$REPO_URL" "$REPO"
     echo "cloned"
