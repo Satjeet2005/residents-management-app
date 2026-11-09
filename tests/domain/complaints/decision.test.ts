@@ -312,3 +312,27 @@ describe("CP9 the urgency floor (D199)", () => {
     for (const urgency of MODEL_URGENCIES) expect(decide(urgency).urgency).not.toBe("CRITICAL");
   });
 });
+
+describe("CP10 the urgency floor as a property (D199)", () => {
+  it("over 2,000 seeded random model answers: a model decision is never LOW and never CRITICAL, and the floor never changes the category", () => {
+    const rng = createPrng(199);
+    let floored = 0;
+    for (let i = 0; i < 2000; i += 1) {
+      const category = rng.pick(CATEGORY_CODES);
+      const urgency = rng.pick(MODEL_URGENCIES);
+      const categoryP = 0.3 + 0.7 * rng.next();
+      const urgencyP = 0.34 + 0.66 * rng.next();
+      const model = arm("DIRECT", category, categoryP, urgency, urgencyP);
+      const text = rng.pick(["the corridor paint is peeling", "the tap drips", "बाल्कनी का रंग उखड़ गया है", "parking sticker request"]);
+      const decision = decideClassification({ rawText: text, arms: [model], policy: single });
+      const neutral = decideClassification({ rawText: text, arms: [arm("DIRECT", category, categoryP, "NORMAL", 0.9)], policy: single });
+      if (decision.source === "LLM") {
+        expect(decision.urgency).not.toBe("LOW");
+        expect(decision.urgency).not.toBe("CRITICAL");
+        expect(decision.category).toBe(neutral.category);
+        if (decision.reasons.includes("URGENCY_FLOORED")) floored += 1;
+      }
+    }
+    expect(floored).toBeGreaterThan(50);
+  });
+});
