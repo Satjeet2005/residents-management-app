@@ -7,12 +7,13 @@ import { withPermissionAction } from "@/server/auth/current-user";
 import { defaultDeps } from "@/server/auth/default-deps";
 import { realNow } from "@/server/clock";
 import { type MockOutcome, completeMockPayment } from "@/server/payments/mock-checkout";
+import { withoutNul } from "@/server/request-text";
 
 const complete = withPermissionAction("RESIDENT", ({ user }, attemptId: string, outcome: MockOutcome) =>
   completeMockPayment({ db: defaultDeps().db, user, attemptId, outcome, now: realNow() }),
 );
 
-const field = z.object({ attemptId: z.string().max(64) });
+const field = z.object({ attemptId: withoutNul(z.string().max(64)) });
 
 /** Both buttons: re-check the person (an action is a public endpoint, whatever page shows it), then act and go Home. */
 async function handle(formData: FormData, outcome: MockOutcome): Promise<never> {

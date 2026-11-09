@@ -4,11 +4,12 @@ import type { GuardContext } from "@/server/auth/guard";
 import { businessNow, isDemoMode } from "@/server/clock";
 import { getStatementSummary, importStatement, StatementLimitError } from "./import";
 import { getSampleStatement } from "./sample-statement";
+import { withoutNul } from "@/server/request-text";
 
 /** A statement file may be 2,000,000 characters; the JSON around it adds a little (escapes), so this is the most a body may be. */
 const MAX_BODY_CHARS = 2_600_000;
 
-export const importBody = z.object({ filename: z.string().min(1).max(200), csv: z.string() });
+export const importBody = z.object({ filename: withoutNul(z.string().min(1).max(200)), csv: z.string() });
 const idSchema = z.uuid();
 
 const json = (status: number, body: unknown): Response => Response.json(body, { status });
