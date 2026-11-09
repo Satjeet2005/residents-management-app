@@ -1,3 +1,4 @@
+import { AccountFooter } from "@/components/staff/account-footer";
 import { t } from "@/lib/messages";
 import { dateWords } from "@/lib/reports/period";
 import type { CommitteeReport } from "@/server/reports/report-data";
@@ -11,7 +12,7 @@ import { PeriodForm } from "./period-form";
  * The overview of the committee report: the alert strip (only when a safety complaint is open and not yet seen), one h1, "As of <date> · read only", the month
  * selector (it applies when chosen), the four headline cards, "Look closer" (four rows, one per section page), and "About these numbers". Read only.
  */
-export function ReportView({ report }: { report: CommitteeReport }) {
+export function ReportView({ report, account }: { report: CommitteeReport; account?: { name: string; permissions: readonly string[] } }) {
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-4 md:gap-6">
       <AlertStrip count={report.safetyUnacknowledged} canManageComplaints={report.canManageComplaints} />
@@ -23,6 +24,7 @@ export function ReportView({ report }: { report: CommitteeReport }) {
       <HeadlineCards report={report} />
       <LookCloser report={report} period={report.period} />
       <AboutBlock asOf={report.asOf} />
+      {account !== undefined && <AccountFooter name={account.name} permissions={account.permissions} identity />}
     </main>
   );
 }

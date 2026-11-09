@@ -170,6 +170,27 @@ describe("CL3 status, comment and category", () => {
     expect((await loadComplaint(world, id)).events.at(-1)?.payload).toEqual({ from: "ELECTRICAL", to: "LIFT" });
   });
 
+  it("CL3c one chip tap is ONE call: it changes the category, writes one CATEGORY_CORRECTED event and one MANUAL classification; Undo is a second call with the new version", async () => {
+    const r = await makeResident(world);
+    const id = await raise(r, "Water leak under the sink");
+    const before = await loadComplaint(world, id);
+    const eventsBefore = before.events.filter((e) => e.eventType === "CATEGORY_CORRECTED").length;
+    const manualBefore = before.classifications.filter((c) => c.source === "MANUAL").length;
+    const tap = ok(await correctCategory({ db: db(), user: kavita(), id, category: "LIFT", expectedVersion: before.version, now: NOW + 1000 }));
+    const afterTap = await loadComplaint(world, id);
+    expect(afterTap.category?.code).toBe("LIFT");
+    expect(afterTap.events.filter((e) => e.eventType === "CATEGORY_CORRECTED")).toHaveLength(eventsBefore + 1);
+    expect(afterTap.classifications.filter((c) => c.source === "MANUAL")).toHaveLength(manualBefore + 1);
+    expect(afterTap.events.at(-1)?.payload).toEqual({ from: "PLUMBING", to: "LIFT" });
+    const undo = ok(await correctCategory({ db: db(), user: kavita(), id, category: "PLUMBING", expectedVersion: tap.complaint.version, now: NOW + 3000 }));
+    expect(undo.complaint.version).toBe(tap.complaint.version + 1);
+    const afterUndo = await loadComplaint(world, id);
+    expect(afterUndo.category?.code).toBe("PLUMBING");
+    expect(afterUndo.events.at(-1)?.payload).toEqual({ from: "LIFT", to: "PLUMBING" });
+    expect(afterUndo.events.filter((e) => e.eventType === "CATEGORY_CORRECTED")).toHaveLength(eventsBefore + 2);
+    expect(await correctCategory({ db: db(), user: kavita(), id, category: "OTHER", expectedVersion: tap.complaint.version, now: NOW + 4000 })).toEqual({ status: "ERROR", error: "STALE" });
+  });
+
   it("CL3 every staff action is FORBIDDEN without complaints:manage, and changes nothing", async () => {
     const r = await makeResident(world);
     const id = await raise(r, "Water leak under the sink");

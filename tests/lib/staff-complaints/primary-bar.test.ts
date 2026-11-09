@@ -38,12 +38,12 @@ describe("D152 the pinned bar by role and state", () => {
 
 describe("D152 the actions sheet", () => {
   it("lists only what the controls offer, in order, and never I have seen this", () => {
-    expect(sheetRows(controlsFor({ status: "ASSIGNED", safety: false, acknowledged: false, viewer: MANAGER }))).toEqual(["ASSIGN", "START", "RESOLVE", "COMMENT", "CATEGORY"]);
-    expect(sheetRows(controlsFor({ status: "IN_PROGRESS", safety: false, acknowledged: false, viewer: MANAGER }))).toEqual(["ASSIGN", "RESOLVE", "COMMENT", "CATEGORY"]);
-    expect(sheetRows(controlsFor({ status: "NEW", safety: false, acknowledged: false, viewer: MANAGER }))).toEqual(["ASSIGN", "START", "RESOLVE", "COMMENT", "CATEGORY"]);
-    expect(sheetRows(controlsFor({ status: "ASSIGNED", safety: true, acknowledged: false, viewer: DUTY }))).toEqual(["ASSIGN", "START", "COMMENT", "CATEGORY", "CLOSE"]);
-    expect(sheetRows(controlsFor({ status: "ASSIGNED", safety: true, acknowledged: false, viewer: MANAGER }))).toEqual(["ASSIGN", "START", "COMMENT", "CATEGORY"]);
-    expect(sheetRows(controlsFor({ status: "PENDING_CONFIRMATION", safety: false, acknowledged: false, viewer: MANAGER }))).toEqual(["COMMENT", "CATEGORY"]);
+    expect(sheetRows(controlsFor({ status: "ASSIGNED", safety: false, acknowledged: false, viewer: MANAGER }))).toEqual(["ASSIGN", "START", "RESOLVE", "COMMENT"]);
+    expect(sheetRows(controlsFor({ status: "IN_PROGRESS", safety: false, acknowledged: false, viewer: MANAGER }))).toEqual(["ASSIGN", "RESOLVE", "COMMENT"]);
+    expect(sheetRows(controlsFor({ status: "NEW", safety: false, acknowledged: false, viewer: MANAGER }))).toEqual(["ASSIGN", "START", "RESOLVE", "COMMENT"]);
+    expect(sheetRows(controlsFor({ status: "ASSIGNED", safety: true, acknowledged: false, viewer: DUTY }))).toEqual(["ASSIGN", "START", "COMMENT", "CLOSE"]);
+    expect(sheetRows(controlsFor({ status: "ASSIGNED", safety: true, acknowledged: false, viewer: MANAGER }))).toEqual(["ASSIGN", "START", "COMMENT"]);
+    expect(sheetRows(controlsFor({ status: "PENDING_CONFIRMATION", safety: false, acknowledged: false, viewer: MANAGER }))).toEqual(["COMMENT"]);
     expect(sheetRows(controlsFor({ status: "ASSIGNED", safety: false, acknowledged: false, viewer: NOBODY }))).toEqual([]);
   });
 
@@ -56,7 +56,7 @@ describe("D152 the actions sheet", () => {
   });
 
   it("each form has only its own control on", () => {
-    for (const row of ["ASSIGN", "START", "RESOLVE", "COMMENT", "CATEGORY", "CLOSE"] as const) {
+    for (const row of ["ASSIGN", "START", "RESOLVE", "COMMENT", "CLOSE"] as const) {
       const on = Object.entries(onlyControls(row)).filter(([, value]) => value).map(([key]) => key);
       expect(on).toHaveLength(1);
       expect(onlyControls(row).acknowledge).toBe(false);

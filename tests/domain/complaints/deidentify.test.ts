@@ -69,6 +69,16 @@ const CASES: Case[] = [
   ["everything at once", "Mr Sharma (T12-0408) phone 98765 43210 mail s@x.com see https://x.com", [], "[NAME] ([FLAT]) phone [PHONE] mail [EMAIL] see [URL]", [R("PHONE"), R("EMAIL"), R("URL"), R("FLAT"), R("NAME")]],
   ["nothing to take out", "The lift is slow in the mornings", ["Aamir Shaikh"], "The lift is slow in the mornings", []],
   ["empty", "", [], "", []],
+  // PAN and vehicle registration numbers (A-004)
+  ["a PAN", "ABCDE1234F", [], "[PAN]", [R("PAN")]],
+  ["a PAN in lower case", "abcde1234f", [], "[PAN]", [R("PAN")]],
+  ["a PAN in a sentence", "my pan is abcde1234f ok", [], "my pan is [PAN] ok", [R("PAN")]],
+  ["a vehicle number", "MH12AB1234", [], "[VEHICLE]", [R("VEHICLE")]],
+  ["a vehicle number with spaces", "MH 12 AB 1234", [], "[VEHICLE]", [R("VEHICLE")]],
+  ["a vehicle number with hyphens", "MH-12-AB-1234", [], "[VEHICLE]", [R("VEHICLE")]],
+  ["a vehicle number in lower case in a sentence", "car mh12ab1234 blocks the gate", [], "car [VEHICLE] blocks the gate", [R("VEHICLE")]],
+  ["a one digit district and a three letter series", "MH2ABC1234 is parked", [], "[VEHICLE] is parked", [R("VEHICLE")]],
+  ["a PAN and a vehicle number together", "PAN ABCDE1234F, car MH12AB1234", [], "PAN [PAN], car [VEHICLE]", [R("PAN"), R("VEHICLE")]],
   ["a Hindi complaint keeps its words", "टावर में पानी का रिसाव है, मेरा नंबर ९८७६५४३२१० है", [], "टावर में पानी का रिसाव है, मेरा नंबर [PHONE] है", [R("PHONE")]],
 ];
 
@@ -88,6 +98,11 @@ describe("CP3 deidentify: cases", () => {
     const twice = deidentify(once.text, { knownNames: names });
     expect(twice.text).toBe(once.text);
     expect(twice.replacements).toEqual([]);
+  });
+
+  it("reports PAN and vehicle numbers between the web addresses and the flats", () => {
+    const out = deidentify("Mr Rao T12-0408 a@b.com 9876543210 https://x.com ABCDE1234F MH12AB1234", { knownNames: [] });
+    expect(out.replacements.map((r) => r.type)).toEqual(["PHONE", "EMAIL", "URL", "PAN", "VEHICLE", "FLAT", "NAME"]);
   });
 
   it("reports the kinds in a fixed order, only the ones that were replaced", () => {
@@ -134,6 +149,44 @@ describe("CP3 deidentify: properties over seeded random texts", () => {
       expect(separated.test(out.text), `${text} -> ${out.text}`).toBe(false);
       expect(out.replacements.some((r) => r.type === "PHONE")).toBe(true);
       expect(deidentify(out.text, { knownNames: ["Aamir Shaikh"] }).text).toBe(out.text);
+    }
+  });
+});
+
+describe("CP3 deidentify: what a PAN or vehicle pattern must NOT take (A-004)", () => {
+  const UNCHANGED = ["Tower 12 Flat 408", "AB1234", "12:30", "paid ₹6,468 on 27-10-2026", "Block A2", "lift stuck on floor 4", "fire in tower 3", "ordinary words only", "MH12AB12345", "XMH12AB1234", "ABCDE12345", "ABCDEF1234F", "the lift of tower 12 has stopped"];
+
+  it.each(UNCHANGED)("%s is left as it is", (text) => {
+    const out = deidentify(text, { knownNames: [] });
+    expect(out.text).toBe(text);
+    expect(out.replacements).toEqual([]);
+  });
+
+  it("a flat code is a flat, never a vehicle number or a PAN", () => {
+    expect(deidentify("T12-0408", { knownNames: [] })).toEqual({ text: "[FLAT]", replacements: [R("FLAT")] });
+  });
+});
+
+describe("CP3 deidentify: the cost of the PAN and vehicle patterns stays linear (A-004)", () => {
+  const ADVERSARIAL = ["A1".repeat(2500), "AB 12 ".repeat(833), "MH12AB".repeat(833), "ab-1-".repeat(1000), "A".repeat(5000), "12 ab ".repeat(833), "MH 12 ABC ".repeat(500), "ABCDE1234".repeat(555)];
+
+  /** The processor time of one deidentify call in milliseconds, the best of seven (processor time, not the clock, and the best run, so a busy machine does not decide it). */
+  const cost = (text: string): number => {
+    let best = Infinity;
+    for (let run = 0; run < 7; run++) {
+      const start = process.cpuUsage();
+      deidentify(text, { knownNames: [] });
+      const used = process.cpuUsage(start);
+      best = Math.min(best, (used.user + used.system) / 1000);
+    }
+    return best;
+  };
+
+  it("a 5,000 character adversarial text costs under 50 ms more than a 5,000 character text with nothing in it (the rest of deidentify costs the same for both)", () => {
+    const plain = cost("x".repeat(5000));
+    for (const text of ADVERSARIAL) {
+      expect(text.length).toBeGreaterThanOrEqual(4990);
+      expect(cost(text) - plain, text.slice(0, 12)).toBeLessThan(50);
     }
   });
 });

@@ -157,7 +157,7 @@ test.describe("the complaint page: Kavita Rao", () => {
     const update = page.getByRole("button", { name: "Update", exact: true });
     await update.click();
     const sheet = page.getByRole("dialog");
-    await expect(sheet.getByRole("button")).toContainText(["Close", "Assign", "Mark in progress", "Mark resolved", "Add comment", "Correct category"]);
+    await expect(sheet.getByRole("button")).toContainText(["Close", "Assign", "Mark in progress", "Mark resolved", "Add comment"]);
     await checkScreen(page, watch, "staff-complaints", "actions-sheet");
 
     // Assign: one small form, then the sheet closes, a live message says what changed, and focus is back on Update.
@@ -251,3 +251,58 @@ test.describe("the duty manager: Sanjay Pawar", () => {
     }
   });
 });
+
+/**
+ * One-tap category correction (D239, audit A-009), on a phone only: ONE tap on a chip changes the category (one POST to the category route), a live message says so,
+ * "Undo" puts it back, the chips are at least 48px tall with at least 8px between them, no overflow, axe clean. Kavita (a complaints manager) and Sanjay (the duty
+ * manager) each do it on the first complaint of Needs action; the change is undone at the end, so the other specs find the seed as it was.
+ */
+for (const person of ["kavita", "sanjay"] as const) {
+  test.describe(`one-tap category: ${person}`, () => {
+    test.use({ storageState: authFile(person) });
+
+    test("one tap changes the category, Undo restores it, the chips are 48px with 8px gaps", async ({ page }) => {
+      test.skip(widthOf(page) !== 360, "the one-tap check is made on a phone");
+      const watch = watchPage(page);
+      let posts = 0;
+      page.on("request", (request) => {
+        if (request.method() === "POST" && /\/api\/staff\/complaints\/[^/]+\/category$/.test(request.url())) posts += 1;
+      });
+      await page.goto("/staff/complaints?view=needs_action");
+      await complaintLinks(page).first().click();
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      const group = page.getByRole("group", { name: "Category" });
+      const pressed = group.locator('[aria-pressed="true"]');
+      const original = (await pressed.innerText()).trim();
+      const target = group.locator('[aria-pressed="false"]').first();
+      const targetName = (await target.innerText()).trim();
+
+      const boxes = await group.getByRole("button").evaluateAll((chips) => chips.map((c) => ({ top: c.getBoundingClientRect().top, left: c.getBoundingClientRect().left, right: c.getBoundingClientRect().right, bottom: c.getBoundingClientRect().bottom, height: c.getBoundingClientRect().height })));
+      expect(boxes).toHaveLength(5);
+      for (const box of boxes) expect(box.height).toBeGreaterThanOrEqual(48);
+      for (let i = 1; i < boxes.length; i++) {
+        const sameRow = Math.abs(boxes[i].top - boxes[i - 1].top) < 4;
+        if (sameRow) expect(boxes[i].left - boxes[i - 1].right).toBeGreaterThanOrEqual(8);
+        else expect(boxes[i].top - boxes[i - 1].bottom).toBeGreaterThanOrEqual(8);
+      }
+      expect(new Set(boxes.map((b) => Math.round(b.top))).size, "the chips wrap to at most two rows on a phone").toBeLessThanOrEqual(2);
+
+      await target.click();
+      await expect(pressed).toHaveText(targetName);
+      await expect(page.getByText(`Category changed to ${targetName}.`)).toBeVisible();
+      expect(posts, "one tap sent exactly one change").toBe(1);
+      const undo = page.getByRole("button", { name: "Undo", exact: true });
+      await expect(undo).toBeVisible();
+      await expect(undo).toBeInViewport({ ratio: 1 });
+      const undoBox = await undo.boundingBox();
+      const barBox = await page.getByRole("button", { name: /^(Update|I have seen this)$/ }).first().boundingBox();
+      expect(undoBox!.y + undoBox!.height, "Undo is not hidden behind the pinned bar").toBeLessThanOrEqual(barBox!.y);
+      if (person === "kavita") await page.screenshot({ path: "docs/screenshots/complaint-category-chips-360x800.png", scale: "css" });
+      await checkScreen(page, watch, "staff-complaint-detail", `category-chips-${person}`);
+      await undo.click();
+      await expect(pressed).toHaveText(original);
+      await expect(undo).toHaveCount(0);
+      expect(posts, "Undo is one more change").toBe(2);
+    });
+  });
+}

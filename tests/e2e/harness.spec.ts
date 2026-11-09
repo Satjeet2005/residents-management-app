@@ -40,3 +40,20 @@ test.describe("E0 the real login page", () => {
     expect(await loginThroughThePage(page, PHONES.priya)).toBe("/staff");
   });
 });
+
+/** A-003, D241: a page and an API route carry the standard headers, and no X-Powered-By. The service worker and the offline page are untouched by them (the specs above and installable.spec.ts run on the same server). */
+test.describe("E0 the response headers", () => {
+  for (const [label, path] of [["a page", "/login"], ["an API route", "/api/me"]] as const) {
+    test(`${label} (${path}) has the security headers and no X-Powered-By`, async ({ request }) => {
+      const response = await request.get(path);
+      const headers = response.headers();
+      expect(headers["x-content-type-options"]).toBe("nosniff");
+      expect(headers["referrer-policy"]).toBe("strict-origin-when-cross-origin");
+      expect(headers["x-frame-options"]).toBe("DENY");
+      expect(headers["content-security-policy"]).toBe("frame-ancestors 'none'");
+      expect(headers["permissions-policy"]).toBe("camera=(), microphone=(), geolocation=()");
+      expect(headers["x-powered-by"]).toBeUndefined();
+      expect(headers["strict-transport-security"]).toBeUndefined();
+    });
+  }
+});

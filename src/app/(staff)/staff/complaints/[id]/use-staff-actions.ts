@@ -2,15 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useReducer, useRef } from "react";
-import { categoryLabel } from "@/lib/staff-complaints/labels";
 import { type PanelAction, type PanelState, classifyPanelResponse, initialPanelState, isComplete, panelReducer, requestOf } from "@/lib/staff-complaints/panel";
 
 export type StaffUser = { id: string; name: string };
 
-/** What the confirmation names: who it was assigned to, the new category, or whether the comment is visible. */
+/** What the confirmation names: who it was assigned to, or whether the comment is visible. */
 function subjectOf(action: PanelAction, state: PanelState, staffUsers: readonly StaffUser[]): string | null {
   if (action === "ASSIGN") return staffUsers.find((user) => user.id === state.assigneeId)?.name ?? null;
-  if (action === "CATEGORY") return categoryLabel(state.category);
   if (action === "COMMENT") return state.commentVisible ? "visible" : "internal";
   return null;
 }

@@ -93,13 +93,15 @@ Human decision (D88): complaint text goes to a third party only after personal d
 | A run of ten or more digits (ASCII or Devanagari), with +91, 91, 0 and separators (space, hyphen, dot, round brackets) | `[PHONE]` |
 | `local@domain`, including a UPI address such as `aamir.s@oksbi` | `[EMAIL]` |
 | A web address (`http://`, `https://`, `www.`) | `[URL]` |
+| A PAN: five letters, four digits, one letter ("ABCDE1234F"), any case, as a whole word | `[PAN]` |
+| A vehicle registration: two letters, one or two digits, one to three letters, four digits, with an optional space or hyphen between the groups ("MH12AB1234", "MH 12 AB 1234", "MH-12-AB-1234"), any case, as a whole word | `[VEHICLE]` |
 | A flat code, read with the matcher's `extractFlatTokens`, every spelling | `[FLAT]` |
 | A name in `knownNames` (whole word, any case; the whole name first, then each word of 3 or more characters) | `[NAME]` |
 | Mr, Mrs, Ms, Shri, Smt, Sri, Dr, Mister and the one or two capitalised words after it | `[NAME]` |
 
 It is idempotent (a second pass changes nothing), never throws, returns only the kinds it replaced with their counts, and a test checks that no run of ten digits
 (with or without separators) survives in 2,000 seeded random texts. **It cannot guarantee that all personal data is gone.** It does not know a name that is not in
-`knownNames` and has no honorific, an address, a building name, a vehicle number, an account number under ten digits, or a fact told in the sentences themselves
+`knownNames` and has no honorific, an address, a building name, an account number under ten digits, another identity number (a passport, a driving licence), or a fact told in the sentences themselves
 ("my husband works at the bank"). A name in Devanagari is replaced only when it is given exactly and stands alone as a word (an inflected form is not). A Devanagari
 honorific is not read. A word that is both a name and an ordinary word is replaced everywhere. The technical design (TDD) of the adapter must say the same: the text it
 sends has reduced personal data, never none.

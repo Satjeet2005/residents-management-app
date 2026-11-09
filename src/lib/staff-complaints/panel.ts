@@ -1,14 +1,12 @@
-import { CATEGORY_CODES } from "@/domain/complaints/taxonomy";
-
 /**
- * The action panel of one complaint as a pure state machine (D130). Seven actions: assign, mark in progress (START), mark resolved (RESOLVE, with a note),
- * comment, correct the category, and for the duty manager acknowledge and close (with a note). Only ONE action is in flight at a time, so a second tap on
+ * The action panel of one complaint as a pure state machine (D130). Six actions: assign, mark in progress (START), mark resolved (RESOLVE, with a note),
+ * comment, and for the duty manager acknowledge and close (with a note). The category is changed by the chips of the Details tab, not here (D239). Only ONE action is in flight at a time, so a second tap on
  * any control does nothing until the first answers. The state holds no sentence: the view turns an action, a subject and an error into words.
  */
-export type PanelAction = "ASSIGN" | "START" | "RESOLVE" | "COMMENT" | "CATEGORY" | "ACKNOWLEDGE" | "CLOSE";
+export type PanelAction = "ASSIGN" | "START" | "RESOLVE" | "COMMENT" | "ACKNOWLEDGE" | "CLOSE";
 export type PanelError = "STALE" | "FORBIDDEN" | "NOT_FOUND" | "ASSIGNEE_INVALID" | "VALIDATION" | "NETWORK" | "SERVER";
 export type NoteForm = "RESOLVE" | "CLOSE";
-export type TextField = "assigneeId" | "commentText" | "category" | "resolveNote" | "closeNote";
+export type TextField = "assigneeId" | "commentText" | "resolveNote" | "closeNote";
 
 export const COMMENT_MAX = 1000;
 export const NOTE_MIN = 5;
@@ -19,7 +17,6 @@ export type PanelState = {
   commentText: string;
   /** "Visible to the resident": OFF until the person ticks it (D130). */
   commentVisible: boolean;
-  category: string;
   /** The note form that is open ("Mark resolved" and "Close this safety complaint" each ask for a note first). */
   noteOpen: NoteForm | null;
   resolveNote: string;
@@ -28,7 +25,7 @@ export type PanelState = {
   invalid: PanelAction | null;
   pending: PanelAction | null;
   error: { action: PanelAction; error: PanelError } | null;
-  /** The last action that worked, with the one fact it changed (a name or a category), for the confirmation line. */
+  /** The last action that worked, with the one fact it changed (a name), for the confirmation line. */
   done: { action: PanelAction; subject: string | null } | null;
 };
 
@@ -36,7 +33,6 @@ export const initialPanelState: PanelState = {
   assigneeId: "",
   commentText: "",
   commentVisible: false,
-  category: "",
   noteOpen: null,
   resolveNote: "",
   closeNote: "",
@@ -72,8 +68,6 @@ export function isComplete(state: PanelState, action: PanelAction): boolean {
       const length = countChars(state.commentText.trim());
       return length >= 1 && length <= COMMENT_MAX;
     }
-    case "CATEGORY":
-      return (CATEGORY_CODES as readonly string[]).includes(state.category);
     case "RESOLVE":
       return noteOk(state.resolveNote);
     case "CLOSE":
@@ -84,10 +78,7 @@ export function isComplete(state: PanelState, action: PanelAction): boolean {
   }
 }
 
-/** Saving the same category again is pointless (the service refuses it); the view uses this to switch Save off. A complaint that waits for review may take its own category. */
-export const categoryUnchanged = (chosen: string, current: string | null, needsReview: boolean): boolean => chosen === current && !needsReview;
-
-const FIELD_MAX: Record<TextField, number> = { assigneeId: 64, commentText: COMMENT_MAX, category: 32, resolveNote: NOTE_MAX, closeNote: NOTE_MAX };
+const FIELD_MAX: Record<TextField, number> = { assigneeId: 64, commentText: COMMENT_MAX, resolveNote: NOTE_MAX, closeNote: NOTE_MAX };
 
 export function panelReducer(state: PanelState, event: PanelEvent): PanelState {
   if (state.pending !== null && event.type !== "SUCCEEDED" && event.type !== "FAILED") return state;
@@ -109,7 +100,6 @@ export function panelReducer(state: PanelState, event: PanelEvent): PanelState {
       const cleared: Partial<PanelState> =
         action === "ASSIGN" ? { assigneeId: "" }
         : action === "COMMENT" ? { commentText: "", commentVisible: false }
-        : action === "CATEGORY" ? { category: "" }
         : action === "RESOLVE" ? { resolveNote: "", noteOpen: null }
         : action === "CLOSE" ? { closeNote: "", noteOpen: null }
         : {};
@@ -135,8 +125,6 @@ export function requestOf(action: PanelAction, state: PanelState, version: numbe
       return { path: "status", body: { status: "PENDING_CONFIRMATION", note: state.resolveNote.trim(), expectedVersion: version } };
     case "COMMENT":
       return { path: "comment", body: { text: state.commentText.trim(), visibleToResident: state.commentVisible } };
-    case "CATEGORY":
-      return { path: "category", body: { category: state.category, expectedVersion: version } };
     case "ACKNOWLEDGE":
       return { path: "acknowledge", body: {} };
     case "CLOSE":

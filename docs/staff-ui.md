@@ -8,7 +8,7 @@ D115, D116 (`docs/decisions.md`), with D14, D55, D81, D103 to D109 behind them. 
 
 | Address | Who | What it shows |
 |---|---|---|
-| `/staff` | any active staff | The tools the person may open ("Bank reconciliation" with `payments:match`), their permissions in words, sign out. |
+| `/staff` | any active staff | One section for each tool the person may open, each with a counts line and the "Next up" rows (see "Staff home v2" below), their permissions in words, sign out. A committee-only person is sent to `/staff/reports`. |
 | `/staff/reconciliation` | `payments:match` | "Upload a bank statement" (a .csv, its name and size, Import; in demo mode also "Use the sample statement") and "Recent imports": date, file, rows, posted, need you, ignored and the books check, each linking to its workspace. |
 | `/staff/reconciliation/[importId]` | `payments:match` | The workspace of one import. `?lane=needs-you\|awaiting-approval\|posted\|not-maintenance` picks the lane, `?row=<id>` opens a row. |
 
@@ -97,3 +97,31 @@ whole thing in a browser is `tests/e2e` (the old HTTP script `smoke:app` is reti
 ## UI batch 1: staff home and workspace (D186 to D192)
 
 The staff home, its titles, strips and cards are described in `docs/ui-audit-staff-home.md`; the workspace's selector, rows and Filters sheet in `docs/ui-audit-reconciliation.md`. In short: the lane names appear once (the selector) and its counts are the unfiltered lane totals; a row of Needs you is one tappable card; sort, amount and reason are in the address; the amount words come from the society's approval threshold, never a fixed number; the reason groups are the table in `docs/manual-reconciliation-design.md`.
+
+## Staff home v2 (D236 to D238)
+
+The home answers "what do I do next?". From the top: the role title (h1), "Signed in as <name>", the attention strips (unchanged), then one section for each tool in the order Complaints, Bank statement matching (a person who holds both sees both). A section is a heading and a rule, one counts line (14px), the "Next up" list, a "See all <n> ..." link only when more than three exist, and the tool's filled link. Then the closed "What you can do here" and the small Sign out (`AccountFooter`).
+
+| Section | Counts line | Next up (at most 3) | Empty |
+|---|---|---|---|
+| Bank statement matching | "n need a person · n waiting for approval", "All n rows accounted for" (check icon), "Last statement: date" | An approver: the requests someone else made, then the rows that need a person; others: the rows that need a person. Biggest amount first, newest import first on a tie. A row: amount and date, one reason line ("No flat found" or "Best match T12-0702 · Low", plus "Needs a second approver" at or above the society threshold), a chevron; the whole row opens the review of that row. No narration. | "Nothing needs you right now." and the counts |
+| Complaints | "n need action · n overdue" | The duty manager: the unseen safety complaints (oldest first), then the board's Needs action order; others: the board's order. A row: flat, category, a one-line excerpt, the Safety tag and the reply notice when notable. No resident name. | "Nothing needs you right now." and the counts |
+
+A read that fails leaves its section without numbers or rows and is logged once; the page does not crash. The committee user lands on the report overview, which ends with the same account footer and has no back link for that user (a person with the report and another tool keeps both). The rows come from `src/server/staff/next-up.ts` (SELECT only, no privilege added); the home does not load the committee report. Tests: SH2, SH10 and SH11 (`tests/integration/staff-home.test.ts`, each compared with SQL or an ordering written in the test), SH3 and SH6 to SH9 (render, landing and redirect), and `tests/e2e/screens/staff-home.spec.ts` (the five seeded people at 360 x 800, 768 and 1280).
+
+### Audit and critique (docs/ui-fix-protocol.md)
+
+Before: `docs/screenshots/staff-home-v2-before-priya-360x800.png` and `staff-home-v2-before-meera-360x800.png` (the committed screenshots of the earlier design). After: `docs/screenshots/staff-home-v2-after-priya-360x800.png` (the first screen) and `staff-home-v2-after-meera-360x800.png` (the report overview with its account footer, the list of what she may do opened).
+
+| Observation (before) | Principle | Fix | Severity |
+|---|---|---|---|
+| A card with static text; two thirds of the screen empty; nothing says what to do next | Answer the user's question first | Counts line and up to three "Next up" rows in each tool section | High |
+| The committee user saw a heading, one card and Sign out before the report | No detour | Redirect to the report; the footer carries Sign out | High |
+| A card border around each tool | One rule, less noise | A heading and a rule | Low |
+
+| Critique after | Principle | Fix or reason | Evidence |
+|---|---|---|---|
+| "Last statement" shows the real upload date (the date of the e2e run), not the demo's business date | Honest data | None: it is the import's date | `staff-home-v2-after-priya-360x800.png` |
+| The Sign out button is just below the first screen for the accountant | The first screen holds the title, the counts and two rows | Accepted: the first-screen rule (two rows) holds; Sign out is a scroll away | measured by `staff-home.spec.ts` (second row bottom at most 800) |
+| "All 1 rows accounted for" is grammatically odd for one row | Plain language | Pre-existing text of the catalog; left alone in this task | the screenshot (a one-row import made by the test) |
+| A person with two tools would see two filled links | One filled control per view | Read as one per tool section (R139) | SH3 |

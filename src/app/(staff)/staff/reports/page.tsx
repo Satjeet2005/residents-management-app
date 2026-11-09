@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
+import { landsOnReport } from "@/domain/auth/staff-landing";
 import { bucketFromQuery, bucketQuery, sortFromQuery, sortQuery } from "@/lib/reports/ageing";
 import { periodFromQuery, periodQuery } from "@/lib/reports/period";
 import { requireUser } from "@/server/auth/current-user";
 import { defaultDeps } from "@/server/auth/default-deps";
 import { businessNow } from "@/server/clock";
 import { loadCommitteeReport } from "@/server/reports/report-data";
+import { StaffHomeBanner } from "../../back-link";
 import { ReportView } from "./report-view";
 
 export const metadata = { title: "Committee report" };
@@ -25,5 +27,11 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     redirect(`/staff/reports/dues?${params.toString()}#ageing-detail`);
   }
   const report = await loadCommitteeReport({ db: defaultDeps().db, user, requestedPeriod: requested, bucket: null, sort, now: businessNow() });
-  return <ReportView report={report} />;
+  const committeeOnly = landsOnReport(user.permissions);
+  return (
+    <>
+      {!committeeOnly && <StaffHomeBanner />}
+      <ReportView report={report} account={committeeOnly ? { name: user.name, permissions: user.permissions } : undefined} />
+    </>
+  );
 }

@@ -48,6 +48,12 @@ Every row names where to look. A path under `tests/` is a test that fails if the
 | Dependency age policy | Exact versions in `package.json`, each published at least 14 days before use, with `npm audit` before choosing an older one (D66). A new dependency needs the owner's approval. | `CLAUDE.md`, `package.json` (no `^` or `~`) |
 | Destructive-command guards | The seed and reset refuse a non-empty database; a reset works only on `localhost` and only on `township`, `township_seed_scratch` or `township_test_*`, and the exact name must be typed; a remote seed needs `--allow-remote` and `--confirm-database`; the demo seed needs `DEMO_MODE=true`. The hosted database therefore cannot be reset by the app's tools: that is the owner-only procedure in `docs/hosted-reset-procedure.md`. | `src/server/seed/guards.ts`; `tests/server/seed-guards.test.ts`; `CLAUDE.md` ("Project Safety Rules") |
 
+### Response headers
+
+| Control | What it does | Where |
+|---|---|---|
+| Standard headers on every response (D241) | `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: DENY`, `Content-Security-Policy: frame-ancestors 'none'` (only that directive) and `Permissions-Policy: camera=(), microphone=(), geolocation=()`. `X-Powered-By` is off. There is no HSTS here: the hosting platform sends it on HTTPS. | `next.config.ts`; `tests/server/security-headers.test.ts`; the "E0 the response headers" browser tests in `tests/e2e/harness.spec.ts` |
+
 ### The safety path for complaints
 
 A complaint about fire, gas, a stuck lift or electric shock (and a fifth, human-added category for medical emergency or violence, D153), in English, Hindi,
@@ -58,7 +64,7 @@ Marathi or those typed in Latin letters, is escalated by fixed rules before any 
 - **A bare "current" is not enough (D169).** Ten terms that are only the word "current" (करंट, "current aa raha", "bijli ka current") hit only with a shock word in the same text, so a power-cut or bill message does not wake the duty manager; "current laga", "करंट लगा" and the other shock phrases are unchanged (`tests/domain/complaints/safety-current-context.test.ts`).
 - **A model can never produce CRITICAL.** An answer that includes CRITICAL is refused as invalid; a model cannot lower a rule's urgency (`decision.ts`, rules R1 and R2).
 - **Declared danger.** The resident's "Is anyone in danger right now?" answer is mandatory, and Yes escalates even with no safety word (`tests/integration/complaints-create.test.ts`).
-- **De-identification.** Only de-identified text is ever sent to a provider, and never for a safety complaint (D88, D119, D140; `src/domain/complaints/deidentify.ts`, `tests/domain/complaints/deidentify.test.ts`).
+- **De-identification.** Only de-identified text is ever sent to a provider, and never for a safety complaint (D88, D119, D140; `src/domain/complaints/deidentify.ts`, `tests/domain/complaints/deidentify.test.ts`). Phone numbers, e-mail and UPI addresses, web addresses, PAN numbers, vehicle registration numbers, flat codes and known names are replaced (D240); other identifiers are not.
 - **The duty manager's own acknowledgement.** "Seen" means the duty manager pressed "I have seen this"; a plain complaints manager's first reply does not count as a sighting (D149; `tests/integration/safety-acknowledgement.test.ts`).
 
 The Hindi and Marathi word lists were written by the agent and are NOT yet reviewed by a native speaker (`docs/safety-words-review.md`). How well the rules cope with misspellings is measured, not assumed: 46.1% of single-operation misspellings on a holdout run once (`docs/safety-benchmark.md`).
@@ -80,6 +86,7 @@ dashboard, then Redeploy; nobody can then sign in (there is no SMS sender). The 
 | Row-level security | A second wall in the database so a missing `WHERE` in the app cannot show another flat's rows. | The app role plus the permission guard are the two walls built. |
 | Monitoring and alerting | Alerts on error bursts, on a classifier provider's warnings, on a failed readiness check; a log drain so history outlives 30 days and one hour on Vercel Hobby. | Free tier, one developer (`docs/observability.md`, "Next steps"). |
 | Backups with tested restores | Scheduled backups and a rehearsed restore. | The host's point-in-time restore exists (`docs/deploy-checklist.md`, Part G) but no restore was rehearsed here. |
+| A script and style Content-Security-Policy | A nonce-based policy for the framework's inline scripts, tried in report-only mode first. | The nonce set-up could not be validated in the time left; only `frame-ancestors` is sent (D241). |
 | Penetration testing | An independent test of the deployed system. | Not done. |
 | Global rate limit, bot protection | A limit on all routes, not only login, and a web application firewall. | Only the login path is limited (`docs/auth-design.md`, "Not covered"). |
 

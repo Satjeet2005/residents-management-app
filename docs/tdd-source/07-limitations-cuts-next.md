@@ -50,8 +50,7 @@ Gate visitor flow, amenity booking, staff admin UI, multi-flat residents, execut
 | Complaint photos are not built; a complaint is text only (the brief lists photos under must-have depth). | M | next step |
 | Visitor photos are never stored, so the 90-day photo deletion and the gate notice do not apply; the guard tablet screens, the large-button guard flow and offline gate operation are not built. | L | next step |
 | Family and tenant members exist only as seeded rows; there is no screen to add or remove a member. | M | next step |
-| Changing a complaint's category takes four taps on a phone (Update, Correct category, choose, Save category) and two actions on a desktop; the brief's "one tap" is not met. | S | next step |
-| De-identification removes phone numbers, e-mail addresses, web addresses, flat codes and names of known residents; it does not remove other identifiers such as PAN or vehicle numbers or names of people who are not residents. | S | next step |
+| De-identification removes phone numbers, e-mail addresses, web addresses, PAN numbers, vehicle registration numbers, flat codes and names of known residents; it does not remove names of people who are not residents or other identifiers (an address, a passport or licence number). | S | next step |
 
 ## Cut for time in the last run
 

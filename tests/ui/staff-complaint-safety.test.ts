@@ -21,7 +21,7 @@ const DUTY: ControlViewer = { canManage: true, isDutyManager: true };
 const MANAGER: ControlViewer = { canManage: true, isDutyManager: false };
 
 const panel = (controls: Controls, state: Partial<PanelState> = {}) =>
-  html(h(PanelView, { state: { ...initialPanelState, ...state }, controls, staffUsers, currentCategory: null, needsReview: false, handlers }));
+  html(h(PanelView, { state: { ...initialPanelState, ...state }, controls, staffUsers, handlers }));
 const page = (viewer: ControlViewer, status: ComplaintStatus, safety: boolean, acknowledged: boolean): ComplaintPage => ({
   now: Date.UTC(2026, 10, 6, 7, 0),
   complaint: {

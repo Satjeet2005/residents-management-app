@@ -14,8 +14,8 @@ import { VIEW_PAGE_SIZE } from "./page-size";
 const PAGE_MAX = 50;
 
 /** The duty manager's acknowledgement fact (D149): the complaints that have an `ack` event, once. Joined as `a`; `a.complaint_id IS NOT NULL` means acknowledged. */
-const ACKS = Prisma.sql`LEFT JOIN (SELECT DISTINCT complaint_id FROM complaint_events WHERE event_type = 'COMMENT' AND payload->>'kind' = 'ack') a ON a.complaint_id = c.id`;
-const ACKED = Prisma.sql`(a.complaint_id IS NOT NULL)`;
+export const ACKS = Prisma.sql`LEFT JOIN (SELECT DISTINCT complaint_id FROM complaint_events WHERE event_type = 'COMMENT' AND payload->>'kind' = 'ack') a ON a.complaint_id = c.id`;
+export const ACKED = Prisma.sql`(a.complaint_id IS NOT NULL)`;
 
 /** Safety complaints, of every month, that are not closed and that the duty manager has not acknowledged (the alert of the committee report): one query. */
 export async function countUnacknowledgedSafety(db: Db): Promise<number> {

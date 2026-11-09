@@ -18,7 +18,7 @@ function bar(input: { viewer: { canManage: boolean; isDutyManager: boolean }; sa
   const status = input.status ?? "ASSIGNED";
   const kind = barKind({ status, safety: input.safety, acknowledged: input.acknowledged, viewer: input.viewer });
   if (kind === "NONE") return "";
-  return html(h(ActionsBar, { id: "b0000000-0000-4000-8000-000000000001", version: 2, kind, controls: controlsFor({ status, safety: input.safety, acknowledged: input.acknowledged, viewer: input.viewer }), staffUsers, currentCategory: "PLUMBING", needsReview: false }));
+  return html(h(ActionsBar, { id: "b0000000-0000-4000-8000-000000000001", version: 2, kind, controls: controlsFor({ status, safety: input.safety, acknowledged: input.acknowledged, viewer: input.viewer }), staffUsers }));
 }
 const barOnly = (out: string) => out.slice(out.indexOf("fixed inset-x-0"), out.indexOf("<dialog"));
 
@@ -69,10 +69,10 @@ describe("SBAR1 the pinned bar", () => {
 describe("SBAR2 the actions sheet", () => {
   const sheet = (out: string) => out.slice(out.indexOf("<dialog"));
 
-  it("is a short menu of outlined 48px rows for a plain manager: Assign, Mark in progress, Mark resolved, Add comment, Correct category", () => {
+  it("is a short menu of outlined 48px rows for a plain manager: Assign, Mark in progress, Mark resolved, Add comment", () => {
     const out = sheet(bar({ viewer: { canManage: true, isDutyManager: false }, safety: false, acknowledged: false, status: "NEW" }));
     expect(out).toContain("Update this complaint");
-    const rows = ["Assign", "Mark in progress", "Mark resolved", "Add comment", "Correct category"].map((label) => out.indexOf(`>${label}</button>`));
+    const rows = ["Assign", "Mark in progress", "Mark resolved", "Add comment"].map((label) => out.indexOf(`>${label}</button>`));
     expect([...rows].sort((a, b) => a - b)).toEqual(rows);
     expect(rows.every((p) => p > 0)).toBe(true);
     expect(out).not.toContain("Close this safety complaint");
@@ -96,8 +96,6 @@ describe("SBAR3 the form inside the sheet", () => {
         state: { ...initialPanelState, commentVisible: extra.comment ?? false },
         controls: { assign: false, start: false, resolve: false, comment: true, category: false, acknowledge: false, close: false },
         staffUsers,
-        currentCategory: "PLUMBING",
-        needsReview: false,
         handlers: { onField: () => {}, onToggleVisible: () => {}, onOpenNote: () => {}, onCloseNote: () => {}, onSubmit: () => {}, onReload: () => {} },
       }),
     );
@@ -112,7 +110,7 @@ describe("SBAR3 the form inside the sheet", () => {
   });
 
   it("without a prefix the ids are the plain ones, as in the side panel", () => {
-    const out = html(h(PanelView, { state: initialPanelState, controls: { assign: false, start: false, resolve: false, comment: true, category: false, acknowledge: false, close: false }, staffUsers, currentCategory: null, needsReview: false, handlers: { onField: () => {}, onToggleVisible: () => {}, onOpenNote: () => {}, onCloseNote: () => {}, onSubmit: () => {}, onReload: () => {} } }));
+    const out = html(h(PanelView, { state: initialPanelState, controls: { assign: false, start: false, resolve: false, comment: true, category: false, acknowledge: false, close: false }, staffUsers, handlers: { onField: () => {}, onToggleVisible: () => {}, onOpenNote: () => {}, onCloseNote: () => {}, onSubmit: () => {}, onReload: () => {} } }));
     expect(out).toContain('id="comment-text"');
   });
 });

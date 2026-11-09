@@ -5,6 +5,7 @@ import type { SessionUser } from "@/server/auth/session-service";
 import { boardCounts } from "@/server/complaints/board-views";
 import { countsOf } from "@/server/statements/ui-data";
 import { warnStaffHomeCountFailed } from "@/server/warnings";
+import { type NextUpComplaint, type NextUpPayment, loadNextUpComplaints, loadNextUpPayments } from "./next-up";
 
 type Viewer = Pick<SessionUser, "id" | "role" | "active" | "permissions">;
 
@@ -17,10 +18,14 @@ export type StaffHomeData = {
   statements: { newest: { importId: string; filename: string; uploadedOn: string; rowsRead: number; accounted: boolean } | null; needsPerson: number; awaitingApproval: number } | null;
   /** Rows waiting for THIS person's approval, over all imports (the ones they asked for themselves are not counted), and the newest import that has any. */
   approvals: { waiting: number; importId: string | null } | null;
+  /** "Next up" payments (at most 3, over all imports); null unless the person may match, or the read failed. */
+  paymentRows: NextUpPayment[] | null;
+  /** "Next up" complaints (at most 3); null unless the person may manage complaints, or the read failed. */
+  complaintRows: NextUpComplaint[] | null;
 };
 
 /** Runs one count; a failure is logged once and gives null, so a card is shown without numbers and the page never crashes. */
-async function quietly<T>(part: "complaints" | "statements" | "approvals", read: () => Promise<T>): Promise<T | null> {
+async function quietly<T>(part: "complaints" | "statements" | "approvals" | "paymentRows" | "complaintRows", read: () => Promise<T>): Promise<T | null> {
   try {
     return await read();
   } catch {
@@ -30,8 +35,8 @@ async function quietly<T>(part: "complaints" | "statements" | "approvals", read:
 }
 
 /**
- * The numbers of /staff (D187), all from SELECTs: the complaint board's own counts (one query), the reconciliation totals over every import, and the rows waiting
- * for this person's approval. The committee report is NOT loaded here. Nothing on the page names a resident, a phone or a narration.
+ * The numbers and the "Next up" rows of /staff (D187, D237), all from SELECTs: the complaint board's own counts (one query), the reconciliation totals over every import, the rows waiting
+ * for this person's approval, and at most three rows for each tool. The committee report is NOT loaded here. Nothing on the page names a resident, a phone or a narration.
  */
 export async function loadStaffHome({ db, user, now }: { db: Db; user: Viewer; now: number }): Promise<StaffHomeData> {
   const manages = can(user, "complaints:manage");
@@ -69,7 +74,12 @@ export async function loadStaffHome({ db, user, now }: { db: Db; user: Viewer; n
       })
     : null;
 
+  const paymentRows = matches ? await quietly("paymentRows", () => loadNextUpPayments({ db, user, approver: approves })) : null;
+  const complaintRows = manages ? await quietly("complaintRows", () => loadNextUpComplaints({ db, user, now, duty })) : null;
+
   return {
+    paymentRows,
+    complaintRows,
     complaints: board === null ? null : { needsAction: board.counts.needs_action, overdue: board.counts.overdue },
     unseenSafety: duty && board !== null ? board.unacknowledgedSafety : null,
     statements,

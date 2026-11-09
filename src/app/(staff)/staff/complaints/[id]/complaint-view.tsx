@@ -11,14 +11,15 @@ import { complaintTitle } from "@/server/home/mapper";
 import type { ComplaintPage } from "@/server/complaints/staff-page-data";
 import { ActionPanel } from "./action-panel";
 import { ActionsBar } from "./actions-bar";
+import { CategoryChips } from "./category-chips";
 import { DetailTabs } from "./detail-tabs";
 import { TimelineList } from "./timeline-list";
 
 const flatChip = (code: string) => <span className="tnum inline-flex min-h-7 items-center rounded-control border border-control bg-paper-2 px-2 text-caption">{code}</span>;
 
-function Fact({ label, children }: { label: string; children: React.ReactNode }) {
+function Fact({ label, children, wide = false }: { label: string; children: React.ReactNode; wide?: boolean }) {
   return (
-    <div className="flex min-w-0 flex-col">
+    <div className={wide ? "col-span-2 flex min-w-0 flex-col" : "flex min-w-0 flex-col"}>
       <dt className="text-caption text-ink-2">{label}</dt>
       <dd className="break-words text-body">{children}</dd>
     </div>
@@ -37,7 +38,13 @@ function Facts({ page }: { page: ComplaintPage }) {
       <Fact label={t("staffComplaints.fact.raisedAt")}>
         <span className="tnum">{whenWords(complaint.createdAt)}</span>
       </Fact>
-      <Fact label={t("staffComplaints.fact.category")}>{categoryLabel(complaint.category)}</Fact>
+      {page.viewer.canManage ? (
+        <Fact label={t("staffComplaints.fact.category")} wide>
+          <CategoryChips id={complaint.id} version={complaint.version} category={complaint.category} closed={complaint.status === "CLOSED"} />
+        </Fact>
+      ) : (
+        <Fact label={t("staffComplaints.fact.category")}>{categoryLabel(complaint.category)}</Fact>
+      )}
       <Fact label={t("staffComplaints.fact.urgency")}>{urgencyLabel(complaint.urgency)}</Fact>
       <Fact label={t("staffComplaints.fact.assignee")}>{complaint.assignee?.name ?? t("staffComplaints.unassigned")}</Fact>
       <Fact label={t("staffComplaints.fact.status")}>{staffStatusLabel(complaint.status)}</Fact>
@@ -173,10 +180,10 @@ export function ComplaintView({ page, tab }: { page: ComplaintPage; tab: DetailT
           <h2 id="panel-heading" className="text-title font-semibold">
             {t("staffComplaints.panel.heading")}
           </h2>
-          <ActionPanel id={complaint.id} version={complaint.version} controls={controls} staffUsers={page.staffUsers} currentCategory={complaint.category} needsReview={complaint.needsReview} />
+          <ActionPanel id={complaint.id} version={complaint.version} controls={controls} staffUsers={page.staffUsers} />
         </aside>
       </div>
-      {bar !== "NONE" && <ActionsBar id={complaint.id} version={complaint.version} kind={bar} controls={controls} staffUsers={page.staffUsers} currentCategory={complaint.category} needsReview={complaint.needsReview} />}
+      {bar !== "NONE" && <ActionsBar id={complaint.id} version={complaint.version} kind={bar} controls={controls} staffUsers={page.staffUsers} />}
     </main>
   );
 }
