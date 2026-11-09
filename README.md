@@ -36,6 +36,9 @@ npm run test:integration    # needs the database running
 npm run test:ci-parity      # unit and integration tests as CI runs them: no .env, only DATABASE_URL
 npm run build
 npm run scan:secrets
+npm run llm:check            # one request to each configured classifier provider (names, statuses and timings only; never a key)
+npm run jev:e2e              # raise eight complaints through the real service on a scratch database, with the real providers if configured (docs/jev-integration.md)
+npm run classifier:benchmark # the classifier benchmark on 200 synthetic complaints; --dry-run needs no network; --from-fixture recomputes docs/classifier-benchmark.md
 npm run safety:benchmark      # recompute the safety-detection benchmark (dev, the reused holdout and holdout2), print the headline numbers, fail if they differ from the committed ones (docs/safety-benchmark.md; single-operation recall 46.1% on the independent holdout)
 ```
 

@@ -129,6 +129,8 @@ Vercel > the project > Settings > Environment Variables. Scope every row to **Pr
 | `LOGS_DATABASE_URL` | Must **not** exist in Vercel, ever. | n/a |
 | "Enable access to System Environment Variables" | Ticked (without it the address limit breaks). | n/a |
 
+The classifier providers are optional: to use them, set the `JEV_PRIMARY_URL`, `JEV_PRIMARY_KEY`, `JEV_SECONDARY_URL` and `JEV_SECONDARY_KEY` names (and, if wanted, the `_MODEL`, `JEV_TIMEOUT_MS`, `JEV_DAILY_CAP` and breaker names) here in the dashboard only, never in a file. Then, on your own machine, run `npm run llm:check` to see one status line per provider (`docs/jev-integration.md`).
+
 Then Deployments > the latest > the "..." menu > **Redeploy**. **Expected:** the new deployment turns Ready.
 **If not:** see the readiness table in step 6 and `docs/deploy-checklist.md`, D2 and D3.
 

@@ -3,6 +3,7 @@
 How a complaint can be classified by a language model, server side only. Decisions: D140 (the provider chain), D141 (breaker and daily cap in memory), D142
 (a 401 or 403 opens the breaker), D144 (the model name is optional), D145 (a bad setting never blocks a complaint), with D9, D73, D88, D118 and D119. Assumptions: R50 to R65 (`docs/assumptions.md`). Code: `src/server/complaints/providers/`.
 The ports and rules around it are in `docs/complaints-design.md` and `docs/complaint-classification.md`.
+The live proof, the end-to-end script and the benchmark are in [`jev-integration.md`](jev-integration.md) and [`classifier-benchmark.md`](classifier-benchmark.md).
 
 ## The chain
 
