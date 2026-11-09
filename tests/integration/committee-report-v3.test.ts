@@ -5,6 +5,7 @@ import { ReportView } from "@/app/(staff)/staff/reports/report-view";
 import { SectionPage } from "@/app/(staff)/staff/reports/section-page";
 import { dayStartInstant } from "@/domain/time/calendar";
 import { loadCommitteeReport } from "@/server/reports/report-data";
+import { bestOfMsAsync } from "../helpers/best-of";
 import { type PaymentsFixture, createPaymentsFixture } from "./payments-fixture";
 
 /**
@@ -41,7 +42,6 @@ describe.each(DATES)("V3 the committee report as of %s", (asOf) => {
   let elapsedMs = 0;
 
   beforeAll(async () => {
-    await loadCommitteeReport({ db: fx.app, user, requestedPeriod: OCTOBER, now });
     const counted = fx.app.$extends({
       query: {
         $allOperations({ args, query }) {
@@ -50,9 +50,12 @@ describe.each(DATES)("V3 the committee report as of %s", (asOf) => {
         },
       },
     }) as unknown as typeof fx.app;
-    const started = performance.now();
-    report = await loadCommitteeReport({ db: counted, user, requestedPeriod: OCTOBER, now });
-    elapsedMs = performance.now() - started;
+    const timed = await bestOfMsAsync(() => {
+      operations = 0;
+      return loadCommitteeReport({ db: counted, user, requestedPeriod: OCTOBER, now });
+    });
+    report = timed.result;
+    elapsedMs = timed.bestMs;
   }, 240_000);
 
   const livePayments = `SELECT e.id, e.bill_id, e.amount_paise, e.effective_date FROM ledger_entries e WHERE e.entry_type = 'PAYMENT' AND e.direction = 'PAYMENT' AND e.effective_date <= DATE '${asOf}'

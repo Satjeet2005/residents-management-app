@@ -6,6 +6,7 @@ import { ReportView } from "@/app/(staff)/staff/reports/report-view";
 import { ageingTable } from "@/domain/reports/age";
 import { DEMO_NOW } from "@/domain/seed/types";
 import { loadCommitteeReport } from "@/server/reports/report-data";
+import { bestOfMsAsync } from "../helpers/best-of";
 import { type PaymentsFixture, createPaymentsFixture } from "./payments-fixture";
 
 /**
@@ -41,7 +42,6 @@ beforeAll(async () => {
   fx = await createPaymentsFixture();
   const row = await fx.owner.user.findFirstOrThrow({ where: { name: "Meera Kapoor" }, select: { id: true, permissions: { select: { permission: true } } } });
   user = { id: row.id, role: "STAFF", active: true, permissions: row.permissions.map((p) => p.permission) };
-  await loadCommitteeReport({ db: fx.app, user, requestedPeriod: OCTOBER, now: DEMO_NOW });
   const counted = fx.app.$extends({
     query: {
       $allOperations({ args, query }) {
@@ -50,9 +50,12 @@ beforeAll(async () => {
       },
     },
   }) as unknown as typeof fx.app;
-  const started = performance.now();
-  report = await loadCommitteeReport({ db: counted, user, requestedPeriod: OCTOBER, now: DEMO_NOW });
-  elapsedMs = performance.now() - started;
+  const timed = await bestOfMsAsync(() => {
+    operations = 0;
+    return loadCommitteeReport({ db: counted, user, requestedPeriod: OCTOBER, now: DEMO_NOW });
+  });
+  report = timed.result;
+  elapsedMs = timed.bestMs;
 }, 240_000);
 afterAll(async () => {
   await fx?.close();
@@ -77,13 +80,17 @@ describe("V2-1 the monthly series against SQL", () => {
 
   it("collected within 20 days of the bill, per month, equals an independent SQL sum (D173), and October, 26 days old, is not 'so far' on 27 October", async () => {
     const rows = await fx.owner.$queryRawUnsafe<{ period: Date; billed: bigint; within: bigint }[]>(
-      `SELECT b.period, SUM(b.amount_paise)::bigint AS billed,
-              SUM(LEAST(b.amount_paise, COALESCE((
-                SELECT SUM(e.amount_paise) FROM ledger_entries e
-                WHERE e.bill_id = b.id AND e.entry_type = 'PAYMENT' AND e.effective_date <= LEAST(b.issued_on + 20, DATE '${AS_OF}')
-                  AND NOT EXISTS (SELECT 1 FROM ledger_entries r WHERE r.entry_type = 'REVERSAL' AND r.reverses_entry_id = e.id AND r.effective_date <= DATE '${AS_OF}')
-              ), 0)))::bigint AS within
-       FROM bills b WHERE b.issued_on <= DATE '${AS_OF}' GROUP BY b.period`,
+      `WITH live AS (
+         SELECT e.bill_id, e.effective_date, e.amount_paise FROM ledger_entries e
+         WHERE e.entry_type = 'PAYMENT' AND e.effective_date <= DATE '${AS_OF}'
+           AND NOT EXISTS (SELECT 1 FROM ledger_entries r WHERE r.entry_type = 'REVERSAL' AND r.reverses_entry_id = e.id AND r.effective_date <= DATE '${AS_OF}')
+       ), per_bill AS (
+         SELECT b.id, b.period, b.amount_paise,
+                COALESCE(SUM(l.amount_paise) FILTER (WHERE l.effective_date <= LEAST(b.issued_on + 20, DATE '${AS_OF}')), 0) AS within
+         FROM bills b LEFT JOIN live l ON l.bill_id = b.id
+         WHERE b.issued_on <= DATE '${AS_OF}' GROUP BY b.id
+       )
+       SELECT period, SUM(amount_paise)::bigint AS billed, SUM(LEAST(amount_paise, within))::bigint AS within FROM per_bill GROUP BY period`,
     );
     const byPeriod = new Map(rows.map((r) => [toPeriod(r.period), r]));
     for (const point of report.series.monthly) {

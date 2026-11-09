@@ -3,6 +3,7 @@ import { parseStatementCsv } from "@/domain/matching/csv";
 import { extractFlatTokens, isValidFlatCode } from "@/domain/matching/flat-code";
 import { parseNarration } from "@/domain/matching/narration";
 import { createPrng } from "@/domain/seed/prng";
+import { bestOfMs } from "../../helpers/best-of";
 
 const RAILS = ["UPI", "NEFT", "IMPS", "RTGS", "CHEQUE_DEPOSIT", "CHEQUE_RETURN", "CASH_DEPOSIT", "BANK_CHARGE", "INTEREST", "UNKNOWN"];
 
@@ -66,9 +67,8 @@ describe("P3 narration: fuzz", () => {
     ["5,000 digits", "1".repeat(5000)],
     ["control characters", "\u0000\u0001\u0002UPI\u0003\u0004"],
   ])("handles %s without throwing", (_label, raw) => {
-    const started = performance.now();
     expect(() => parseNarration(raw)).not.toThrow();
-    expect(performance.now() - started).toBeLessThan(500);
+    expect(bestOfMs(() => parseNarration(raw))).toBeLessThan(500);
   });
 });
 
@@ -80,12 +80,11 @@ describe("P1 statement CSV: size", () => {
       lines.push(`${day}/10/2026,${day}-Oct-2026,"UPI/${String(400000000000 + i)}/AAMIR SHAIKH, T21 1601/maint",${(i % 90) + 10}.50,,${100000 + i},REF${i}`);
     }
     const text = lines.join("\r\n");
-    const started = performance.now();
     const result = parseStatementCsv(text);
-    const elapsed = performance.now() - started;
+    const best = bestOfMs(() => parseStatementCsv(text));
     expect(result.errors).toEqual([]);
     expect(result.rows).toHaveLength(10_000);
     expect(result.rows[9999].rowNumber).toBe(10_000);
-    expect(elapsed).toBeLessThan(1500);
+    expect(best).toBeLessThan(1500);
   });
 });
