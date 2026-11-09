@@ -1,12 +1,16 @@
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { LateFeeFigures } from "@/app/(staff)/staff/reports/late-fee-figures";
 import { MoneyBlock } from "@/app/(staff)/staff/reports/money-block";
+import { MonthlyBlock, monthlyTakeaway } from "@/app/(staff)/staff/reports/monthly-block";
 import { PeriodForm, periodHrefOf } from "@/app/(staff)/staff/reports/period-form";
 import { ReportView } from "@/app/(staff)/staff/reports/report-view";
+import { SectionPage } from "@/app/(staff)/staff/reports/section-page";
 import { StaffView } from "@/app/(staff)/staff/staff-view";
 import { AGE_BUCKETS } from "@/domain/reports/age";
 import type { MoneyLine } from "@/domain/reports/money-line";
+import type { MonthlyPoint } from "@/domain/reports/series";
 import { dateWords, periodLabel } from "@/lib/reports/period";
 import { emptyReport } from "./committee-fixtures";
 import type { CommitteeReport } from "@/server/reports/report-data";
@@ -68,45 +72,77 @@ describe("CR1 the period selector", () => {
   });
 });
 
-describe("CR2 the money section", () => {
-  const series = emptyReport().series.monthly;
-  const out = html(h(MoneyBlock, { money, series, period: "2026-10-01" }));
+describe("CR2 the Billed and collected ledger", () => {
+  const out = html(h(MoneyBlock, { money }));
   const text = words(out);
 
-  it("shows Billed, Collected and Still unpaid in rupees with Indian grouping, and says they add up", () => {
-    expect(text).toContain("Billed ₹1,80,52,190");
-    expect(text).toContain("Collected Bill amount without late fee, paid so far. Late fees are not in it. ₹1,48,42,714");
-    expect(text).toContain("Still unpaid (October bills) Bill amount without late fee, still owed. ₹32,09,476");
-    expect(text).toContain("Billed equals Collected plus Still unpaid.");
+  it("is Collected plus Still unpaid equals Billed, in rupees with Indian grouping, the operators visible and also written for a screen reader", () => {
+    expect(text).toMatch(/Collected ₹1,48,42,714 \+ plus Still unpaid ₹32,09,476 = equals Billed ₹1,80,52,190/);
+    expect(out).toContain('<span aria-hidden="true" class="mr-2 inline-block w-4">+</span><span class="sr-only">plus </span>');
+    expect(out).toContain('<span aria-hidden="true" class="mr-2 inline-block w-4">=</span><span class="sr-only">equals </span>');
+    expect(1_484_271_400n + 320_947_600n).toBe(money.billedPaise);
   });
 
-  it("puts a double rule under the three lines, as a ledger does", () => {
-    expect(out).toContain('class="h-[7px] border-y-2 border-ink"');
+  it("puts a double rule under Still unpaid and above Billed, as a ledger does", () => {
     expect(out.indexOf("Still unpaid")).toBeLessThan(out.indexOf("h-[7px]"));
-    expect(out.indexOf("h-[7px]")).toBeLessThan(out.indexOf("Late fees received"));
+    expect(out.indexOf("h-[7px]")).toBeLessThan(out.indexOf("Billed</dt>"));
   });
 
-  it("says the late fees in three lines, real money apart from a calculation, and the flats in a sentence, in full Indian grouping", () => {
+  it("has ONE bar, then the share collected in words, then exactly two facts", () => {
+    expect(count(out, /role="img"/g)).toBe(1);
+    expect(out).not.toContain('data-part="tick"');
+    expect(text).toContain("82% collected");
     expect(text).toContain("Late fees received: ₹3,800 (real money).");
-    expect(text).toContain("Late fees charged but unpaid: ₹1,900.");
-    expect(text).toContain("Late fees building up on unpaid bills, not yet charged: ₹1,23,456 (a calculation, not money received).");
-    expect(text).toContain("2,399 flats billed: 1,915 paid in full, 484 with part of the bill amount still unpaid.");
+    expect(text).toContain("1,915 of 2,399 flats have paid in full");
+    expect(count(out.slice(out.indexOf("</dl>")), /<li>/g)).toBe(2 + 3);
   });
 
-  it("uses tabular figures for every amount, right-aligned, in one definition list", () => {
-    expect(count(out, /<dl/g)).toBe(1);
-    expect(count(out, /<dd class="text-right"/g)).toBe(3);
-    expect(count(out, /class="tnum[^"]*"/g)).toBeGreaterThanOrEqual(5);
+  it("has no grey definition under a figure, no equation in words, no principal, and the other two late-fee figures are not here", () => {
+    expect(text).not.toMatch(/Bill amount without late fee|equals Collected plus|principal|Late fees charged but unpaid|building up/i);
+  });
+
+  it("keeps the definitions behind one expander with exactly three lines", () => {
+    const details = /<details>[\s\S]*?<\/details>/.exec(out)?.[0] ?? "";
+    expect(words(details)).toContain("What do these mean?");
+    expect(count(details, /<li>/g)).toBe(3);
+    expect(words(details)).toContain("Billed: the maintenance bills raised for the month.");
+  });
+
+  it("its static explanatory text, outside the expander, the headings and the row labels, is at most 30 words (the text budget)", () => {
+    const bare = out.replace(/<details>[\s\S]*?<\/details>/g, "").replace(/<h2[\s\S]*?<\/h2>/g, "").replace(/<dt[\s\S]*?<\/dt>/g, "").replace(/<svg[\s\S]*?<\/svg>/g, "");
+    const explanatory = words(bare).split(" ").filter((w) => w !== "" && !/[0-9₹%]/.test(w));
+    expect(explanatory.length).toBeLessThanOrEqual(30);
   });
 
   it("shows a fee as paise when it has any, and whole rupees otherwise", () => {
-    const odd = html(h(MoneyBlock, { money: { ...money, fees: { ...money.fees, postedPaidPaise: 380_050n } }, series, period: "2026-10-01" }));
+    const odd = html(h(MoneyBlock, { money: { ...money, fees: { ...money.fees, postedPaidPaise: 380_050n } } }));
     expect(words(odd)).toContain("Late fees received: ₹3,800.50 (real money).");
   });
+});
 
-  it("shows the monthly collection as bars below 768px and as columns from 768px: one set of numbers, one table each, never both at once", () => {
+describe("CR2b the Dues page's late-fee figures and the monthly block", () => {
+  it("the three late-fee figures say real money apart from a calculation", () => {
+    const text = words(html(h(LateFeeFigures, { money })));
+    expect(text).toContain("Late fees received: ₹3,800 (real money).");
+    expect(text).toContain("Late fees charged but unpaid: ₹1,900.");
+    expect(text).toContain("Late fees building up on unpaid bills, not yet charged: ₹1,23,456 (a calculation, not money received).");
+    expect(html(h(LateFeeFigures, { money: null }))).toBe("");
+  });
+
+  it("the monthly collection is bars below 768px and columns from 768px, one set of numbers, never both at once, with one takeaway of at most 20 words", () => {
+    const series = emptyReport().series.monthly;
+    const out = html(h(MonthlyBlock, { series }));
     expect(out).toMatch(/<div class="md:hidden"><figure[\s\S]*?monthly-bars-title/);
     expect(out).toMatch(/<div class="hidden md:block"><figure[\s\S]*?monthly-columns-title/);
+    expect(words(out)).toContain("Collected within 20 days, by month");
+  });
+
+  it("the takeaway names the month at day 20 and the one before, and says 'so far' for a young month", () => {
+    const point = (period: string, byDay20Percent: number, inProgress: boolean): MonthlyPoint => ({ period, hasBills: true, billedPaise: 100n, collectedPaise: 80n, outstandingPaise: 20n, collectedPercent: 80, byDay20Percent, byDay20Paise: 80n, inProgress });
+    expect(monthlyTakeaway([point("2026-09-01", 93, false), point("2026-10-01", 83, false)])).toBe("October is 83% at day 20; September was 93%.");
+    expect(monthlyTakeaway([point("2026-09-01", 93, false), point("2026-10-01", 79, true)])).toBe("October is 79% so far; September was 93%.");
+    expect(monthlyTakeaway([point("2026-10-01", 79, false)])).toBeNull();
+    expect((monthlyTakeaway([point("2026-09-01", 93, false), point("2026-10-01", 83, false)]) ?? "").split(" ").length).toBeLessThanOrEqual(20);
   });
 });
 
@@ -127,7 +163,7 @@ describe("CR3 the page", () => {
   });
 
   it("a month with no bills says so in words and draws no money line", () => {
-    const empty = html(h(ReportView, { report: report({ money: null }) }));
+    const empty = html(h(SectionPage, { slug: "collections", report: report({ money: null }) }));
     expect(words(empty)).toContain("No bills for this month");
     expect(words(empty)).toContain("Choose another month above.");
     expect(empty).not.toContain("Collected Principal paid");

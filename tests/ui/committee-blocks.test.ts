@@ -5,7 +5,8 @@ import { AboutBlock } from "@/app/(staff)/staff/reports/about-block";
 import { ComplaintsBlock } from "@/app/(staff)/staff/reports/complaints-block";
 import { QualityBlock } from "@/app/(staff)/staff/reports/quality-block";
 import { ReconciliationBlock } from "@/app/(staff)/staff/reports/reconciliation-block";
-import { ReportView } from "@/app/(staff)/staff/reports/report-view";
+import { SectionPage } from "@/app/(staff)/staff/reports/section-page";
+import { SECTIONS } from "@/lib/reports/sections";
 import { type ReportComplaint, complaintMetrics } from "@/domain/reports/complaints";
 import { defaultGoals, evaluateGoals } from "@/domain/reports/goals";
 import type { CollectionQuality } from "@/domain/reports/money-line";
@@ -232,8 +233,8 @@ describe("CB4 about these numbers", () => {
   });
 });
 
-describe("CB5 the whole page", () => {
-  const out = html(h(ReportView, { report: emptyReport() }));
+describe("CB5 the four section pages", () => {
+  const out = SECTIONS.map((section) => html(h(SectionPage, { slug: section.slug, report: emptyReport() }))).join("\n");
 
   it("with an empty month and no complaints or imports it says so in each section and has no zero percent and no 'NaN'", () => {
     expect(words(out)).toContain("No bills for this month");
@@ -243,59 +244,21 @@ describe("CB5 the whole page", () => {
     expect(words(out)).not.toMatch(NO_ZERO);
   });
 
-  it("has the five sections in order as <details> with the ids money, owed, quality, complaints, bank, and no Goals section", () => {
-    const order = ["money", "owed", "quality", "complaints", "bank"].map((id) => out.indexOf(`<details id="${id}"`));
-    expect(order.every((i) => i > 0)).toBe(true);
-    expect([...order].sort((a, b) => a - b)).toEqual(order);
-    expect(count(out, /<details id=/g)).toBe(5);
+  it("each page has exactly one h1, a back link to the committee report, and no collapsible section; there is no Goals section", () => {
+    const pages = out.split("<main").slice(1);
+    expect(pages).toHaveLength(4);
+    for (const page of pages) {
+      expect(count(page, /<h1/g)).toBe(1);
+      expect(page).toContain('aria-label="Back to the committee report"');
+      expect(page).not.toContain("data-section");
+    }
     expect(out).not.toMatch(/<h2[^>]*>Goals<\/h2>/);
     expect(words(out)).not.toContain("Goals against");
-  });
-
-  it("each summary shows the title and a one-sentence headline", () => {
-    for (const id of ["money", "owed", "quality", "complaints", "bank"]) {
-      const summary = new RegExp(`<details id="${id}"[\\s\\S]*?</summary>`).exec(out)?.[0] ?? "";
-      expect(summary, id).toMatch(/<h2[^>]*>[^<]+<\/h2><span class="text-body text-ink-2">[^<]+<\/span>/);
-    }
   });
 
   it("uses no uppercase, no letter-spacing and no filled control", () => {
     expect(out).not.toMatch(/uppercase|tracking-/);
     for (const control of out.match(/<(button|a) [^>]*>/g) ?? []) expect(control).not.toContain("bg-accent");
-  });
-});
-
-describe("CB6 the responsive defaults", () => {
-  const sections = () => [{ open: false }, { open: false }];
-
-  it("from 768px it opens the sections the server marked, and below it opens nothing", async () => {
-    const { applyResponsiveDefaults } = await import("@/app/(staff)/staff/reports/responsive-defaults");
-    const wide = sections();
-    expect(applyResponsiveDefaults({ matchMedia: () => ({ matches: true }), sections: () => wide })).toBe(2);
-    expect(wide.map((s) => s.open)).toEqual([true, true]);
-    const narrow = sections();
-    expect(applyResponsiveDefaults({ matchMedia: () => ({ matches: false }), sections: () => narrow })).toBe(0);
-    expect(narrow.map((s) => s.open)).toEqual([false, false]);
-  });
-
-  it("asks about 768px and leaves a section that is already open alone", async () => {
-    const { applyResponsiveDefaults } = await import("@/app/(staff)/staff/reports/responsive-defaults");
-    const queries: string[] = [];
-    const mixed = [{ open: true }, { open: false }];
-    expect(applyResponsiveDefaults({ matchMedia: (q) => (queries.push(q), { matches: true }), sections: () => mixed })).toBe(1);
-    expect(queries).toEqual(["(min-width: 768px)"]);
-  });
-
-  it("the server marks only the first two sections, closed, and marks none when it opened one for a drill-down", () => {
-    const base = html(h(ReportView, { report: emptyReport() }));
-    expect(count(base, /data-default-open="true"/g)).toBe(2);
-    expect(base).toMatch(/<details id="money"[^>]*data-default-open="true"/);
-    expect(base).toMatch(/<details id="owed"[^>]*data-default-open="true"/);
-    expect(base).not.toMatch(/<details[^>]* open=""/);
-  });
-
-  it("all the content of a closed section is in the HTML", () => {
-    expect(words(html(h(ReportView, { report: emptyReport() })))).toContain("No bank statement was imported in the last 30 days.");
   });
 });
 

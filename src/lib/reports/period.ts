@@ -32,7 +32,7 @@ export function choosePeriod(input: { requested: CalendarDate | null; options: r
 }
 
 /**
- * The address of the report for a period, and for a bucket of the ageing drill-down with the order of its flats. `anchor` is where the page lands: the drill-down
+ * The address of the Dues page for a period, and for a bucket of the ageing drill-down with the order of its flats. `anchor` is where the page lands: the drill-down
  * when a bucket is asked for, otherwise the list of age groups when `toAges` is set. The default period is written out: the page decides it.
  */
 export function reportHref(input: { period: CalendarDate; bucket?: string | null; sort?: string | null; toAges?: boolean }): string {
@@ -42,7 +42,7 @@ export function reportHref(input: { period: CalendarDate; bucket?: string | null
     params.set("bucket", bucket);
     if (input.sort !== undefined && input.sort !== null) params.set("sort", input.sort);
   }
-  return `/staff/reports?${params.toString()}${bucket !== null ? "#ageing-detail" : input.toAges === true ? "#owed" : ""}`;
+  return `/staff/reports/dues?${params.toString()}${bucket !== null ? "#ageing-detail" : input.toAges === true ? "#owed" : ""}`;
 }
 
 /** "October 2026": a period as the page names it. */

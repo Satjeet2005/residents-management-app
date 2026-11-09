@@ -3,7 +3,6 @@ import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ReportView } from "@/app/(staff)/staff/reports/report-view";
-import { SECTION_IDS, parseHiddenSections } from "@/lib/reports/sections";
 import { ageingTable } from "@/domain/reports/age";
 import { DEMO_NOW } from "@/domain/seed/types";
 import { loadCommitteeReport } from "@/server/reports/report-data";
@@ -271,12 +270,11 @@ describe("V2-7 the page from the real report", () => {
     expect(report.headlines.complaints).toContain(report.complaints.raised.toLocaleString("en-IN"));
   });
 
-  it("a hidden-sections cookie omits exactly those sections from the HTML and keeps the cards", () => {
-    const hidden = parseHiddenSections("owed,complaints");
-    const out = renderToStaticMarkup(h(ReportView, { report, hidden }));
-    for (const id of SECTION_IDS) expect(out.includes(`<details id="${id}"`), id).toBe(!hidden.includes(id));
+  it("the overview has the cards and the four Look closer rows, no collapsible section, and the four headlines are the report's own", () => {
+    const out = renderToStaticMarkup(h(ReportView, { report }));
     expect(out).toContain("Money collected for October");
-    expect(renderToStaticMarkup(h(ReportView, { report, hidden: parseHiddenSections("owed,nonsense") })).match(/<details id=/g)).toHaveLength(5);
+    expect(out.match(/<details id=/g)).toBeNull();
+    for (const text of [report.headlines.money, report.headlines.owed, report.headlines.complaints, report.headlines.bank]) expect(out).toContain(text);
   });
 
   it("the whole page has one h1, no 'NaN' or 'undefined', and no zero percent for a metric without data", () => {

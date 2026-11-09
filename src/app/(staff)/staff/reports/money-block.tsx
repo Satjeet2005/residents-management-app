@@ -1,66 +1,67 @@
-import { HorizontalBars } from "@/components/charts/horizontal-bars";
-import { StackedBars } from "@/components/charts/stacked-bars";
+import { GoalBar } from "@/components/charts/goal-bar";
 import { Money } from "@/components/ui/money";
 import { DoubleRule } from "@/components/ui/rules";
 import { formatRupees } from "@/domain/money/money";
 import type { MoneyLine } from "@/domain/reports/money-line";
-import type { MonthlyPoint } from "@/domain/reports/series";
-import type { CalendarDate } from "@/domain/time/calendar";
-import { monthName } from "@/lib/format-date";
+import { percentOfPaise } from "@/domain/reports/stats";
 import { t } from "@/lib/messages";
-import { countText, flatsText } from "@/lib/reports/cards";
-import { monthlyVisual } from "@/lib/reports/visuals";
+import { countText } from "@/lib/reports/cards";
 
-function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+/** One line of the ledger: the operator as a visible symbol and, for a screen reader, as a word ("plus", "equals"); the amount at the right in tabular figures. */
+function Line({ symbol, word, label, children }: { symbol?: string; word?: string; label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-4 py-2">
-      <dt className="flex min-w-0 flex-col">
-        <span className="text-body font-semibold">{label}</span>
-        {hint !== undefined && <span className="text-caption text-ink-2">{hint}</span>}
+      <dt className="text-body font-semibold">
+        {symbol !== undefined && (
+          <span aria-hidden="true" className="mr-2 inline-block w-4">
+            {symbol}
+          </span>
+        )}
+        {word !== undefined && <span className="sr-only">{word} </span>}
+        {label}
       </dt>
-      <dd className="text-right">{children}</dd>
+      <dd className="tnum text-right">{children}</dd>
     </div>
   );
 }
 
 /**
- * The money section of a month, ledger style: Billed, then Collected and Outstanding, which add up to it exactly, under a double rule; two sentences (late fees,
- * flats); then the monthly collection as bars below 768px and as columns from 768px (the same data and the same table, only one of them shown at a time).
+ * "Billed and collected", a passbook ledger: Collected, plus Still unpaid, under a double rule, equals Billed (the first two add up to the third exactly); ONE bar of
+ * the share collected; two one-line facts; and the three definitions behind one expander. No grey line under a figure, no equation in words.
  */
-export function MoneyBlock({ money, series, period }: { money: MoneyLine; series: readonly MonthlyPoint[]; period: CalendarDate }) {
-  const visual = monthlyVisual(series);
+export function MoneyBlock({ money }: { money: MoneyLine }) {
+  const percent = percentOfPaise(money.collectedPaise, money.billedPaise);
   return (
-    <>
+    <section aria-labelledby="committee-ledger" className="flex flex-col gap-3">
+      <h2 id="committee-ledger" className="text-title font-semibold">
+        {t("committee.section.money")}
+      </h2>
       <dl className="flex flex-col">
-        <Row label={t("committee.money.billed")}>
-          <Money amount={money.billedPaise} size="large" />
-        </Row>
-        <Row label={t("committee.money.collected")} hint={t("committee.money.collected.hint")}>
+        <Line label={t("committee.money.collected")}>
           <Money amount={money.collectedPaise} size="strong" />
-        </Row>
-        <Row label={t("committee.money.unpaid", { month: monthName(period) })} hint={t("committee.money.unpaid.hint")}>
+        </Line>
+        <Line symbol="+" word={t("committee.ledger.plus")} label={t("committee.money.unpaidShort")}>
           <Money amount={money.outstandingPaise} size="strong" />
-        </Row>
+        </Line>
+        <DoubleRule />
+        <Line symbol="=" word={t("committee.ledger.equals")} label={t("committee.money.billed")}>
+          <Money amount={money.billedPaise} size="large" />
+        </Line>
       </dl>
-      <DoubleRule />
-      <p className="text-caption text-ink-2">{t("committee.money.equation")}</p>
-      <ul className="tnum flex flex-col gap-1 text-body">
+      <GoalBar value={percent} label={t("committee.ledger.bar", { n: percent ?? 0 })} />
+      <p className="tnum text-body font-semibold">{percent === null ? t("committee.noData") : t("committee.ledger.collectedPercent", { n: percent })}</p>
+      <ul className="tnum flex list-none flex-col gap-1 p-0 text-body">
         <li>{t("committee.money.feesReceived", { x: formatRupees(money.fees.postedPaidPaise) })}</li>
-        <li>{t("committee.money.feesOwing", { x: formatRupees(money.fees.postedOwingPaise) })}</li>
-        <li>{t("committee.money.feesBuilding", { x: formatRupees(money.fees.accruingPaise) })}</li>
+        <li>{t("committee.ledger.flatsPaid", { paid: countText(money.flatsPaidInFull), billed: countText(money.flatsBilled) })}</li>
       </ul>
-      <p className="tnum text-body">{t("committee.money.flats", { billed: flatsText(money.flatsBilled), paid: countText(money.flatsPaidInFull), owing: countText(money.flatsOutstanding) })}</p>
-      <div className="md:hidden">
-        <HorizontalBars text={{ ...visual.phoneText, id: "monthly-bars" }} rows={visual.rows} scaleMax={100} />
-      </div>
-      <div className="hidden md:block">
-        <StackedBars text={{ ...visual.text, id: "monthly-columns" }} columns={visual.columns} labels={visual.labels} />
-      </div>
-      <ul className="flex flex-col gap-1 text-body text-ink-2">
-        {visual.notes.map((note) => (
-          <li key={note}>{note}</li>
-        ))}
-      </ul>
-    </>
+      <details>
+        <summary className="flex min-h-12 cursor-pointer items-center text-body font-semibold text-accent underline underline-offset-4">{t("committee.ledger.mean")}</summary>
+        <ul className="flex list-none flex-col gap-1 p-0 text-body text-ink-2">
+          <li>{t("committee.ledger.meanBilled")}</li>
+          <li>{t("committee.ledger.meanCollected")}</li>
+          <li>{t("committee.ledger.meanUnpaid")}</li>
+        </ul>
+      </details>
+    </section>
   );
 }

@@ -13,7 +13,9 @@ export function AboutBlock({ asOf }: { asOf: CalendarDate }) {
         {t("committee.about.heading")}
       </h2>
       <p className="text-body">{t("committee.about.asOf", { date: dateWords(asOf) })}</p>
-      <ul className="flex flex-col gap-2 text-body text-ink-2">
+      <details>
+        <summary className="flex min-h-12 cursor-pointer items-center text-body font-semibold text-accent underline underline-offset-4">{t("committee.about.definitions")}</summary>
+        <ul className="flex flex-col gap-2 text-body text-ink-2">
         <li>{t("committee.about.money")}</li>
         <li>{t("committee.about.fees")}</li>
         <li>{t("committee.about.owed")}</li>
@@ -26,7 +28,8 @@ export function AboutBlock({ asOf }: { asOf: CalendarDate }) {
         <li>{t("committee.about.complaints")}</li>
         <li>{t("committee.about.safety")}</li>
         <li>{t("committee.about.bank")}</li>
-      </ul>
+        </ul>
+      </details>
     </section>
   );
 }

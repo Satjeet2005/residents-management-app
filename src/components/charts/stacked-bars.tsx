@@ -11,7 +11,7 @@ const BOTTOM = 36;
 
 /** The longest series name, in characters, that fits the space at the right of the last column (116 units at 14px). */
 const SERIES_CHARS = 16;
-const SERIES_LINE = CHART_TEXT * 1.2;
+const SERIES_LINE = CHART_TEXT * 1.5;
 
 /** One line when the name fits, else two lines split at the word boundary that makes the longer line shortest ("Not yet paid" and "by day 20"). */
 export function wrapSeriesName(name: string): string[] {

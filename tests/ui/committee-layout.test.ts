@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import Loading from "@/app/(staff)/staff/reports/loading";
 import { ReportView } from "@/app/(staff)/staff/reports/report-view";
+import { SectionPage } from "@/app/(staff)/staff/reports/section-page";
 import { emptyReport } from "./committee-fixtures";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: () => {}, refresh: () => {}, push: () => {} }), usePathname: () => "/", redirect: () => {} }));
@@ -20,17 +21,22 @@ describe("LY1 the layout at phone, tablet and laptop widths", () => {
     expect(cards).toContain("xl:grid-cols-4");
   });
 
-  it("sections: one column below 1280px and two columns from 1280px, the sections of a row the same height so there is no white hole (N-01)", () => {
-    const grid = /<div class="([^"]*)"><details id="money"/.exec(out)?.[1] ?? "";
-    expect(grid).toContain("xl:grid-cols-2");
-    expect(grid).not.toContain("md:grid-cols");
-    expect(grid).not.toContain("items-start");
-    expect(out).toMatch(/<details id="money"[^>]*class="h-full /);
+  it("the overview has Look closer as ONE list of four rows (not cards), each a link at least 56px tall", () => {
+    const list = /<ul class="[^"]*">(<li class="border-b[\s\S]*?)<\/ul>/.exec(out)?.[1] ?? "";
+    expect(list.match(/<li /g)).toHaveLength(4);
+    expect(list.match(/<a [^>]*min-h-14/g)).toHaveLength(4);
+  });
+
+  it("a section page has the list of the other pages only from 1024px, and marks the current page", () => {
+    const page = html(h(SectionPage, { slug: "dues", report: emptyReport() }));
+    expect(page).toMatch(/<nav aria-label="Report pages" class="hidden lg:block/);
+    expect(page.match(/aria-current="page"/g)).toHaveLength(1);
+    expect(page).toMatch(/aria-current="page"[^>]*>Dues<\/a>/);
   });
 
   it("charts: the phone bars show below 768px and the laptop columns from 768px, each full width, never side by side", () => {
     const money = { billedPaise: 1_000_000n, collectedPaise: 800_000n, outstandingPaise: 200_000n, flatsBilled: 1, flatsPaidInFull: 0, flatsOutstanding: 1, fees: { postedPaidPaise: 0n, postedOwingPaise: 0n, accruingPaise: 0n } };
-    const withMoney = html(h(ReportView, { report: emptyReport({ money }) }));
+    const withMoney = html(h(SectionPage, { slug: "collections", report: emptyReport({ money }) }));
     expect(withMoney).toContain('<div class="md:hidden"><figure');
     expect(withMoney).toContain('<div class="hidden md:block"><figure');
     expect(withMoney).not.toMatch(/(md|lg|xl):(flex|grid-cols)[^"]*"><figure/);

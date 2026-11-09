@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { AgeingBlock } from "@/app/(staff)/staff/reports/ageing-block";
 import { AgeingDetail } from "@/app/(staff)/staff/reports/ageing-detail";
 import { AgeingRows } from "@/app/(staff)/staff/reports/ageing-rows";
-import { ReportView } from "@/app/(staff)/staff/reports/report-view";
+import { SectionPage } from "@/app/(staff)/staff/reports/section-page";
 import type { Ageing } from "@/domain/reports/age";
 import type { MoneyLine } from "@/domain/reports/money-line";
 import type { AgeingPage, AgeingRowView } from "@/server/reports/ageing-page";
@@ -73,7 +73,7 @@ describe("CA1 the age list: one list instead of bars, a table and a second set o
 
   it("each group with bills has a 48px link named by the group to its drill-down, beside the bar", () => {
     expect(count(out, />See the flats<\/a>/g)).toBe(5);
-    expect(out).toContain('href="/staff/reports?period=2026-10&amp;bucket=31-60#ageing-detail"');
+    expect(out).toContain('href="/staff/reports/dues?period=2026-10&amp;bucket=31-60#ageing-detail"');
     expect(out).toContain('aria-label="See the flats: 31 to 60 days"');
     for (const link of out.match(/<a [^>]*>/g) ?? []) expect(link).toContain("min-h-12");
   });
@@ -181,15 +181,15 @@ describe("CA3 the drill-down section", () => {
     const links = out.match(/<a [^>]*>← Back to age groups<\/a>/g) ?? [];
     expect(links).toHaveLength(2);
     for (const link of links) expect(link).toContain("min-h-12");
-    expect(out).toContain('href="/staff/reports?period=2026-10#owed"');
+    expect(out).toContain('href="/staff/reports/dues?period=2026-10#owed"');
     expect(out.indexOf("Back to age groups")).toBeLessThan(out.indexOf('id="committee-drill"'));
     expect(out.lastIndexOf("Back to age groups")).toBeGreaterThan(out.indexOf("</table>"));
   });
 
   it("offers Largest first (the default, current) and Oldest first as links that keep the group", () => {
     expect(out).toContain('aria-current="true"');
-    expect(out).toMatch(/<a aria-current="true"[^>]*href="\/staff\/reports\?period=2026-10&amp;bucket=31-60&amp;sort=largest#ageing-detail">Largest first<\/a>/);
-    expect(out).toContain('href="/staff/reports?period=2026-10&amp;bucket=31-60&amp;sort=oldest#ageing-detail"');
+    expect(out).toMatch(/<a aria-current="true"[^>]*href="\/staff\/reports\/dues\?period=2026-10&amp;bucket=31-60&amp;sort=largest#ageing-detail">Largest first<\/a>/);
+    expect(out).toContain('href="/staff/reports/dues?period=2026-10&amp;bucket=31-60&amp;sort=oldest#ageing-detail"');
     const oldest = html(h(AgeingDetail, { page: page({ sort: "OLDEST" }), period: "2026-10-01" }));
     expect(oldest).toMatch(/<a aria-current="true"[^>]*>Oldest first<\/a>/);
     expect(oldest).not.toMatch(/<a aria-current="true"[^>]*>Largest first/);
@@ -213,19 +213,17 @@ describe("CA3 the drill-down section", () => {
 describe("CA4 the page with the ageing", () => {
   const report = (drilldown: AgeingPage | null): CommitteeReport => emptyReport({ ageing, drilldown });
 
-  it("shows the owed section always, closed unless a group is chosen (then the server opens it), and the drill-down after the list", () => {
-    const without = html(h(ReportView, { report: report(null) }));
-    expect(without).toContain('<details id="owed"');
-    expect(without).not.toMatch(/<details id="owed"[^>]* open=""/);
+  it("the Dues page always has the owed list, with the drill-down after it only when a group is chosen", () => {
+    const without = html(h(SectionPage, { slug: "dues", report: report(null) }));
+    expect(without).toContain('<section id="owed"');
     expect(without).not.toContain('id="ageing-detail"');
-    const withDrill = html(h(ReportView, { report: report(page()) }));
-    expect(withDrill).toMatch(/<details id="owed"[^>]*data-default-open="false" open=""/);
-    expect(withDrill.indexOf('<details id="owed"')).toBeLessThan(withDrill.indexOf('id="ageing-detail"'));
+    const withDrill = html(h(SectionPage, { slug: "dues", report: report(page()) }));
+    expect(withDrill.indexOf('<section id="owed"')).toBeLessThan(withDrill.indexOf('id="ageing-detail"'));
     expect(count(withDrill, /<h1/g)).toBe(1);
   });
 
   it("at most one filled control: none", () => {
-    const out = html(h(ReportView, { report: report(page()) }));
+    const out = html(h(SectionPage, { slug: "dues", report: report(page()) }));
     for (const control of out.match(/<(button|a) [^>]*>/g) ?? []) expect(control).not.toContain("bg-accent");
   });
 });

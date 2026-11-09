@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import ReportError from "@/app/(staff)/staff/reports/error";
 import Loading from "@/app/(staff)/staff/reports/loading";
-import { ReportView } from "@/app/(staff)/staff/reports/report-view";
+import { SectionPage } from "@/app/(staff)/staff/reports/section-page";
 import { emptyReport } from "./committee-fixtures";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: () => {}, refresh: () => {}, push: () => {} }), usePathname: () => "/", redirect: () => {} }));
@@ -49,11 +49,12 @@ describe("CS2 the error boundary", () => {
 
 describe("CS3 the empty month", () => {
   it("says 'No bills for this month' in words, still shows what is owed (all months), and the selector to choose another month", () => {
-    const out = html(h(ReportView, { report: emptyReport({ period: "2026-03-01", periods: ["2026-10-01"] }) }));
+    const report = emptyReport({ period: "2026-03-01", periods: ["2026-10-01"] });
+    const out = html(h(SectionPage, { slug: "collections", report }));
     expect(words(out)).toContain("No bills for this month");
     expect(words(out)).toContain("Choose another month above.");
     expect(out).toContain('id="report-period"');
     expect(words(out)).toContain("October 2026 March 2026");
-    expect(out).toContain('<details id="owed"');
+    expect(html(h(SectionPage, { slug: "dues", report }))).toContain('<section id="owed"');
   });
 });

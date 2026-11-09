@@ -68,7 +68,7 @@ describe("D81 page inventory", () => {
 
   it("T14 the committee report page asks for reports:view and calls requireUser itself (the loaders check it again)", () => {
     const reports = pages.filter((p) => p.address.startsWith("/staff/reports"));
-    expect(reports.map((p) => p.address)).toEqual(["/staff/reports"]);
+    expect(reports.map((p) => p.address).sort()).toEqual(["/staff/reports", "/staff/reports/[section]"].sort());
     for (const page of reports) {
       expect(page.calls.has("requireUser"), page.address).toBe(true);
       expect(/need:\s*"reports:view"/.test(readFileSync(page.file, "utf8")), page.address).toBe(true);

@@ -1,7 +1,6 @@
-import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { bucketFromQuery, bucketQuery, sortFromQuery, sortQuery } from "@/lib/reports/ageing";
-import { periodFromQuery, reportHref } from "@/lib/reports/period";
-import { VIEW_COOKIE, parseHiddenSections } from "@/lib/reports/sections";
+import { periodFromQuery, periodQuery } from "@/lib/reports/period";
 import { requireUser } from "@/server/auth/current-user";
 import { defaultDeps } from "@/server/auth/default-deps";
 import { businessNow } from "@/server/clock";
@@ -17,9 +16,14 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const requested = periodFromQuery(query.period);
   const bucket = bucketFromQuery(query.bucket);
   const sort = sortFromQuery(query.sort);
-  const returnTo = requested === null ? "/staff/reports" : reportHref({ period: requested, bucket: bucket === null ? null : bucketQuery(bucket), sort: sortQuery(sort) });
+  const returnTo = requested === null ? "/staff/reports" : `/staff/reports?period=${periodQuery(requested)}`;
   const user = await requireUser({ need: "reports:view", returnTo });
-  const report = await loadCommitteeReport({ db: defaultDeps().db, user, requestedPeriod: requested, bucket, sort, now: businessNow() });
-  const hidden = parseHiddenSections((await cookies()).get(VIEW_COOKIE)?.value);
-  return <ReportView report={report} hidden={hidden} />;
+  // The drill-down of an age group lives on the Dues page; an older address with ?bucket= is sent there, with the same month and order.
+  if (bucket !== null) {
+    const params = new URLSearchParams({ bucket: bucketQuery(bucket), sort: sortQuery(sort) });
+    if (requested !== null) params.set("period", periodQuery(requested));
+    redirect(`/staff/reports/dues?${params.toString()}#ageing-detail`);
+  }
+  const report = await loadCommitteeReport({ db: defaultDeps().db, user, requestedPeriod: requested, bucket: null, sort, now: businessNow() });
+  return <ReportView report={report} />;
 }
