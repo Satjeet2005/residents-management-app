@@ -36,6 +36,7 @@ npm run test:integration    # needs the database running
 npm run test:ci-parity      # unit and integration tests as CI runs them: no .env, only DATABASE_URL
 npm run build
 npm run scan:secrets
+npm run docs:verify          # every file path, test citation and npm script named in the documents must exist (scripts/verify-doc-references.mjs); exits 1 on a problem
 npm run llm:check            # one request to each configured classifier provider (names, statuses and timings only; never a key)
 npm run jev:e2e              # raise eight complaints through the real service on a scratch database, with the real providers if configured (docs/jev-integration.md)
 npm run classifier:benchmark # the classifier benchmark on 200 synthetic complaints; --dry-run needs no network; --from-fixture recomputes docs/classifier-benchmark.md

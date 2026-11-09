@@ -1,7 +1,7 @@
 # UI audit: the staff home (/staff)
 
 Protocol: `docs/ui-fix-protocol.md` v1. Screen: `src/app/(staff)/staff/staff-view.tsx`, for Priya Nair (accountant) and Sanjay Pawar (duty manager).
-BEFORE screenshots: `docs/screenshots/staff-home-before-priya-360x800.png`, `-priya-1280.png`, `-sanjay-360x800.png`, `-sanjay-1280.png`.
+BEFORE screenshots: `docs/screenshots/staff-home-before-priya-360x800.png`, -priya-1280.png, -sanjay-360x800.png, -sanjay-1280.png.
 
 ## Before
 

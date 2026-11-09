@@ -19,7 +19,7 @@ export type LifecycleFields = {
 export type LifecycleState = LifecycleFields & { safetyFlag: boolean };
 
 export type LifecycleSettings = { autoCloseDays: number; reopenWindowDays: number };
-/** `auto_close_days` is the society setting (D15); the reopen window is 7 days (assumption A4 of docs/complaints-design.md). */
+/** `auto_close_days` is the society setting (D15); the reopen window is 7 days (assumption A2 of docs/complaints-design.md). */
 export const defaultLifecycleSettings: LifecycleSettings = { autoCloseDays: 7, reopenWindowDays: 7 };
 
 /**

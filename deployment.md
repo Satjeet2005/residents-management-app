@@ -216,3 +216,7 @@ The candid list, with why, impact, fix and effort for each, is `docs/known-limit
 - [ ] `<LIVE_URL>`: the hosted address (likely https://residents-management-app.vercel.app; confirm in the Vercel dashboard). Fill it in this file (the first lines, "Install it on a phone", "How it is deployed"), in `README.md`, and in `docs/submission-checklist.md`.
 - [ ] `<REPO_URL>`: the public repository address (the checklist names `Satjeet2005/residents-management-app`; confirm). Same places, and the clone step above.
 - [ ] Run `grep -rn "<LIVE_URL>\|<REPO_URL>" README.md deployment.md docs` before submitting and decide for each hit whether it should stay.
+
+## Checking the documents
+
+`npm run docs:verify` checks that every file path, test citation and `npm run` name in the Markdown files of `docs/`, `README.md` and this file exists. Run it before a release; it prints one line per problem and exits 1 when there is one.

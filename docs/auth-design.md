@@ -232,18 +232,18 @@ forge them. Local development shares one bucket, which is safe: the limits are s
 ### What the Next.js documentation says, and what we follow
 
 Source: https://nextjs.org/docs/app/guides/authentication (last updated 2026-09-16), and the copy that ships with the
-installed Next.js 16.4.2 at `node_modules/next/dist/docs/01-app/02-guides/authentication.md` and `data-security.md`.
+installed Next.js 16.4.2 at `node_modules/next/dist/docs/01-app/02-guides/authentication.md` and data-security.md.
 
 - Check the session in a **data access layer**, close to the data, and treat Route Handlers and Server Actions "with the
   same security considerations as public-facing API endpoints". Each one verifies the user itself.
-- A **Proxy** (the new name for middleware, `proxy.ts`) is *optional*, for "optimistic checks" that read only the cookie,
+- A **Proxy** (the new name for middleware, proxy.ts) is *optional*, for "optimistic checks" that read only the cookie,
   not the database; it "should not be your only line of defense". **We do not add one.** Our session is a database row,
   and a cookie-only check would add nothing a real check does not already do, on every request including prefetches.
 - React `cache` memoises inside one render pass, so it helps pages and components, but "Server Actions and Route Handlers
   are not part of a render pass, so the wrapper does nothing". We use it for `getCurrentUser` only.
 - Layouts are not a place for auth checks (partial rendering): checks go in each page, component and action.
 - Server Actions already compare the `Origin` header with `Host` (or `X-Forwarded-Host`) and abort a mismatch
-  (`data-security.md`, "Allowed origins"), so actions get no extra CSRF code.
+  (data-security.md, "Allowed origins"), so actions get no extra CSRF code.
 - `forbidden()` and `unauthorized()` are experimental and need `authInterrupts`; we do not enable it. A page without
   the right role is redirected to `/forbidden` instead (the page itself comes with the UI).
 

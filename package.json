@@ -16,6 +16,7 @@
     "icons": "tsx scripts/make-icons.ts",
     "check": "npm run lint && npm run typecheck && npm run test:unit",
     "scan:secrets": "node scripts/scan-secrets.mjs",
+    "docs:verify": "node scripts/verify-doc-references.mjs",
     "safety:benchmark": "tsx scripts/safety-benchmark.ts",
     "db:generate": "prisma generate",
     "db:seed": "tsx src/server/seed/cli.ts",

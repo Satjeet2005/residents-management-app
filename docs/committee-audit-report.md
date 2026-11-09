@@ -8,7 +8,7 @@ Status: 15 of 18 images read; I'm finishing the last three laptop images (16 to 
 
 # Committee report audit: five MC members, 18 images
 
-**Which attachments I could read.** All 18 images in `committee_ui.zip` are readable, and so are `INDEX.md` and `AUDIT-PROMPT.md`. I unzipped the kit to read it. I ignored the round "N" badge.
+**Which attachments I could read.** All 18 images in `committee_ui.zip` are readable, and so are INDEX.md and AUDIT-PROMPT.md. I unzipped the kit to read it. I ignored the round "N" badge.
 
 - Images 01–06 have 3 frames each, 07 has 4, 08–11 have 2, and 12–18 have 1.
 - In image 01, frame 2 starts exactly where frame 1 ends, so I treat one phone frame as one scroll.

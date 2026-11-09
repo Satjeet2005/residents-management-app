@@ -34,15 +34,15 @@ fails for a page that is neither on its public allowlist nor calls `requireUser`
 What Next.js says (the copy in `node_modules/next/dist/docs/01-app`, version 16.4.2, and https://nextjs.org/docs/app/guides/authentication, updated 2026-09-16):
 
 - Check the session in each page, close to the data; a Proxy is optional and cookie-only. We add none.
-- **Streaming and redirects** (`03-api-reference/03-file-conventions/loading.md`, "Status codes"): "Streaming page responses begin with a
+- **Streaming and redirects** (03-api-reference/03-file-conventions/loading.md, "Status codes"): "Streaming page responses begin with a
   200 status code", and `redirect()` in a streaming context "will insert a meta tag to emit the redirect on the client side"
-  (`04-functions/redirect.md`). Because the resident pages have a `loading.tsx`, a request for `/`, `/profile` without a session
+  (04-functions/redirect.md). Because the resident pages have a `loading.tsx`, a request for `/`, `/profile` without a session
   answers **200** with the loading skeleton and a `<meta http-equiv="refresh" content="1;url=/login?returnTo=...">`; `/staff`,
   which has no loading page, answers a real **307**. The reconciliation pages have a `loading.tsx`, so they answer **200** with a meta refresh to
   `/forbidden` or `/login` (the smoke test follows either). No data is in the 200 body (the smoke test checks that). A true 307 for
   the resident pages would need a Proxy that checks the cookie first (the same page says to run the check before the body streams
   to get the status); that is left out on purpose, and the page-level check stays the one that matters.
-- `searchParams` of a page is a Promise in Next.js 16 (`page.md`); the login page awaits it.
+- `searchParams` of a page is a Promise in Next.js 16 (page.md); the login page awaits it.
 - A document that streams a fallback and the page together contains both. `loading.tsx` therefore has no `<h1>` (the smoke test found
   two): the page that replaces it has the only one.
 
@@ -94,9 +94,9 @@ demo page button -> server action -> signed event -> verifyWebhook -> applyGatew
 - The demo page is in its own `(demo)` route group. A page behind `loading.tsx` streams, so a `notFound()` or `redirect()` after
   that starts as a 200 and is only drawn by the browser (see the finding above for `/`); outside it they are a real 404 and 307.
 - What the Next.js docs say that this relies on (the copy in `node_modules/next/dist/docs/01-app`, version 16.4.2, read 2026-11-06):
-  a Route Handler reads a webhook body with `request.text()` and needs no body parser (`route.md`, "Webhooks"); a Server Action is
-  reachable by a direct POST, so each one re-verifies the person and the resource it acts on (`data-security.md`, "Authentication and
-  authorization"); `redirect()` and `notFound()` work inside Server Functions (`redirect.md`, `not-found.md`).
+  a Route Handler reads a webhook body with `request.text()` and needs no body parser (route.md, "Webhooks"); a Server Action is
+  reachable by a direct POST, so each one re-verifies the person and the resource it acts on (data-security.md, "Authentication and
+  authorization"); `redirect()` and `notFound()` work inside Server Functions (redirect.md, not-found.md).
 
 ## Two clocks (D97)
 

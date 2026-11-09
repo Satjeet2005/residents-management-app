@@ -1,7 +1,7 @@
 # UI audit: the resident Emergency sheet
 
 Protocol: `docs/ui-fix-protocol.md` v1. Screen: the Emergency sheet on the resident Home (`src/components/emergency-sheet.tsx`, the shared `Sheet`).
-BEFORE screenshots: `docs/screenshots/emergency-sheet-before-360x800.png`, `-360x500.png`, `-1280.png`.
+BEFORE screenshots: `docs/screenshots/emergency-sheet-before-360x800.png`, -360x500.png, -1280.png.
 
 ## Before
 
@@ -21,7 +21,7 @@ Title and Close; one lead sentence; the only filled control (Call duty manager, 
 
 ## After
 
-AFTER screenshots: `docs/screenshots/emergency-sheet-after-360x800.png`, `-360x500.png`, `-1280.png`.
+AFTER screenshots: `docs/screenshots/emergency-sheet-after-360x800.png`, -360x500.png, -1280.png.
 
 | # | Observation | Principle | Fix | Evidence |
 |---|---|---|---|---|

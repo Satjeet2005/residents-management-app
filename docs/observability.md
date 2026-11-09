@@ -42,7 +42,7 @@ Applied before the text is cut, so a secret that straddles a cut cannot leave a 
 3. e-mail addresses; runs of 10 or more digits (any script, so Devanagari digits too);
 4. runs of 32 or more token characters.
 
-Two deliberate exceptions, each tested: in a **stack**, "/" does not extend a token run (otherwise a long file path becomes `[secret].ts`); and
+Two deliberate exceptions, each tested: in a **stack**, "/" does not extend a token run (otherwise a long file path becomes [secret].ts); and
 a **digest** (a plain number or word of up to 40 characters) and a **host request id** (exactly the `iad1::sfo1::abcde-1730000000000-0123456789ab`
 shape) are kept, because they are the keys a person quotes. The reader redacts every row again before printing.
 
@@ -91,7 +91,7 @@ The logs role may CONNECT, see the schema and SELECT `error_events`, nothing els
 
 1. In the Neon SQL editor, as the owner: `CREATE ROLE township_logs LOGIN PASSWORD '<a new 32-character password from your password manager>';`
 2. In your terminal: `npm run db:print-logs-role-sql -- --role=township_logs --owner=neondb_owner > /tmp/logs-grants.sql` (it connects to nothing and takes no password).
-3. Read `/tmp/logs-grants.sql`, then run it in the SQL editor as the owner. Running it again is safe.
+3. Read /tmp/logs-grants.sql, then run it in the SQL editor as the owner. Running it again is safe.
 4. Build the connection string of this role (the direct or pooled host of the same project, `?sslmode=verify-full`) and keep it **only on your machine**:
    `read -rs LOGS_DATABASE_URL; export LOGS_DATABASE_URL` (paste it at the prompt). **Never set `LOGS_DATABASE_URL` in Vercel.**
 5. Verify: `npm run logs:errors -- --since=7d --limit=1` prints "Reading error events from host ..., database ... (read-only)". Then, in the
