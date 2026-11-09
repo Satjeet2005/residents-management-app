@@ -132,8 +132,8 @@ Every control on screen works; every control that would not is not drawn.
 
 ## What is not tested
 
-`getCurrentUser`, the `headers()` reads and the Next.js redirect plumbing need a running request, so they are checked by the HTTP smoke test
-(`npm run smoke:app`, run against the built app, frozen and with the real date) and not by unit tests. The visual look (spacing at 360px and 1280px)
+`getCurrentUser`, the `headers()` reads and the Next.js redirect plumbing need a running request, so they are checked by the browser tests
+(`npm run e2e`, run against the built app) and not by unit tests. The visual look (spacing at 360px and 1280px)
 cannot be tested here: it needs a person to look (see the commands in the T11a report and the README).
 
 ## Staff screens (T12c)

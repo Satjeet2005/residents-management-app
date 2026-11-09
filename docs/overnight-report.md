@@ -331,7 +331,7 @@ The server for steps 6, 8 and 9 was a `next start` of the clean-clone build, con
 
 `npm run smoke:auth` without `--allow-owner-role` against it: ALL 13 CHECKS PASSED as a resident and as staff.
 
-`npm run smoke:app` (a mutating script) was run against that scratch server with `--as-of=real --demo=true`: **21 OF 162 CHECKS FAILED**. The failing checks are all about the committee report (section titles such as "Money, October 2026", the ageing and reconciliation blocks) and the staff complaints board (six lane tabs, "Safety lane"): text of screens that Phase A and T13h redesigned after the script was last changed (2026-11-07). None is a login or permission check. The one that mentions money (the five age groups adding to the total due) read "₹62,13,690 = ₹0" because the markup it parses is gone (the groups it found were `[null,null,null,null,null]`), so it is also a stale check; the ageing totals themselves are checked against independent SQL in `tests/integration/committee-report-v2.test.ts`. Not fixed (a test-script change outside this task); recorded in `docs/known-limitations.md` and `deployment.md`.
+the since retired `scripts/smoke-app.mjs` (D204) (a mutating script) was run against that scratch server with `--as-of=real --demo=true`: **21 OF 162 CHECKS FAILED**. The failing checks are all about the committee report (section titles such as "Money, October 2026", the ageing and reconciliation blocks) and the staff complaints board (six lane tabs, "Safety lane"): text of screens that Phase A and T13h redesigned after the script was last changed (2026-11-07). None is a login or permission check. The one that mentions money (the five age groups adding to the total due) read "₹62,13,690 = ₹0" because the markup it parses is gone (the groups it found were `[null,null,null,null,null]`), so it is also a stale check; the ageing totals themselves are checked against independent SQL in `tests/integration/committee-report-v2.test.ts`. Not fixed (a test-script change outside this task); recorded in `docs/known-limitations.md` and `deployment.md`.
 
 ### Phase B: hosted reset rehearsal (the WHOLE procedure of docs/hosted-reset-procedure.md on the same local scratch database, only the owner and database names and the role names adapted)
 
@@ -932,3 +932,8 @@ Started 2026-11-09 11:39 IST (START_COMMIT 0bee8c0). Baseline `npm run check` pa
 - The secret scanner now scans what git could commit and checks that every `.env*` file other than `.env.example` is ignored and untracked; without git it walks the directory (D201, `docs/security.md`). Nine tests, two mutations caught.
 - The pending work was committed in logical commits (property test, same-day detector, documents).
 - D203: a HIGH that the existing 0.60 urgency rule accepts survives a refused category (`URGENCY_KEPT_ON_REFUSAL`). Production recall of true HIGH on the primary fixture: 38/39 to 39/39; ordinary complaints stored HIGH 12/159 to 15/159. Thresholds unchanged (D202). Three mutations caught. No request was sent to any provider.
+
+## Fix round 0: integration tests follow the report pages; smoke:app retired (2026-11-09)
+
+- RP6, RP7 and the V3 safety-strip test rendered only the overview, so they looked for blocks that moved to the four section pages. They now render every page and assert the same facts (`c12371c`). No application change.
+- `smoke:app` is retired from the reviewer path (D204): no npm script, a STALE header on `scripts/smoke-app.mjs`, and every reviewer-facing mention reworded.

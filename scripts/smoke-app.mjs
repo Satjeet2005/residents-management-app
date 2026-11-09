@@ -1,3 +1,5 @@
+// STALE since the redesign of the committee report, the staff home, the reconciliation workspace and the complaints board. Superseded by the browser tests (npm run e2e), the unit and integration suites, smoke:auth and scripts/verify-clean-clone.sh. Kept for reference only; do not run it against any deployment.
+//
 // Smoke test for the resident app pages over real HTTP. No dependencies: Node 24's fetch.
 //
 //   node scripts/smoke-app.mjs <BASE_URL> --as-of=2026-10-27 --demo=true     the server runs with DEMO_AS_OF=2026-10-27

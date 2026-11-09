@@ -106,7 +106,7 @@ With the app running in demo mode (`DEMO_MODE=true` and a `PAYMENT_WEBHOOK_SECRE
    Tap **Payment fails, no money taken** instead to see the strip "That payment didn't go through" and Pay still available.
 
 The page stands in for a real provider and charges nothing. In `DEMO_MODE` other than `true` there is no payment at all (503 and a 404). More in `docs/payments-design.md`;
-the whole flow over real HTTP is `scripts/smoke-app.mjs`.
+the whole flow in a real browser is covered by the browser tests (`npm run e2e`).
 
 ## The app
 
@@ -125,7 +125,7 @@ https it is `__Host-session` (D94), so both work.
   higher than in the client brief's sample table, and some replies show as overdue. **To reproduce the brief's numbers locally** (T12-0408 owes
   ₹6,468, 47 days overdue), set `DEMO_AS_OF=2026-10-27` in `.env` (it is in `.env.example`, commented out) and restart. Leave it unset on a live deployment.
   When `DEMO_MODE=true` a note on the login page and on Profile says this too.
-- `npm run smoke:app -- http://localhost:3100 --as-of=2026-10-27 --demo=true` (or `--as-of=real`) checks the pages over HTTP against a running server.
+- `npm run e2e` runs the browser tests against a scratch database; `npm run smoke:auth` checks sign-in over HTTP. The older HTTP script `smoke:app` is retired (see `docs/known-limitations.md`).
   Design notes: `docs/ui-architecture.md`.
 
 ## Walking the reconciliation (staff)

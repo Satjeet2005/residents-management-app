@@ -15,7 +15,7 @@ D115, D116 (`docs/decisions.md`), with D14, D55, D81, D103 to D109 behind them. 
 Every page calls `requireUser({ need: ... })` itself (a layout does not run again between pages). The data loaders in
 `src/server/statements/ui-data.ts` check the permission again at the data (`StaffAccessError`), and the load-more server action is built with
 `withPermissionAction("payments:match")`. A resident, staff without `payments:match` and nobody signed in are turned away
-(tests: `tests/server/page-guards.test.ts`, `tests/integration/staff-ui-data.test.ts` UD3 and UD7, `scripts/smoke-app.mjs`).
+(tests: `tests/server/page-guards.test.ts`, `tests/integration/staff-ui-data.test.ts` UD3 and UD7, the browser tests in `tests/e2e`).
 
 ## The workspace
 
@@ -92,7 +92,7 @@ with the row's `version`, so a row someone else changed is refused (STALE) and n
 The look at 1280px and 360px, the focus ring, where focus lands, the sheet's scrolling and the arrow keys on the tabs need a person and a browser (the
 commands are in the README, "Walking the reconciliation"). The render tests (`tests/ui/reconciliation-*.test.ts`) check the markup for each state; the
 reducer and the labels are unit tested (`tests/lib/reconciliation/`); the loaders run as the app role (`tests/integration/staff-ui-data.test.ts`); the
-whole thing over HTTP is `scripts/smoke-app.mjs`. A click is not simulated anywhere: no DOM library is installed and none was added.
+whole thing in a browser is `tests/e2e` (the old HTTP script `smoke:app` is retired). A click is not simulated anywhere: no DOM library is installed and none was added.
 
 ## UI batch 1: staff home and workspace (D186 to D192)
 

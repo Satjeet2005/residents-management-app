@@ -37,7 +37,7 @@ Gate visitor flow, amenity booking, staff admin UI, multi-flat residents, execut
 | The hosted ledger is append-only, so every demo payment consumes demo data | S | accepted risk |
 | The live site uses today's date, the seed is dated 27 October 2026 | S | accepted risk |
 | Demo mode shows the login code to anyone who knows a demo phone | M | accepted risk |
-| `npm run smoke:app` is out of date: against a build of the current code it ended `21 OF 162 CHECKS FAILED` (2026-11-08, scratch database, `--as-of=real`); | S | next step |
+| `smoke:app` is retired (D204): it failed 34 of 166 checks against the redesigned screens; the browser tests (`npm run e2e`), the unit and integration suites, `smoke:auth` and `scripts/verify-clean-clone.sh` cover what it checked | S | not needed |
 | Only Chromium is tested in a real browser (D146) | S | accepted risk |
 | The service worker caches only the offline page and the icons (D147) | not given | next step |
 | The committee view choice (a cookie, per device, D157) no longer exists | not given | next step |
@@ -52,6 +52,6 @@ Gate visitor flow, amenity booking, staff admin UI, multi-flat residents, execut
 
 | Item | Status |
 |---|---|
-| smoke:app repair (34 of 166 checks failed against the redesigned screens) | not done: SKIPPED (time) |
+| smoke:app repair (34 of 166 checks failed against the redesigned screens) | not done: RETIRED instead (D204) |
 | Architecture diagrams, repository hygiene report, reviewer-path browser test | not done: SKIPPED (time) |
 | Integration tests and `npm run test:ci-parity` | not run in the last run (fast mode); GitHub CI runs them |

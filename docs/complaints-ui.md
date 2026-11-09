@@ -106,4 +106,4 @@ with no data and the page still loads. It never touches a safety complaint.
 `new-complaint-view.test.ts`, `complaint-view.test.ts`, `safety-alert.test.ts` (every page state, the three alert states, the outlined Pay, one filled
 control, 48px targets, no forbidden styling; `token-classes` and `styling-rules` scan the new files too); `tests/domain/complaints/safety-alert.test.ts`,
 `tests/server/home-safety-alert.test.ts`; `tests/integration/complaint-home.test.ts` and `complaint-screens.test.ts` (the loaders through the app role);
-`complaints-create.test.ts` and `complaints-routes.test.ts` (declared danger); `scripts/smoke-app.mjs` (the screens over HTTP).
+`complaints-create.test.ts` and `complaints-routes.test.ts` (declared danger); the browser tests in `tests/e2e` (the screens).

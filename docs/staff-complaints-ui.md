@@ -16,7 +16,7 @@ Passbook (`docs/design-system.md`). Every string is in `src/lib/messages/en.ts`.
 Every page calls `requireUser({ need: "complaints:manage" })` itself (a layout does not run again between pages), and the loaders in
 `src/server/complaints/staff-page-data.ts` check the permission again at the data (`StaffAccessError`); "Show 15 more" is a server action built with
 `withPermissionAction("complaints:manage")`. A resident, staff without `complaints:manage` and nobody signed in are turned away
-(`tests/server/page-guards.test.ts`, `tests/integration/staff-complaints-data.test.ts` SDATA4, `scripts/smoke-app.mjs`).
+(`tests/server/page-guards.test.ts`, `tests/integration/staff-complaints-data.test.ts` SDATA4, the browser tests in `tests/e2e`).
 
 ## The board (D151)
 
@@ -180,4 +180,4 @@ logic is in `src/lib/staff-complaints/` (views, the query string, the row summar
 The look at 1280px and 360px, where focus lands, the arrow keys on the tabs and the sticky panel need a person and a browser (the commands are in the README,
 "Walking the complaints board"). The render tests (`tests/ui/staff-complaint*.test.ts`, `staff-complaints-*.test.ts`) check the markup of every component and
 state; the reducer, the control table and the timeline are unit tested; the loaders run as the app role (`tests/integration/staff-complaints-data.test.ts`);
-the screens over HTTP are `scripts/smoke-app.mjs`. A click is not simulated anywhere: no DOM library is installed and none was added.
+the screens in a browser are `tests/e2e` (the old HTTP script `smoke:app` is retired). A click is not simulated anywhere: no DOM library is installed and none was added.

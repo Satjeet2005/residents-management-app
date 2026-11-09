@@ -13,7 +13,7 @@ expected result. Written 2026-11-08. It goes with `docs/deploy-checklist.md` (th
 - The SQL runs as the owner, either in the Neon **SQL Editor** or with the helper below. Every statement here was run against a freshly migrated and seeded LOCAL scratch
   database (`township_seed_scratch`) in the session that wrote this file; the statements and their results are in `docs/overnight-report.md` ("Phase B: SQL evidence").
   Real Neon was NOT touched: any difference you see on Neon is yours to report.
-- `npm run smoke:app` MUTATES data (it pays, imports, raises complaints) and must NEVER be run against the live site. Only `smoke:auth` is safe there.
+- The old mutating script `smoke:app` is retired and must NEVER be run against the live site. Only `smoke:auth` is safe there.
 
 ### The SQL helper (bash, run from the repository root)
 
@@ -222,7 +222,7 @@ node scripts/smoke-auth.mjs <LIVE_URL> 5000000001      # a staff member
 ```
 
 **Expected:** it prints the readiness table (every line PASS or INFO), then `ALL 13 CHECKS PASSED` for each (the cookie checks expect `__Host-session` with `Secure` over https). Each run asks for one code per phone: the app allows one code per 30 seconds and 5 an hour per phone, so use another demo phone if you see "429".
-**If not:** a readiness line marked FAIL stops the script before any login: fix that check first (step 6). Do NOT run `npm run smoke:app` against the live site: it mutates data.
+**If not:** a readiness line marked FAIL stops the script before any login: fix that check first (step 6). Never run the retired `smoke:app` script against the live site: it mutates data.
 
 ### 10. Check installability and the offline page (phone or Chrome)
 

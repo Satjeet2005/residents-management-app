@@ -98,7 +98,7 @@ Per-user layouts, export, print views, Marathi and Hindi labels, a history of To
 
 The page calls `requireUser({ need: "reports:view" })` itself; `loadCommitteeReport` and `loadAgeingPage` check the permission again at the data (`StaffAccessError`); the
 "Load more" action is built with `withPermissionAction("reports:view")`. A resident, staff without `reports:view` and nobody signed in are turned away
-(`tests/server/page-guards.test.ts`, `tests/integration/committee-report.test.ts` RP6, `scripts/smoke-app.mjs`). The app role got **no new privilege**: every read is a SELECT on tables it
+(`tests/server/page-guards.test.ts`, `tests/integration/committee-report.test.ts` RP6, the browser tests in `tests/e2e`). The app role got **no new privilege**: every read is a SELECT on tables it
 already reads.
 
 ## One source for money
@@ -196,7 +196,7 @@ the count of safety complaints nobody has acknowledged. The query count is asser
 
 The look at 1280px, 768px and 360px is checked in a browser by `tests/e2e/screens/committee-report.spec.ts` (no overflow, 48px targets, focus ring, axe, one h1, the charts and their tables, the keyboard, the sheet and its cookie); a person still has to judge whether it reads well (the commands are in the README, "Reading the committee report"). The render tests
 (`tests/ui/committee-*.test.ts`, `tests/ui/charts.test.ts`) check the markup of every block and state; the pure functions are table-driven and property tested (`tests/domain/reports/`); the loaders run as the app role
-against raw SQL (`tests/integration/committee-report.test.ts`); the page over HTTP is `scripts/smoke-app.mjs`. The smoke starts the server with the `JEV_` classifier variables blank, so that it is the same
+against raw SQL (`tests/integration/committee-report.test.ts`); the pages in a browser are `tests/e2e/screens/committee-report.spec.ts`. The browser harness starts the server with the `JEV_` classifier variables blank, so that it is the same
 whether or not the machine's own `.env` holds provider keys, and sends nothing to a provider. A click is not simulated anywhere: no DOM library is installed and none was added.
 
 ## Added in v3: invariants with a named test
